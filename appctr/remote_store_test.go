@@ -103,7 +103,7 @@ func TestRemoteStoreDeadlines(t *testing.T) {
 		t.Errorf("expired early: %+v", gone)
 	}
 	clock.jump(-4000 * time.Hour) // right again
-	if err := s.save(); err != nil {
+	if err := s.save(false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,7 +153,7 @@ func TestRemoteStoreEntries(t *testing.T) {
 	}
 	// An empty list is written as a list.
 	s.remove("nB")
-	if err := s.save(); err != nil {
+	if err := s.save(false); err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := os.ReadFile(s.path)
@@ -222,7 +222,7 @@ func TestRemoteStoreAuditCap(t *testing.T) {
 	if e := s.data.Audit[0]; e.Name != "phonewith a newline" || len(e.Detail) != 160 {
 		t.Errorf("entry not cleaned: %q, detail %d long", e.Name, len(e.Detail))
 	}
-	if err := s.save(); err != nil {
+	if err := s.save(false); err != nil {
 		t.Fatal(err)
 	}
 	if again := openRemoteStore(s.path, newRemoteFakeClock()); len(again.data.Audit) != remoteAuditMax {

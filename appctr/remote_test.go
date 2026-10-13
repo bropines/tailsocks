@@ -147,27 +147,46 @@ func (d *remoteFakeDaemon) get(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if u.Path == "/localapi/v0/whois" {
+		// The daemon registers a forwarded connection a moment after it has
+		// dialed it, and its whois waits for that (proxymap.WhoIsIPPort tries
+		// for a fifth of a second). So does this one, more briefly.
+		for try := 0; ; try++ {
+			d.mu.Lock()
+			if d.down {
+				d.mu.Unlock()
+				return nil, ErrDaemonNotRunning
+			}
+			if try == 0 {
+				d.whois++
+			}
+			out, err := d.whoisLocked(u.Query())
+			d.mu.Unlock()
+			if err == nil || err != errRtNoMatch || try == 5 {
+				return out, err
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.down {
 		return nil, ErrDaemonNotRunning
 	}
-	switch u.Path {
-	case "/localapi/v0/whois":
-		d.whois++
-		return d.whoisLocked(u.Query())
-	case "/localapi/v0/status":
+	if u.Path == "/localapi/v0/status" {
 		d.status++
 		return d.statusLocked(u.Query().Get("peers") != "false")
 	}
 	return nil, fmt.Errorf("HTTP 404: no such LocalAPI path %s", u.Path)
 }
 
+var errRtNoMatch = errors.New("HTTP 404: no match for IP:port")
+
 // whoisLocked follows ipnlocal.WhoIs: an address that is a node's own resolves
 // to that node, the self node included; anything else goes through the proxy
 // map, and only with a port.
 func (d *remoteFakeDaemon) whoisLocked(q url.Values) ([]byte, error) {
-	notFound := errors.New("HTTP 404: no match for IP:port")
+	notFound := errRtNoMatch
 	ap, err := netip.ParseAddrPort(q.Get("addr"))
 	if err != nil {
 		return nil, errors.New("HTTP 400: invalid 'addr' parameter")
@@ -281,12 +300,14 @@ func newRemoteFakeApp() *remoteFakeApp {
 func (a *remoteFakeApp) note(call string) error {
 	a.mu.Lock()
 	a.calls = append(a.calls, call)
-	fail, block := a.fail, a.block
+	block := a.block
 	a.mu.Unlock()
 	if block != nil {
 		<-block
 	}
-	return fail
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.fail
 }
 
 func (a *remoteFakeApp) GetSetting(k string) (string, error) {
@@ -373,7 +394,10 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	r.m.perNode = newRemoteLimiter(1e6, 1e6)
 	r.m.pairs = newRemoteLimiter(1e6, 1e6)
 	r.m.taildropDir = func() string { return "" }
+	// As SetRemoteDelegate does, but here and now rather than on a thread of
+	// its own, so that a test knows which calls the app has seen.
 	r.m.setDelegate(r.app)
+	r.m.loadFacts()
 	r.start()
 	t.Cleanup(func() { r.m.configure(false, "") })
 	return r
@@ -404,7 +428,9 @@ func (r *remoteRig) restart() {
 	m := newRemoteManager(policy, r.clock, r.d)
 	m.global, m.perNode, m.pairs = r.m.global, r.m.perNode, r.m.pairs
 	m.taildropDir = r.m.taildropDir
+	m.delegateWait, m.delegateAnswer = r.m.delegateWait, r.m.delegateAnswer
 	m.setDelegate(r.app)
+	m.loadFacts()
 	r.m = m
 	r.start()
 }
@@ -478,6 +504,26 @@ func (r *remoteRig) call(n *rtNode, method, path, token string, body any) rtRepl
 
 func (r *remoteRig) send(n *rtNode, method, path, token string, body any, tune func(*http.Request)) rtReply {
 	r.t.Helper()
+	out, err := r.try(n, method, path, token, body, tune)
+	if err != nil {
+		r.t.Fatalf("%s %s: %v", method, path, err)
+	}
+	return out
+}
+
+// shut reports that a request as node n got no answer at all: the connection
+// was closed on it, which is what a caller the daemon does not vouch for gets.
+func (r *remoteRig) shut(n *rtNode, method, path, token string, body any) bool {
+	r.t.Helper()
+	a, err := r.try(n, method, path, token, body, nil)
+	if err == nil {
+		r.t.Logf("%s %s was answered: %d %s", method, path, a.status, strings.TrimSpace(a.raw))
+	}
+	return err != nil
+}
+
+func (r *remoteRig) try(n *rtNode, method, path, token string, body any, tune func(*http.Request)) (rtReply, error) {
+	r.t.Helper()
 	var rd io.Reader
 	switch b := body.(type) {
 	case nil:
@@ -507,7 +553,7 @@ func (r *remoteRig) send(n *rtNode, method, path, token string, body any, tune f
 	}
 	resp, err := r.as(n).Do(req)
 	if err != nil {
-		r.t.Fatalf("%s %s: %v", method, path, err)
+		return rtReply{}, err
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
@@ -518,7 +564,7 @@ func (r *remoteRig) send(n *rtNode, method, path, token string, body any, tune f
 	if err := json.Unmarshal(raw, &out.obj); err != nil {
 		r.t.Errorf("%s %s: the answer is not a JSON object: %q", method, path, raw)
 	}
-	return out
+	return out, nil
 }
 
 // code puts a pairing code on show and returns it.
@@ -593,11 +639,15 @@ func TestRemoteWhoisClasses(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := newRemoteRig(t)
-			hello := r.call(tc.node, "GET", "/v1/hello", "", nil)
-			pair := r.call(tc.node, "POST", "/v1/pair", "", map[string]string{"code": r.code()})
 			if tc.class == "" {
-				r.want(hello, 403, "forbidden")
-				r.want(pair, 403, "forbidden")
+				// Nobody: the connection is closed without a word, whatever
+				// it asks, with the right code or the wrong one.
+				code := r.code()
+				for _, try := range []string{code, wrongCode(code)} {
+					if !r.shut(tc.node, "GET", "/v1/hello", "", nil) || !r.shut(tc.node, "POST", "/v1/pair", "", map[string]string{"code": try}) {
+						t.Error("a caller that is nobody was answered")
+					}
+				}
 				if len(r.m.paired()) != 0 {
 					t.Error("a pairing was made")
 				}
@@ -606,7 +656,9 @@ func TestRemoteWhoisClasses(t *testing.T) {
 				}
 				return
 			}
-			if hello.status != 200 || hello.str("app") != "tailsocks" || hello.str("class") != tc.class {
+			hello := r.call(tc.node, "GET", "/v1/hello", "", nil)
+			pair := r.call(tc.node, "POST", "/v1/pair", "", map[string]string{"code": r.code()})
+			if hello.status != 200 || hello.str("app") != "tailsocks" {
 				t.Errorf("hello: %d %s", hello.status, hello.raw)
 			}
 			if pair.status != 200 || pair.str("class") != tc.class {
@@ -639,17 +691,46 @@ func TestRemoteWhoisFailure(t *testing.T) {
 	r.d.set(func(d *remoteFakeDaemon) { d.down = true })
 	r.forgetSelf()
 	for _, path := range []string{"/v1/hello", "/v1/status", "/v1/nonsense"} {
-		r.want(r.call(rtPhone, "GET", path, token, nil), 403, "forbidden")
+		if !r.shut(rtPhone, "GET", path, token, nil) {
+			t.Errorf("%s was answered with no daemon to say who asked", path)
+		}
 	}
 
 	// The daemon answers again but this node has no identity yet (logged
 	// out): there is nothing to compare a caller with.
 	r.d.set(func(d *remoteFakeDaemon) { d.down, d.noSelf = false, true })
-	r.want(r.call(rtPhone, "GET", "/v1/status", token, nil), 403, "forbidden")
+	if !r.shut(rtPhone, "GET", "/v1/status", token, nil) {
+		t.Error("answered without an identity of this node's own")
+	}
 
 	r.d.set(func(d *remoteFakeDaemon) { d.noSelf = false })
 	if a := r.call(rtPhone, "GET", "/v1/status", token, nil); a.status != 200 {
 		t.Errorf("after the daemon came back: %d %s", a.status, a.raw)
+	}
+
+	// A connection that was let in is asked about again with every request:
+	// the daemon going away, or the node's key expiring, ends it there.
+	keep := &http.Client{Transport: &http.Transport{
+		DialContext: func(context.Context, string, string) (net.Conn, error) { return r.dialAs(rtPhone) },
+	}}
+	defer keep.CloseIdleConnections()
+	get := func() (int, error) {
+		req, _ := http.NewRequest("GET", "http://"+rtSelf.ip+":28115/v1/status", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := keep.Do(req)
+		if err != nil {
+			return 0, err
+		}
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		return resp.StatusCode, nil
+	}
+	if status, err := get(); status != 200 {
+		t.Fatalf("on a kept connection: %d %v", status, err)
+	}
+	r.d.change(rtPhone, func(n *rtNode) { n.expired = true })
+	if status, err := get(); status != 403 {
+		t.Errorf("the same connection after the key expired: %d %v", status, err)
 	}
 }
 
@@ -716,7 +797,9 @@ func TestRemoteRequestShape(t *testing.T) {
 	r.want(r.call(rtPhone, "DELETE", "/v1/status", token, nil), 405, "method_not_allowed")
 	r.want(r.call(rtPhone, "GET", "/v1/pair", token, nil), 405, "method_not_allowed")
 	// Someone who is nobody learns nothing about paths.
-	r.want(r.call(nil, "GET", "/v1/nonsense", "", nil), 403, "forbidden")
+	if !r.shut(nil, "GET", "/v1/nonsense", "", nil) || !r.shut(nil, "GET", "/v1/status", token, nil) {
+		t.Error("a process on the device was answered")
+	}
 
 	big := `{"key":"accept_dns","value":"` + strings.Repeat("x", remoteMaxBody) + `"}`
 	r.want(r.call(rtPhone, "POST", "/v1/settings", token, big), 413, "bad_request")
@@ -819,11 +902,15 @@ func TestRemoteRates(t *testing.T) {
 		t.Errorf("a refused request was counted as a guess: %d left", left)
 	}
 
+	// And everyone's together, counted before the daemon is asked again who
+	// sent the request.
 	r = newRemoteRig(t)
 	r.m.global = newRemoteLimiter(0.001, 1)
 	r.call(rtPhone, "GET", "/v1/hello", "", nil)
-	r.want(r.call(nil, "GET", "/v1/hello", "", nil), 429, "slow_down")
-	if asked, _ := r.d.asked(); asked != 1 {
-		t.Errorf("the daemon was asked %d times, want 1", asked)
+	before, _ := r.d.asked()
+	r.want(r.call(rtFriend, "GET", "/v1/hello", "", nil), 429, "slow_down")
+	// One question at the gate, none for the request that was refused.
+	if after, _ := r.d.asked(); after != before+1 {
+		t.Errorf("the daemon was asked %d times for a refused request, want 1", after-before)
 	}
 }

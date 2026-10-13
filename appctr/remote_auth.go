@@ -10,10 +10,26 @@ package appctr
 // (forwardTCP), so by the time a request has been read the lookup cannot be
 // early; the mapping goes when the connection does.
 //
-// A process on this device that connects to the listener directly has no
-// mapping and resolves to nobody. One that goes through this device's own
-// SOCKS5 port arrives as this node itself — the daemon's address table
-// includes the self node — and is refused for that.
+// What that answer is worth: it is NECESSARY and never SUFFICIENT.
+//
+//   - The proxy map is keyed by the daemon's local address and port alone,
+//     not by where that socket is connected to. The kernel will give a second
+//     connection the same source port when it goes to a different destination
+//     port. So a process on this device that connects straight to this
+//     listener can find itself on the source port of a connection the daemon
+//     is forwarding for some peer to another loopback port — a web interface,
+//     a proxy — and whois then names that peer. Ordinarily such a process has
+//     no mapping and is nobody; it cannot be relied on to stay nobody.
+//   - On the peer's side, every app that can send tailnet packets — through
+//     its SOCKS5 port, or because the device runs TUN mode — is that node.
+//   - A process that goes through this device's own SOCKS5 port arrives as
+//     this node itself (the daemon's address table includes the self node)
+//     and is refused for that.
+//
+// So nothing is granted on whois alone. It decides which pairing a request is
+// measured against, what class a pairing gets, and whose budget a request is
+// counted on; what opens a door is the token issued to that node, and what
+// issues a token is the code on this device's screen.
 
 import (
 	"encoding/json"

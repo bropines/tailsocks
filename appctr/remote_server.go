@@ -8,10 +8,17 @@ package appctr
 // browser, an address for a host); who is calling, from the daemon; that
 // caller's own rate; then the route, the token and the class; and only then
 // the body.
+//
+// Who is calling is necessary and never enough (remote_auth.go). Two routes
+// answer on it alone, and are made so that this is harmless: /v1/hello says
+// the same few things to everyone and asks nothing of the app, and /v1/pair
+// does nothing without the code from the screen. Everything else needs the
+// token that was issued to that node.
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
@@ -19,9 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -38,7 +43,6 @@ type remoteRequest struct {
 	// the two routes that need none.
 	class remoteClass
 	left  int64
-	query map[string][]string
 	body  []byte
 }
 
@@ -53,7 +57,9 @@ type remoteRoute struct {
 }
 
 // remoteRoutes is the whole API. There is no route that stops the daemon,
-// signs out, touches an account, a key or a credential, or returns a file.
+// signs out, touches an account, a key or a credential, or returns a file —
+// and none that returns the log: it quotes auth keys, sign-in links, proxy
+// credentials and paths in more forms than a filter can be trusted to know.
 var remoteRoutes = []remoteRoute{
 	{"GET", "/v1/hello", "", (*remoteManager).handleHello},
 	{"POST", "/v1/pair", "", (*remoteManager).handlePair},
@@ -66,7 +72,6 @@ var remoteRoutes = []remoteRoute{
 	{"POST", "/v1/actions", remoteOpAction, (*remoteManager).handleAction},
 	{"GET", "/v1/files", remoteOpFiles, (*remoteManager).handleFiles},
 	{"POST", "/v1/files/delete", remoteOpDeleteFile, (*remoteManager).handleDeleteFile},
-	{"GET", "/v1/log", remoteOpLog, (*remoteManager).handleLog},
 }
 
 // remoteError is the body of every refusal: a fixed word a client can switch
@@ -90,6 +95,15 @@ func (m *remoteManager) handler() http.Handler {
 }
 
 func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
+	// net/http survives a handler that panics, and reports it to the server's
+	// error log — which is discarded here. Say that it happened, not what was
+	// being handled, and let net/http close the connection as it would.
+	defer func() {
+		if rec := recover(); rec != nil {
+			slog.Error("Remote management: a request handler failed", "panic", fmt.Sprintf("%T", rec))
+			panic(http.ErrAbortHandler)
+		}
+	}()
 	if !m.global.allow("") {
 		w.Header().Set("Retry-After", "1")
 		remoteWrite(w, http.StatusTooManyRequests, remoteError{Error: "slow_down"})
@@ -143,7 +157,7 @@ func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rq := &remoteRequest{caller: caller, self: self, left: -1, query: r.URL.Query()}
+	rq := &remoteRequest{caller: caller, self: self, left: -1}
 	if route.op != "" {
 		class, left, ok := m.authorize(caller, self, remoteBearer(r))
 		if !ok {
@@ -300,71 +314,128 @@ func (m *remoteManager) record(rq *remoteRequest, op, detail string, ok bool) {
 // ─── The app's side ─────────────────────────────────────────────────────────
 
 var (
+	// Not made: there is no app to call, or it never got to this call.
 	errRemoteNoDelegate = errors.New("the app has not registered its settings")
-	errRemoteBusy       = errors.New("the app is busy")
+	errRemoteBusy       = errors.New("the app is busy; nothing was changed")
+	// Made, and not back yet. Nobody can say what came of it.
+	errRemotePending = errors.New("the app has not answered; the change may still be applied")
 )
 
-// callDelegate runs one call into the app: one at a time, and not for longer
-// than remoteDelegateTimeout. A call that outlives the wait keeps its slot
-// until it returns, so a hung app refuses the next request instead of
-// collecting goroutines.
-func (m *remoteManager) callDelegate(f func(d RemoteDelegate) (string, error)) (string, error) {
+// remoteCallResult is what a call into the app came back with.
+type remoteCallResult struct {
+	v   string
+	err error
+}
+
+// callDelegate runs one call into the app, and what it reports is what
+// happened — a call into Kotlin cannot be taken back, so there are exactly
+// three outcomes:
+//
+//   - The call was not made: no app (errRemoteNoDelegate), or the app was
+//     still busy with an earlier call after delegateWait (errRemoteBusy).
+//     Nothing was changed, and that is what the caller is told.
+//   - The call returned within delegateAnswer: its own result.
+//   - The call was made and has not returned (errRemotePending): the outcome
+//     is not known, and late delivers it whenever the app does answer.
+//
+// One call at a time: a call that has not returned keeps the slot, so a hung
+// app refuses what comes next instead of collecting calls it may carry out
+// all at once later.
+func (m *remoteManager) callDelegate(f func(d RemoteDelegate) (string, error)) (v string, late <-chan remoteCallResult, err error) {
 	m.mu.Lock()
 	d := m.delegate
 	m.mu.Unlock()
 	if d == nil {
-		return "", errRemoteNoDelegate
+		return "", nil, errRemoteNoDelegate
 	}
-	wait := time.NewTimer(m.delegateTimeout)
-	defer wait.Stop()
+	wait := time.NewTimer(m.delegateWait)
 	select {
 	case m.delegateSlot <- struct{}{}:
+		wait.Stop()
 	case <-wait.C:
-		return "", errRemoteBusy
+		return "", nil, errRemoteBusy
 	}
-	type result struct {
-		v   string
-		err error
-	}
-	done := make(chan result, 1)
+	done := make(chan remoteCallResult, 1)
 	go func() {
 		defer func() { <-m.delegateSlot }()
 		defer func() {
 			if r := recover(); r != nil {
-				done <- result{err: errors.New("the app failed")}
+				done <- remoteCallResult{err: errors.New("the app failed")}
 			}
 		}()
 		v, err := f(d)
-		done <- result{v, err}
+		done <- remoteCallResult{v, err}
 	}()
+	answer := time.NewTimer(m.delegateAnswer)
+	defer answer.Stop()
 	select {
 	case r := <-done:
-		return r.v, r.err
-	case <-wait.C:
-		return "", errRemoteBusy
+		return r.v, nil, r.err
+	case <-answer.C:
+		return "", done, errRemotePending
 	}
 }
 
-// remoteDelegateRefusal turns a failed call into the answer for the paired
-// device: the app's own words, cut short, when it refused; a fixed word when
-// it could not be asked.
+// remoteDelegateRefusal turns a call that did not succeed into the answer for
+// the paired device: 503 when it was not made, 504 "pending" when nobody knows
+// yet, and the app's own words, cut short, when it refused.
 func remoteDelegateRefusal(err error) (int, any) {
 	switch {
 	case errors.Is(err, errRemoteNoDelegate), errors.Is(err, errRemoteBusy):
 		return http.StatusServiceUnavailable, remoteError{Error: "unavailable", Message: err.Error()}
+	case errors.Is(err, errRemotePending):
+		return http.StatusGatewayTimeout, remoteError{Error: "pending", Message: err.Error()}
 	}
 	return http.StatusConflict, remoteError{Error: "refused", Message: remoteClean(err.Error(), 200)}
 }
 
-// fact returns one of the read-only settings, asking the app once.
+// change makes one change through the app, writes it to the action log as what
+// it turned out to be, and answers the same.
+func (m *remoteManager) change(rq *remoteRequest, op, detail string, f func(d RemoteDelegate) error) (int, any) {
+	_, late, err := m.callDelegate(func(d RemoteDelegate) (string, error) { return "", f(d) })
+	switch {
+	case err == nil:
+		m.record(rq, op, detail, true)
+		return http.StatusOK, struct{}{}
+	case errors.Is(err, errRemotePending):
+		// Neither done nor failed. The log says so now and says the rest when
+		// the app comes back, however long after this request is over.
+		m.record(rq, op, detail+" (no answer from the app yet)", false)
+		go func() {
+			if r := <-late; r.err == nil {
+				m.record(rq, op, detail+" (applied late)", true)
+			} else {
+				m.record(rq, op, detail+" (failed late)", false)
+			}
+		}()
+	case errors.Is(err, errRemoteNoDelegate), errors.Is(err, errRemoteBusy):
+		m.record(rq, op, detail+" (not asked of the app)", false)
+	default:
+		m.record(rq, op, detail, false)
+	}
+	return remoteDelegateRefusal(err)
+}
+
+// cachedFact returns a read-only setting if the app has already told it, and
+// asks nothing.
+func (m *remoteManager) cachedFact(key string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.facts[key]
+}
+
+// fact returns one of the read-only settings, asking the app if it has not
+// been told yet. It is for requests that have shown a token; /v1/hello uses
+// cachedFact.
 func (m *remoteManager) fact(key string) string {
 	m.mu.Lock()
 	v, ok := m.facts[key]
+	asked := m.delegateGen
 	m.mu.Unlock()
 	if ok {
 		return v
 	}
-	v, err := m.callDelegate(func(d RemoteDelegate) (string, error) { return d.GetSetting(key) })
+	v, _, err := m.callDelegate(func(d RemoteDelegate) (string, error) { return d.GetSetting(key) })
 	if err != nil {
 		return ""
 	}
@@ -373,16 +444,24 @@ func (m *remoteManager) fact(key string) string {
 		v = ""
 	}
 	m.mu.Lock()
-	if m.facts == nil {
-		m.facts = map[string]string{}
+	if m.delegateGen == asked {
+		if m.facts == nil {
+			m.facts = map[string]string{}
+		}
+		m.facts[key] = v
+		m.rev++
 	}
-	m.facts[key] = v
 	m.mu.Unlock()
 	return v
 }
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
+// remoteHello is the answer to /v1/hello: the one thing said to a caller that
+// has shown nothing but an address the daemon attributes to a peer. So it says
+// the same to everyone, nothing about the caller, and nothing a tailnet member
+// could not already see — except that this is a TailSocks offering management,
+// what kind of device it is, and whether it is waiting for a code.
 type remoteHello struct {
 	// App is always "tailsocks": with a 200 from this port it is how a phone
 	// tells that a peer offers management at all.
@@ -394,34 +473,20 @@ type remoteHello struct {
 	NodeID      string `json:"nodeId"`
 	// Pairing: a code is on show right now.
 	Pairing bool `json:"pairing"`
-	// Paired: the calling node holds a pairing (its token is not checked
-	// here). Class is what the node is or would be: "owner", "guest", or ""
-	// when the policy would not let it pair. NeedsCode: it needs the code.
-	Paired    bool   `json:"paired"`
-	Class     string `json:"class"`
-	NeedsCode bool   `json:"needsCode"`
 }
 
 func (m *remoteManager) handleHello(rq *remoteRequest) (int, any) {
-	class := m.policy.classOf(rq.caller, rq.self)
 	h := remoteHello{
-		App:         "tailsocks",
-		API:         remoteAPIVersion,
-		DeviceClass: m.fact(remoteKeyDeviceClass),
+		App: "tailsocks",
+		API: remoteAPIVersion,
+		// What the app said when it registered; it is not asked now.
+		DeviceClass: m.cachedFact(remoteKeyDeviceClass),
 		Name:        rq.self.Name,
 		NodeID:      rq.self.NodeID,
-		Class:       class.String(),
-		NeedsCode:   class != remoteOwner || m.policy.OwnerNeedsCode,
 	}
 	m.mu.Lock()
 	m.expireLocked()
 	h.Pairing = m.window != nil
-	if m.store != nil {
-		if p := m.store.find(rq.caller.NodeID); p != nil {
-			h.Paired = true
-			h.Class = p.Class
-		}
-	}
 	m.mu.Unlock()
 	return http.StatusOK, h
 }
@@ -442,10 +507,15 @@ func (m *remoteManager) handlePair(rq *remoteRequest) (int, any) {
 func (m *remoteManager) handleUnpair(rq *remoteRequest) (int, any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.store.remove(rq.caller.NodeID) {
-		m.auditLocked(remoteEvent{NodeID: rq.caller.NodeID, Name: rq.caller.Name, Class: rq.class.String(), Op: "unpaired", OK: true})
-		m.saveLocked()
-		slog.Info("Remote management: a device unpaired itself", "device", rq.caller.Name, "node", rq.caller.NodeID)
+	if m.store == nil || !m.store.remove(rq.caller.NodeID) {
+		return http.StatusOK, struct{}{}
+	}
+	m.auditLocked(remoteEvent{NodeID: rq.caller.NodeID, Name: rq.caller.Name, Class: rq.class.String(), Op: "unpaired", OK: true})
+	slog.Info("Remote management: a device unpaired itself", "device", rq.caller.Name, "node", rq.caller.NodeID)
+	if !m.saveRemovalLocked() {
+		// Refused from now on, but not yet on disk: the device should know
+		// that its token may be honoured again after a restart of the app.
+		return http.StatusInternalServerError, remoteError{Error: "not_saved", Message: "unpaired, but it could not be written to disk yet"}
 	}
 	return http.StatusOK, struct{}{}
 }
@@ -643,18 +713,14 @@ func (m *remoteManager) handleSetExitNode(rq *remoteRequest) (int, any) {
 			return http.StatusNotFound, remoteError{Error: "not_found", Message: "not one of this device's exit nodes"}
 		}
 	}
-	if _, err := m.callDelegate(func(d RemoteDelegate) (string, error) {
-		return "", d.SetSetting(RemoteKeyExitNode, in.ID)
-	}); err != nil {
-		m.record(rq, "exit_node", name, false)
-		return remoteDelegateRefusal(err)
-	}
+	status, v := m.change(rq, "exit_node", name, func(d RemoteDelegate) error {
+		return d.SetSetting(RemoteKeyExitNode, in.ID)
+	})
 	// This node's exit node is part of the identity cached for a few seconds.
 	m.mu.Lock()
 	m.selfAt = time.Time{}
 	m.mu.Unlock()
-	m.record(rq, "exit_node", name, true)
-	return http.StatusOK, struct{}{}
+	return status, v
 }
 
 type remoteSettingView struct {
@@ -675,10 +741,13 @@ func (m *remoteManager) handleSettings(rq *remoteRequest) (int, any) {
 		if !s.writable {
 			v.Value = m.fact(s.key)
 		} else {
-			val, err := m.callDelegate(func(d RemoteDelegate) (string, error) { return d.GetSetting(s.key) })
+			val, _, err := m.callDelegate(func(d RemoteDelegate) (string, error) { return d.GetSetting(s.key) })
 			switch {
-			case errors.Is(err, errRemoteNoDelegate), errors.Is(err, errRemoteBusy):
-				return remoteDelegateRefusal(err)
+			case errors.Is(err, errRemoteNoDelegate), errors.Is(err, errRemoteBusy), errors.Is(err, errRemotePending):
+				// Reading changes nothing, so an app that does not answer is
+				// simply not available; the rest of the list would only wait
+				// behind the same call.
+				return http.StatusServiceUnavailable, remoteError{Error: "unavailable", Message: "the app is not answering"}
 			case err != nil || !remoteValueFits(s, val):
 				v.Error = "unavailable"
 			default:
@@ -719,15 +788,9 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 	if !remoteValueFits(s, in.Value) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request", Message: "not a value for this setting"}
 	}
-	detail := s.key + "=" + in.Value
-	if _, err := m.callDelegate(func(d RemoteDelegate) (string, error) {
-		return "", d.SetSetting(s.key, in.Value)
-	}); err != nil {
-		m.record(rq, "setting", detail, false)
-		return remoteDelegateRefusal(err)
-	}
-	m.record(rq, "setting", detail, true)
-	return http.StatusOK, struct{}{}
+	return m.change(rq, "setting", s.key+"="+in.Value, func(d RemoteDelegate) error {
+		return d.SetSetting(s.key, in.Value)
+	})
 }
 
 func (m *remoteManager) handleAction(rq *remoteRequest) (int, any) {
@@ -741,14 +804,9 @@ func (m *remoteManager) handleAction(rq *remoteRequest) (int, any) {
 		m.noteDenied(rq.caller, rq.class, "action not on the list: "+remoteClean(in.Action, 40))
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "not a remote action"}
 	}
-	if _, err := m.callDelegate(func(d RemoteDelegate) (string, error) {
-		return "", d.PerformAction(in.Action)
-	}); err != nil {
-		m.record(rq, "action", in.Action, false)
-		return remoteDelegateRefusal(err)
-	}
-	m.record(rq, "action", in.Action, true)
-	return http.StatusOK, struct{}{}
+	return m.change(rq, "action", in.Action, func(d RemoteDelegate) error {
+		return d.PerformAction(in.Action)
+	})
 }
 
 // ─── Received files ─────────────────────────────────────────────────────────
@@ -841,55 +899,4 @@ func (m *remoteManager) handleDeleteFile(rq *remoteRequest) (int, any) {
 	}
 	m.record(rq, "file_deleted", in.Name, true)
 	return http.StatusOK, struct{}{}
-}
-
-// ─── Log tail ───────────────────────────────────────────────────────────────
-
-const (
-	remoteLogDefault = 100
-	remoteLogMax     = 200
-	remoteLogLine    = 500
-)
-
-// remoteLogSecret matches lines that may quote a credential or a login link.
-// The log is the owner's to read, but a sign-in URL decides which account a
-// device joins and a key is a key: those lines stay on the device.
-var remoteLogSecret = regexp.MustCompile(`(?i)tskey-|auth_?key|password|passwd|secret|token|bearer|authurl|/a/[0-9a-z]{6,}|/register/|socks5://[^ ]*@|https?://[^ ]*@`)
-
-// remoteLogTail returns the last n entries of the in-memory log.
-func remoteLogTail(n int) []LogEntry {
-	logManager.mu.RLock()
-	defer logManager.mu.RUnlock()
-	logs := logManager.logs
-	if len(logs) > n {
-		logs = logs[len(logs)-n:]
-	}
-	return append([]LogEntry(nil), logs...)
-}
-
-func (m *remoteManager) handleLog(rq *remoteRequest) (int, any) {
-	n := remoteLogDefault
-	if v := rq.query["lines"]; len(v) > 0 {
-		parsed, err := strconv.Atoi(v[0])
-		if err != nil || parsed < 1 {
-			return http.StatusBadRequest, remoteError{Error: "bad_request"}
-		}
-		n = parsed
-	}
-	if n > remoteLogMax {
-		n = remoteLogMax
-	}
-	out := []LogEntry{}
-	for _, e := range m.logTail(n) {
-		if remoteLogSecret.MatchString(e.Message) {
-			continue
-		}
-		if len(e.Message) > remoteLogLine {
-			e.Message = strings.ToValidUTF8(e.Message[:remoteLogLine], "") + "…"
-		}
-		out = append(out, e)
-	}
-	return http.StatusOK, struct {
-		Lines []LogEntry `json:"lines"`
-	}{out}
 }

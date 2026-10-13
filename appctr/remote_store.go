@@ -8,6 +8,20 @@ package appctr
 // parsed is set aside as <name>.corrupt and the list starts empty — a damaged
 // store must not let anyone in.
 //
+// The file is what the next start of the app believes, so the two directions
+// of a change are written differently. A grant is on disk or it is not given:
+// when the atomic replace fails the pairing is taken back. A removal — a
+// revocation, an expiry — must not come back, so when the replace fails the
+// file is overwritten in place, and failing that deleted: either costs the
+// atomicity or the other pairings, never the removal. When even that is
+// impossible the caller is told ("not_saved"), the list in memory holds, the
+// write is tried again at every opportunity, and a file that cannot be opened
+// for writing is not believed when it is read. One case is left open by all
+// of this: nothing could be written, the app's process ended before a retry
+// got through, and by its next start the disk works again — then the old file
+// is read as if the removal had never been asked for. "not_saved" is the
+// warning that this can still happen.
+//
 // Expiry and the clock. A TV's wall clock is the least trustworthy thing on
 // it: no battery behind it, wrong until the first time sync, free to jump. So
 // a deadline is kept three ways and they are used in this order:
@@ -113,10 +127,19 @@ type remoteStore struct {
 	clock   remoteClock
 	data    remoteStoreData
 	savedAt time.Duration // boot-clock reading of the last save
+	// unsaved: the last write did not put the list in memory on disk. owed: it
+	// was a removal, and the file still has what was removed. triedAt spaces
+	// the retries.
+	unsaved bool
+	owed    bool
+	triedAt time.Duration
 }
 
+// remoteRetryEvery spaces the retries of a write that failed.
+const remoteRetryEvery = 5 * time.Second
+
 // openRemoteStore reads the store at path, or starts an empty one when there
-// is none or it is damaged.
+// is none, it is damaged, or it cannot be written.
 func openRemoteStore(path string, clock remoteClock) *remoteStore {
 	s := &remoteStore{path: path, clock: clock, data: remoteStoreData{Version: remoteStoreVersion}}
 	_, s.savedAt = clock.Boot()
@@ -133,6 +156,17 @@ func openRemoteStore(path string, clock remoteClock) *remoteStore {
 		s.data = remoteStoreData{Version: remoteStoreVersion}
 		s.audit(remoteEvent{Time: clock.Now().Unix(), Op: "reset", Detail: "the pairings file was unreadable"})
 		return s
+	}
+	// A file that cannot be written cannot have recorded the last revocation
+	// or expiry either; what it says is not taken as current.
+	if f, err := os.OpenFile(path, os.O_WRONLY, 0); err != nil {
+		slog.Error("Remote management: the pairings file cannot be written, starting with none", "err", err)
+		s.data = remoteStoreData{Version: remoteStoreVersion, Self: s.data.Self, Audit: s.data.Audit}
+		s.audit(remoteEvent{Time: clock.Now().Unix(), Op: "reset", Detail: "the pairings file could not be written"})
+		s.unsaved = true
+		return s
+	} else {
+		_ = f.Close()
 	}
 	s.rebase()
 	return s
@@ -281,10 +315,20 @@ func (s *remoteStore) audit(ev remoteEvent) {
 	}
 }
 
-// save writes the store: a temporary file beside it, synced, then renamed, so
-// a crash leaves the old list or the new one, never half of either.
-func (s *remoteStore) save() error {
+// save writes the list in memory to disk and reports whether the caller's
+// change is there to stay.
+//
+// The normal way is a temporary file beside the store, synced and renamed over
+// it, so a crash leaves the old list or the new one. When that fails a grant
+// (mustLand false) has simply not been written, and the caller takes it back.
+// A removal (mustLand true) is then forced: the file is overwritten in place,
+// and if it cannot even be opened, deleted. Both lose something — atomicity,
+// or every pairing at the next start — but not the removal; nil then means
+// "what was removed will not come back", and unsaved says the rest has still
+// to be written.
+func (s *remoteStore) save(mustLand bool) error {
 	_, up := s.clock.Boot()
+	s.triedAt = up
 	for i := range s.data.Pairings {
 		if p := &s.data.Pairings[i]; p.Expires != 0 {
 			p.Left = s.left(p)
@@ -296,8 +340,50 @@ func (s *remoteStore) save() error {
 	s.data.Version = remoteStoreVersion
 	raw, err := json.MarshalIndent(s.data, "", "\t")
 	if err != nil {
+		s.unsaved = true
 		return err
 	}
+	if err = s.replace(raw); err == nil {
+		s.savedAt, s.unsaved, s.owed = up, false, false
+		return nil
+	}
+	s.unsaved = true
+	if !mustLand && !s.owed {
+		return err
+	}
+	f, openErr := os.OpenFile(s.path, os.O_WRONLY|os.O_TRUNC, 0o600)
+	switch {
+	case openErr == nil:
+		// The old list is gone from the file whatever happens next; a write
+		// that stops half-way leaves a file the next start will not parse.
+		_, werr := f.Write(raw)
+		if serr := f.Sync(); werr == nil {
+			werr = serr
+		}
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr == nil {
+			s.savedAt, s.unsaved = up, false
+		}
+		s.owed = false
+		return nil
+	case errors.Is(openErr, os.ErrNotExist):
+		s.owed = false
+		return nil // nothing on disk to come back
+	}
+	if rmErr := os.Remove(s.path); rmErr == nil || errors.Is(rmErr, os.ErrNotExist) {
+		s.owed = false
+		return nil
+	}
+	// Nothing could be done to the file. The removal is owed: every later
+	// write is forced the same way until one lands.
+	s.owed = true
+	return err
+}
+
+// replace puts raw in the store's place atomically.
+func (s *remoteStore) replace(raw []byte) error {
 	dir := filepath.Dir(s.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -325,8 +411,27 @@ func (s *remoteStore) save() error {
 	if err := os.Rename(tmp.Name(), s.path); err != nil {
 		return err
 	}
-	s.savedAt = up
+	// The rename itself has to reach the disk: a revocation that a power cut
+	// takes back would let the revoked device in again. Best effort — not
+	// every filesystem lets a directory be synced.
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
 	return nil
+}
+
+// flush retries a write that failed, no more often than remoteRetryEvery.
+func (s *remoteStore) flush() {
+	if !s.unsaved {
+		return
+	}
+	if _, up := s.clock.Boot(); up-s.triedAt < remoteRetryEvery && up >= s.triedAt {
+		return
+	}
+	if err := s.save(false); err != nil {
+		slog.Warn("Remote management: the pairings are still not on disk", "err", err)
+	}
 }
 
 // stale reports whether the file is older than remoteTouchEvery.

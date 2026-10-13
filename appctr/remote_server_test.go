@@ -2,12 +2,10 @@ package appctr
 
 import (
 	"encoding/json"
-	"errors"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -77,7 +75,7 @@ func TestRemoteAllowListContents(t *testing.T) {
 	var paths []string
 	for _, rt := range remoteRoutes {
 		paths = append(paths, rt.method+" "+rt.path)
-		for _, word := range []string{"stop", "logout", "login", "key", "account", "profile", "root", "serve", "funnel", "drive", "download", "content", "exec", "localapi", "prefs"} {
+		for _, word := range []string{"stop", "logout", "login", "key", "account", "profile", "root", "serve", "funnel", "drive", "download", "content", "exec", "localapi", "prefs", "log"} {
 			if strings.Contains(rt.path, word) {
 				t.Errorf("route %s", rt.path)
 			}
@@ -87,9 +85,20 @@ func TestRemoteAllowListContents(t *testing.T) {
 		}
 	}
 	want := "GET /v1/hello,POST /v1/pair,POST /v1/unpair,GET /v1/status,GET /v1/exit-nodes,POST /v1/exit-node," +
-		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete,GET /v1/log"
+		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete"
 	if got := strings.Join(paths, ","); got != want {
 		t.Errorf("routes:\n got %s\nwant %s", got, want)
+	}
+	// Exactly two routes answer without the token, and the rights table names
+	// every other one.
+	var open []string
+	for _, rt := range remoteRoutes {
+		if rt.op == "" {
+			open = append(open, rt.path)
+		}
+	}
+	if got := strings.Join(open, ","); got != "/v1/hello,/v1/pair" {
+		t.Errorf("routes that need no token: %s", got)
 	}
 	// An operation the rights table does not name is the owner's alone.
 	p := remoteDefaultPolicy()
@@ -194,7 +203,6 @@ func TestRemoteGuestRights(t *testing.T) {
 	r.want(r.call(rtFriend, "POST", "/v1/settings", guest, map[string]string{"key": "accept_dns", "value": "false"}), 403, "forbidden")
 	r.want(r.call(rtFriend, "POST", "/v1/actions", guest, map[string]string{"action": "reconnect"}), 403, "forbidden")
 	r.want(r.call(rtFriend, "POST", "/v1/files/delete", guest, map[string]string{"name": "photo.jpg"}), 403, "forbidden")
-	r.want(r.call(rtFriend, "GET", "/v1/log", guest, nil), 403, "forbidden")
 	if len(r.app.writes()) != writes {
 		t.Errorf("a refused guest reached the app: %q", r.app.writes())
 	}
@@ -215,12 +223,33 @@ func TestRemoteGuestRights(t *testing.T) {
 	// The table is the knob: take a right away, hand one out.
 	r = newRemoteRig(t, func(p *remotePolicy) {
 		p.Rights[remoteOpSetExitNode] = remoteOwner
-		p.Rights[remoteOpLog] = remoteGuest
+		p.Rights[remoteOpSetSetting] = remoteGuest
 	})
 	guest = r.pair(rtFriend)
 	r.want(r.call(rtFriend, "POST", "/v1/exit-node", guest, map[string]string{"id": rtExitA.id}), 403, "forbidden")
-	if a := r.call(rtFriend, "GET", "/v1/log", guest, nil); a.status != 200 {
-		t.Errorf("guest log under a policy that allows it: %d", a.status)
+	if a := r.call(rtFriend, "POST", "/v1/settings", guest, map[string]string{"key": "accept_dns", "value": "false"}); a.status != 200 {
+		t.Errorf("a guest changing a setting under a policy that allows it: %d %s", a.status, a.raw)
+	}
+}
+
+// The log stays on the device: no route returns it, whoever asks and however.
+func TestRemoteNoLogRoute(t *testing.T) {
+	r := newRemoteRig(t)
+	owner := r.pair(rtPhone)
+	LogAndroid("INFO", "TEST", "Running Tailscale CLI args=[up --auth-key=0123456789abcdef0123456789abcdef]")
+	for _, path := range []string{"/v1/log", "/v1/log?lines=100", "/v1/logs", "/v1/status/log", "/v1/files/log"} {
+		for _, method := range []string{"GET", "POST"} {
+			a := r.call(rtPhone, method, path, owner, nil)
+			if a.status != 404 || strings.Contains(a.raw, "auth-key") {
+				t.Errorf("%s %s: %d %s", method, path, a.status, a.raw)
+			}
+		}
+	}
+	// Nor does anything else the owner can read carry a line of it.
+	for _, path := range []string{"/v1/status", "/v1/settings", "/v1/files", "/v1/exit-nodes", "/v1/hello"} {
+		if a := r.call(rtPhone, "GET", path, owner, nil); a.status != 200 || strings.Contains(a.raw, "auth-key") || strings.Contains(a.raw, "0123456789abcdef") {
+			t.Errorf("GET %s: %d %s", path, a.status, a.raw)
+		}
 	}
 }
 
@@ -427,159 +456,6 @@ func TestRemoteFiles(t *testing.T) {
 	}
 }
 
-func TestRemoteLog(t *testing.T) {
-	r := newRemoteRig(t)
-	token := r.pair(rtPhone)
-	var entries []LogEntry
-	add := func(msg string) {
-		entries = append(entries, LogEntry{Unix: int64(len(entries)), Level: "INFO", Category: "CORE", Message: msg})
-	}
-	for i := 0; i < 300; i++ {
-		add("ordinary line")
-	}
-	secrets := []string{
-		"Login with authkey tskey-auth-kABCDEF-GHIJKL",
-		"LocalAPI: AuthURL ready url=https://login.tailscale.com/a/1a2b3c4d5e6f",
-		"register at https://hs.example.com/register/hskey-authreq-abcdef",
-		"Proxy: Using SOCKS5 via ALL_PROXY url=socks5://user:hunter2@10.0.0.1:1080",
-		"socks5 password accepted",
-		"Authorization: Bearer abc",
-		"automation secret changed",
-	}
-	for _, s := range secrets {
-		add(s)
-	}
-	add(strings.Repeat("й", 2000))
-	add("the last line")
-	var asked atomic.Int64
-	r.m.logTail = func(n int) []LogEntry {
-		asked.Store(int64(n))
-		if len(entries) > n {
-			return entries[len(entries)-n:]
-		}
-		return entries
-	}
-
-	a := r.call(rtPhone, "GET", "/v1/log", token, nil)
-	lines := a.obj["lines"].([]any)
-	if a.status != 200 || asked.Load() != remoteLogDefault || len(lines) != remoteLogDefault-len(secrets) {
-		t.Fatalf("log: %d, asked for %d, %d lines", a.status, asked.Load(), len(lines))
-	}
-	for _, s := range []string{"tskey", "hunter2", "/a/1a2b", "hskey", "Bearer", "password", "secret"} {
-		if strings.Contains(a.raw, s) {
-			t.Errorf("the log tail carries %q", s)
-		}
-	}
-	last := lines[len(lines)-1].(map[string]any)
-	long := lines[len(lines)-2].(map[string]any)["message"].(string)
-	if last["message"] != "the last line" || last["category"] != "CORE" || len(long) > remoteLogLine+3 || !strings.HasSuffix(long, "…") {
-		t.Errorf("last %v, long line %d bytes", last, len(long))
-	}
-
-	r.call(rtPhone, "GET", "/v1/log?lines=100000", token, nil)
-	if asked.Load() != remoteLogMax {
-		t.Errorf("asked for %d lines, want the cap %d", asked.Load(), remoteLogMax)
-	}
-	r.call(rtPhone, "GET", "/v1/log?lines=7", token, nil)
-	if asked.Load() != 7 {
-		t.Errorf("asked for %d lines, want 7", asked.Load())
-	}
-	for _, q := range []string{"0", "-5", "many", ""} {
-		r.want(r.call(rtPhone, "GET", "/v1/log?lines="+q, token, nil), 400, "bad_request")
-	}
-
-	// The real buffer: its newest entries, oldest first.
-	LogAndroid("INFO", "TEST", "remote log tail marker one")
-	LogAndroid("INFO", "TEST", "remote log tail marker two")
-	tail := remoteLogTail(2)
-	if len(tail) != 2 || tail[0].Message != "remote log tail marker one" || tail[1].Message != "remote log tail marker two" {
-		t.Errorf("tail of the buffer: %+v", tail)
-	}
-}
-
-func TestRemoteAppUnavailable(t *testing.T) {
-	r := newRemoteRig(t)
-	token := r.pair(rtPhone)
-	set := map[string]string{"key": "accept_dns", "value": "false"}
-
-	// The app refuses, in its own words.
-	r.app.mu.Lock()
-	r.app.fail = errors.New("TUN needs the VPN permission, grant it on the device\nsecond line")
-	r.app.mu.Unlock()
-	a := r.call(rtPhone, "POST", "/v1/settings", token, set)
-	r.want(a, 409, "refused")
-	if a.str("message") != "TUN needs the VPN permission, grant it on the devicesecond line" {
-		t.Errorf("message: %q", a.str("message"))
-	}
-	r.want(r.call(rtPhone, "POST", "/v1/actions", token, map[string]string{"action": "reconnect"}), 409, "refused")
-	r.want(r.call(rtPhone, "POST", "/v1/exit-node", token, map[string]string{"id": rtExitA.id}), 409, "refused")
-	if ev := r.m.actions()[0]; ev.Op != "exit_node" || ev.OK {
-		t.Errorf("a refused change is logged as %+v", ev)
-	}
-	// A setting it cannot read is marked, the rest still come.
-	a = r.call(rtPhone, "GET", "/v1/settings", token, nil)
-	if a.status != 200 || !strings.Contains(a.raw, `"error":"unavailable"`) {
-		t.Errorf("settings while the app fails: %d %s", a.status, a.raw)
-	}
-	r.app.mu.Lock()
-	r.app.fail = nil
-	r.app.mu.Unlock()
-
-	// The app hangs: the request is given up, and the next one is refused at
-	// once rather than queued behind it.
-	r.m.delegateTimeout = 100 * time.Millisecond
-	block := make(chan struct{})
-	r.app.mu.Lock()
-	r.app.block = block
-	r.app.mu.Unlock()
-	began := time.Now()
-	r.want(r.call(rtPhone, "POST", "/v1/settings", token, set), 503, "unavailable")
-	r.want(r.call(rtPhone, "POST", "/v1/actions", token, map[string]string{"action": "reconnect"}), 503, "unavailable")
-	if took := time.Since(began); took > 3*time.Second {
-		t.Errorf("two requests against a hung app took %v", took)
-	}
-	if calls := r.app.writes(); len(calls) != 4 {
-		t.Errorf("calls into a hung app: %q", calls)
-	}
-	r.app.mu.Lock()
-	r.app.block = nil
-	r.app.mu.Unlock()
-	close(block)
-	deadline := time.Now().Add(2 * time.Second)
-	for len(r.m.delegateSlot) != 0 && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
-	}
-	if a := r.call(rtPhone, "POST", "/v1/settings", token, set); a.status != 200 {
-		t.Errorf("after the app came back: %d %s", a.status, a.raw)
-	}
-
-	// A value the app returns is checked too.
-	r.app.mu.Lock()
-	r.app.settings["accept_routes"] = "tskey-auth-leaked"
-	r.app.settings["device_class"] = "<script>"
-	r.app.mu.Unlock()
-	r.m.setDelegate(r.app)
-	a = r.call(rtPhone, "GET", "/v1/settings", token, nil)
-	if strings.Contains(a.raw, "tskey") || strings.Contains(a.raw, "script") {
-		t.Errorf("a value of the wrong kind was passed on: %s", a.raw)
-	}
-
-	// No app registered at all.
-	r.m.setDelegate(nil)
-	r.want(r.call(rtPhone, "POST", "/v1/settings", token, set), 503, "unavailable")
-	r.want(r.call(rtPhone, "GET", "/v1/settings", token, nil), 503, "unavailable")
-	r.want(r.call(rtPhone, "POST", "/v1/actions", token, map[string]string{"action": "reconnect"}), 503, "unavailable")
-	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.status != 200 || a.str("deviceClass") != "" {
-		t.Errorf("hello without the app: %d %s", a.status, a.raw)
-	}
-	if a := r.call(rtPhone, "GET", "/v1/status", token, nil); a.status != 200 {
-		t.Errorf("status without the app: %d %s", a.status, a.raw)
-	}
-	if st := r.m.state(); st.Delegate {
-		t.Error("state says the app is registered")
-	}
-}
-
 // What the managed device's own screen is told.
 func TestRemoteState(t *testing.T) {
 	r := newRemoteRig(t)
@@ -587,8 +463,11 @@ func TestRemoteState(t *testing.T) {
 	if !st.Available || !st.Enabled || !st.Listening || st.Port != RemotePort || st.Error != "" || st.Inbound != "netstack" || !st.Delegate || st.Paired != 0 || st.Pairing != nil || st.LastPairing != nil {
 		t.Errorf("fresh state: %+v", st)
 	}
-	if p := st.Policy; !p.OwnerNeedsCode || !p.AllowGuests || p.CodeSeconds != 600 || p.CodeAttempts != 5 || p.GuestSeconds != 86400 || p.OwnerSeconds != 0 || p.MaxPairings != 8 {
+	if p := st.Policy; !p.AllowGuests || p.CodeSeconds != 600 || p.CodeAttempts != 5 || p.GuestSeconds != 86400 || p.OwnerSeconds != 0 || p.MaxPairings != 8 {
 		t.Errorf("policy: %+v", p)
+	}
+	if st.Unsaved {
+		t.Error("a fresh store reads as unsaved")
 	}
 	rev := st.Rev
 	code := r.code()
@@ -700,6 +579,36 @@ func TestRemoteLifecycle(t *testing.T) {
 	if st := m.state(); !st.Listening || st.Error != "" {
 		t.Errorf("once the port is free: %+v", st)
 	}
+
+	// Two runs reach for the port together and one of them loses it to the
+	// other: the endpoint is up, and the loser's "address already in use" is
+	// not left in the state beside "listening".
+	m.listen(addr)
+	if st := m.state(); !st.Listening || st.Error != "" {
+		t.Errorf("after a second listen on the port we hold: listening=%v error=%q", st.Listening, st.Error)
+	}
+	m.mu.Lock()
+	stale := m.listenErr
+	m.mu.Unlock()
+	if stale != "" {
+		t.Errorf("an error was kept while listening: %q", stale)
+	}
+	// And one that did get recorded, while there was no listener, does not
+	// outlive the next successful start.
+	m.release()
+	squatter, err = net.Listen("tcp4", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.listen(addr)
+	if st := m.state(); st.Listening || st.Error == "" {
+		t.Errorf("with the port taken again: %+v", st)
+	}
+	squatter.Close()
+	m.listen(addr)
+	if st := m.state(); !st.Listening || st.Error != "" {
+		t.Errorf("listening again: listening=%v error=%q", st.Listening, st.Error)
+	}
 }
 
 func TestRemoteApplyFromOptions(t *testing.T) {
@@ -724,6 +633,30 @@ func TestRemoteApplyFromOptions(t *testing.T) {
 	}
 	if RemotePort < 1024 || RemotePort >= 32768 {
 		t.Errorf("port %d is privileged or in the ephemeral range", RemotePort)
+	}
+}
+
+// A handler that fails takes its own connection down and nothing else.
+func TestRemoteHandlerFailure(t *testing.T) {
+	r := newRemoteRig(t)
+	token := r.pair(rtPhone)
+	r.m.taildropDir = func() string { panic("a bug in a handler, with " + token + " in its message") }
+	if !r.shut(rtPhone, "GET", "/v1/files", token, nil) {
+		t.Error("an answer from a handler that panicked")
+	}
+	if a := r.call(rtPhone, "GET", "/v1/status", token, nil); a.status != 200 {
+		t.Errorf("the next request: %d %s", a.status, a.raw)
+	}
+	// What is logged says that it happened, not what was in it.
+	said := false
+	for _, line := range strings.Split(GetLogs(), "\n") {
+		if strings.Contains(line, token) {
+			t.Errorf("the token is in the log: %q", line)
+		}
+		said = said || strings.Contains(line, "a request handler failed")
+	}
+	if !said {
+		t.Error("the failure is not in the log")
 	}
 }
 
@@ -776,8 +709,14 @@ func TestRemoteFollowsTheDaemon(t *testing.T) {
 		t.Fatalf("after switching off: %+v", st)
 	}
 	RemoteCancelPairing()
-	if RemotePairedJSON() != "[]" || RemoteActionsJSON() != "[]" || RemoteRevoke("nPHONE") || RemoteRevokeAll() != 0 {
+	if RemotePairedJSON() != "[]" || RemoteActionsJSON() != "[]" {
 		t.Error("an empty store answered with something")
+	}
+	if got := RemoteRevoke("nPHONE"); got != `{"ok":false,"removed":0,"error":"not_paired"}` {
+		t.Errorf("RemoteRevoke of nobody: %s", got)
+	}
+	if got := RemoteRevokeAll(); got != `{"ok":true,"removed":0}` {
+		t.Errorf("RemoteRevokeAll of nothing: %s", got)
 	}
 }
 

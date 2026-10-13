@@ -60,8 +60,13 @@ func TestRemoteClient(t *testing.T) {
 
 	// Probe: is this peer a TailSocks that can be managed, and what is it?
 	probe := phone.env.probe(rtSelf.id)
-	if !probe.OK || probe.API != 1 || probe.DeviceClass != "tv" || probe.Name != rtSelf.name || probe.Paired || probe.Pairing || probe.Class != "owner" || !probe.NeedsCode {
+	if !probe.OK || probe.API != 1 || probe.DeviceClass != "tv" || probe.Name != rtSelf.name || probe.Pairing {
 		t.Fatalf("probe: %+v", probe)
+	}
+	// And it says the same to a phone that could never be an owner: nothing
+	// in it is about who asks.
+	if other := newRtPhoneSide(t, r, rtFriend).env.probe(rtSelf.id); other != probe {
+		t.Errorf("the probe of another user's phone differs: %+v", other)
 	}
 	// It went to the managed node's own address, on the fixed port.
 	if got := phone.dialed.Load(); got != rtSelf.ip+":28115" {
@@ -77,8 +82,10 @@ func TestRemoteClient(t *testing.T) {
 	if bad.OK || bad.Error != "wrong" || bad.AttemptsLeft == nil || *bad.AttemptsLeft != 4 || bad.Status != 403 || bad.Token != "" {
 		t.Errorf("a wrong code: %+v", bad)
 	}
-	if never := phone.env.pair(rtSelf.id, "12345"); never.OK || never.Error != "bad_request" {
-		t.Errorf("a malformed code: %+v", never)
+	for _, malformed := range []string{"12345", "", "1234567", "12345x"} {
+		if never := phone.env.pair(rtSelf.id, malformed); never.OK || never.Error != "bad_request" || never.Status != 0 {
+			t.Errorf("a malformed code %q: %+v", malformed, never)
+		}
 	}
 	if p := r.m.state().Pairing; p == nil || p.AttemptsLeft != 4 {
 		t.Errorf("a malformed code was sent: %+v", p)
@@ -87,7 +94,7 @@ func TestRemoteClient(t *testing.T) {
 	if !paired.OK || len(paired.Token) != 43 || paired.Class != "owner" || paired.Left != -1 || paired.Name != rtSelf.name {
 		t.Fatalf("pair: %+v", paired)
 	}
-	if p := phone.env.probe(rtSelf.id); !p.Paired || p.Pairing {
+	if p := phone.env.probe(rtSelf.id); !p.OK || p.Pairing {
 		t.Errorf("probe after pairing: %+v", p)
 	}
 
@@ -114,11 +121,8 @@ func TestRemoteClient(t *testing.T) {
 		t.Errorf("after unpairing: %+v", gone)
 	}
 
-	// A guest's phone learns what it would be.
+	// Another user's phone learns what it is when it pairs.
 	friend := newRtPhoneSide(t, r, rtFriend)
-	if p := friend.env.probe(rtSelf.id); !p.OK || p.Class != "guest" || !p.NeedsCode {
-		t.Errorf("probe from another user's phone: %+v", p)
-	}
 	g := friend.env.pair(rtSelf.id, r.code())
 	if !g.OK || g.Class != "guest" || g.Left != 86400 {
 		t.Errorf("guest pairing: %+v", g)
@@ -155,7 +159,7 @@ func TestRemoteClientRefusals(t *testing.T) {
 			t.Errorf("path %q: %+v", path, a)
 		}
 	}
-	for _, path := range []string{"/v1/status", "/v1/log?lines=100", "/v1/files/delete", "/v1/exit-nodes"} {
+	for _, path := range []string{"/v1/status", "/v1/files?after=a.jpg", "/v1/files/delete", "/v1/exit-nodes"} {
 		if !remotePathOK(path) {
 			t.Errorf("path %q refused", path)
 		}
@@ -240,7 +244,7 @@ func TestRemoteProbeOfSomethingElse(t *testing.T) {
 			p := phone.env.probe(rtSelf.id)
 			if answer == nil {
 				// What it says about itself is taken only as far as it is known.
-				if !p.OK || p.DeviceClass != "" || p.Class != "" {
+				if !p.OK || p.DeviceClass != "" || p.Name != "x" {
 					t.Errorf("probe: %+v", p)
 				}
 				return
@@ -280,7 +284,10 @@ func TestRemoteClientExported(t *testing.T) {
 		t.Errorf("lists before any run: %s %s", RemotePairedJSON(), RemoteActionsJSON())
 	}
 	RemoteCancelPairing()
-	if RemoteRevoke("nPEER") || RemoteRevokeAll() != 0 {
-		t.Error("revoked something before any run")
+	if got := RemoteRevoke("nPEER"); !strings.Contains(got, `"ok":false`) || !strings.Contains(got, `"not_paired"`) {
+		t.Errorf("revoked something before any run: %s", got)
+	}
+	if got := RemoteRevokeAll(); !strings.Contains(got, `"removed":0`) {
+		t.Errorf("revoked something before any run: %s", got)
 	}
 }

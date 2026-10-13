@@ -40,12 +40,14 @@ func remoteClassOf(s string) remoteClass {
 
 // remotePolicy is every knob of the rights model in one place. The author has
 // not settled it; change the defaults in remoteDefaultPolicy.
+//
+// One knob that was asked for is deliberately absent: letting this account's
+// own devices pair without the code. Who a caller is rests on whois, and whois
+// on a loopback connection is not proof (see remote_auth.go): a process on
+// this device can be taken for a peer, and any app on a peer speaks as that
+// peer. The code on the screen is the one thing neither of them has, so every
+// pairing needs it.
 type remotePolicy struct {
-	// OwnerNeedsCode: a device of this node's own account still needs the code
-	// for its first pairing. With false such a device pairs by asking, with no
-	// code and no one at this device — and so does any app on it that can send
-	// tailnet packets, which then holds a token of its own.
-	OwnerNeedsCode bool
 	// AllowGuests lets nodes that cannot be owners — another user's, tagged,
 	// shared in from another tailnet — pair at all, as guests.
 	AllowGuests bool
@@ -71,22 +73,19 @@ const (
 	remoteOpAction      = "action"
 	remoteOpFiles       = "files"
 	remoteOpDeleteFile  = "files.delete"
-	remoteOpLog         = "log"
 	remoteOpUnpair      = "unpair"
 )
 
 func remoteDefaultPolicy() remotePolicy {
 	return remotePolicy{
-		OwnerNeedsCode: true,
-		AllowGuests:    true,
-		CodeTTL:        10 * time.Minute,
-		CodeAttempts:   5,
-		GuestTTL:       24 * time.Hour,
-		OwnerTTL:       0,
-		MaxPairings:    8,
+		AllowGuests:  true,
+		CodeTTL:      10 * time.Minute,
+		CodeAttempts: 5,
+		GuestTTL:     24 * time.Hour,
+		OwnerTTL:     0,
+		MaxPairings:  8,
 		// A guest looks and picks an exit node; what changes how the device
-		// behaves afterwards, deletes something or shows its log is the
-		// owner's.
+		// behaves afterwards or deletes something is the owner's.
 		Rights: map[string]remoteClass{
 			remoteOpStatus:      remoteGuest,
 			remoteOpExitNodes:   remoteGuest,
@@ -97,7 +96,6 @@ func remoteDefaultPolicy() remotePolicy {
 			remoteOpSetSetting:  remoteOwner,
 			remoteOpAction:      remoteOwner,
 			remoteOpDeleteFile:  remoteOwner,
-			remoteOpLog:         remoteOwner,
 		},
 	}
 }

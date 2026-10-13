@@ -14,15 +14,18 @@ package appctr
 //     records which peer that loopback connection stands for
 //     (wgengine/netstack acceptTCP -> forwardTCP ->
 //     proxymap.RegisterIPPortIdentity).
-//   - Every request is identified by the daemon, not by anything the caller
-//     says: LocalAPI whois on the connection's loopback source address returns
-//     the node and its user (ipnlocal.WhoIs, the proxy-map branch). A pairing
-//     is bound to the node's StableNodeID — never to an address, which can be
-//     handed out again, nor to the node key, which rotates.
-//   - A pairing is created only with the six-digit code this device shows:
-//     remotePolicy.CodeTTL, single use, CodeAttempts wrong guesses kill it. The
-//     pairing it creates is a separate thing: until revoked for an owner (an
-//     untagged node of this node's own user), GuestTTL for anyone else.
+//   - Who is calling is asked of the daemon, never of the caller: LocalAPI
+//     whois on the connection's loopback source address returns the node and
+//     its user (ipnlocal.WhoIs, the proxy-map branch). That answer is
+//     necessary and never sufficient — remote_auth.go says why — so nothing is
+//     granted on it alone. A pairing is bound to the node's StableNodeID,
+//     never to an address, which can be handed out again, nor to the node
+//     key, which rotates.
+//   - A pairing is created only with the six-digit code this device shows —
+//     for every device, this account's own included: remotePolicy.CodeTTL,
+//     single use, CodeAttempts wrong guesses kill it. The pairing it creates
+//     is a separate thing: until revoked for an owner (an untagged node of
+//     this node's own user), GuestTTL for anyone else.
 //   - Pairing hands the caller a random 256-bit token; this device keeps only
 //     its SHA-256. Every later request needs the node identity AND the token.
 //   - What a paired device may do is exactly remoteRoutes, remoteSettings and
@@ -35,20 +38,23 @@ package appctr
 // auth keys and every other credential, Root Mode, bind addresses and proxy
 // passwords, extra daemon arguments, Serve/Funnel/Taildrive shares, anything
 // that needs a permission dialog or a gesture on the device, the contents of
-// files, and this feature's own switch, codes and pairings.
+// files, the log — it quotes keys, sign-in links, proxy credentials and paths
+// in more forms than a filter can be trusted to know — and this feature's own
+// switch, codes and pairings.
 //
 // Threat model
 //
 //	A tailnet member who was never paired
 //	  is a real node, so whois resolves it, but it holds no pairing: it gets
-//	  /v1/hello (app, API version, device class, host name, whether a code is
-//	  showing) and may try /v1/pair. That needs the code on this device's
-//	  screen: 10^6 values, CodeAttempts guesses per code across all callers,
-//	  then the code is dead and a new one takes a person at the device — 5 in
-//	  a million per code with the defaults. Every wrong guess is shown on the
-//	  device and logged with the guesser's node name, which comes from whois.
-//	  The tailnet policy can also close the port: the packet filter runs
-//	  before netstack sees the connection.
+//	  /v1/hello — the same few facts for everyone, nothing about the caller —
+//	  and may try /v1/pair. That needs the code on this device's screen: 10^6
+//	  values, CodeAttempts guesses per code across all callers, then the code
+//	  is dead and a new one takes a person at the device — 5 in a million per
+//	  code with the defaults. Any node the tailnet policy lets reach the port
+//	  can spend those guesses, and keep spending them: that denies pairing, it
+//	  does not get round it, and every wrong guess is shown on the device and
+//	  logged under the name whois gave. The policy can also close the port:
+//	  the packet filter runs before netstack sees the connection.
 //
 //	A paired guest after expiry
 //	  has an entry that is deleted the first time it is looked at after its
@@ -62,6 +68,15 @@ package appctr
 //	  has no token: that is in TailSocks' private storage. It is therefore an
 //	  unpaired caller, and the code it would need is on the other device's
 //	  screen. What it can do is spend the node's request budget.
+//
+//	A process on the managed device
+//	  reaches the listener with no tailnet in between. Ordinarily whois has
+//	  nothing for it and its connection is closed before it takes a slot
+//	  (remoteGate). But it can come to share a source port with a connection
+//	  the daemon is forwarding for a peer to another loopback port, and is
+//	  then taken for that peer (remote_auth.go). As that peer it still has
+//	  neither of the things identity does not supply: the peer's token, and
+//	  the code. It can spend that peer's request budget and connection slots.
 //
 //	A stolen phone
 //	  that is unlocked with TailSocks usable IS the paired device: it gets its
@@ -85,18 +100,24 @@ package appctr
 //     It cannot use a pairing by forging the phone alone (no token), but it
 //     can put its own node in the managed device's place, collect the token
 //     the phone then sends, and present both. Tailnet Lock narrows this.
-//   - An app on the managed device that binds 127.0.0.1:RemotePort first. It
-//     receives the phone's requests, token included. It cannot replay them
-//     here — a loopback caller has no identity, and through this device's own
-//     SOCKS5 port it is this node itself, which is refused — but it can lie
-//     to the phone, and the feature is down. RemoteStateJSON reports the bind.
-//   - Denial of service by any node the policy lets reach the port: burning a
-//     visible code's guesses, or a paired node's request budget from another
-//     app on that phone. Rates and sizes are capped; nothing more.
+//   - A hostile app on the managed device that goes to the trouble. If it
+//     binds 127.0.0.1:RemotePort before the bridge does, the phone's requests
+//     come to it, token included; and by sharing a source port with one of
+//     that phone's forwarded connections (above) it can later present the
+//     token here as the phone. Both halves take luck or patience, neither is
+//     prevented. RemoteStateJSON reports a port that could not be opened. The
+//     token is a bearer; a proof of possession in its place would close the
+//     first half, and a daemon that kept the destination in its proxy map the
+//     second.
+//   - Denial of service by any node the policy lets reach the port — burning
+//     a visible code's guesses, filling its own share of connections — by
+//     another app on a paired phone spending that node's request budget, and
+//     by a process on the device that opens connections faster than the
+//     daemon can be asked whose they are. Rates, sizes, connections per node
+//     and waiting lookups are capped; nothing more.
 //   - A paired device doing everything its class allows. There are two
 //     classes and no per-device rights.
-//   - Replay inside WireGuard is not addressed separately: the token is a
-//     bearer for whoever also is the node.
+//   - Replay inside WireGuard is not addressed separately.
 //   - Someone at the device. Whoever can read the screen and press its
 //     buttons can pair a device; that presence is the consent.
 //
@@ -135,8 +156,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"golang.org/x/net/netutil"
 )
 
 // RemotePort is the TCP port of the remote-management endpoint: fixed, so a
@@ -152,15 +171,22 @@ const remoteAPIVersion = 1
 
 // Limits of one exchange. The bodies are a few dozen bytes of JSON.
 const (
-	remoteMaxBody       = 4 << 10
-	remoteMaxHeader     = 8 << 10
-	remoteMaxConns      = 32
-	remoteHeaderTimeout = 5 * time.Second
-	remoteReadTimeout   = 10 * time.Second
-	remoteWriteTimeout  = 20 * time.Second
-	remoteIdleTimeout   = 30 * time.Second
-	// remoteDelegateTimeout bounds one call into the app.
-	remoteDelegateTimeout = 5 * time.Second
+	remoteMaxBody   = 4 << 10
+	remoteMaxHeader = 8 << 10
+	// Connections: so many in all, so many for one node, and so many waiting
+	// to be told who they are (remoteGate).
+	remoteMaxConns        = 32
+	remoteMaxConnsPerNode = 4
+	remoteMaxLookups      = 64
+	remoteHeaderTimeout   = 5 * time.Second
+	remoteReadTimeout     = 10 * time.Second
+	remoteWriteTimeout    = 20 * time.Second
+	remoteIdleTimeout     = 10 * time.Second
+	// A call into the app: how long a request waits for the app to be free —
+	// a call that has not started by then was never made — and how long for
+	// the answer of one that has. Together under the phone's own timeout.
+	remoteDelegateWait   = 3 * time.Second
+	remoteDelegateAnswer = 7 * time.Second
 )
 
 // RemoteDelegate is the app's half of remote management: the settings a paired
@@ -174,10 +200,12 @@ const (
 // throwing, any key or action it does not know: that keeps the two lists from
 // drifting apart silently.
 //
-// Calls come on a Go thread, one at a time, and are abandoned after five
-// seconds; anything slow (a daemon restart) must be scheduled, not awaited.
-// The message of a thrown exception is shown to the paired device: keep it
-// short and free of secrets.
+// Calls come on a Go thread, one at a time. A call cannot be taken back once
+// it is made, so return quickly: anything slow (a daemon restart) must be
+// scheduled, not awaited. A request waits a few seconds for the answer and is
+// then told "pending" — never "failed" — and nothing else is asked of the app
+// until the call returns. The message of a thrown exception is shown to the
+// paired device: keep it short and free of secrets.
 type RemoteDelegate interface {
 	// GetSetting returns the current value of a setting. Today's keys:
 	// "accept_dns", "accept_routes", "exit_node_lan_access" — "true" or
@@ -205,18 +233,21 @@ type remoteManager struct {
 	policy remotePolicy
 	clock  remoteClock
 	api    remoteLocalAPI
-	// What the handlers read from the rest of the bridge, replaceable in tests.
+	// What the handlers read from the rest of the bridge, and where a pairing
+	// code comes from; replaceable in tests.
 	taildropDir func() string
-	logTail     func(n int) []LogEntry
+	newCode     func() (string, error)
 
 	global  *remoteLimiter // every request, before whois
 	perNode *remoteLimiter // per calling node
 	pairs   *remoteLimiter // pairing attempts per calling node
 
-	// delegateSlot serialises calls into the app and delegateTimeout bounds
-	// one; see callDelegate.
-	delegateSlot    chan struct{}
-	delegateTimeout time.Duration
+	// delegateSlot serialises calls into the app; delegateWait is how long a
+	// request waits for its turn and delegateAnswer how long for the answer of
+	// a call that has started. See callDelegate.
+	delegateSlot   chan struct{}
+	delegateWait   time.Duration
+	delegateAnswer time.Duration
 
 	mu        sync.Mutex
 	enabled   bool
@@ -232,21 +263,26 @@ type remoteManager struct {
 	selfAt    time.Time
 	names     []remoteExitNode // the last exit-node list, for naming one
 	namesAt   time.Time
-	facts     map[string]string // read-only settings, cached per delegate
+	// facts are the read-only settings as the registered delegate told them;
+	// delegateGen counts registrations, so an answer from an earlier one is
+	// not kept.
+	facts       map[string]string
+	delegateGen uint64
 }
 
 func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI) *remoteManager {
 	return &remoteManager{
-		policy:          policy,
-		clock:           clock,
-		api:             api,
-		taildropDir:     remoteTaildropDir,
-		logTail:         remoteLogTail,
-		global:          newRemoteLimiter(40, 80),
-		perNode:         newRemoteLimiter(8, 24),
-		pairs:           newRemoteLimiter(1, 3),
-		delegateSlot:    make(chan struct{}, 1),
-		delegateTimeout: remoteDelegateTimeout,
+		policy:         policy,
+		clock:          clock,
+		api:            api,
+		taildropDir:    remoteTaildropDir,
+		newCode:        remoteNewCode,
+		global:         newRemoteLimiter(40, 80),
+		perNode:        newRemoteLimiter(8, 24),
+		pairs:          newRemoteLimiter(1, 3),
+		delegateSlot:   make(chan struct{}, 1),
+		delegateWait:   remoteDelegateWait,
+		delegateAnswer: remoteDelegateAnswer,
 	}
 }
 
@@ -260,15 +296,33 @@ func remoteTaildropDir() string {
 }
 
 // SetRemoteDelegate registers the app's half of remote management; nil
-// removes it, after which settings and actions answer "unavailable".
-func SetRemoteDelegate(d RemoteDelegate) { remote.setDelegate(d) }
+// removes it, after which settings and actions answer "unavailable". The two
+// read-only facts — device_class, app_version — are asked for right away, on a
+// thread of the bridge's own, and remembered: /v1/hello is answered to callers
+// that have proved nothing yet, and must never reach into the app for them.
+func SetRemoteDelegate(d RemoteDelegate) {
+	remote.setDelegate(d)
+	if d != nil {
+		go remote.loadFacts()
+	}
+}
 
 func (m *remoteManager) setDelegate(d RemoteDelegate) {
 	m.mu.Lock()
 	m.delegate = d
+	m.delegateGen++
 	m.facts = nil
 	m.rev++
 	m.mu.Unlock()
+}
+
+// loadFacts asks the app for the read-only settings and remembers them.
+func (m *remoteManager) loadFacts() {
+	for _, s := range remoteSettings {
+		if !s.writable {
+			m.fact(s.key)
+		}
+	}
 }
 
 // remoteProfileKey is the pattern of a state directory's base name that may
@@ -332,8 +386,9 @@ func remoteRelease() {
 // because the port must be free again before this returns — a restart binds
 // it straight away.
 type remoteListener struct {
-	srv *http.Server
-	ln  net.Listener
+	srv  *http.Server
+	ln   net.Listener
+	gate *remoteGate
 }
 
 func (l *remoteListener) close() {
@@ -391,16 +446,24 @@ func (m *remoteManager) configure(enabled bool, storePath string) (needListener 
 
 // apply switches the endpoint on or off and points it at a store file.
 func (m *remoteManager) apply(enabled bool, storePath, listenAddr string) {
-	if !m.configure(enabled, storePath) {
-		return
+	if m.configure(enabled, storePath) {
+		m.listen(listenAddr)
 	}
+}
+
+// listen opens the port and serves on it.
+func (m *remoteManager) listen(listenAddr string) {
 	ln, err := net.Listen("tcp4", listenAddr)
 	if err != nil {
-		// Most likely another app holds the port; see "NOT stopped" above.
-		slog.Error("Remote management: cannot listen", "addr", listenAddr, "err", err)
 		m.mu.Lock()
-		m.listenErr = err.Error()
-		m.rev++
+		// Two runs can get here together; the one that lost the port to the
+		// other has nothing to report. Otherwise another app most likely
+		// holds it; see "NOT stopped" above.
+		if m.listener == nil {
+			slog.Error("Remote management: cannot listen", "addr", listenAddr, "err", err)
+			m.listenErr = err.Error()
+			m.rev++
+		}
 		m.mu.Unlock()
 		return
 	}
@@ -430,14 +493,17 @@ func (m *remoteManager) serve(ln net.Listener) bool {
 		_ = ln.Close()
 		return false
 	}
+	gate := newRemoteGate(ln, m)
+	l.gate = gate
 	m.listener = l
 	m.listenErr = ""
 	m.rev++
 	m.mu.Unlock()
 	go func() {
-		if err := srv.Serve(netutil.LimitListener(ln, remoteMaxConns)); err != nil && err != http.ErrServerClosed {
+		if err := srv.Serve(gate); err != nil && err != http.ErrServerClosed {
 			slog.Error("Remote management: listener stopped", "err", err)
 		}
+		_ = gate.Close()
 		m.mu.Lock()
 		if m.listener == l {
 			m.listener = nil
@@ -446,6 +512,135 @@ func (m *remoteManager) serve(ln net.Listener) bool {
 		m.mu.Unlock()
 	}()
 	return true
+}
+
+// remoteGate stands between the socket and the HTTP server and lets a
+// connection through only once the daemon has said whose it is.
+//
+// net/http gives every accepted connection a slot and a few seconds to speak.
+// Without the gate a process on this device — which reaches the port without
+// any tailnet in between — could open as many silent connections as there are
+// slots and keep paired devices out. Here a connection the daemon does not
+// attribute to a peer is closed before it costs a slot, and a peer gets
+// remoteMaxConnsPerNode of the remoteMaxConns, so no single node — and no
+// local process borrowing one node's name, see remote_auth.go — can hold them
+// all. The lookup is the daemon's whois, which waits a moment itself for a
+// forwarded connection to be registered; remoteMaxLookups bounds how many may
+// be waiting, and one that would exceed it is closed unasked.
+type remoteGate struct {
+	ln      net.Listener
+	m       *remoteManager
+	out     chan net.Conn
+	done    chan struct{}
+	once    sync.Once
+	lookups chan struct{}
+
+	mu    sync.Mutex
+	total int
+	nodes map[string]int
+}
+
+func newRemoteGate(ln net.Listener, m *remoteManager) *remoteGate {
+	g := &remoteGate{
+		ln:      ln,
+		m:       m,
+		out:     make(chan net.Conn),
+		done:    make(chan struct{}),
+		lookups: make(chan struct{}, remoteMaxLookups),
+		nodes:   map[string]int{},
+	}
+	go g.run()
+	return g
+}
+
+func (g *remoteGate) run() {
+	for {
+		c, err := g.ln.Accept()
+		if err != nil {
+			_ = g.Close()
+			return
+		}
+		select {
+		case g.lookups <- struct{}{}:
+			go g.admit(c)
+		default:
+			_ = c.Close()
+		}
+	}
+}
+
+// admit asks who the connection is and hands it on, or closes it.
+func (g *remoteGate) admit(c net.Conn) {
+	defer func() { <-g.lookups }()
+	caller, err := g.m.whois(c.RemoteAddr().String())
+	if err != nil {
+		_ = c.Close()
+		return
+	}
+	if self, err := g.m.selfIdentity(); err != nil || self.NodeID == caller.NodeID {
+		_ = c.Close()
+		return
+	}
+	if !g.take(caller.NodeID) {
+		_ = c.Close()
+		return
+	}
+	gc := &remoteGatedConn{Conn: c, gate: g, node: caller.NodeID}
+	select {
+	case g.out <- gc:
+	case <-g.done:
+		_ = gc.Close()
+	}
+}
+
+func (g *remoteGate) take(node string) bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.total >= remoteMaxConns || g.nodes[node] >= remoteMaxConnsPerNode {
+		return false
+	}
+	g.total++
+	g.nodes[node]++
+	return true
+}
+
+func (g *remoteGate) give(node string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.total--
+	if g.nodes[node]--; g.nodes[node] <= 0 {
+		delete(g.nodes, node)
+	}
+}
+
+// Accept is net/http's side: the next connection that was let through.
+func (g *remoteGate) Accept() (net.Conn, error) {
+	select {
+	case c := <-g.out:
+		return c, nil
+	case <-g.done:
+		return nil, net.ErrClosed
+	}
+}
+
+func (g *remoteGate) Close() error {
+	g.once.Do(func() { close(g.done) })
+	return g.ln.Close()
+}
+
+func (g *remoteGate) Addr() net.Addr { return g.ln.Addr() }
+
+// remoteGatedConn gives its place back when it is closed.
+type remoteGatedConn struct {
+	net.Conn
+	gate *remoteGate
+	node string
+	once sync.Once
+}
+
+func (c *remoteGatedConn) Close() error {
+	c.once.Do(func() { c.gate.give(c.node) })
+	return c.Conn.Close()
 }
 
 // ─── The managed device's screen ────────────────────────────────────────────
@@ -460,13 +655,12 @@ func remoteReply(v any) string {
 }
 
 type remotePolicyView struct {
-	OwnerNeedsCode bool  `json:"ownerNeedsCode"`
-	AllowGuests    bool  `json:"allowGuests"`
-	CodeSeconds    int64 `json:"codeSeconds"`
-	CodeAttempts   int   `json:"codeAttempts"`
-	GuestSeconds   int64 `json:"guestSeconds"`
-	OwnerSeconds   int64 `json:"ownerSeconds"`
-	MaxPairings    int   `json:"maxPairings"`
+	AllowGuests  bool  `json:"allowGuests"`
+	CodeSeconds  int64 `json:"codeSeconds"`
+	CodeAttempts int   `json:"codeAttempts"`
+	GuestSeconds int64 `json:"guestSeconds"`
+	OwnerSeconds int64 `json:"ownerSeconds"`
+	MaxPairings  int   `json:"maxPairings"`
 }
 
 type remoteStateView struct {
@@ -476,8 +670,12 @@ type remoteStateView struct {
 	Enabled   bool `json:"enabled"`
 	Listening bool `json:"listening"`
 	Port      int  `json:"port"`
-	// Error is why the port could not be opened, when it could not.
+	// Error is why the port could not be opened; absent while it is open.
 	Error string `json:"error,omitempty"`
+	// Unsaved: the last change to the pairings could not be written to disk
+	// and is being retried. Nothing more is granted than the lists show, but a
+	// change may be lost with the app's process.
+	Unsaved bool `json:"unsaved,omitempty"`
 	// Inbound says whether a peer's connection can reach the listener in the
 	// daemon's current mode: "netstack" yes, "none" no (native TUN, Root Mode
 	// with its TUN), "unknown" while the daemon does not answer.
@@ -499,13 +697,13 @@ type remoteStateView struct {
 // endpoint is on and reachable, the pending pairing code with the attempts
 // made on it, and the policy numbers:
 //
-//	{"available","enabled","listening","port","error","inbound","delegate",
-//	 "paired","rev",
+//	{"available","enabled","listening","port","error","unsaved","inbound",
+//	 "delegate","paired","rev",
 //	 "pairing":{"code","qr","left","expires","attemptsLeft",
 //	            "lastWrong":{"name","login","nodeId","time"}},
 //	 "lastPairing":{"result","time","name","login","nodeId","class"},
-//	 "policy":{"ownerNeedsCode","allowGuests","codeSeconds","codeAttempts",
-//	           "guestSeconds","ownerSeconds","maxPairings"}}
+//	 "policy":{"allowGuests","codeSeconds","codeAttempts","guestSeconds",
+//	           "ownerSeconds","maxPairings"}}
 //
 // "pairing" is absent while no code is on show, "lastPairing" until one has
 // ended. "inbound" is "netstack" when peers can reach the endpoint, "none" when
@@ -524,21 +722,24 @@ func (m *remoteManager) state() remoteStateView {
 		Enabled:   m.enabled,
 		Listening: m.listener != nil,
 		Port:      RemotePort,
-		Error:     m.listenErr,
 		Inbound:   "unknown",
 		Delegate:  m.delegate != nil,
 		Pairing:   m.windowViewLocked(),
 		Policy: remotePolicyView{
-			OwnerNeedsCode: m.policy.OwnerNeedsCode,
-			AllowGuests:    m.policy.AllowGuests,
-			CodeSeconds:    int64(m.policy.CodeTTL / time.Second),
-			CodeAttempts:   m.policy.CodeAttempts,
-			GuestSeconds:   int64(m.policy.GuestTTL / time.Second),
-			OwnerSeconds:   int64(m.policy.OwnerTTL / time.Second),
-			MaxPairings:    m.policy.MaxPairings,
+			AllowGuests:  m.policy.AllowGuests,
+			CodeSeconds:  int64(m.policy.CodeTTL / time.Second),
+			CodeAttempts: m.policy.CodeAttempts,
+			GuestSeconds: int64(m.policy.GuestTTL / time.Second),
+			OwnerSeconds: int64(m.policy.OwnerTTL / time.Second),
+			MaxPairings:  m.policy.MaxPairings,
 		},
 		LastPairing: m.outcome,
 		Rev:         int64(m.rev),
+	}
+	if !v.Listening {
+		// An error is about a port that is not open; while one is, whatever
+		// an earlier attempt ran into is history.
+		v.Error = m.listenErr
 	}
 	if selfErr == nil {
 		v.Inbound = "netstack"
@@ -548,6 +749,7 @@ func (m *remoteManager) state() remoteStateView {
 	}
 	if m.store != nil {
 		v.Paired = len(m.store.data.Pairings)
+		v.Unsaved = m.store.unsaved
 	}
 	return v
 }
@@ -623,46 +825,66 @@ func (m *remoteManager) paired() []remotePairedView {
 	return out
 }
 
-// RemoteRevoke removes one pairing by the device's StableNodeID and reports
-// whether there was one. The device's token is worthless from then on.
-func RemoteRevoke(nodeID string) bool { return remote.revoke(nodeID) }
+// remoteRevoked is what RemoteRevoke and RemoteRevokeAll return.
+type remoteRevoked struct {
+	// OK: the pairings are gone and that is on disk.
+	OK bool `json:"ok"`
+	// Removed is how many pairings were removed from the list in memory.
+	Removed int `json:"removed"`
+	// Error is "not_paired" when there was nothing to remove, or "not_saved":
+	// the devices are refused from now on and the write is being retried, but
+	// until it succeeds they would be back with the app's next start — say so.
+	Error string `json:"error,omitempty"`
+}
 
-func (m *remoteManager) revoke(nodeID string) bool {
+// RemoteRevoke removes one pairing by the device's StableNodeID; the device's
+// token is worthless from then on. It returns {"ok","removed","error"}: ok
+// only when the removal is also on disk — see remoteRevoked for "not_saved".
+func RemoteRevoke(nodeID string) string { return remoteReply(remote.revoke(nodeID)) }
+
+func (m *remoteManager) revoke(nodeID string) remoteRevoked {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.store == nil {
-		return false
+		return remoteRevoked{Error: "not_paired"}
 	}
 	p := m.store.find(nodeID)
 	if p == nil {
-		return false
+		return remoteRevoked{Error: "not_paired"}
 	}
 	ev := remoteEvent{NodeID: p.NodeID, Name: p.Name, Class: p.Class, Op: "revoked", OK: true}
 	m.store.remove(nodeID)
 	m.auditLocked(ev)
-	m.saveLocked()
 	slog.Info("Remote management: pairing revoked", "device", ev.Name, "node", ev.NodeID)
-	return true
+	if !m.saveRemovalLocked() {
+		return remoteRevoked{Removed: 1, Error: "not_saved"}
+	}
+	return remoteRevoked{OK: true, Removed: 1}
 }
 
-// RemoteRevokeAll removes every pairing and returns how many there were.
-func RemoteRevokeAll() int { return remote.revokeAll() }
+// RemoteRevokeAll removes every pairing and returns {"ok","removed","error"}
+// as RemoteRevoke does; an empty list is ok with nothing removed.
+func RemoteRevokeAll() string { return remoteReply(remote.revokeAll()) }
 
-func (m *remoteManager) revokeAll() int {
+func (m *remoteManager) revokeAll() remoteRevoked {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.store == nil {
-		return 0
+		return remoteRevoked{OK: true}
 	}
 	n := len(m.store.data.Pairings)
-	if n == 0 {
-		return 0
+	if n == 0 && !m.store.owed {
+		return remoteRevoked{OK: true}
 	}
 	m.store.data.Pairings = nil
-	m.auditLocked(remoteEvent{Op: "revoked_all", Detail: strconv.Itoa(n), OK: true})
-	m.saveLocked()
-	slog.Info("Remote management: all pairings revoked", "count", n)
-	return n
+	if n > 0 {
+		m.auditLocked(remoteEvent{Op: "revoked_all", Detail: strconv.Itoa(n), OK: true})
+		slog.Info("Remote management: all pairings revoked", "count", n)
+	}
+	if !m.saveRemovalLocked() {
+		return remoteRevoked{Removed: n, Error: "not_saved"}
+	}
+	return remoteRevoked{OK: true, Removed: n}
 }
 
 // RemoteActionsJSON returns what paired devices changed and what was refused,
@@ -670,6 +892,9 @@ func (m *remoteManager) revokeAll() int {
 // [{"time","nodeId","name","class","op","detail","ok"}] — op is one of paired,
 // pair_failed, pair_locked, unpaired, revoked, revoked_all, expired, reset,
 // exit_node, setting, action, file_deleted, denied. Looking is not recorded.
+// A change the app had not answered when its request gave up is logged as not
+// ok with "(no answer from the app yet)", and again when the app does answer,
+// as "(applied late)" or "(failed late)".
 func RemoteActionsJSON() string { return remoteReply(remote.actions()) }
 
 func (m *remoteManager) actions() []remoteEvent {
@@ -695,21 +920,39 @@ func (m *remoteManager) auditLocked(ev remoteEvent) {
 	m.rev++
 }
 
-// saveLocked writes the store, logging rather than returning a failure for
-// the callers that have nothing better to do with it.
+// saveLocked writes the store after a grant or a line of the log, and reports
+// whether it is on disk; a grant that is not is the caller's to take back.
 func (m *remoteManager) saveLocked() bool {
 	if m.store == nil {
 		return false
 	}
-	if err := m.store.save(); err != nil {
+	if err := m.store.save(false); err != nil {
 		slog.Error("Remote management: cannot save the pairings", "err", err)
+		m.rev++
+		return false
+	}
+	return true
+}
+
+// saveRemovalLocked writes the store after something was taken away, by force
+// if need be (remoteStore.save), and reports whether what was removed is gone
+// from the disk too. When it is not, the list in memory still holds — the
+// device is refused — and the write is retried from expireLocked.
+func (m *remoteManager) saveRemovalLocked() bool {
+	if m.store == nil {
+		return false
+	}
+	if err := m.store.save(true); err != nil {
+		slog.Error("Remote management: a removal could not be written to disk; it holds until the app restarts, and is being retried", "err", err)
+		m.rev++
 		return false
 	}
 	return true
 }
 
 // expireLocked drops the pairings whose time is up and the code whose time is
-// up. Caller holds m.mu.
+// up, and retries a write that failed. Nearly every entry point passes through
+// here. Caller holds m.mu.
 func (m *remoteManager) expireLocked() {
 	if w := m.window; w != nil && m.windowDeadLocked(w) {
 		m.closeWindowLocked("expired")
@@ -717,12 +960,17 @@ func (m *remoteManager) expireLocked() {
 	if m.store == nil {
 		return
 	}
+	if was := m.store.unsaved; was {
+		if m.store.flush(); !m.store.unsaved {
+			m.rev++
+		}
+	}
 	gone := m.store.expire()
 	for _, p := range gone {
 		m.auditLocked(remoteEvent{NodeID: p.NodeID, Name: p.Name, Class: p.Class, Op: "expired", OK: true})
 		slog.Info("Remote management: pairing expired", "device", p.Name, "node", p.NodeID)
 	}
 	if len(gone) > 0 {
-		m.saveLocked()
+		m.saveRemovalLocked()
 	}
 }

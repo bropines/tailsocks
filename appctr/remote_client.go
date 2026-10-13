@@ -106,9 +106,11 @@ func (e *remoteClientEnv) httpClient() (*http.Client, error) {
 			DialContext:         dial,
 			MaxIdleConns:        4,
 			MaxIdleConnsPerHost: 1,
-			// Shorter than the other side's idle timeout, so a connection is
-			// not reused in the moment it is being closed.
-			IdleConnTimeout:    20 * time.Second,
+			// The other side gives one node a few connections and closes idle
+			// ones after ten seconds: stay under the first, and let go before
+			// the second so a connection is not reused as it is being closed.
+			MaxConnsPerHost:    2,
+			IdleConnTimeout:    5 * time.Second,
 			DisableCompression: true,
 		},
 		// The API never redirects; a redirect would carry the token along.
@@ -262,15 +264,8 @@ type remoteProbeResult struct {
 	// DeviceClass is what the peer says it is: "tv", "phone", "tablet" or "".
 	DeviceClass string `json:"deviceClass"`
 	Name        string `json:"name,omitempty"`
-	// Pairing: the peer is showing a code right now. Paired: it holds a
-	// pairing for this phone's node — which says nothing about whether this
-	// app still has the token. Class: what this phone is, or would be, to it:
-	// "owner", "guest", or "" when its policy would not let this phone pair.
-	// NeedsCode: pairing takes the code from its screen.
-	Pairing   bool   `json:"pairing"`
-	Paired    bool   `json:"paired"`
-	Class     string `json:"class"`
-	NeedsCode bool   `json:"needsCode"`
+	// Pairing: the peer is showing a code right now.
+	Pairing bool `json:"pairing"`
 }
 
 // RemoteProbe asks a peer, by StableNodeID, whether it is a TailSocks that
@@ -279,11 +274,12 @@ type remoteProbeResult struct {
 // of this phone's sent but the question. Meant for the moment a peer's details
 // open; ask only peers that are online, an offline one costs the whole wait.
 //
-// The answer is {"ok":true,"api","deviceClass","name","pairing","paired",
-// "class","needsCode"} or {"ok":false,"error"}. A TV that can be managed is ok
-// with deviceClass "tv". Nothing in the peer list says as much without asking:
-// a peer's status carries no model and no app, and by default every TailSocks
-// reports the same OS as a Linux server.
+// The answer is {"ok":true,"api","deviceClass","name","pairing"} or
+// {"ok":false,"error"}. A TV that can be managed is ok with deviceClass "tv".
+// Nothing in the peer list says as much without asking: a peer's status
+// carries no model and no app, and by default every TailSocks reports the
+// same OS as a Linux server. The answer says nothing about this phone: whether
+// it is paired is whether the app holds a token that "/v1/status" accepts.
 func RemoteProbe(peerID string) string { return remoteReply(remoteClient.probe(peerID)) }
 
 func (e *remoteClientEnv) probe(peerID string) remoteProbeResult {
@@ -304,10 +300,7 @@ func (e *remoteClientEnv) probe(peerID string) remoteProbeResult {
 	if !remoteDeviceClasses[class] {
 		class = ""
 	}
-	return remoteProbeResult{
-		OK: true, API: h.API, DeviceClass: class, Name: remoteClean(h.Name, 64),
-		Pairing: h.Pairing, Paired: h.Paired, Class: remoteClassOf(h.Class).String(), NeedsCode: h.NeedsCode,
-	}
+	return remoteProbeResult{OK: true, API: h.API, DeviceClass: class, Name: remoteClean(h.Name, 64), Pairing: h.Pairing}
 }
 
 // remotePairAnswer is what RemotePair returns.
@@ -330,17 +323,16 @@ type remotePairAnswer struct {
 	Name string `json:"name,omitempty"`
 }
 
-// RemotePair pairs this phone with a peer, by StableNodeID, using the code
-// from the peer's screen ("" where RemoteProbe said none is needed). On
-// success the answer is {"ok":true,"token","class","left","name"}: store the
-// token sealed, under the peer's StableNodeID. Otherwise {"ok":false,"error",
-// "attemptsLeft","status"}. Pairing again replaces the phone's earlier pairing
-// and its token.
+// RemotePair pairs this phone with a peer, by StableNodeID, using the six
+// digits from the peer's screen. On success the answer is {"ok":true,"token",
+// "class","left","name"}: store the token sealed, under the peer's
+// StableNodeID. Otherwise {"ok":false,"error","attemptsLeft","status"}.
+// Pairing again replaces the phone's earlier pairing and its token.
 func RemotePair(peerID, code string) string { return remoteReply(remoteClient.pair(peerID, code)) }
 
 func (e *remoteClientEnv) pair(peerID, code string) remotePairAnswer {
-	if code != "" && !remoteIsCode(code) {
-		// Never sent: it could not be right, and it would cost a guess.
+	if !remoteIsCode(code) {
+		// Never sent: it could not be right.
 		return remotePairAnswer{Error: "bad_request"}
 	}
 	body, _ := json.Marshal(struct {
@@ -365,11 +357,11 @@ func (e *remoteClientEnv) pair(peerID, code string) remotePairAnswer {
 }
 
 // RemoteGet sends an authenticated GET to a paired peer, by StableNodeID.
-// path is one of the API's, with its query: "/v1/status", "/v1/exit-nodes",
-// "/v1/settings", "/v1/files", "/v1/log?lines=100". The answer is
-// {"status","body","error","message"}: status is the peer's HTTP status and
-// body its JSON, or status 0 and an error when nothing came back. 401 means
-// the pairing is gone — revoked, expired or replaced: forget the token.
+// path is one of the API's: "/v1/status", "/v1/exit-nodes", "/v1/settings",
+// "/v1/files". The answer is {"status","body","error","message"}: status is
+// the peer's HTTP status and body its JSON, or status 0 and an error when
+// nothing came back. 401 means the pairing is gone — revoked, expired or
+// replaced: forget the token.
 func RemoteGet(peerID, token, path string) string {
 	return remoteReply(remoteClient.do(peerID, http.MethodGet, path, token, "", remoteRequestTimeout))
 }
@@ -378,7 +370,9 @@ func RemoteGet(peerID, token, path string) string {
 // "/v1/exit-node" {"id"}, "/v1/settings" {"key","value"}, "/v1/actions"
 // {"action"}, "/v1/files/delete" {"name"}, "/v1/unpair" with "". The answer
 // is as for RemoteGet. 409 "refused" carries the peer app's reason in the
-// body's "message".
+// body's "message"; 503 "unavailable" means nothing was changed; 504
+// "pending" means the peer's app has not answered and the change may still
+// be applied — read the setting back before saying either.
 func RemotePost(peerID, token, path, body string) string {
 	return remoteReply(remoteClient.do(peerID, http.MethodPost, path, token, body, remoteRequestTimeout))
 }

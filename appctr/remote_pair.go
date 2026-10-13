@@ -10,8 +10,14 @@ package appctr
 //
 // One mutex decides a race: of two devices that send the right code at the
 // same moment the first gets the pairing and the second is told the code was
-// used. A spent code stays recognisable until its own deadline, so the answer
-// is "used", not a guess counted against whatever code came next.
+// used. A spent code stays recognisable until its own deadline, also while the
+// next code is on show: a phone that repeats a request whose answer was lost
+// is told "used", and does not cost the new code one of its guesses.
+//
+// The guesses belong to the code, not to who makes them. Any node the tailnet
+// policy lets reach the port can spend all of them and so keep a device from
+// being paired for as long as it cares to; that denies pairing, it does not
+// get round it, and the device shows whose guesses they were, as whois has it.
 
 import (
 	"crypto/subtle"
@@ -124,7 +130,7 @@ func (m *remoteManager) startPairing() remoteCodeView {
 	if selfErr != nil {
 		return remoteCodeView{Error: "this device is not connected"}
 	}
-	code, err := remoteNewCode()
+	code, err := m.newCode()
 	if err != nil {
 		slog.Error("Remote management: no random numbers for a pairing code", "err", err)
 		return remoteCodeView{Error: "cannot make a code"}
@@ -143,7 +149,11 @@ func (m *remoteManager) startPairing() remoteCodeView {
 		deadline: up + m.policy.CodeTTL,
 		boot:     boot,
 	}
-	m.spent = nil
+	if s := m.spent; s != nil && (s.code == code || m.windowDeadLocked(s)) {
+		// One time in a million the new code is the one just spent; it is the
+		// new code then.
+		m.spent = nil
+	}
 	m.rev++
 	// The code itself is on the screen and nowhere else.
 	slog.Info("Remote management: a pairing code is on show", "seconds", int(m.policy.CodeTTL/time.Second))
@@ -197,19 +207,17 @@ func (m *remoteManager) pair(c remoteCaller, self remoteSelf, code string) (int,
 		return refuse(403, "not_allowed")
 	}
 
+	// Every pairing needs the code; see remotePolicy for why there is no way
+	// round it for this account's own devices.
 	w := m.window
+	spent := m.spent != nil && !m.windowDeadLocked(m.spent) && remoteCodeEqual(code, m.spent.code)
 	switch {
-	case code == "" && class == remoteOwner && !m.policy.OwnerNeedsCode:
-		// The policy lets this account's own devices in without a code; a code
-		// that happens to be on show is not spent on it.
-		w = nil
 	case !remoteIsCode(code):
 		// Not a guess at all, so not counted as one.
 		return refuse(400, "bad_request")
+	case spent:
+		return refuse(409, "used")
 	case w == nil:
-		if s := m.spent; s != nil && !m.windowDeadLocked(s) && remoteCodeEqual(code, s.code) {
-			return refuse(409, "used")
-		}
 		return refuse(403, "closed")
 	case !remoteCodeEqual(code, w.code):
 		w.wrong++
@@ -258,11 +266,8 @@ func (m *remoteManager) pair(c remoteCaller, self remoteSelf, code string) (int,
 	}
 	m.store.arm(&p, ttl)
 	m.store.put(p)
-	detail := ""
-	if w == nil {
-		detail = "without a code"
-	}
-	if !m.saveLockedWith(remoteEvent{NodeID: c.NodeID, Name: c.Name, Class: p.Class, Op: "paired", Detail: detail, OK: true}) {
+	wasUnsaved := m.store.unsaved
+	if !m.saveLockedWith(remoteEvent{NodeID: c.NodeID, Name: c.Name, Class: p.Class, Op: "paired", OK: true}) {
 		// Nothing was written, so nothing was granted: put the list back and
 		// leave the code usable.
 		if before != nil {
@@ -270,11 +275,10 @@ func (m *remoteManager) pair(c remoteCaller, self remoteSelf, code string) (int,
 		} else {
 			m.store.remove(c.NodeID)
 		}
+		m.store.unsaved = wasUnsaved
 		return refuse(500, "unavailable")
 	}
-	if w != nil {
-		m.spent, m.window = w, nil
-	}
+	m.spent, m.window = w, nil
 	m.outcome = &remoteOutcome{Result: "paired", Time: p.Created, Name: c.Name, Login: c.Login, NodeID: c.NodeID, Class: p.Class}
 	m.rev++
 	slog.Info("Remote management: paired", "device", c.Name, "node", c.NodeID, "class", p.Class)
@@ -313,7 +317,7 @@ func (m *remoteManager) adoptSelfLocked(self remoteSelf) {
 		slog.Warn("Remote management: this node's identity changed, pairings removed", "count", n)
 	}
 	m.store.data.Self = self.NodeID
-	m.saveLocked()
+	m.saveRemovalLocked()
 }
 
 // remoteCodeEqual compares two pairing codes in constant time.

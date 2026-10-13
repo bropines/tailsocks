@@ -9,7 +9,7 @@ import (
 
 func TestRemotePairSuccess(t *testing.T) {
 	r := newRemoteRig(t)
-	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.obj["pairing"] != false || a.obj["paired"] != false || a.obj["needsCode"] != true {
+	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.obj["pairing"] != false {
 		t.Errorf("hello before: %s", a.raw)
 	}
 	shown := r.m.startPairing()
@@ -40,7 +40,7 @@ func TestRemotePairSuccess(t *testing.T) {
 	if p == nil || p.TokenSHA256 != remoteHashToken(token) || p.UserID != int64(rtUserSelf) || p.Login == "" {
 		t.Fatalf("stored pairing: %+v", p)
 	}
-	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.obj["paired"] != true || a.obj["pairing"] != false || a.str("class") != "owner" {
+	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.obj["pairing"] != false {
 		t.Errorf("hello after: %s", a.raw)
 	}
 	if a := r.call(rtPhone, "GET", "/v1/status", token, nil); a.status != 200 {
@@ -190,9 +190,42 @@ func TestRemotePairSpentCode(t *testing.T) {
 	if a := r.call(rtPhone, "GET", "/v1/status", first.str("token"), nil); a.status != 200 {
 		t.Errorf("the first token: %d", a.status)
 	}
+	// The next code goes on show while the spent one is still within its ten
+	// minutes. A phone that repeats the request whose answer it lost is told
+	// what happened, and that is not a guess at the new code.
+	next := r.code()
+	if next != code {
+		r.want(r.call(rtPhone, "POST", "/v1/pair", "", map[string]string{"code": code}), 409, "used")
+		r.want(r.call(rtFriend, "POST", "/v1/pair", "", map[string]string{"code": code}), 409, "used")
+		if p := r.m.state().Pairing; p == nil || p.AttemptsLeft != 5 || p.LastWrong != nil {
+			t.Errorf("a spent code was counted against the new one: %+v", p)
+		}
+		if r.hasOp("pair_failed") {
+			t.Errorf("a spent code was logged as a wrong one: %q", r.ops())
+		}
+		// A real wrong guess still counts, and the new code still pairs.
+		r.want(r.call(rtFriend, "POST", "/v1/pair", "", map[string]string{"code": wrongCode(next)}), 403, "wrong")
+		if a := r.call(rtFriend, "POST", "/v1/pair", "", map[string]string{"code": next}); a.status != 200 {
+			t.Errorf("the new code: %d %s", a.status, a.raw)
+		}
+	}
 	// Past its own deadline a spent code is just no code.
 	r.clock.advance(11 * time.Minute)
-	r.want(r.call(rtFriend, "POST", "/v1/pair", "", map[string]string{"code": code}), 403, "closed")
+	r.want(r.call(rtTablet, "POST", "/v1/pair", "", map[string]string{"code": code}), 403, "closed")
+
+	// The one time in a million that the new code is the one just spent, it
+	// is the new code.
+	code = r.code()
+	if a := r.call(rtTablet, "POST", "/v1/pair", "", map[string]string{"code": code}); a.status != 200 {
+		t.Fatalf("pair: %d %s", a.status, a.raw)
+	}
+	r.m.newCode = func() (string, error) { return code, nil }
+	if again := r.code(); again != code {
+		t.Fatalf("the generator was not used: %s", again)
+	}
+	if a := r.call(rtPhone, "POST", "/v1/pair", "", map[string]string{"code": code}); a.status != 200 {
+		t.Errorf("a new code equal to the spent one: %d %s", a.status, a.raw)
+	}
 }
 
 // Two phones, one code, the same moment: one pairing.
@@ -263,7 +296,7 @@ func TestRemotePairFull(t *testing.T) {
 		t.Fatalf("the code after a full list: %+v", p)
 	}
 	// A device that is on the list already may still replace its own entry.
-	if !r.m.revoke(rtTablet.id) {
+	if !r.m.revoke(rtTablet.id).OK {
 		t.Fatal("nothing to revoke")
 	}
 	if a := r.call(rtFriend, "POST", "/v1/pair", "", map[string]string{"code": code}); a.status != 200 {
@@ -275,42 +308,35 @@ func TestRemotePairFull(t *testing.T) {
 	r.want(r.call(rtPhone, "GET", "/v1/status", phone, nil), 401, "unauthorized")
 }
 
-// The knob: this account's own devices need no code. Everyone else still does.
-func TestRemotePairOwnerWithoutCode(t *testing.T) {
-	r := newRemoteRig(t, func(p *remotePolicy) { p.OwnerNeedsCode = false })
-	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.obj["needsCode"] != false {
-		t.Errorf("hello for an owner: %s", a.raw)
+// No code, no pairing — for this account's own devices as for anyone, with a
+// code on show or without, and whatever the policy says: there is no knob for
+// it, because who a caller is does not prove it is that device's TailSocks.
+func TestRemotePairAlwaysNeedsTheCode(t *testing.T) {
+	for name, tune := range map[string]func(*remotePolicy){
+		"defaults":      func(*remotePolicy) {},
+		"every knob on": func(p *remotePolicy) { p.AllowGuests = true; p.OwnerTTL = 0; p.GuestTTL = 0; p.MaxPairings = 100 },
+	} {
+		r := newRemoteRig(t, tune)
+		for _, n := range []*rtNode{rtPhone, rtTablet, rtFriend, rtTagged, rtSharedIn} {
+			for _, body := range []any{nil, map[string]string{}, map[string]string{"code": ""}, `{"code":null}`} {
+				r.want(r.call(n, "POST", "/v1/pair", "", body), 400, "bad_request")
+			}
+		}
+		code := r.code()
+		for _, n := range []*rtNode{rtPhone, rtFriend} {
+			r.want(r.call(n, "POST", "/v1/pair", "", map[string]string{"code": ""}), 400, "bad_request")
+			r.want(r.call(n, "POST", "/v1/pair", "", nil), 400, "bad_request")
+		}
+		if len(r.m.paired()) != 0 || r.hasOp("paired") {
+			t.Errorf("%s: paired without a code: %+v", name, r.m.paired())
+		}
+		if a := r.call(rtPhone, "POST", "/v1/pair", "", map[string]string{"code": code}); a.status != 200 {
+			t.Errorf("%s: with the code: %d %s", name, a.status, a.raw)
+		}
 	}
-	if a := r.call(rtFriend, "GET", "/v1/hello", "", nil); a.obj["needsCode"] != true {
-		t.Errorf("hello for a guest: %s", a.raw)
-	}
-	// No code on show at all.
-	a := r.call(rtPhone, "POST", "/v1/pair", "", map[string]string{"code": ""})
-	if a.status != 200 || a.str("class") != "owner" {
-		t.Fatalf("an owner without a code: %d %s", a.status, a.raw)
-	}
-	if ev := r.m.actions()[0]; ev.Op != "paired" || ev.Detail != "without a code" {
-		t.Errorf("action log: %+v", ev)
-	}
-	for _, n := range []*rtNode{rtFriend, rtTagged, rtSharedIn} {
-		r.want(r.call(n, "POST", "/v1/pair", "", map[string]string{"code": ""}), 400, "bad_request")
-	}
-	// A code on show is not spent by an owner who did not need it.
-	code := r.code()
-	if a := r.call(rtTablet, "POST", "/v1/pair", "", map[string]string{"code": ""}); a.status != 200 {
-		t.Fatalf("a second owner: %d %s", a.status, a.raw)
-	}
-	if a := r.call(rtFriend, "POST", "/v1/pair", "", map[string]string{"code": code}); a.status != 200 || a.str("class") != "guest" {
-		t.Errorf("the guest with the code: %d %s", a.status, a.raw)
-	}
-
-	// The default: no code, no pairing — for an owner too.
-	r = newRemoteRig(t)
-	r.want(r.call(rtPhone, "POST", "/v1/pair", "", map[string]string{"code": ""}), 400, "bad_request")
-	r.code()
-	r.want(r.call(rtPhone, "POST", "/v1/pair", "", map[string]string{"code": ""}), 400, "bad_request")
-	if len(r.m.paired()) != 0 {
-		t.Error("paired without a code under the default policy")
+	// What the screen is told about the policy has no such switch either.
+	if raw := remoteReply(newRemoteRig(t).m.state().Policy); strings.Contains(strings.ToLower(raw), "needscode") {
+		t.Errorf("policy: %s", raw)
 	}
 }
 
@@ -320,7 +346,7 @@ func TestRemotePairGuestsOff(t *testing.T) {
 	r := newRemoteRig(t, func(p *remotePolicy) { p.AllowGuests = false })
 	code := r.code()
 	for _, n := range []*rtNode{rtFriend, rtTagged, rtSharedIn, rtSharee} {
-		if a := r.call(n, "GET", "/v1/hello", "", nil); a.status != 200 || a.str("class") != "" {
+		if a := r.call(n, "GET", "/v1/hello", "", nil); a.status != 200 {
 			t.Errorf("hello for %s: %d %s", n.name, a.status, a.raw)
 		}
 		r.want(r.call(n, "POST", "/v1/pair", "", map[string]string{"code": wrongCode(code)}), 403, "not_allowed")
@@ -392,9 +418,11 @@ func TestRemotePairingBinding(t *testing.T) {
 	r.d.change(rtPhone, func(n *rtNode) { n.tags = []string{"tag:kiosk"} })
 	r.want(r.call(rtPhone, "GET", "/v1/status", phone, nil), 401, "unauthorized")
 	r.d.change(rtPhone, func(n *rtNode) { n.tags = nil })
-	// Its key expires.
+	// Its key expires: the daemon no longer vouches for it at all.
 	r.d.change(rtPhone, func(n *rtNode) { n.expired = true })
-	r.want(r.call(rtPhone, "GET", "/v1/status", phone, nil), 403, "forbidden")
+	if !r.shut(rtPhone, "GET", "/v1/status", phone, nil) {
+		t.Error("a node with an expired key was answered")
+	}
 	r.d.change(rtPhone, func(n *rtNode) { n.expired = false })
 
 	// The guest's pairing is unaffected by all that — but it too is one
@@ -461,18 +489,17 @@ func TestRemoteRevoke(t *testing.T) {
 	tablet := r.pair(rtTablet)
 	friend := r.pair(rtFriend)
 
-	if r.m.revoke("nNOBODY") || r.m.revoke("") {
-		t.Error("revoked a device that is not paired")
+	for _, id := range []string{"nNOBODY", ""} {
+		if got := r.m.revoke(id); got.OK || got.Removed != 0 || got.Error != "not_paired" {
+			t.Errorf("revoking %q, which is not paired: %+v", id, got)
+		}
 	}
-	if !r.m.revoke(rtPhone.id) {
-		t.Fatal("revoke said there was nothing")
+	if got := r.m.revoke(rtPhone.id); !got.OK || got.Removed != 1 || got.Error != "" {
+		t.Fatalf("revoke: %+v", got)
 	}
 	r.want(r.call(rtPhone, "GET", "/v1/status", phone, nil), 401, "unauthorized")
 	if a := r.call(rtTablet, "GET", "/v1/status", tablet, nil); a.status != 200 {
 		t.Errorf("the tablet after the phone was revoked: %d", a.status)
-	}
-	if a := r.call(rtPhone, "GET", "/v1/hello", "", nil); a.obj["paired"] != false {
-		t.Errorf("hello after revoke: %s", a.raw)
 	}
 
 	// A device may also let go by itself; nobody else's pairing goes with it.
@@ -485,11 +512,11 @@ func TestRemoteRevoke(t *testing.T) {
 	}
 
 	r.pair(rtFriend)
-	if n := r.m.revokeAll(); n != 2 {
-		t.Errorf("revokeAll = %d, want 2", n)
+	if got := r.m.revokeAll(); !got.OK || got.Removed != 2 {
+		t.Errorf("revokeAll: %+v, want 2 removed", got)
 	}
-	if n := r.m.revokeAll(); n != 0 {
-		t.Errorf("second revokeAll = %d", n)
+	if got := r.m.revokeAll(); !got.OK || got.Removed != 0 {
+		t.Errorf("second revokeAll: %+v", got)
 	}
 	r.want(r.call(rtTablet, "GET", "/v1/status", tablet, nil), 401, "unauthorized")
 
@@ -538,9 +565,6 @@ func TestRemoteGuestExpiry(t *testing.T) {
 	}
 	if !r.hasOp("expired") {
 		t.Errorf("action log: %q", r.ops())
-	}
-	if a := r.call(rtFriend, "GET", "/v1/hello", "", nil); a.obj["paired"] != false {
-		t.Errorf("hello after expiry: %s", a.raw)
 	}
 	// The owner is still there a year on.
 	r.clock.advance(365 * 24 * time.Hour)
