@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -84,6 +85,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -1115,8 +1117,9 @@ private fun shortTime(millis: Long, nowMillis: Long, locale: Locale): String {
  * window answers in the system language (see wrapContextWithLocale()). [content] gets a
  * `hide` that slides the sheet away and then calls [onDismiss].
  *
- * On a television the sheet has no handle — there is nothing to drag it with, and the handle
- * was the first thing the remote stopped on; Back closes it — and it ends above the part of
+ * On a television the sheet is not dragged: there is nothing to drag it with, its handle was
+ * the first thing the remote stopped on, and the scroll that follows the remote's focus
+ * down a list pulled the sheet down with it. Back closes it. And it ends above the part of
  * the screen a set may cut off, which the theme keeps clear for a screen and not for a
  * window.
  */
@@ -1132,6 +1135,7 @@ internal fun TaildropSheet(onDismiss: () -> Unit, content: @Composable (hide: ()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        sheetGesturesEnabled = !tv,
         dragHandle = if (tv) null else ({ BottomSheetDefaults.DragHandle() })
     ) {
         CompositionLocalProvider(
@@ -1148,6 +1152,25 @@ internal fun TaildropSheet(onDismiss: () -> Unit, content: @Composable (hide: ()
 }
 
 /**
+ * Where the remote starts in a sheet: asked for once, as the sheet opens, and given to the
+ * first row of its list with [startsAt]. Left to itself the focus went to the first thing in
+ * the sheet, which in the history is "Clear history". Null off a television.
+ */
+@Composable
+private fun rememberSheetStart(): FocusRequester? {
+    if (!isTv) return null
+    val requester = remember { FocusRequester() }
+    LaunchedEffect(requester) {
+        withFrameNanos { }
+        runCatching { requester.requestFocus() }
+    }
+    return requester
+}
+
+private fun Modifier.startsAt(requester: FocusRequester?): Modifier =
+    if (requester != null) focusRequester(requester) else this
+
+/**
  * Every device a file can go to, under [title]: the Send section's "All devices", and the
  * picker the send button opens once the files are chosen. Searchable once the list is
  * longer than the section shows. Holds the refused-devices note at the end too.
@@ -1161,6 +1184,7 @@ internal fun TaildropDevicesSheetContent(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
+    val start = rememberSheetStart()
     val q = query.trim()
     val shown = remember(targets, q) {
         if (q.isEmpty()) targets.all
@@ -1192,8 +1216,9 @@ internal fun TaildropDevicesSheetContent(
                     TaildropMutedLine(if (q.isEmpty()) emptyText else stringResource(R.string.taildrop_devices_no_match), null)
                 }
             }
-            items(shown, key = { it.peer.id ?: it.peer.getDisplayName() }) { t ->
-                TaildropDeviceRow(t, Modifier.clip(MaterialTheme.shapes.medium)) { onPick(t.peer) }
+            itemsIndexed(shown, key = { _, t -> t.peer.id ?: t.peer.getDisplayName() }) { i, t ->
+                val first = if (i == 0) Modifier.startsAt(start) else Modifier
+                TaildropDeviceRow(t, first.clip(MaterialTheme.shapes.medium)) { onPick(t.peer) }
             }
             if (targets.refused.isNotEmpty() && q.isEmpty()) item {
                 TaildropRefusedNote(targets.refused, Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
@@ -1233,6 +1258,7 @@ internal fun TaildropHistorySheetContent(
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(initialFilter) }
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
+    val start = rememberSheetStart()
     val q = query.trim()
     val searched = remember(history, q) {
         if (q.isEmpty()) history
@@ -1286,8 +1312,9 @@ internal fun TaildropHistorySheetContent(
                     TaildropMutedLine(stringResource(if (history.isEmpty()) R.string.files_empty_history else R.string.taildrop_history_no_match), null)
                 }
             }
-            items(shown) { e ->
-                TaildropHistoryRow(e, nowMillis, Modifier.clip(MaterialTheme.shapes.medium)) { onEntry(e) }
+            itemsIndexed(shown) { i, e ->
+                val first = if (i == 0) Modifier.startsAt(start) else Modifier
+                TaildropHistoryRow(e, nowMillis, first.clip(MaterialTheme.shapes.medium)) { onEntry(e) }
             }
         }
     }

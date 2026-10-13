@@ -164,12 +164,14 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
     // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
-    // A television's sheet has no handle to drag — the remote would stop on it first — and
-    // ends above the edge a set may cut off.
+    // A television's sheet is not dragged — the remote would stop on the handle first, and the
+    // scroll that follows its focus down the list pulled the sheet with it — and ends above
+    // the edge a set may cut off.
     val tv = isTv
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        sheetGesturesEnabled = !tv,
         dragHandle = if (tv) null else ({ BottomSheetDefaults.DragHandle() })
     ) {
         Column(

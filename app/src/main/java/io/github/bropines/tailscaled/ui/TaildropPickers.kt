@@ -227,7 +227,9 @@ fun rememberSaveCopyPicker(onSaved: () -> Unit): SaveCopyPicker {
     val pending = file
     if (browsing && pending != null) {
         val source = remember { RealFileSource(context) }
-        val start = remember { (TaildropFolder.get(context) as? ReceiveFolder.Dir)?.dir ?: TaildropFolder.defaultDir()?.parentFile }
+        // It opens in Downloads, not in the receive folder: this Save is for a file that
+        // folder did not take, and Downloads is where the app may write with no grant.
+        val start = remember { TaildropFolder.defaultDir()?.parentFile }
         val cancel = { browsing = false; file = null }
         PickerWindow(onDismiss = cancel) {
             PickFolderScreen(
