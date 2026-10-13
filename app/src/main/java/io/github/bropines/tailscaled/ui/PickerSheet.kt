@@ -1,7 +1,9 @@
 package io.github.bropines.tailscaled.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +25,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,7 +95,7 @@ fun <T> PickerSheet(
     // reads as a jump.
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         PickerSheetContent(title, options, selected, monospace, labelMaxLines) { value ->
             onPick(value)
             scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
@@ -118,6 +120,8 @@ internal fun <T> PickerSheetContent(
     // reach it in landscape.
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
     val choosesOne = selected != null
+    // Where a remote starts: on the current choice, or on the first row when there is none.
+    val startsAt = options.firstOrNull { it.value == selected } ?: options.firstOrNull()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -145,7 +149,8 @@ internal fun <T> PickerSheetContent(
                     isSelected = choosesOne && option.value == selected,
                     choosesOne = choosesOne,
                     monospace = monospace,
-                    labelMaxLines = labelMaxLines
+                    labelMaxLines = labelMaxLines,
+                    modifier = if (option === startsAt) Modifier.tvInitialFocus() else Modifier
                 ) { onRowClick(option.value) }
             }
         }
@@ -159,19 +164,23 @@ private fun <T> PickerRow(
     choosesOne: Boolean,
     monospace: Boolean,
     labelMaxLines: Int?,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val shape = MaterialTheme.shapes.medium
+    val source = remember { MutableInteractionSource() }
+    val indication = LocalIndication.current
     // A radio row says "selected" to TalkBack on its own, so the check needs
     // no words of its own.
     val action = if (choosesOne) {
-        Modifier.selectable(selected = isSelected, role = Role.RadioButton, onClick = onClick)
+        Modifier.selectable(selected = isSelected, interactionSource = source, indication = indication, role = Role.RadioButton, onClick = onClick)
     } else {
-        Modifier.clickable(role = Role.Button, onClick = onClick)
+        Modifier.clickable(interactionSource = source, indication = indication, role = Role.Button, onClick = onClick)
     }
     Surface(
-        // Clipped before the click, so the ripple keeps the row's corners.
-        modifier = Modifier.fillMaxWidth().clip(shape).then(action),
+        // Clipped before the click, so the ripple keeps the row's corners; a
+        // television's focus ring goes round the clip, or it would lose them.
+        modifier = modifier.fillMaxWidth().tvFocusRing(source, shape).clip(shape).then(action),
         shape = shape,
         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
                 else Color.Transparent

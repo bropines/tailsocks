@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
@@ -143,7 +142,7 @@ fun SheetOrPane(
     if (inPane) {
         Column(modifier.fillMaxSize(), content = content)
     } else {
-        ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, modifier = modifier, content = content)
+        AppModalSheet(onDismissRequest = onDismiss, modifier = modifier, sheetState = sheetState, content = content)
     }
 }
 
