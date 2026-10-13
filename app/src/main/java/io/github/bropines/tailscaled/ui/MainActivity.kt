@@ -2647,20 +2647,15 @@ fun MenuGrid(
         // What has a row of its own comes last, across the cards above it.
         entries.filter { it.wide }.forEachIndexed { i, entry ->
             if (cards.isNotEmpty() || i > 0) Spacer(modifier = Modifier.height(16.dp))
-            if (beside == null) {
+            // One row whether it is shared or not, tile for tile and as tall as the taller of them:
+            // the entry is the same tile when what stood beside it goes away, and a remote that
+            // was on it stays on it.
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 WideMenuCard(
                     entry,
-                    Modifier.fillMaxWidth().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
+                    Modifier.weight(1f).fillMaxHeight().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
                 )
-            } else {
-                // The row is shared, tile for tile, and as tall as the taller of them.
-                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    WideMenuCard(
-                        entry,
-                        Modifier.weight(1f).fillMaxHeight().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
-                    )
-                    beside()
-                }
+                beside?.invoke(this)
             }
         }
     }
