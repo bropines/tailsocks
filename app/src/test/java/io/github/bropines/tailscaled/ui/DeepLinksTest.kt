@@ -45,6 +45,24 @@ class DeepLinksTest {
         }
     }
 
+    // ─── Settings: the row a link names ─────────────────────────────────────────────────────
+
+    @Test
+    fun aLinkMayNameARowOfItsSection() {
+        assertEquals("mode_vpn", DeepLinks.settingsRow(listOf("tunnel", "mode_vpn")))
+        assertEquals("autostart", DeepLinks.settingsRow(listOf("background", "autostart")))
+        // Every entry of the catalogue can be named, whatever stands before it.
+        for (entry in SettingsCatalog.entries) assertEquals(entry.id, DeepLinks.settingsRow(listOf("x", entry.id)))
+    }
+
+    @Test
+    fun aRowTheCatalogueDoesNotKnowIsNoRow() {
+        assertNull(DeepLinks.settingsRow(listOf("tunnel")))
+        assertNull(DeepLinks.settingsRow(emptyList()))
+        assertNull(DeepLinks.settingsRow(listOf("tunnel", "nonsense")))
+        assertNull(DeepLinks.settingsRow(listOf("tunnel", "../../etc")))
+    }
+
     // ─── Settings: the page a link names, as the device has it ──────────────────────────────
 
     private val handheldHub = listOf(

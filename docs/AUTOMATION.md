@@ -110,6 +110,8 @@ A `tailsocks://` link opens a screen of the app and does nothing else — no tok
 | `tailsocks://tailcat/add?cmd=<address or connect command>` | a new TailCat connection, filled in (URL-encode `cmd`) |
 | `tailsocks://logs?category=TAILCAT` | Logs on one category (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
 | `tailsocks://settings/<section>` | Settings on a section: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics`, `advanced`; `theme` and `root` open the theme and Root mode wherever the device keeps them |
+| `tailsocks://settings/<section>/<row>` | Settings on one row of a section, brought into view and marked: `tunnel/mode_vpn`, `account/exit_node`, `background/autostart`, `appearance/language`, `bypass/byedpi`, … The rows are the ids of the settings catalogue (`ui/SettingsCatalog.kt`); one that is not on its page right now opens the row that brings it |
+| `tailsocks://settings?q=<words>` | Settings with `<words>` typed into their search (URL-encode them): `tailsocks://settings?q=kill%20switch` |
 | `tailsocks://peers`, `dns`, `netcheck`, `console`, `files`, `taildrive`, `permissions`, `licenses` | that screen |
 
 ```bash

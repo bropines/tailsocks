@@ -110,6 +110,8 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 | `tailsocks://tailcat/add?cmd=<адрес или команда подключения>` | новое подключение TailCat, уже заполненное (`cmd` в URL-кодировке) |
 | `tailsocks://logs?category=TAILCAT` | Логи на одной категории (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
 | `tailsocks://settings/<раздел>` | Настройки на разделе: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics`, `advanced`; `theme` и `root` открывают тему и Root-режим там, где они находятся на этом устройстве |
+| `tailsocks://settings/<раздел>/<строка>` | Настройки на одной строке раздела — она прокручивается в поле зрения и подсвечивается: `tunnel/mode_vpn`, `account/exit_node`, `background/autostart`, `appearance/language`, `bypass/byedpi`, … Имена строк — идентификаторы каталога настроек (`ui/SettingsCatalog.kt`); если строки сейчас нет на странице, откроется та, что её включает |
+| `tailsocks://settings?q=<слова>` | Настройки с этими словами в строке поиска (в URL-кодировке): `tailsocks://settings?q=kill%20switch` |
 | `tailsocks://peers`, `dns`, `netcheck`, `console`, `files`, `taildrive`, `permissions`, `licenses` | этот экран |
 
 ```bash

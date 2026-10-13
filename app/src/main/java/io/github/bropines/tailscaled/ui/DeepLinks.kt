@@ -20,6 +20,9 @@ import io.github.bropines.tailscaled.core.Feature
  *                                           address or a connect command
  *     tailsocks://logs?category=TAILCAT     Logs, on one category
  *     tailsocks://settings/<section>        Settings, on a section
+ *     tailsocks://settings/<section>/<row>  Settings, on a row of it: the row's page opens
+ *                                           with the row in view and marked
+ *     tailsocks://settings?q=…              Settings, with that typed into their search
  *     tailsocks://peers | dns | netcheck | console | files | taildrive | permissions | licenses
  *
  * MainActivity receives them (VIEW, scheme tailsocks) and opens the screen on
@@ -65,6 +68,16 @@ object DeepLinks {
         else -> null
     }
 
+    /** More than anyone types into a search, and no more is taken from a link. */
+    private const val MAX_QUERY = 80
+
+    /**
+     * The row a settings link names after its section — an entry of the settings catalogue
+     * (ui/SettingsCatalog.kt) by its id — or null. The section before it only has to be there:
+     * where the row's page is on this device is Settings' to say.
+     */
+    internal fun settingsRow(path: List<String>): String? = path.getOrNull(1)?.takeIf { SettingsCatalog.byId(it) != null }
+
     /** The screen [uri] names, or null for the main screen or a link it does not know. */
     fun intentFor(context: Context, uri: Uri): Intent? {
         if (uri.scheme != SCHEME) return null
@@ -77,6 +90,8 @@ object DeepLinks {
             "logs" -> LogsActivity.intent(context, uri.getQueryParameter("category")?.uppercase() ?: "ALL")
             "settings" -> Intent(context, SettingsActivity::class.java).apply {
                 path.firstOrNull()?.takeIf { it in SETTINGS_SECTIONS }?.let { putExtra(SettingsActivity.EXTRA_OPEN_SECTION, it) }
+                settingsRow(path)?.let { putExtra(SettingsActivity.EXTRA_OPEN_ROW, it) }
+                uri.getQueryParameter("q")?.takeIf { it.isNotBlank() }?.let { putExtra(SettingsActivity.EXTRA_SEARCH, it.take(MAX_QUERY)) }
             }
             "peers" -> Intent(context, PeersActivity::class.java)
             "dns" -> Intent(context, DnsActivity::class.java)
