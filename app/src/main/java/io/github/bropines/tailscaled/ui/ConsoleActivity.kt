@@ -20,8 +20,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -56,7 +59,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,6 +76,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
+import kotlin.math.roundToInt
 
 // The scrollback lives in a single String that is appended to on every command
 // and re-loaded from disk on every open; without a cap it grew without bound
@@ -277,6 +283,15 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     val horizontalScrollState = rememberScrollState() // For horizontal scroll
     val focusRequester = remember { FocusRequester() }
 
+    // A television: the output is read with the arrows, the command is typed in a dialog of its
+    // own (a field in the screen would pop the keyboard up whenever the remote passed over it),
+    // and what a held button does on a phone is a button next to the command.
+    val tv = isTv
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    /** Where the remote starts: the first quick command, once. */
+    val initialFocusSpent = remember { mutableStateOf(false) }
+    var editingCommand by remember { mutableStateOf(false) }
+
     val prefs = remember { context.getSharedPreferences("console_presets", Context.MODE_PRIVATE) }
     val historyFile = remember { File(context.filesDir, "console_history.dat") }
     val cmdHistoryFile = remember { File(context.filesDir, "console_cmd_history.dat") }
@@ -292,7 +307,9 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 
     // ZOOM
     var scale by remember { mutableFloatStateOf(1f) }
-    var softWrap by remember { mutableStateOf(false) }
+    // On a television the output wraps: the arrows read a page at a time, and a line that runs
+    // off the side has to be crossed with Left and Right.
+    var softWrap by remember { mutableStateOf(tv) }
 
     val commandHistory = remember { mutableStateListOf<String>().apply { demo?.let { addAll(it.history) } } }
     var historyMenuOpen by remember { mutableStateOf(false) }
@@ -348,7 +365,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         }
         if (savedCmds != null) commandHistory.addAll(savedCmds.filter { it.isNotBlank() }.takeLast(MAX_CMD_HISTORY))
         if (initialCmd.isNotEmpty()) currentCommand = initialCmd
-        focusRequester.requestFocus()
+        // A television starts on the quick commands, not on a field that would raise the keyboard.
+        if (!tv) focusRequester.requestFocus()
     }
 
     // Follow the tail once layout has measured the new text. Calling
@@ -431,7 +449,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                 followOutput = true
                 currentCommand = ""
                 saveScrollback()
-                focusRequester.requestFocus()
+                // The remote stays on the button that ran it.
+                if (!tv) focusRequester.requestFocus()
             }
         }
     }
@@ -440,7 +459,8 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     // terminal, the field under the terminal alone: a row of chips and a field the width of
     // a tablet, and the history in a sheet over the output, were what a tablet got.
     val window = rememberWindowLayout()
-    val sideColumn = !window.isPhone && window.widthClass >= WindowWidthClass.EXPANDED
+    // A television always has the column: the chips' held buttons have no twin in a row of chips.
+    val sideColumn = tv || (!window.isPhone && window.widthClass >= WindowWidthClass.EXPANDED)
 
     val insertPreset: (String) -> Unit = { preset ->
         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
@@ -459,7 +479,14 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
     }
     // The command line. Beside a history column it has no history button: the column is it.
     val commandField: @Composable (Modifier) -> Unit = { modifier ->
-        OutlinedTextField(
+        if (tv) {
+            TvCommandLine(
+                command = currentCommand,
+                onEdit = { editingCommand = true },
+                onRun = { executeCmd(currentCommand) },
+                modifier = modifier
+            )
+        } else OutlinedTextField(
             value = currentCommand,
             onValueChange = { currentCommand = it },
             modifier = modifier,
@@ -489,18 +516,13 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         val styled = remember(outputText, colors) {
             styleScrollback(outputText, colors)
         }
-        SelectionContainer(
-            modifier = modifier
-                .background(MaterialTheme.colorScheme.surface)
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, _, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(0.5f, 4f)
-                    }
-                }
-        ) {
+        val output: @Composable () -> Unit = {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    // The output is a stop of its own, ringed while the remote is on it; its
+                    // arrows page up and down and, unwrapped, left and right.
+                    .tvReadingPane(verticalScrollState, if (softWrap) null else horizontalScrollState)
                     .then(if (!softWrap) Modifier.horizontalScroll(horizontalScrollState) else Modifier)
                     .verticalScroll(verticalScrollState)
             ) {
@@ -516,6 +538,18 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                 )
             }
         }
+        if (tv) {
+            // No selection to drag and no pinch on a television.
+            Box(modifier.background(MaterialTheme.colorScheme.surface)) { output() }
+        } else SelectionContainer(
+            modifier = modifier
+                .background(MaterialTheme.colorScheme.surface)
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(0.5f, 4f)
+                    }
+                }
+        ) { output() }
     }
 
     PredictiveBackContainer(
@@ -533,14 +567,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                     title = stringResource(R.string.console_title),
                     onBack = onBack,
                     actions = {
-                        IconButton(onClick = { softWrap = !softWrap }) { 
-                            Icon(
-                                if (softWrap) Icons.AutoMirrored.Filled.WrapText else Icons.AutoMirrored.Filled.FormatAlignLeft, 
-                                contentDescription = stringResource(R.string.console_cd_toggle_wrap), 
-                                tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            ) 
-                        }
-                        IconButton(onClick = {
+                        val copyOutput = {
                             // The scrollback is capped at 200 KB, under the Binder transaction limit.
                             try {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -549,13 +576,37 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                             } catch (e: Exception) {
                                 Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
                             }
-                        }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.console_cd_copy)) }
-                        IconButton(onClick = {
+                        }
+                        val clearOutput = {
                             outputText = PROMPT
                             coroutineScope.launch(Dispatchers.IO) {
                                 try { if (historyFile.exists()) historyFile.delete() } catch (e: Exception) {}
                             }
-                        }) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.console_clear_desc), tint = MaterialTheme.colorScheme.error) }
+                            Unit
+                        }
+                        if (tv) {
+                            // Words, not icons: nothing on a remote says what an icon is for.
+                            TvTextAction(
+                                if (softWrap) Icons.AutoMirrored.Filled.WrapText else Icons.AutoMirrored.Filled.FormatAlignLeft,
+                                stringResource(R.string.tv_console_wrap), active = softWrap, onClick = { softWrap = !softWrap }
+                            )
+                            TvTextAction(
+                                Icons.Default.TextFields, stringResource(R.string.tv_text_size, (scale * 100).roundToInt()),
+                                onClick = { scale = nextTvTextScale(scale) }
+                            )
+                            if (clipboardOffered) TvTextAction(Icons.Default.ContentCopy, stringResource(R.string.console_cd_copy), onClick = copyOutput)
+                            TvTextAction(Icons.Default.Delete, stringResource(R.string.console_clear_desc), onClick = clearOutput, danger = true)
+                        } else {
+                            IconButton(onClick = { softWrap = !softWrap }) {
+                                Icon(
+                                    if (softWrap) Icons.AutoMirrored.Filled.WrapText else Icons.AutoMirrored.Filled.FormatAlignLeft,
+                                    contentDescription = stringResource(R.string.console_cd_toggle_wrap),
+                                    tint = if (softWrap) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            IconButton(onClick = copyOutput) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.console_cd_copy)) }
+                            IconButton(onClick = clearOutput) { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.console_clear_desc), tint = MaterialTheme.colorScheme.error) }
+                        }
                     }
                 )
                 if (isExecuting) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -633,7 +684,11 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         currentCommand = past
                         focusRequester.requestFocus()
                     },
-                    modifier = Modifier.width(ConsoleSideColumnWidth).fillMaxHeight()
+                    tv = tv,
+                    initialFocusSpent = initialFocusSpent,
+                    modifier = Modifier
+                        .width(if (tv && window.width < ConsoleNarrowWindow) ConsoleNarrowSideColumnWidth else ConsoleSideColumnWidth)
+                        .fillMaxHeight()
                 )
             }
         } else {
@@ -650,7 +705,14 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { showAddPresetDialog = false },
             title = { Text(strConsoleNewPresetTitle) },
-            text = { OutlinedTextField(value = newPresetCmd, onValueChange = { newPresetCmd = it }, label = { Text(strConsoleNewPresetLabel) }, singleLine = true) },
+            text = {
+                OutlinedTextField(
+                    value = newPresetCmd, onValueChange = { newPresetCmd = it }, label = { Text(strConsoleNewPresetLabel) },
+                    singleLine = true,
+                    // A dialog for typing: on a television the remote starts in the field.
+                    modifier = Modifier.tvInitialFocus()
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     if (newPresetCmd.isNotBlank()) {
@@ -715,9 +777,44 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
                         saveCustomPresets(current)
                         presetMenuFor = null
                     }) { Text(strDelete, color = MaterialTheme.colorScheme.error) }
-                    TextButton(onClick = { presetMenuFor = null }) { Text(strCancel) }
+                    // The safe button is the one under the remote: this dialog is the delete's confirm.
+                    TextButton(onClick = { presetMenuFor = null }, modifier = Modifier.tvInitialFocus()) { Text(strCancel) }
                 }
             }
+        )
+    }
+
+    if (editingCommand) {
+        // The command is typed here, in a window of its own: Back closes the keyboard, then the
+        // dialog, and neither holds the remote. The field is the screen's command, live.
+        val strTitle = stringResource(R.string.tv_console_edit_title)
+        val strPlaceholder = stringResource(R.string.console_placeholder)
+        val strRun = stringResource(R.string.console_cd_run)
+        val strClose = stringResource(R.string.action_close)
+        val field = remember { FocusRequester() }
+        var typed by remember { mutableStateOf(TextFieldValue(currentCommand, TextRange(currentCommand.length))) }
+        val runIt = {
+            editingCommand = false
+            executeCmd(currentCommand)
+        }
+        LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
+        AlertDialog(
+            onDismissRequest = { editingCommand = false },
+            title = { Text(strTitle) },
+            text = {
+                OutlinedTextField(
+                    value = typed,
+                    onValueChange = { typed = it; currentCommand = it.text },
+                    modifier = Modifier.fillMaxWidth().focusRequester(field),
+                    placeholder = { Text(strPlaceholder) },
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { runIt() }),
+                )
+            },
+            confirmButton = { TextButton(onClick = { runIt() }, enabled = currentCommand.isNotBlank()) { Text(strRun) } },
+            dismissButton = { TextButton(onClick = { editingCommand = false }) { Text(strClose) } }
         )
     }
 }
@@ -726,11 +823,20 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
 /** The column beside the terminal on a large window. */
 private val ConsoleSideColumnWidth = 300.dp
 
+/** A television's 720p window is 640 dp wide: the column gives the terminal more of it. */
+private val ConsoleNarrowWindow = 840.dp
+private val ConsoleNarrowSideColumnWidth = 240.dp
+
 /**
  * The quick commands and the command history as a column beside the terminal: a preset
  * runs on a tap and goes into the field on a long press (a preset of one's own opens its
  * menu), as the chips do on a phone; a past command goes into the field, as the history
  * sheet puts it there. Newest first, the whole history kept.
+ *
+ * On a television ([tv]) there is no long press: each preset row runs on OK and carries a
+ * button of its own that puts the command into the field, and a custom one a second that
+ * deletes it (after a question, [onCustomPresetLongPress]). [initialFocusSpent] is the
+ * screen's flag for the one time the remote is put on the first quick command.
  */
 @Composable
 private fun ConsoleSideColumn(
@@ -741,6 +847,8 @@ private fun ConsoleSideColumn(
     onCustomPresetLongPress: (String) -> Unit,
     onAddPreset: () -> Unit,
     onPickHistory: (String) -> Unit,
+    tv: Boolean,
+    initialFocusSpent: MutableState<Boolean>,
     modifier: Modifier = Modifier
 ) {
     val runLabel = stringResource(R.string.console_cd_run)
@@ -757,10 +865,22 @@ private fun ConsoleSideColumn(
                 }
             }
             items(BASE_PRESETS, key = { "base:$it" }) { preset ->
-                ConsoleCommandRow(preset, Icons.Default.PlayArrow, runLabel, { onRun(preset) }, insertLabel) { onInsert(preset) }
+                if (tv) {
+                    ConsoleCommandTvRow(
+                        preset, Icons.Default.PlayArrow, { onRun(preset) },
+                        modifier = if (preset == BASE_PRESETS.first()) Modifier.tvFocusOnce(initialFocusSpent) else Modifier,
+                        onInsert = { onInsert(preset) }
+                    )
+                } else ConsoleCommandRow(preset, Icons.Default.PlayArrow, runLabel, { onRun(preset) }, insertLabel) { onInsert(preset) }
             }
             items(customPresets, key = { "custom:$it" }) { preset ->
-                ConsoleCommandRow(preset, Icons.Default.PlayArrow, runLabel, { onRun(preset) }, presetLabel) { onCustomPresetLongPress(preset) }
+                if (tv) {
+                    ConsoleCommandTvRow(
+                        preset, Icons.Default.PlayArrow, { onRun(preset) },
+                        onInsert = { onInsert(preset) },
+                        onDelete = { onCustomPresetLongPress(preset) }
+                    )
+                } else ConsoleCommandRow(preset, Icons.Default.PlayArrow, runLabel, { onRun(preset) }, presetLabel) { onCustomPresetLongPress(preset) }
             }
             item(key = "history-head") {
                 ConsoleSideHeading(stringResource(R.string.console_cd_history), Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
@@ -775,8 +895,93 @@ private fun ConsoleSideColumn(
             }
             // Indexed: the same command can stand twice, run at different times.
             itemsIndexed(history.asReversed(), key = { i, cmd -> "history:$i:$cmd" }) { _, cmd ->
-                ConsoleCommandRow(cmd, Icons.Default.History, insertLabel, { onPickHistory(cmd) })
+                if (tv) ConsoleCommandTvRow(cmd, Icons.Default.History, { onPickHistory(cmd) })
+                else ConsoleCommandRow(cmd, Icons.Default.History, insertLabel, { onPickHistory(cmd) })
             }
+        }
+    }
+}
+
+/**
+ * A command in the side column, for a remote: OK runs (or, in the history, fills the command
+ * line), and the two things a long press does on a phone are buttons beside it — [onInsert]
+ * puts the command into the command line without running it, [onDelete] deletes a preset of
+ * one's own. The ring goes before the clip, so it keeps its corners.
+ */
+@Composable
+private fun ConsoleCommandTvRow(
+    command: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onInsert: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
+    val shape = MaterialTheme.shapes.medium
+    val source = remember { MutableInteractionSource() }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = modifier
+                .weight(1f)
+                .tvFocusRing(source, shape)
+                .clip(shape)
+                .clickable(interactionSource = source, indication = LocalIndication.current, onClick = onClick)
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                command,
+                style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (onInsert != null) {
+            IconButton(onClick = onInsert, modifier = Modifier.size(44.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.tv_console_insert_cd, command), modifier = Modifier.size(20.dp))
+            }
+        }
+        if (onDelete != null) {
+            IconButton(onClick = onDelete, modifier = Modifier.size(44.dp)) {
+                Icon(
+                    Icons.Default.Delete, contentDescription = stringResource(R.string.tv_console_delete_cd, command),
+                    modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The command line on a television: what is typed so far (or the hint) on a button that opens
+ * the keyboard in a dialog, and Run beside it. A text field here would raise the keyboard each
+ * time the remote moved across it.
+ */
+@Composable
+private fun TvCommandLine(command: String, onEdit: () -> Unit, onRun: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(
+            onClick = onEdit,
+            modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp)
+        ) {
+            Icon(Icons.Default.Keyboard, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                command.ifEmpty { stringResource(R.string.console_placeholder) },
+                modifier = Modifier.weight(1f),
+                fontFamily = FontFamily.Monospace,
+                color = if (command.isEmpty()) MaterialTheme.colorScheme.outline else LocalContentColor.current,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        // Never disabled while a command runs: a target that goes dead takes the remote with it.
+        FilledIconButton(onClick = onRun, modifier = Modifier.size(52.dp)) {
+            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.console_cd_run))
         }
     }
 }
