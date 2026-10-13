@@ -126,4 +126,25 @@
     <string name="netcheck_nat_varies_yes">是</string>
     <string name="netcheck_peers_online_format">%1$d / %2$d 在線</string>
     <string name="netcheck_peers_online_none">0 / %1$d 在線</string>
+    <string name="settings_cat_appearance">外觀與語言</string>
+    <string name="settings_cat_account">帳號與連線</string>
+    <string name="settings_cat_tunnel">隧道模式</string>
+    <string name="settings_cat_proxies">本地代理</string>
+    <string name="settings_cat_bypass">反審查</string>
+    <string name="settings_cat_sharing">共享與存取</string>
+    <string name="settings_cat_background">背景活動與權限</string>
+    <string name="settings_cat_backup">備份與恢復</string>
+    <string name="settings_cat_automation">自動化與 API</string>
+    <string name="settings_cat_diagnostics">診斷與開發者</string>
+    <string name="settings_cat_account_desc">登入伺服器、驗證金鑰、裝置名稱、出口節點、路由</string>
+    <string name="settings_cat_tunnel_desc">代理、VPN(TUN)、Root — 流量離開設備的方式</string>
+    <string name="settings_cat_proxies_desc">SOCKS5、HTTP 監聽，從本地網路存取</string>
+    <string name="settings_cat_dns_desc">MagicDNS、DNS 代理、備用伺服器</string>
+    <string name="settings_cat_bypass_desc">控制平面代理、ByeByeDPI</string>
+    <string name="settings_cat_sharing_desc">Taildrop、Taildrive、Serve 與 Funnel、網頁介面</string>
+    <string name="settings_cat_background_desc">自啟、重連、權限、保持連線</string>
+    <string name="settings_cat_appearance_desc">主題、顏色、應用語言</string>
+    <string name="settings_cat_backup_desc">完整備份、導出單一設定檔</string>
+    <string name="settings_cat_automation_desc">Tasker、外部命令、管理員介面權限</string>
+    <string name="settings_cat_diagnostics_desc">日誌、主控台、額外參數、背景服務資訊</string>
 </resources>
