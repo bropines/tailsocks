@@ -19,6 +19,20 @@ package io.github.bropines.tailscaled.core
  */
 object ByeDpiFlags {
 
+    /**
+     * The profile a new install starts with and the flags field shows when it
+     * is empty, and so also what runs when the user's string is empty, has
+     * nothing the allow-list keeps, or is refused by the core: OOB data after
+     * the first byte, one fake UDP packet, the ClientHello cut into two TLS
+     * records five bytes before the end of the server name.
+     *
+     * It has to parse with the core we carry, or nothing is left to fall back
+     * on. Up to 4.10.1 the fallback was a second string, `-s 1 -d split -r`,
+     * which that core refuses twice over: `-d` takes a position and `-r` had
+     * no value at all.
+     */
+    const val DEFAULT = "-o1 -a1 -r-5+se"
+
     private class Opt(val short: Char, val long: String, val hasArg: Boolean, val allowed: Boolean)
 
     // Mirrors `options[]` in app/src/main/jni/byedpi/byedpi_core/main.c.
@@ -142,5 +156,29 @@ object ByeDpiFlags {
             i += consumed
         }
         return Result(accepted, rejected)
+    }
+
+    /**
+     * What a flags string comes to: the options the core is started with, the
+     * tokens of the string the allow-list dropped, and whether the built-in
+     * profile stands in for a string with nothing usable in it.
+     */
+    class Choice(val flags: List<String>, val ignored: List<String>, val builtIn: Boolean)
+
+    fun choose(custom: String): Choice {
+        val checked = sanitize(custom)
+        return if (checked.accepted.isEmpty()) {
+            Choice(DEFAULT.split(" "), checked.rejected, builtIn = true)
+        } else {
+            Choice(checked.accepted, checked.rejected, builtIn = false)
+        }
+    }
+
+    /** The core's argument vector: where to listen, then what to do. */
+    fun arguments(ip: String, port: Int, noIpv6: Boolean, flags: List<String>): Array<String> {
+        val args = mutableListOf("byedpi", "-i", "socks5://$ip", "-p", port.toString())
+        if (noIpv6) args.add("-X")
+        args.addAll(flags)
+        return args.toTypedArray()
     }
 }

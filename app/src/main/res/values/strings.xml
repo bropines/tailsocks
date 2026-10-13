@@ -799,6 +799,9 @@
     <string name="settings_byedpi_flags">ByeByeDPI Flags</string>
     <string name="settings_byedpi_status_active">Active on socks5://%1$s</string>
     <string name="settings_byedpi_status_stopped">Stopped</string>
+    <string name="settings_byedpi_status_ignored">Active on socks5://%1$s · ignored: %2$s</string>
+    <string name="settings_byedpi_status_builtin">Active on socks5://%1$s · built-in flags, yours were not accepted</string>
+    <string name="settings_byedpi_status_failed">Not running (code %1$d): no control connection. See Logs</string>
     <string name="settings_byedpi_desc">Bypasses censorship/DPI for Tailscale coordination server traffic using local packet fragmentation. Runs entirely in userspace.</string>
     <string name="settings_proxy_import">Import Proxy Link / URI</string>
     <string name="settings_proxy_import_error">Invalid proxy link format</string>

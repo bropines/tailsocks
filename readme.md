@@ -265,7 +265,7 @@ For users in restricted regions (e.g., where `controlplane.tailscale.com` is blo
 ### 1. Control Plane DPI Bypass (ByeDPI JNI)
 TailSocks bundles a native JNI implementation of [ByeDPI](https://github.com/hufrea/byedpi) directly inside the app process. This allows bypassing SNI-based deep packet inspection (DPI) without spawning external binary processes.
 * **Security:** ByeDPI binds strictly to a randomized loopback IP (e.g., `127.182.201.43`) and a randomized port in the `127.0.0.0/8` subnet upon every startup. This prevents other applications on the device from discovering or connecting to the proxy via simple port scanning.
-* **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings → Censorship bypass and configure custom ByeDPI flags (default: `-s 1 -d split -r`).
+* **Usage:** Enable **DPI Bypass (ByeDPI)** in Settings → Censorship bypass and configure custom ByeDPI flags (default: `-o1 -a1 -r-5+se`).
 
 ---
 
