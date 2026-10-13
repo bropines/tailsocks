@@ -142,20 +142,13 @@ data class LocalShare(
 /**
  * What a preview shows instead of the stored shares, the system's answer on
  * all-files access and the stored proxy switch. Only previews provide [LocalTaildriveDemo]; in the app it is
- * null and the screen reads its preferences as always.
- *
- * [proxyBind] is where the proxy listens, [lan] this device's address on the local network and
- * [proxyPassword] turns the proxy's login on and [revealLogin] shows it; [grantCommand] is the line
- * a device with no settings page for the access is told to run.
+ * null and the screen reads its preferences as always. [grantCommand] is the line a device with no
+ * settings page for the access is told to run.
  */
 internal class TaildriveDemo(
     val shares: List<LocalShare>,
     val storageAccess: Boolean = true,
     val proxy: Boolean = false,
-    val proxyBind: String = "127.0.0.1",
-    val lan: String? = null,
-    val proxyPassword: String? = null,
-    val revealLogin: Boolean = false,
     val grantCommand: String? = null,
 )
 
@@ -196,16 +189,16 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
     var hasStoragePermission by remember { mutableStateOf(demo?.storageAccess ?: (!inPreview && checkStoragePermission(context))) }
     var isProxyEnabled by remember { mutableStateOf(demo?.proxy ?: prefs.getBoolean("taildrive_proxy_enabled", false)) }
-    var proxyIp by remember { mutableStateOf(demo?.proxyBind ?: prefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1") }
+    var proxyIp by remember { mutableStateOf(prefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1") }
     var proxyPort by remember { mutableStateOf(prefs.getString("taildrive_proxy_port", "33445") ?: "33445") }
-    var isProxyAuthEnabled by remember { mutableStateOf(demo?.proxyPassword != null || prefs.getBoolean("taildrive_proxy_auth_enabled", false)) }
+    var isProxyAuthEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_auth_enabled", false)) }
     var proxyUsername by remember { mutableStateOf(prefs.getString("taildrive_proxy_username", "tailsocks") ?: "tailsocks") }
     var proxyPassword by remember {
-        val pass = demo?.proxyPassword ?: prefs.getString("taildrive_proxy_password", "") ?: ""
+        val pass = prefs.getString("taildrive_proxy_password", "") ?: ""
         mutableStateOf(pass)
     }
     // One switch for the field and the URL card under it, which carries the same password.
-    var showPassword by rememberSaveable { mutableStateOf(demo?.revealLogin ?: false) }
+    var showPassword by rememberSaveable { mutableStateOf(false) }
 
     // The proxy switch is also turned on from the page of the other devices' shares, which is
     // another window of this Activity: the screen underneath hears it here.
@@ -639,7 +632,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 if (!clipboardOffered) {
                     // A screen with no clipboard has nowhere to paste a copied address, so it shows it:
                     // readable from across the room, and as a code. See DriveAddressCard.
-                    val lan = demo?.lan ?: remember(isProxyEnabled) { if (inPreview) null else DriveAddresses.lanAddress() }
+                    val lan = remember(isProxyEnabled) { if (inPreview) null else DriveAddresses.lanAddress() }
                     val address = remember(proxyIp, proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword, lan) {
                         DriveAddresses.of(proxyIp, proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword, lan)
                     }

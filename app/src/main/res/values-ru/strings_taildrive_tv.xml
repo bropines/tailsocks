@@ -4,7 +4,7 @@
     <string name="taildrive_enable_needs_access_tv">Нет доступа к файлам — нажмите OK, чтобы разрешить</string>
 
     <string name="taildrive_browse_title">Общие папки других устройств</string>
-    <string name="taildrive_browse_desc">Откройте папки, которыми с этим устройством поделились другие, и запускайте файлы в плеере.</string>
+    <string name="taildrive_browse_desc">Папки, которыми поделились другие устройства, и их файлы в плеере</string>
 
     <string name="taildrive_add_browse_title">Выбрать папку</string>
     <string name="taildrive_add_browse_desc">Обзор памяти этого устройства</string>
