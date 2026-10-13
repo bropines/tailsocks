@@ -22,6 +22,8 @@ class TailSocksApp : Application() {
         super.onCreate()
         ProxyState.init(this)
         ProfileHostinfo.migrateGlobalKey(this)
+        // A key sent from a phone that the last process did not live to clear (KeyHandover).
+        KeyHandover.sweep(this)
         // The launcher alias the icon preference names; binder calls, off the main thread.
         Thread { AppIcons.reconcile(this) }.start()
         // Go cannot find the device's zone on its own, and the log stamps it
