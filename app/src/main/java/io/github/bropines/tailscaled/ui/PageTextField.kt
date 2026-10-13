@@ -150,7 +150,9 @@ fun TvFieldRow(
                         if (label.isEmpty()) placeholder.orEmpty() else label,
                         style = MaterialTheme.typography.bodyLarge,
                         color = colors.onSurfaceVariant,
-                        maxLines = 1,
+                        // A label written for a field's small floating text may be long, in Russian
+                        // most: cut at the end of one line it said "Ключ авторизации — необяз…".
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 } else {

@@ -482,7 +482,7 @@ fun SlideHowItWorks() {
             modifier = Modifier.fillMaxWidth()
         ) {
             SlidingSegmentedChips(
-                options = listOf("Proxy Mode", "VPN (TUN) Mode"),
+                options = listOf(stringResource(R.string.first_start_chip_proxy), stringResource(R.string.first_start_chip_vpn)),
                 selectedIndex = if (isTunMode) 1 else 0,
                 onOptionSelected = { idx ->
                     if (!isRootMode) {

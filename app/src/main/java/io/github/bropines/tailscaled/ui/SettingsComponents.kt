@@ -696,7 +696,7 @@ fun SettingsExitNodeItem(
         modifier = Modifier.padding(vertical = 4.dp).settingAnchor(title)
     ) {
         ListItem(
-            supportingContent = { Text(if (currentIp.isEmpty()) "None" else currentIp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = { Text(if (currentIp.isEmpty()) stringResource(R.string.settings_none) else currentIp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         ) { Text(title) }
