@@ -6,7 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
-- Android TV: a home-screen tile with a banner, and the whole app works with a remote — a visible focus frame, screen-edge margins, sheets, text fields and long texts included.
+- Android TV (experimental): a home-screen tile with a banner, and the whole app works with a remote — a visible focus frame, screen-edge margins, sheets, text fields and long texts included. Walked on emulators and WSA, not yet on a television.
 - Android TV: sign in by scanning a QR code with a phone, or send an auth key from a phone's scanner — over the local network or a relay, confirmed on the TV by a check code.
 - Sign in on another device: the login link as a QR code, with a share action.
 - A built-in file and folder browser for devices without a system file picker.
@@ -18,15 +18,20 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Settings → Appearance → Interface switches the TV interface by hand; on a TV rarely used pages live under Settings → Advanced.
 - Android TV: links show their address and a QR code where no browser opens them.
 - What's new reads in Russian for a Russian interface.
-- Experimental: manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; off by default, works in proxy and TUN mode.
-- Remote management covers the connection and the exit node (a change that cuts the link is put back by the device itself), sending a file, permissions seen and requested, and — with Full control switched on at the device — its storage, shared folders, routes and log.
+- Remote management (experimental, off by default): manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; works in proxy, TUN and Root Mode, inside one tailnet.
+- Remote management covers the connection and the exit node (a change that cuts the link is put back by the device itself), sending a file, permissions seen and requested, and — with Full control switched on at the device — its storage, shared folders, routes and log. Every change shows in a bar on the managed device's screen.
 - Android TV: a "From a phone" tile on the home screen shows the state of remote management.
 - Devices you manage appear on the main screen once one is paired, each with whether it is online.
+- The network check and the diagnostics report warn when the network's MTU is too small for direct connections.
+- Beta versions: a "Receive beta versions" switch in Settings → Appearance & language, off by default; betas are published as pre-releases.
 
 ### Fixed
 
 - Taildrive: a shared file with a plus sign in its name opens.
 - Taildrive: shared files stay readable after a switch between proxy and TUN mode.
+- Taildrive: a file opened in another app reports its real size and type, and a stale first answer is asked again.
+- "Sign in" opens a tab over the app even when the default link handler is not a real browser.
+- The Add account dialog's fields take the dialog's width on wide windows.
 
 ## [4.10.2] - 2026-10-13
 
