@@ -19,7 +19,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.settings.Provide
 import io.github.bropines.tailscaled.admin.settings.rememberParentLocals
+import io.github.bropines.tailscaled.ui.AppModalSheet
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.rememberFullSheetState
 import kotlinx.coroutines.launch
@@ -165,7 +165,7 @@ fun DestinationSheet(
         then()
         scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         parent.Provide {
             DestinationContent(
                 env = env,

@@ -33,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetProperties
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
@@ -250,7 +249,7 @@ internal fun KeySendSheet(model: KeySendModel, onRescan: () -> Unit, onClose: ()
     )
     val sender = remember(context) { senderName(context) }
     val nothingToPaste = stringResource(R.string.keysend_paste_empty)
-    ModalBottomSheet(
+    AppModalSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !held, shouldDismissOnClickOutside = !held),

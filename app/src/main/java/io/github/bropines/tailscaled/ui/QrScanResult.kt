@@ -23,7 +23,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -114,7 +113,7 @@ fun ScanResultSheet(text: String, onDismiss: () -> Unit, help: String? = null) {
     )
     val copied = stringResource(R.string.qr_copied)
     val noApp = stringResource(R.string.qr_scan_no_app)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
         ScanResultContent(
             text = text,
             labels = labels,

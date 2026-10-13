@@ -1115,13 +1115,8 @@ private fun shortTime(millis: Long, nowMillis: Long, locale: Locale): String {
  * A full-height sheet whose content reads strings in the activity's language: the parent's
  * context, configuration and resources, all three, provided again inside — the sheet's own
  * window answers in the system language (see wrapContextWithLocale()). [content] gets a
- * `hide` that slides the sheet away and then calls [onDismiss].
- *
- * On a television the sheet is not dragged: there is nothing to drag it with, its handle was
- * the first thing the remote stopped on, and the scroll that follows the remote's focus
- * down a list pulled the sheet down with it. Back closes it. And it ends above the part of
- * the screen a set may cut off, which the theme keeps clear for a screen and not for a
- * window.
+ * `hide` that slides the sheet away and then calls [onDismiss]. What a television needs of
+ * a sheet is [AppModalSheet]'s.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1131,22 +1126,13 @@ internal fun TaildropSheet(onDismiss: () -> Unit, content: @Composable (hide: ()
     val resources = LocalResources.current
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
-    val tv = isTv
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        sheetGesturesEnabled = !tv,
-        dragHandle = if (tv) null else ({ BottomSheetDefaults.DragHandle() })
-    ) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         CompositionLocalProvider(
             LocalContext provides context,
             LocalConfiguration provides configuration,
             LocalResources provides resources
         ) {
-            val body: @Composable () -> Unit = {
-                content { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }
-            }
-            if (tv) Box(Modifier.padding(top = 16.dp, bottom = TvSafeArea.calculateBottomPadding())) { body() } else body()
+            content { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }
         }
     }
 }

@@ -1170,18 +1170,15 @@ fun MainScreen(
         val accountsListState = androidx.compose.foundation.lazy.rememberLazyListState(
             initialFirstVisibleItemIndex = if (tv) activeIndex else 0
         )
-        ModalBottomSheet(
+        AppModalSheet(
             onDismissRequest = { accountMenuExpanded = false; accountsEditMode = false },
-            sheetState = sheetState,
-            dragHandle = sheetDragHandle(),
-            sheetGesturesEnabled = sheetGestures()
+            sheetState = sheetState
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .padding(bottom = 16.dp)
-                    .tvSheetInset()
             ) {
                 Row(
                     modifier = Modifier
@@ -2278,14 +2275,12 @@ fun MainScreen(
             bestExitNode = null
             bestExitNode = fetchBestExitNode(exitNodes)
         }
-        ModalBottomSheet(
+        AppModalSheet(
             onDismissRequest = { showExitNodeSheet = false },
             // Without this the sheet opens half height and settles to its content a frame
             // later, which reads as a jump; the list also arrives after the spinner, so the
             // height it settles at is held from the start by the minimum below.
-            sheetState = rememberFullSheetState(),
-            dragHandle = sheetDragHandle(),
-            sheetGesturesEnabled = sheetGestures()
+            sheetState = rememberFullSheetState()
         ) {
             ExitNodePicker(
                 nodes = exitNodes,
@@ -2311,7 +2306,6 @@ fun MainScreen(
                     .fillMaxWidth()
                     .heightIn(min = 280.dp, max = maxHeight)
                     .navigationBarsPadding()
-                    .tvSheetInset()
             )
         }
     }

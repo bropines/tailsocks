@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.StatusTag
 import io.github.bropines.tailscaled.admin.api.ApiDevice
+import io.github.bropines.tailscaled.ui.AppModalSheet
 import io.github.bropines.tailscaled.ui.agoText
 import io.github.bropines.tailscaled.ui.copyText
 import io.github.bropines.tailscaled.ui.getOsVisuals
@@ -84,7 +84,7 @@ internal fun WithLocale(parent: ParentLocale, content: @Composable () -> Unit) =
 @Composable
 internal fun DeviceSheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     val parent = parentLocale()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
         WithLocale(parent, content)
     }
 }

@@ -13,7 +13,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -32,6 +31,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.ui.AppModalSheet
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.rememberFullSheetState
 import kotlinx.coroutines.launch
@@ -54,7 +54,7 @@ internal fun LocaleSheet(onDismiss: () -> Unit, content: @Composable (hide: () -
     val resources = LocalResources.current
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         CompositionLocalProvider(LocalContext provides context, LocalConfiguration provides configuration, LocalResources provides resources) {
             content { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }
         }

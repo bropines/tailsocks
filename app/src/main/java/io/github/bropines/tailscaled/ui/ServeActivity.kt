@@ -2095,5 +2095,5 @@ private fun RuleEditorSheet(
             }
         }
     }
-    if (asSheet) ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) { body() } else body()
+    if (asSheet) AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) { body() } else body()
 }

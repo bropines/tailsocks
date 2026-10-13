@@ -22,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -52,6 +51,7 @@ import io.github.bropines.tailscaled.admin.settings.ConfigNote
 import io.github.bropines.tailscaled.admin.settings.NoteTone
 import io.github.bropines.tailscaled.admin.settings.Provide
 import io.github.bropines.tailscaled.admin.settings.rememberParentLocals
+import io.github.bropines.tailscaled.ui.AppModalSheet
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
@@ -77,7 +77,7 @@ fun WhoCanReachSheet(
         vm?.refresh(ConsoleTab.USERS)
         if (state.policy.file.value == null) vm?.policy?.load()
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
         parent.Provide { WhoCanReachContent(state, vm, initialDevice, initialUser) }
     }
 }

@@ -59,7 +59,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -789,7 +788,7 @@ private fun ConnectionEditorSheet(
         if (parsed == null) Toast.makeText(context, noTailcat, Toast.LENGTH_SHORT).show() else fill(parsed)
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1061,7 +1060,7 @@ private fun ServerEditorSheet(
     val portsError = (problem as? TailcatServer.Problem.Ports)?.detail
     val keysError = (problem as? TailcatServer.Problem.Keys)?.detail
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
