@@ -1871,7 +1871,8 @@ fun MainScreen(
 
         // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
         val dlgTitle = stringResource(R.string.main_about_title)
-        val dlgAppName = stringResource(R.string.app_name)
+        // A beta build says so in one word after the name (docs/RELEASING.md).
+        val dlgAppName = stringResource(R.string.app_name).let { if (AppVersion.isBeta(versionName)) stringResource(R.string.main_about_beta_name, it) else it }
         val dlgAppVersion = stringResource(R.string.main_app_version, "$versionName (${BuildConfig.GIT_HASH})")
         val dlgCoreVersion = stringResource(R.string.main_core_version, coreVer)
         val dlgUpToDate = stringResource(R.string.main_update_up_to_date)

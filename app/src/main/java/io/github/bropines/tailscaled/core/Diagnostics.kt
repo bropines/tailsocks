@@ -58,8 +58,10 @@ object Diagnostics {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode
             else @Suppress("DEPRECATION") it.versionCode.toLong()
         } ?: 0L
+        // A beta says so in a word: the reader of a report should not have to know the naming.
+        val beta = if (AppVersion.isBeta(info?.versionName.orEmpty())) ", beta" else ""
         return """
-            App: ${info?.versionName ?: "unknown"} (${BuildConfig.GIT_HASH}, code $code, ${BuildConfig.BUILD_TYPE})
+            App: ${info?.versionName ?: "unknown"} (${BuildConfig.GIT_HASH}, code $code, ${BuildConfig.BUILD_TYPE}$beta)
             Core: $core
             Installed by: $installer
         """.trimIndent()

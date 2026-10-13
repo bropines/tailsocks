@@ -90,6 +90,78 @@ class ChangelogTest {
         assertEquals(null, Changelog.pick(emptyList(), ru))
     }
 
+    // ─── A beta build ────────────────────────────────────────────────────────────────────
+    // A beta has no section of its own: it goes out while its changes are still under
+    // [Unreleased], and that is what its "What's new" shows, under the build's own name.
+
+    @Test
+    fun aBetaBuildShowsTheUnreleasedSectionUnderItsOwnName() {
+        val en = Changelog.parse(SAMPLE_EN)
+        val shown = Changelog.pick(en, emptyList(), versionName = "5.1.0-beta.2")
+        assertEquals("5.1.0-beta.2", shown?.version)
+        assertEquals("", shown?.date)
+        assertEquals(listOf("Soon."), shown?.groups?.single()?.items?.map { it.text })
+        // A debug build of the beta is the same beta.
+        assertEquals("5.1.0-beta.2", Changelog.pick(en, emptyList(), versionName = "5.1.0-beta.2-dev")?.version)
+    }
+
+    @Test
+    fun aBetaBuildShowsTheUnreleasedSectionInRussianToo() {
+        val en = Changelog.parse(SAMPLE_EN)
+        val ru = Changelog.parse("## [Unreleased]\n\n### Добавлено\n\n- Скоро.\n\n" + SAMPLE_RU)
+        val shown = Changelog.pick(en, ru, versionName = "5.1.0-beta.2")
+        assertEquals("5.1.0-beta.2", shown?.version)
+        assertEquals("Добавлено", shown?.groups?.single()?.title)
+        assertEquals(listOf("Скоро."), shown?.groups?.single()?.items?.map { it.text })
+        // Not translated yet: the English list, still under the beta's name.
+        val untranslated = Changelog.pick(en, Changelog.parse(SAMPLE_RU), versionName = "5.1.0-beta.2")
+        assertEquals("5.1.0-beta.2", untranslated?.version)
+        assertEquals("Added", untranslated?.groups?.single()?.title)
+    }
+
+    @Test
+    fun aReleaseBuildNeverShowsTheUnreleasedSection() {
+        val en = Changelog.parse(SAMPLE_EN)
+        val ru = Changelog.parse("## [Unreleased]\n\n### Добавлено\n\n- Скоро.\n\n" + SAMPLE_RU)
+        for (name in listOf("1.1", "5.1.0", "5.1.0-dev", "v2.0.0-beta", "v4.5.1-c76dbb.release", "")) {
+            assertEquals(name, "1.1", Changelog.pick(en, emptyList(), versionName = name)?.version)
+            assertEquals(name, "Новое.", Changelog.pick(en, ru, versionName = name)?.groups?.single()?.items?.single()?.text)
+        }
+    }
+
+    @Test
+    fun aBetaWithNothingUnreleasedShowsTheNewestRelease() {
+        val en = Changelog.parse("## [Unreleased]\n\n## [1.1] - 2026-02-01\n\n### Added\n\n- New.\n")
+        assertEquals("1.1", Changelog.pick(en, emptyList(), versionName = "5.1.0-beta.1")?.version)
+        val none = Changelog.parse("## [1.1] - 2026-02-01\n\n### Added\n\n- New.\n")
+        assertEquals("1.1", Changelog.pick(none, emptyList(), versionName = "5.1.0-beta.1")?.version)
+    }
+
+    /** The files themselves, as a beta cut from this commit would read them. */
+    @Test
+    fun aBetaOfThisCommitShowsItsUnreleasedWorkInBothLanguages() {
+        val coming = english.firstOrNull { it.isUnreleased() && it.groups.any { g -> g.items.isNotEmpty() } } ?: return
+        val inEnglish = Changelog.pick(english, emptyList(), versionName = "9.9.0-beta.1")!!
+        assertEquals("9.9.0-beta.1", inEnglish.version)
+        assertEquals(coming.groups, inEnglish.groups)
+        val inRussian = Changelog.pick(english, russian, versionName = "9.9.0-beta.1")!!
+        assertEquals("9.9.0-beta.1", inRussian.version)
+        assertEquals(russian.first { it.isUnreleased() }.groups, inRussian.groups)
+        assertSameShape(inEnglish, inRussian)
+    }
+
+    /** "What's new" appears once per version: once for each beta, and once more for the release. */
+    @Test
+    fun eachBetaAndTheReleaseAreSeenSeparately() {
+        assertEquals("5.1.0-beta.1", Changelog.seenKey("5.1.0-beta.1"))
+        assertEquals("5.1.0-beta.2", Changelog.seenKey("5.1.0-beta.2-dev"))
+        assertEquals("5.1.0", Changelog.seenKey("5.1.0"))
+        // What it always was for the names there have been, so no update re-shows the dialog.
+        assertEquals("4.10.2", Changelog.seenKey("4.10.2"))
+        assertEquals("4.10.2", Changelog.seenKey("4.10.2-dev"))
+        assertEquals("3.6.0", Changelog.seenKey("v3.6.0-abc123.release"))
+    }
+
     private companion object {
         const val SAMPLE_EN = """
 ## [Unreleased]

@@ -47,29 +47,46 @@ object Changelog {
         }
     }
 
-    /** The newest released section (an `[Unreleased]` block, if present, is skipped), in [language] where it has text. */
+    /**
+     * The section the dialog shows in this build, in [language] where it has text: the newest
+     * released one, or — in a beta — the `[Unreleased]` one, which is what a beta is made of.
+     */
     fun latest(context: Context, language: String = java.util.Locale.getDefault().language): Section? {
         val english = load(context)
         val translated = if (language == "ru") load(context, ASSET_NAME_RU) else emptyList()
-        return pick(english, translated)
+        return pick(english, translated, io.github.bropines.tailscaled.BuildConfig.VERSION_NAME)
     }
 
     /**
-     * The section of [english] the dialog shows — the newest released one — or the section of
-     * [translated] with the same version, when it has any text of its own.
+     * The section of [english] the dialog shows in a build named [versionName], or the section
+     * of [translated] with the same version, when it has any text of its own.
+     *
+     * A release shows the newest released section and never `[Unreleased]`. A beta
+     * (`5.1.0-beta.2`) has no section: betas go out while their changes are still listed
+     * under `[Unreleased]` (docs/RELEASING.md), so it shows that one, under its own name — and
+     * the newest released section if nothing is listed there.
      */
-    fun pick(english: List<Section>, translated: List<Section>): Section? {
-        val newest = english.firstOrNull { !it.version.equals("unreleased", ignoreCase = true) } ?: return null
-        return translated.firstOrNull { it.version == newest.version && it.groups.any { g -> g.items.isNotEmpty() } } ?: newest
+    fun pick(english: List<Section>, translated: List<Section>, versionName: String = ""): Section? {
+        val beta = AppVersion.parse(versionName)?.takeIf { it.isBeta }
+        val coming = if (beta != null) english.firstOrNull { it.isUnreleased && it.hasText } else null
+        val shown = coming ?: english.firstOrNull { !it.isUnreleased } ?: return null
+        val own = translated.firstOrNull { it.version.equals(shown.version, ignoreCase = true) && it.hasText } ?: shown
+        return if (coming != null) own.copy(version = beta.toString()) else own
     }
 
+    private val Section.isUnreleased: Boolean get() = version.equals("unreleased", ignoreCase = true)
+    private val Section.hasText: Boolean get() = groups.any { it.items.isNotEmpty() }
+
     /**
-     * The running build's base version: `4.5.2`, or `4.5.2` for a debug build's
-     * `4.5.2-dev` (and for `v3.6.0-abc123.release`, the format up to 4.5.1).
-     * Used as the "already seen" key, so a suffix never re-shows the dialog.
+     * The running build's version as the "already seen" key: `4.5.2`, also for a debug
+     * build's `4.5.2-dev` (and for `v3.6.0-abc123.release`, the format up to 4.5.1), so a
+     * suffix never re-shows the dialog. A beta keeps its number — `5.1.0-beta.2` — so each
+     * beta shows what is new once, and the release after them once more.
      */
-    fun currentVersion(): String =
-        io.github.bropines.tailscaled.BuildConfig.VERSION_NAME.removePrefix("v").substringBefore('-')
+    fun currentVersion(): String = seenKey(io.github.bropines.tailscaled.BuildConfig.VERSION_NAME)
+
+    fun seenKey(versionName: String): String =
+        AppVersion.parse(versionName)?.toString() ?: versionName.removePrefix("v").substringBefore('-')
 
     fun parse(markdown: String): List<Section> {
         val sections = mutableListOf<Section>()
