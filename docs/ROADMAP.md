@@ -28,7 +28,7 @@ This document outlines the planned features, architectural improvements, and ref
 
 ## Plans
 
-State as of 2026-09-20, after 4.3.0.
+State as of 2026-10-14, at 5.0.0.
 
 ### Big
 
@@ -44,6 +44,42 @@ State as of 2026-09-20, after 4.3.0.
       its tailnet is down, and what that costs and reveals; and what is allowed over it —
       looking, restarting and handing over a new key are exactly what 5.0's rules put under
       "never from afar", so this channel gets its own short list, not the tailnet one.
+- [x] **Android TV (5.0.0, experimental).** A home-screen entry with a banner on every icon
+      variant; the tablet dashboard as the home screen; everything reachable with a D-pad — a
+      visible focus ring, screen-edge margins, sheets and dialogs inside the safe area, text
+      fields as rows that open a dialog, long texts that scroll with the arrows. What a
+      television cannot do is hidden (admin console, QR scanner, Tailnet Lock signing); what it
+      rarely needs sits under Settings → Advanced. A built-in file and folder browser stands
+      in for the system picker, links show their address and a QR code where no browser
+      exists, and Settings → Appearance → Interface switches the television interface by hand.
+      Walked on Android TV emulators (API 36) and on WSA; **no television hardware has run it
+      yet** — see *Verify on devices*.
+- [x] **Signing in without a keyboard (5.0.0).** The login link as a QR code on a television and
+      as "Sign in on another device" on a phone; an auth key sent from a phone's scanner to a
+      television, over the local network or a TailCat relay, confirmed by a check code on both
+      screens.
+- [x] **Remote management (5.0.0, experimental, off by default).** One device lets paired
+      devices manage its TailSocks over the tailnet. Pairing needs a six-digit code from its
+      screen; a device of the same account is an owner, any other a guest for 24 hours. Two
+      levels chosen on the managed device itself: Basic (state, connection settings, exit
+      node, received files, permissions seen and requested) and Full control (its storage with
+      files downloaded through Taildrop, shared folders, exit node and routes offered, the
+      scrubbed log) — switched on only at the device, owners only. A change that can cut the
+      channel is provisional: the device puts the old value back unless the manager confirms
+      within 60 seconds. Every change is logged on the managed device and said on its screen.
+      Never from afar: stopping for good, signing out, the account or login server, any
+      credential, the control proxy and bypass, Root Mode. Reachable in proxy mode, in TUN on
+      either engine and in Root Mode with its kernel TUN (daemon patch 22 keeps the port in
+      netstack while the feature is on). Works inside one tailnet only; the protocol announces
+      its capabilities, so builds of different versions degrade instead of breaking.
+- [x] **Taildrive, the other half (5.0.0).** Browsing other devices' shares and opening their
+      files in a player through the app's own provider, seekable over HTTP byte ranges; the
+      screens say what the tailnet's policy lets this device do when nothing lists, and the
+      visual policy editor has a template for sharing between one's own devices; one switch
+      lets the local network into the Taildrive proxy, with the password forced on.
+- [x] **Settings search (5.0.0).** Any setting in English or Russian, forgiving typos, the wrong
+      keyboard layout and transliteration; `tailsocks://settings/<section>/<row>` links. A
+      test reads the sources and fails when a row is missing from the catalog.
 - [x] **Native TUN — the opt-in engine (4.2.0).** `tailscaled` owns the `VpnService` device
       instead of hev: `TunVpnService` establishes the tunnel itself and the bridge relaunches
       the daemon with `--tun=android-vpn` on the inherited fd, with a no-op router and netstack
@@ -71,7 +107,7 @@ State as of 2026-09-20, after 4.3.0.
       debt; the fd swap, `CallbackRouter` and `SCM_RIGHTS` that
       [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues for stay that document's ambition, kept
       for the record and not wanted here.
-- [ ] **tsnet — an idea for 5.0.** The daemon moved inside the app process. Incompatible with
+- [ ] **tsnet — an idea, not taken into 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
 - [x] **One binary instead of two (2026-10-12).** Option (e) of the old "separate CLI binary"
       item: `libtailscale.so` is built with upstream's `ts_include_cli` tag and is the CLI as
@@ -114,6 +150,23 @@ State as of 2026-09-20, after 4.3.0.
 
 ### Verify on devices
 
+- [ ] **5.0.0 — what only real devices can tell.** Built and walked on emulators in a private
+      test tailnet and on the author's phone and WSA; not yet seen:
+  1. A television with ARM hardware: first start with the remote, the dashboard, a file
+     picked and sent, a share opened, the focus ring on a real panel's overscan.
+  2. Sign-in by QR to completion on a television, and a key sent from a phone — once on the
+     same Wi-Fi, once with the phone on mobile data (the relay path).
+  3. Remote management as a **guest**: a device of another user in the same tailnet, or a
+     shared-in node. Pairing from another tailnet is impossible by design.
+  4. Pairing with a managed device in Root Mode (the endpoint answers there; the pairing
+     itself was not run).
+  5. A share's video in a real player. MT Manager's player said "Unexpected runtime error" on
+     the first open and then played and seeked; the provider was hardened after that report —
+     try VLC and a large file with its index at the end.
+  6. Android 7 (API 24–25): a share's media goes by the http link there; not run on a device.
+  7. Taildrive's "the policy does not allow it" texts on a tailnet that really refuses.
+  8. The notice a managed device shows inside the app when a paired device acts — on a
+     television, from across the room.
 - [ ] **Netmap cache (1.104).** Whether the coordination server grants `cache-network-maps` to
       our nodes — masked (OS `linux`) and honest (OS `android`) — is not known: Settings →
       Censorship bypass says it on the device. Upstream ships the feature on by default for
