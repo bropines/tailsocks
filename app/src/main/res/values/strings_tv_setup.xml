@@ -9,7 +9,7 @@
     <string name="tvkey_title">Key from a phone</string>
     <string name="tvkey_scan_line">Scan this code with TailSocks on your phone</string>
     <string name="tvkey_scan_help">The scanner is in the top bar of the app\'s main screen. The phone and the TV must be on the same Wi-Fi or wired network; a VPN on the phone can get in the way. The phone asks for an auth key and sends it here encrypted. Nothing is used until you confirm it on this screen.</string>
-    <string name="tvkey_this_tv">On the phone this TV appears as %1$s · %2$s</string>
+    <string name="tvkey_this_tv">On the phone this TV is %1$s · %2$s</string>
     <string name="tvkey_waiting">Waiting for the phone · %1$s left</string>
     <plurals name="tvkey_refused">
         <item quantity="one">%d request that was not a key was turned away</item>
