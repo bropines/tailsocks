@@ -31,6 +31,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Taildrive: a shared file with a plus sign in its name opens.
 - "Auto-start on Boot" now starts the app after a reboot; only "Keep the connection awake" did before.
 - Taildrive: shared files stay readable after a switch between proxy and TUN mode.
+- TUN mode: the notification no longer stays on "Stopping…" after a stop from the app ([#14](https://github.com/bropines/tailsocks/issues/14)).
 
 ## [4.10.1] - 2026-10-12
 
