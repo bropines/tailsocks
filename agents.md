@@ -143,6 +143,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   - Always record new changes under a bumped version header (`## [X.Y.Z] - YYYY-MM-DD`). Do not append changes to an already released or tagged version header.
   - **One terse line per change.** An entry names *what* changed in one sentence of about twenty words at most, under Added / Changed / Fixed / Security. The *why*, the mechanism and the measurements belong in the commit message body — that is where a reader who wants them goes. CI copies the tagged section into the GitHub release notes verbatim, so a long entry is a long release page. Calibrate against the `[4.1.1]` section; the `[4.0.0]` and `[4.1.0]` sections are the style to avoid.
   - Facts only: no discarded experiments, no marketing, no internal names (classes, file paths, constants, resource ids, API payloads).
+  - **Two files.** [`CHANGELOG_RU.md`](CHANGELOG_RU.md) is the Russian twin of the recent sections, the text the "What's new" dialog shows in a Russian interface (a version it lacks falls back to English): extend both files together, in the same commit, with the same groups and as many bullets; `ChangelogTest` fails when the newest section or `[Unreleased]` has no counterpart.
 
 ---
 

@@ -305,10 +305,12 @@ ksp {
 // not touched by resource shrinking, so R8/shrinkResources cannot drop it.
 val changelogAssetsDir = layout.buildDirectory.dir("generated/changelog/assets")
 // Sync, not Copy: if CHANGELOG.md is ever renamed, a stale copy must not keep shipping.
+// The Russian twin goes with it: the "What's new" dialog reads it in a Russian interface.
 val copyChangelogAsset by tasks.registering(Sync::class) {
     group = "build"
-    description = "Copies ../CHANGELOG.md into the generated assets directory"
+    description = "Copies ../CHANGELOG.md and ../CHANGELOG_RU.md into the generated assets directory"
     from(layout.projectDirectory.file("../CHANGELOG.md"))
+    from(layout.projectDirectory.file("../CHANGELOG_RU.md"))
     into(changelogAssetsDir)
 }
 android.sourceSets["main"].assets.srcDir(changelogAssetsDir)

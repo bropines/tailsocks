@@ -2,11 +2,7 @@ package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 
 import io.github.bropines.tailscaled.core.Changelog
-import io.github.bropines.tailscaled.core.Feature
-import io.github.bropines.tailscaled.core.tryStartActivity
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -25,11 +21,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * "What's new" dialog showing the newest section of the bundled CHANGELOG.md.
+ * "What's new" dialog showing the newest section of the bundled CHANGELOG.md, in Russian from
+ * CHANGELOG_RU.md when the app is (and the file has that version).
  *
  * Shown automatically once per app version from MainActivity, and on demand
  * from the About dialog. [onDismiss] is invoked for Close, the outside tap and
- * the "Full changelog" button; the caller records the version as seen there.
+ * the "Full changelog" button, where that opens a browser (where none does the button shows
+ * the address and the dialog stays); the caller records the version as seen there.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -38,15 +36,18 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
     var section by remember { mutableStateOf<Changelog.Section?>(null) }
     var loaded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        section = withContext(Dispatchers.IO) { Changelog.latest(context) }
+    val configuration = LocalConfiguration.current
+    // The app's language, which the activity's configuration carries (see wrapContextWithLocale).
+    val language = configuration.locales[0].language
+    LaunchedEffect(language) {
+        section = withContext(Dispatchers.IO) { Changelog.latest(context, language) }
         loaded = true
     }
 
-    val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.6f).dp
-    // A television has no browser as often as not: then there is no link to the full list.
-    val browser = Feature.BROWSER.offered()
+    // A television has no browser as often as not: then the full list is an address and a QR code.
+    val links = rememberLinkOpener()
+    val fullChangelog = context.getString(R.string.whats_new_full_changelog)
     val scroll = rememberScrollState()
     val focusSpent = remember { mutableStateOf(false) }
 
@@ -94,18 +95,11 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            if (browser) {
-                TextButton(onClick = {
-                    context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Changelog.FULL_CHANGELOG_URL)))
-                    onDismiss()
-                }) { Text(context.getString(R.string.whats_new_full_changelog)) }
-            } else {
-                TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) }
-            }
+            TextButton(onClick = {
+                if (links.open(Changelog.FULL_CHANGELOG_URL, fullChangelog)) onDismiss()
+            }) { Text(fullChangelog) }
         },
-        dismissButton = if (browser) {
-            { TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) } }
-        } else null
+        dismissButton = { TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) } }
     )
 }
 
