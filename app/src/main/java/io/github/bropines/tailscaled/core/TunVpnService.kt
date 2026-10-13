@@ -793,7 +793,15 @@ class TunVpnService : VpnService() {
         }
         tunFd = null
 
-        stopForeground(STOP_FOREGROUND_DETACH)
+        // One card, two services (see onStartCommand). While the core keeps
+        // running the card is the main service's, so this one only lets go of
+        // it. When the whole connection is going down the main service may
+        // already have left the foreground: Android keeps a card that another
+        // service of the app still holds, and letting go of it then left
+        // "Stopping…" on screen for good, over a stopped app. Whichever of the
+        // two leaves last takes the card with it.
+        val coreStays = nativeStartFollows || ProxyState.isUserLetRunning(this)
+        stopForeground(if (coreStays) STOP_FOREGROUND_DETACH else STOP_FOREGROUND_REMOVE)
         Log.i(TAG, "TUN service stop sequence completed")
     }
 
