@@ -12,6 +12,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - A built-in file and folder browser for devices without a system file picker.
 - Taildrop on a TV: files are picked in the app, saved to Download/Taildrop, and an arrival is announced on screen.
 - Taildrive: browse other devices' shares and open their files in a player; on a TV shares are added with the built-in browser and the proxy address shows as a QR code.
+- Settings search: finds any setting in English or Russian, forgives typos, the wrong keyboard layout and transliteration, and opens the page on its row; links `tailsocks://settings/<section>/<row>` and `tailsocks://settings?q=…`.
 - Settings → Appearance → Interface switches the TV interface by hand; on a TV rarely used pages live under Settings → Advanced.
 - Experimental: manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; off by default, proxy mode only.
 
