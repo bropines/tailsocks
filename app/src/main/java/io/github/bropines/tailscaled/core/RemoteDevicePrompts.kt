@@ -20,6 +20,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.ui.PermissionsActivity
+import io.github.bropines.tailscaled.ui.remoteNoticeWhat
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -265,7 +266,8 @@ object RemoteDevicePrompts {
 
     /**
      * Says, while one of the app's screens is up, that [from] changed something: [op] and
-     * [detail] are the line of the "recent remote changes" log (RemoteActionsJSON).
+     * [detail] are the line of the "recent remote changes" log (RemoteActionsJSON), said in
+     * the words the managed page's log says it in (ui/RemoteNoticeWords.kt).
      */
     fun notice(context: Context, from: String, op: String, detail: String) {
         val app = context.applicationContext
@@ -276,8 +278,10 @@ object RemoteDevicePrompts {
             if (RemotePromptRules.noticeDropped(noticeAt, now)) return
             noticeAt = now
         }
-        val word = RemotePromptRules.opWord(op)?.let { inAppLanguage(app).getString(it) } ?: op
-        toast(app, RemotePromptRules.noticeText(from, word, detail), Toast.LENGTH_SHORT, replacesNotice = true)
+        val res = inAppLanguage(app)
+        val word = RemotePromptRules.opWord(op)?.let { res.getString(it) } ?: op
+        val what = runCatching { remoteNoticeWhat(op, detail) { res.getString(it) } }.getOrDefault(detail)
+        toast(app, RemotePromptRules.noticeText(from, word, what), Toast.LENGTH_SHORT, replacesNotice = true)
     }
 
     /** The asking device by name; the bridge always has one, and a line with a hole in it would say nothing. */
