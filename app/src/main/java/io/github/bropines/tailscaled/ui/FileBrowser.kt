@@ -406,7 +406,8 @@ private fun modeTitle(mode: FileBrowserMode): Int = when (mode) {
     is FileBrowserMode.Folder -> R.string.file_browser_title_folder
 }
 
-// Keys of the rows that are not files or places; the real ones are paths.
+// Keys of the rows that are not files or places; the real ones are paths. NOTICE_KEY is the
+// notice that stands in a folder's place, whose button is where the remote starts there.
 private const val UP_KEY = "\u0000up"
 private const val BANNER_KEY = "\u0000banner"
 private const val NOTICE_KEY = "\u0000notice"
