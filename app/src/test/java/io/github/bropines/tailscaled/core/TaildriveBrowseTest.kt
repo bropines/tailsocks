@@ -127,6 +127,20 @@ class TaildriveBrowseTest {
         assertFalse(open.url.contains("@"))
     }
 
+    /** The provider's own `drive_path:<account>:<path>` ids, with plain names: it escapes them itself. */
+    @Test
+    fun aFileIsAlsoADocumentOfTheAppsOwnProvider() {
+        val file = DriveLocation(listOf(tn, "nas", "Movies", "Tom & Jerry #1.mkv"))
+        assertEquals("drive_path:acc1:/$tn/nas/Movies/Tom & Jerry #1.mkv", DriveOpenSpec.documentIdOf("acc1", file))
+        val proxy = DriveProxy.of(true, "127.0.0.1", "33445", true, "tailsocks", "hunter22")
+        val spec = DriveOpenSpec.of(proxy, file, accountId = "acc1")
+        assertEquals(DriveOpenSpec.documentIdOf("acc1", file), spec.documentId)
+        // The document carries neither the proxy's login nor its address: that is the point of the road.
+        assertFalse(spec.documentId!!.contains("hunter22"))
+        assertFalse(spec.documentId!!.contains("127.0.0.1"))
+        assertNull(DriveOpenSpec.of(proxy, file).documentId)
+    }
+
     @Test
     fun aFileIsAskedForByItsTypeAndThenItsFamily() {
         fun types(name: String) = DriveOpenSpec.of(
@@ -432,7 +446,7 @@ class TaildriveBrowseTest {
         assertEquals(DriveResult.Err(DriveError.Unreachable), TaildriveBrowse { throw WebDavHttpException("PROPFIND", 502, "") }.list(shareLocation))
     }
 
-    // --- What stops a listing, and what stops an open -----------------------------------------------
+    // --- What stops a listing -----------------------------------------------------------------------
 
     private val allowed = TaildriveAccess.Verdict.ALLOWED
     private val denied = TaildriveAccess.Verdict.DENIED
@@ -454,19 +468,6 @@ class TaildriveBrowseTest {
         assertNull(TaildriveBrowse.listingBlock(running = true, access = allowed))
         // Not known — no map yet, or a bridge without the call — is not "refused": the listing says what it meets.
         assertNull(TaildriveBrowse.listingBlock(running = true, access = unknown))
-    }
-
-    @Test
-    fun theProxyIsAskedAboutOnlyWhenNothingBeforeItStops() {
-        var asked = 0
-        val listening = { asked++; true }
-        assertEquals(DriveError.ProxyOff, TaildriveBrowse.openingBlock(true, allowed, proxyEnabled = false, listening = listening))
-        assertEquals(DriveError.NotPermitted, TaildriveBrowse.openingBlock(true, denied, proxyEnabled = true, listening = listening))
-        assertEquals(DriveError.NotConnected, TaildriveBrowse.openingBlock(false, allowed, proxyEnabled = true, listening = listening))
-        assertEquals(0, asked)
-        assertNull(TaildriveBrowse.openingBlock(true, allowed, proxyEnabled = true, listening = listening))
-        assertEquals(1, asked)
-        assertEquals(DriveError.ProxyNotListening, TaildriveBrowse.openingBlock(true, allowed, proxyEnabled = true, listening = { false }))
     }
 
     @Test

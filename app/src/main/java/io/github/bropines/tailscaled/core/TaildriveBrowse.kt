@@ -1,6 +1,8 @@
 package io.github.bropines.tailscaled.core
 
+import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -8,7 +10,9 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.util.Log
+import io.github.bropines.tailscaled.BuildConfig
 import io.github.bropines.tailscaled.ui.theme.findActivity
 import java.io.IOException
 import java.net.ConnectException
@@ -453,6 +457,16 @@ class DriveProxy(val enabled: Boolean, val host: String, val port: Int, val auth
         fun read(context: Context, accountId: String): DriveProxy =
             read(context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE))
 
+        /** The profile preference that says the share browser opens files through the link before the document road. */
+        const val KEY_OPEN_VIA_LINK = "taildrive_open_via_link"
+
+        fun openViaLink(context: Context, accountId: String): Boolean =
+            context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE).getBoolean(KEY_OPEN_VIA_LINK, false)
+
+        fun setOpenViaLink(context: Context, accountId: String, on: Boolean) {
+            context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE).edit().putBoolean(KEY_OPEN_VIA_LINK, on).apply()
+        }
+
         /** The address to connect to a listener bound to [bind]: a wildcard is reached over loopback. */
         internal fun connectHost(bind: String): String {
             val host = bind.trim().removePrefix("[").removeSuffix("]")
@@ -495,9 +509,10 @@ internal fun encodedPath(location: DriveLocation): String =
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Everything needed to open one file in another app. [url] carries the proxy's login when the
- * proxy has one, so it is internal and absent from [toString]; [deviceUrl] and [tailnetUrl] are
- * the same file without a login, for showing.
+ * Everything needed to open one file in another app, by either of the two roads of
+ * [TaildriveOpenPlan]: the file as a document of the app's own provider, and the link on the local
+ * proxy. [url] carries the proxy's login when the proxy has one, so it is internal and absent from
+ * [toString]; [deviceUrl] and [tailnetUrl] are the same file without a login, for showing.
  */
 class DriveOpenSpec internal constructor(
     val name: String,
@@ -508,6 +523,10 @@ class DriveOpenSpec internal constructor(
     val deviceUrl: String,
     /** The file at Taildrive's own address, which every Tailscale client with Taildrive access answers. */
     val tailnetUrl: String,
+    /** The file as a document of the app's provider (`drive_path:<account>:<path>`); null where there is no document road. */
+    internal val documentId: String? = null,
+    /** Whether the local proxy is on and answering: the link road exists only then. */
+    val linkReady: Boolean = true,
 ) {
     /**
      * The types to ask for, in order: the file's own, then its family (the video wildcard for a video). A typed
@@ -516,81 +535,101 @@ class DriveOpenSpec internal constructor(
      */
     internal fun types(): List<String> = listOfNotNull(mime, DriveMime.family(mime)).distinct()
 
+    /** Whether this is a file to play or look at: the kind a browser is no taker of. */
+    private val isMedia: Boolean get() = TaildriveOpenPlan.isMedia(DriveMime.of(name).kind)
+
     /**
-     * The `ACTION_VIEW` intents, one per type of [types]. `title` is the extra VLC, MX Player
-     * and Just Player read; `headers` is MX Player's way to send `Authorization`, for the
-     * players that do not take a login from the URL.
+     * The `ACTION_VIEW` intents of the link road, one per type of [types]. `title` is the extra
+     * VLC, MX Player and Just Player read; `headers` is MX Player's way to send `Authorization`, for
+     * the players that do not take a login from the URL.
      */
-    fun intents(): List<Intent> = types().map { type ->
-        Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), type).apply {
+    fun intents(): List<Intent> = types().map(::linkIntent)
+
+    private fun linkIntent(type: String): Intent = Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(url), type).apply {
+        putExtra("title", name)
+        authorization?.let { putExtra("headers", arrayOf("Authorization", it)) }
+    }
+
+    /**
+     * The document road's intent: the provider's `content://` URI, which the app grants the player to
+     * read (the provider is ours, so the grant is ours to give) — no login in it, no address.
+     */
+    private fun documentIntent(type: String): Intent? {
+        val id = documentId ?: return null
+        val uri = DocumentsContract.buildDocumentUri(DOCUMENTS_AUTHORITY, id)
+        return Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newRawUri(name, uri)
             putExtra("title", name)
-            authorization?.let { putExtra("headers", arrayOf("Authorization", it)) }
         }
     }
 
-    /** Whether any installed app declares it handles this file; a television's placeholder does not count. */
-    fun canHandle(context: Context): Boolean = intents().any { handlers(context, it).any { app -> !app.placeholder } }
+    private fun intentOf(road: OpenRoad, type: String): Intent? = if (road == OpenRoad.CONTENT) documentIntent(type) else linkIntent(type)
 
     /**
-     * Starts the first intent something answers to. From an Activity — [context] may wrap one —
-     * the player joins this task, so Back returns to the page.
+     * Hands the file to an app, never silently to a browser. Asks the system what takes each road
+     * (and each type: the file's own, then its family), lets [TaildriveOpenPlan] decide, and starts
+     * the one real player by name, or a chooser that offers the real players and nobody else. A
+     * media file only a browser takes comes back as [DriveLaunch.OnlyBrowser], for the page to put to
+     * the person. Asked afresh every time: an app may have been installed meanwhile. From an Activity
+     * — [context] may wrap one — the player joins this task, so Back returns to the page.
      *
      * A television answers what no app takes with a placeholder — Android TV's media stub shows a
-     * toast and finishes — and for a type that a player lists exactly the stub can outrank it, so
-     * handing the intent to the system would "start" and show a toast. Where a placeholder is in
-     * the way, the intent goes to the one real app by name, or to a chooser that leaves the
-     * placeholders out; where none is, the system decides as it always did.
+     * toast and finishes — and it is nobody here.
      */
-    fun launch(context: Context): DriveLaunch {
-        val host = context.findActivity()
-        for (intent in intents()) {
-            val found = handlers(context, intent)
-            val apps = found.filter { !it.placeholder }
-            // Something answers, and it is nothing but placeholders: this type has no app; the family may.
-            if (found.isNotEmpty() && apps.isEmpty()) continue
-            val stubs = found.filter { it.placeholder }
-            val start = when {
-                stubs.isEmpty() -> intent
-                apps.size == 1 -> Intent(intent).setComponent(apps[0].component)
-                else -> Intent.createChooser(intent, name)
-                    .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, stubs.map { it.component }.toTypedArray())
-            }
-            if (host == null) start.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            try {
-                (host ?: context).startActivity(start)
-                return DriveLaunch.Started
-            } catch (_: ActivityNotFoundException) {
-                // Nothing takes this type; the family may be taken.
-            } catch (e: SecurityException) {
-                return DriveLaunch.Failed(e.javaClass.simpleName)
+    fun launch(context: Context, preferLink: Boolean = false): DriveLaunch {
+        val browsers = browserPackages(context)
+        val resolutions = types().flatMap { type ->
+            OpenRoad.entries.filter { it == OpenRoad.CONTENT || linkReady }.mapNotNull { road ->
+                intentOf(road, type)?.let { RoadResolution(road, type, TaildriveOpenPlan.takers(answers(context, it), browsers)) }
             }
         }
-        return DriveLaunch.NoApp
+        return when (val plan = TaildriveOpenPlan.plan(Build.VERSION.SDK_INT, isMedia, resolutions, preferLink)) {
+            is OpenPlan.Start -> start(context, intentOf(plan.road, plan.type) ?: return DriveLaunch.NoApp, plan.apps)
+            is OpenPlan.OnlyBrowser -> DriveLaunch.OnlyBrowser { openInBrowser(context) }
+            OpenPlan.NoApp -> DriveLaunch.NoApp
+        }
     }
 
-    /** An activity that takes the intent, and whether it is only a television's placeholder. */
-    private class Handler(val component: ComponentName, val placeholder: Boolean)
+    private fun start(context: Context, intent: Intent, apps: List<AppRef>): DriveLaunch {
+        val host = context.findActivity()
+        val only = apps.singleOrNull()
+        val start = if (only != null) Intent(intent).setComponent(ComponentName(only.pkg, only.cls)) else {
+            // Everything that answered and is not one of the players stays out of the chooser: browsers, placeholders.
+            val excluded = answers(context, intent).filter { it !in apps }.map { ComponentName(it.pkg, it.cls) }
+            Intent.createChooser(intent, name).putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, excluded.toTypedArray())
+        }
+        return launched(context, host, start)
+    }
 
-    private fun handlers(context: Context, intent: Intent): List<Handler> {
-        val pm = context.packageManager
-        val found = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
-            } else {
-                @Suppress("DEPRECATION")
-                pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            }
-        }.getOrDefault(emptyList())
-        return found.mapNotNull { it.activityInfo }.map {
-            Handler(ComponentName(it.packageName, it.name), isPlaceholderActivity(it.packageName, it.name))
+    /** The link as a page in a browser, which the person asked for in so many words. */
+    private fun openInBrowser(context: Context): DriveLaunch =
+        launched(context, context.findActivity(), Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE))
+
+    private fun launched(context: Context, host: Activity?, intent: Intent): DriveLaunch {
+        if (host == null) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            (host ?: context).startActivity(intent)
+            DriveLaunch.Started
+        } catch (_: ActivityNotFoundException) {
+            DriveLaunch.NoApp
+        } catch (e: SecurityException) {
+            DriveLaunch.Failed(e.javaClass.simpleName)
         }
     }
 
     override fun toString(): String = "DriveOpenSpec(name=$name, mime=$mime)"
 
     companion object {
-        /** The spec for the file at [file], through [proxy]. */
-        fun of(proxy: DriveProxy, file: DriveLocation): DriveOpenSpec {
+        /** The authority of the app's DocumentsProvider, as the manifest declares it (`${applicationId}.documents`). */
+        internal const val DOCUMENTS_AUTHORITY = BuildConfig.APPLICATION_ID + ".documents"
+
+        /**
+         * The spec for the file at [file], through [proxy]. [accountId] names the profile the
+         * document road reads as; without it there is no document road. [linkReady] is whether the
+         * proxy answers right now.
+         */
+        fun of(proxy: DriveProxy, file: DriveLocation, accountId: String? = null, linkReady: Boolean = true): DriveOpenSpec {
             val name = file.name.orEmpty()
             val auth = proxy.auth
             return DriveOpenSpec(
@@ -599,8 +638,33 @@ class DriveOpenSpec internal constructor(
                 url = proxy.urlFor(file, withCredentials = true),
                 authorization = auth?.let { "Basic " + Base64.encode("${it.user}:${it.password}".toByteArray(Charsets.UTF_8)) },
                 deviceUrl = proxy.urlFor(file),
-                tailnetUrl = TAILNET_BASE + encodedPath(file)
+                tailnetUrl = TAILNET_BASE + encodedPath(file),
+                documentId = accountId?.let { documentIdOf(it, file) },
+                linkReady = linkReady
             )
+        }
+
+        /** The provider's id for [file] of profile [accountId]: what its `drive_path:` documents are called. */
+        fun documentIdOf(accountId: String, file: DriveLocation): String = "drive_path:$accountId:${file.davPath}"
+
+        /** The apps whose package also answers a plain link to a web page: what a browser is. */
+        private fun browserPackages(context: Context): Set<String> =
+            answersTo(context, Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")).addCategory(Intent.CATEGORY_BROWSABLE), PackageManager.MATCH_ALL)
+                .map { it.pkg }.toSet()
+
+        private fun answers(context: Context, intent: Intent): List<AppRef> = answersTo(context, intent, PackageManager.MATCH_DEFAULT_ONLY)
+
+        private fun answersTo(context: Context, intent: Intent, flags: Int): List<AppRef> {
+            val pm = context.packageManager
+            val found = runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(flags.toLong()))
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.queryIntentActivities(intent, flags)
+                }
+            }.getOrDefault(emptyList())
+            return found.mapNotNull { it.activityInfo }.map { AppRef(it.packageName, it.name) }
         }
     }
 }
@@ -611,6 +675,12 @@ sealed interface DriveLaunch {
 
     /** No installed app takes the file. */
     data object NoApp : DriveLaunch
+
+    /**
+     * Nothing here plays this kind of file from a link, only a web browser takes it; [openAnyway]
+     * hands it to the browser, once the person has said so.
+     */
+    class OnlyBrowser(val openAnyway: () -> DriveLaunch) : DriveLaunch
 
     data class Failed(val detail: String) : DriveLaunch
 }
@@ -679,22 +749,6 @@ class TaildriveBrowse(private val lister: DriveLister) {
             else -> null
         }
 
-        /**
-         * [listingBlock], then — for opening a file through the local proxy — the proxy switch and
-         * the proxy itself, in the order a person would fix them. [listening] is asked only when
-         * everything before it passed.
-         */
-        fun openingBlock(
-            running: Boolean,
-            access: TaildriveAccess.Verdict,
-            proxyEnabled: Boolean,
-            listening: () -> Boolean,
-        ): DriveError? = listingBlock(running, access) ?: when {
-            !proxyEnabled -> DriveError.ProxyOff
-            !listening() -> DriveError.ProxyNotListening
-            else -> null
-        }
-
         /** [listingBlock] for the daemon as it is now. Blocking: a LocalAPI round trip. */
         fun listingBlock(context: Context): DriveError? {
             val running = ProxyState.isActualRunning(context)
@@ -702,21 +756,17 @@ class TaildriveBrowse(private val lister: DriveLister) {
         }
 
         /**
-         * Whether files can be opened and listed right now: null when yes, otherwise what to
-         * tell the user, in the order they would fix it — the daemon, the policy, then the proxy
-         * switch, then the proxy itself. Blocking: it asks the daemon and connects to the proxy's port.
+         * What to hand to another app for the file at [file]; reads the proxy settings afresh.
+         * Blocking. The document road needs no proxy, and the link road exists while the proxy
+         * answers; when the person asked for the link ([preferLink]) a proxy that is off or not
+         * answering is the reason there is nothing to open, and says so.
          */
-        fun preflight(context: Context, accountId: String): DriveError? {
+        fun prepareOpen(context: Context, accountId: String, file: DriveLocation, preferLink: Boolean = false): DriveResult<DriveOpenSpec> {
             val proxy = DriveProxy.read(context, accountId)
-            return listingBlock(context) ?: openingBlock(true, TaildriveAccess.Verdict.ALLOWED, proxy.enabled, proxy::isListening)
-        }
-
-        /** What to hand to another app for the file at [file]; reads the proxy settings afresh and checks it answers. Blocking. */
-        fun prepareOpen(context: Context, accountId: String, file: DriveLocation): DriveResult<DriveOpenSpec> {
-            val proxy = DriveProxy.read(context, accountId)
-            if (!proxy.enabled) return DriveResult.Err(DriveError.ProxyOff)
-            if (!proxy.isListening()) return DriveResult.Err(DriveError.ProxyNotListening)
-            return DriveResult.Ok(DriveOpenSpec.of(proxy, file))
+            if (preferLink && !proxy.enabled) return DriveResult.Err(DriveError.ProxyOff)
+            val answering = proxy.enabled && proxy.isListening()
+            if (preferLink && !answering) return DriveResult.Err(DriveError.ProxyNotListening)
+            return DriveResult.Ok(DriveOpenSpec.of(proxy, file, accountId, linkReady = answering))
         }
 
         /**
