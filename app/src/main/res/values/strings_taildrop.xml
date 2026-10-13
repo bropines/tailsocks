@@ -55,7 +55,7 @@
     <string name="taildrop_details_file">File</string>
     <string name="taildrop_details_device">Device</string>
     <string name="taildrop_details_transfer">Transfer</string>
-    <string name="taildrop_details_on_phone">On this phone</string>
+    <string name="taildrop_details_on_phone">On this device</string>
     <string name="taildrop_details_size">Size</string>
     <string name="taildrop_details_type">Type</string>
     <string name="taildrop_details_sha256" translatable="false">SHA-256</string>

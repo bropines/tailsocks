@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -198,7 +197,7 @@ fun TailnetLockScreen(activity: FragmentActivity?, onBack: () -> Unit) {
         )
         val strSign = stringResource(R.string.tka_sign)
         val strCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { confirm = null },
             icon = { Icon(Icons.Default.Verified, contentDescription = null) },
             title = { Text(title) },
@@ -320,7 +319,7 @@ private fun LockStateCard(st: TailnetLockStatus) {
             }
             if (!st.enabled) {
                 Spacer(Modifier.size(8.dp))
-                HelpText(stringResource(R.string.tka_state_off_help))
+                HelpText(stringResource(if (isTv) R.string.tka_state_off_help_tv else R.string.tka_state_off_help))
             }
         }
     }

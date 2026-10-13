@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Words a television is told instead of a phone's, where the phone's are worth keeping on a phone
+  (chosen at run time by isTv): a battery and a charger, a phone as the device in hand.
+-->
+<resources>
+    <string name="client_prefs_relay_desc_tv">Relay traffic over UDP between tailnet devices that cannot reach each other directly, instead of a DERP server.\n• Costs data: other devices\' connections pass through this device.\n• Used only where the tailnet\'s access policy grants relay use to this device (tailscale.com/cap/relay); the visual policy editor in the admin console can add that grant.\n• Behind carrier NAT other devices can rarely reach this one; a fixed port forwarded on the router helps.\n• The official Tailscale app for Android cannot do this; TailSocks runs its own daemon, which can. The coordination server can still turn it off for this device — this row then says so.</string>
+    <string name="client_prefs_connector_desc_tv">Send the traffic the tailnet routes through app connectors (SaaS apps, sites that admit only known addresses) out through this device\'s internet connection.\n• Needs a tag on this device and an app connector for that tag in the admin console (Apps), with access rules that allow it.\n• Costs data: that traffic goes out through this device.</string>
+    <string name="tka_state_off_help_tv">Nothing is checked: the coordination server alone decides who joins. It is turned on from a trusted device with “tailscale lock init”.</string>
+</resources>

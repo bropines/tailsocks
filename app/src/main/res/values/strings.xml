@@ -224,7 +224,7 @@
     <string name="peer_taildrop_ok">Can receive files</string>
     <string name="peer_taildrop_blocked">Can\'t receive files</string>
     <string name="peer_taildrop_no_netmap">No network map yet</string>
-    <string name="peer_taildrop_not_running">Tailscale isn\'t running on this phone</string>
+    <string name="peer_taildrop_not_running">Tailscale isn\'t running on this device</string>
     <string name="peer_taildrop_missing_cap">Taildrop is turned off for this tailnet: your device lacks the file-sharing capability</string>
     <string name="peer_taildrop_offline">The device is offline</string>
     <string name="peer_taildrop_no_peer_info">No information about this device yet</string>
@@ -1027,12 +1027,12 @@
     <string name="settings_root_vpn_bypass_title">Ignore other VPNs</string>
     <string name="settings_root_vpn_bypass_desc">The daemon marks its own connections the way a VPN app protects its own, so another VPN client cannot swallow them.\n• Turn off only to run this tunnel inside that other client.</string>
     <string name="tun_excluded_apps_count">Bypassing the tunnel: %1$d</string>
-    <string name="tun_excluded_apps_not_installed">Not installed on this phone</string>
+    <string name="tun_excluded_apps_not_installed">Not installed on this device</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Take the device anyway</string>
-    <string name="settings_root_take_device_desc">Take the default route and DNS back from another VPN that holds this phone.\n• Off: TailSocks leaves them to that VPN and takes only the apps it keeps outside its tunnel.\n• On: everything comes to TailSocks; that VPN\'s apps lose their tunnel.</string>
+    <string name="settings_root_take_device_desc">Take the default route and DNS back from another VPN that holds this device.\n• Off: TailSocks leaves them to that VPN and takes only the apps it keeps outside its tunnel.\n• On: everything comes to TailSocks; that VPN\'s apps lose their tunnel.</string>
     <string name="settings_root_take_device_dialog_title">Take the device from the other VPN?</string>
-    <string name="settings_root_take_device_dialog_body">Another VPN is holding this phone\'s default route and DNS. Taking them back sends every app\'s traffic and every name lookup through TailSocks, so the apps that VPN protects lose their tunnel and its filtering stops — and it is never told. Turn this off to give the device back.</string>
+    <string name="settings_root_take_device_dialog_body">Another VPN is holding this device\'s default route and DNS. Taking them back sends every app\'s traffic and every name lookup through TailSocks, so the apps that VPN protects lose their tunnel and its filtering stops — and it is never told. Turn this off to give the device back.</string>
     <string name="settings_root_take_device_confirm">Take the device</string>
     <string name="settings_root_yielded_banner">Another VPN holds this device.\n• Only tailnet addresses and MagicDNS names are routed.\n• Exit nodes and system-wide DNS are off until it stops.</string>
     <string name="main_root_yielded_title">Tailnet only</string>
@@ -1074,7 +1074,7 @@
         <item>No, it is not a VPN. It is the same argument you had last week.</item>
         <item>A tailnet is a group chat where the members are computers and nobody types.</item>
         <item>MagicDNS is not magic. Nobody has been brave enough to say so out loud.</item>
-        <item>Your phone is a node. It has been one for a while now. Congratulations.</item>
+        <item>Your device is a node. It has been one for a while now. Congratulations.</item>
         <item>This card has been pressed. Nothing else happened, which is the point of it.</item>
         <item>Held down long enough to read this, which means the connection is not the thing keeping you here.</item>
         <item>Somewhere between here and the exit node there are eleven hops, four of them belonging to companies you have never heard of, and every one of them is having a worse day than you.</item>
@@ -1122,8 +1122,8 @@
         <item>If the service died after an update, that was not the update. That was the manufacturer.</item>
         <item>Battery optimisation is on, the service is dead, and the issue says "app closes itself".</item>
         <item>The About screen draws a hedgehog in fog. Nobody asked for it. Nobody regrets it.</item>
-        <item>Four counters, zero of them leaving the phone. The most honest telemetry in the business.</item>
-        <item>Between the tap and the packet there are eleven of our own checks, and the packet still makes it first.</item>
+        <item>Four counters, zero of them leaving the device. The most honest telemetry in the business.</item>
+        <item>Between the press and the packet there are eleven of our own checks, and the packet still makes it first.</item>
         <item>Read this far? The line is over. The tunnel is not.</item>
     </string-array>
     <!-- Counting lines: %1$d is a tally kept on the device and nowhere else. -->

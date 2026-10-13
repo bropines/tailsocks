@@ -50,7 +50,7 @@
     <string name="taildrop_details_file">Файл</string>
     <string name="taildrop_details_device">Устройство</string>
     <string name="taildrop_details_transfer">Передача</string>
-    <string name="taildrop_details_on_phone">На этом телефоне</string>
+    <string name="taildrop_details_on_phone">На этом устройстве</string>
     <string name="taildrop_details_size">Размер</string>
     <string name="taildrop_details_type">Тип</string>
     <string name="taildrop_details_name">Имя</string>

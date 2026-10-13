@@ -286,7 +286,9 @@ fun NodeServiceRows(state: NodeSwitchesState, save: (String, Any) -> Unit) {
         state.relayDisabledByControl -> stringResource(R.string.client_prefs_relay_refused_by_control)
         else -> state.relaySessions?.let { pluralStringResource(R.plurals.client_prefs_relay_sessions, it, it) }
     }
-    NodeSwitchRow(state, Field.RELAY, R.string.client_prefs_relay_title, R.string.client_prefs_relay_desc, Icons.Default.Hub, save, relayStatus)
+    // A television has no battery to spare and is nobody's phone: it is told so.
+    val relayDesc = if (isTv) R.string.client_prefs_relay_desc_tv else R.string.client_prefs_relay_desc
+    NodeSwitchRow(state, Field.RELAY, R.string.client_prefs_relay_title, relayDesc, Icons.Default.Hub, save, relayStatus)
     if (relay.enabled && state.overriddenBy(Field.RELAY) == null) {
         val invalid = stringResource(R.string.client_prefs_relay_port_invalid)
         SettingsEditItem(
@@ -300,5 +302,6 @@ fun NodeServiceRows(state: NodeSwitchesState, save: (String, Any) -> Unit) {
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-    NodeSwitchRow(state, Field.APP_CONNECTOR, R.string.client_prefs_connector_title, R.string.client_prefs_connector_desc, Icons.Default.Apps, save)
+    val connectorDesc = if (isTv) R.string.client_prefs_connector_desc_tv else R.string.client_prefs_connector_desc
+    NodeSwitchRow(state, Field.APP_CONNECTOR, R.string.client_prefs_connector_title, connectorDesc, Icons.Default.Apps, save)
 }

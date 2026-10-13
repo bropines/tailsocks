@@ -206,7 +206,7 @@
     <string name="peer_taildrop_ok">Может принимать файлы</string>
     <string name="peer_taildrop_blocked">Не может принимать файлы</string>
     <string name="peer_taildrop_no_netmap">Карта сети ещё не получена</string>
-    <string name="peer_taildrop_not_running">Tailscale на этом телефоне не запущен</string>
+    <string name="peer_taildrop_not_running">Tailscale на этом устройстве не запущен</string>
     <string name="peer_taildrop_missing_cap">Taildrop для этого tailnet отключён: у вашего устройства нет возможности file-sharing</string>
     <string name="peer_taildrop_offline">Устройство не в сети</string>
     <string name="peer_taildrop_no_peer_info">Сведений об этом устройстве пока нет</string>
@@ -969,12 +969,12 @@
     <string name="settings_root_vpn_bypass_title">Игнорировать чужие VPN</string>
     <string name="settings_root_vpn_bypass_desc">Демон помечает свои соединения так же, как VPN-приложения защищают свои, чтобы другой клиент их не перехватывал.\n• Выключайте, только если наш туннель должен идти внутри того клиента.</string>
     <string name="tun_excluded_apps_count">В обход туннеля: %1$d</string>
-    <string name="tun_excluded_apps_not_installed">Не установлено на этом телефоне</string>
+    <string name="tun_excluded_apps_not_installed">Не установлено на этом устройстве</string>
     <!-- Root Mode next to another VPN: the sticky override and what a yield looks like -->
     <string name="settings_root_take_device_title">Всё равно занять устройство</string>
-    <string name="settings_root_take_device_desc">Забрать маршрут по умолчанию и DNS у другого VPN, который держит телефон.\n• Выкл: TailSocks оставляет их тому VPN и берёт только приложения, которые тот держит вне своего туннеля.\n• Вкл: всё уходит в TailSocks, приложения того VPN остаются без туннеля.</string>
+    <string name="settings_root_take_device_desc">Забрать маршрут по умолчанию и DNS у другого VPN, который держит это устройство.\n• Выкл: TailSocks оставляет их тому VPN и берёт только приложения, которые тот держит вне своего туннеля.\n• Вкл: всё уходит в TailSocks, приложения того VPN остаются без туннеля.</string>
     <string name="settings_root_take_device_dialog_title">Забрать устройство у другого VPN?</string>
-    <string name="settings_root_take_device_dialog_body">Маршрут по умолчанию и DNS телефона сейчас держит другой VPN. Если забрать их, весь трафик и все запросы имён пойдут через TailSocks: приложения, которые тот VPN защищал, останутся без туннеля, а его фильтрация перестанет работать — и он об этом не узнает. Выключите переключатель, чтобы вернуть устройство.</string>
+    <string name="settings_root_take_device_dialog_body">Маршрут по умолчанию и DNS этого устройства сейчас держит другой VPN. Если забрать их, весь трафик и все запросы имён пойдут через TailSocks: приложения, которые тот VPN защищал, останутся без туннеля, а его фильтрация перестанет работать — и он об этом не узнает. Выключите переключатель, чтобы вернуть устройство.</string>
     <string name="settings_root_take_device_confirm">Занять устройство</string>
     <string name="settings_root_yielded_banner">Устройство держит другой VPN.\n• Маршрутизируются только адреса тейлнета и имена MagicDNS.\n• Выходной узел и системный DNS выключены, пока он работает.</string>
     <string name="main_root_yielded_title">Только тейлнет</string>
@@ -1016,7 +1016,7 @@
         <item>Нет, это не VPN. Это тот же спор, что и на прошлой неделе.</item>
         <item>Тайлнет — это беседа, где участники компьютеры и никто не печатает.</item>
         <item>MagicDNS никакая не магия. Просто вслух это сказать пока никто не решился.</item>
-        <item>Твой телефон — узел. Уже некоторое время. Поздравляю.</item>
+        <item>Твоё устройство — узел. Уже некоторое время. Поздравляю.</item>
         <item>Карточку нажали. Больше ничего не произошло, в этом и смысл.</item>
         <item>Держал достаточно долго, чтобы это прочитать, — значит, дело не в соединении.</item>
         <item>Где-то между тобой и выходным узлом одиннадцать хопов, четыре из них принадлежат конторам, о которых ты никогда не слышал, и у каждой день сегодня хуже твоего.</item>
@@ -1064,7 +1064,7 @@
         <item>Если сервис умер после обновления — это не обновление. Это производитель прошивки.</item>
         <item>Оптимизация батареи включена, сервис мёртв, в issue написано «приложение само закрывается».</item>
         <item>В About рисуется ёжик в тумане. Никто не просил. Никто не жалеет.</item>
-        <item>Четыре счётчика, и ни один не покидает телефон. Самая честная телеметрия на рынке.</item>
+        <item>Четыре счётчика, и ни один не покидает устройство. Самая честная телеметрия на рынке.</item>
         <item>Между нажатием и пакетом — одиннадцать наших собственных проверок, и пакет всё равно успевает первым.</item>
         <item>Дочитал? Строка кончилась. Туннель нет.</item>
     </string-array>

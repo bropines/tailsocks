@@ -8,7 +8,7 @@
     <string name="client_prefs_lan_desc">While an exit node carries the traffic, this network\'s own devices — a printer, a NAS, the router — are still reached directly.\n• Off: everything, the local network included, goes through the exit node.\n• Without an exit node it changes nothing.</string>
 
     <string name="client_prefs_shields_title">Block incoming connections</string>
-    <string name="client_prefs_shields_desc">Refuse every connection other tailnet devices open to this phone, whatever the access rules allow.\n• Taildrop, Taildrive, Serve, the shared proxies and this phone as an exit node or relay stop answering others.\n• Connections this phone opens itself keep working.\n• Cannot be on while Funnel is.</string>
+    <string name="client_prefs_shields_desc">Refuse every connection other tailnet devices open to this device, whatever the access rules allow.\n• Taildrop, Taildrive, Serve, the shared proxies and this device as an exit node or relay stop answering others.\n• Connections this device opens itself keep working.\n• Cannot be on while Funnel is.</string>
 
     <string name="client_prefs_posture_title">Report device posture</string>
     <string name="client_prefs_posture_desc">For organisations whose access rules check devices (posture checks).\n• When the tailnet asks, the daemon sends the device\'s serial numbers and the MAC addresses of its network interfaces.\n• On Android that is little or nothing: the serial number is given only to a device-management (MDM) app, and without root Android hides MAC addresses from apps.\n• The OS and its version are reported anyway — see “Report the real OS”.</string>
