@@ -852,7 +852,11 @@ private fun LinkMtuFinding(verdict: MtuVerdict.TooSmall) {
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        HelpText(stringResource(R.string.netcheck_mtu_help), modifier = Modifier.padding(start = 28.dp))
+        // The arrows of a television's reading pane scroll it and never land on a fold inside
+        // it, so there the explanation comes open: nothing is left to unfold with the remote.
+        val help = stringResource(R.string.netcheck_mtu_help)
+        val onTv = isTv
+        HelpText(help, modifier = Modifier.padding(start = 28.dp), expanded = remember(help) { mutableStateOf(onTv) })
     }
 }
 

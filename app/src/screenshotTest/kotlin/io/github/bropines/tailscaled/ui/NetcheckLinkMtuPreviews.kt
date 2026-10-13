@@ -35,6 +35,19 @@ fun TvNetcheckLinkMtuSmall() = AdaptiveShowcase(DemoTailnet.data.copy(netcheckJs
     CompositionLocalProvider(LocalDemoLinkMtu provides smallLink) { NetcheckScreen(onBack = {}) }
 }
 
+/**
+ * The same television on a window tall enough to hold the whole pane, which a real screen has to
+ * scroll to: the explanation is open there, because a fold inside the pane cannot be reached with
+ * the remote's arrows.
+ */
+@PreviewTest
+@Preview(name = "6-tv-tall", device = "spec:width=960dp,height=900dp,dpi=320")
+@Preview(name = "6-tv-tall-ru", device = "spec:width=960dp,height=900dp,dpi=320", locale = "ru")
+@Composable
+fun TvNetcheckLinkMtuSmallTall() = AdaptiveShowcase(DemoTailnet.data.copy(netcheckJson = DemoNetcheck.healthy), device = DeviceClass.TV) {
+    CompositionLocalProvider(LocalDemoLinkMtu provides smallLink) { NetcheckScreen(onBack = {}) }
+}
+
 /** A readable link with the report's other findings on screen: nothing is added. */
 @PreviewTest
 @Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
