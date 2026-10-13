@@ -1827,7 +1827,7 @@ fun MainScreen(
     scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
     // The device that showed the code is in front of the person who scanned it: taken for online.
     scannedPairing?.let { qr ->
-        RemoteManageSheet(peerId = qr.nodeId, name = qr.name, online = true, onDismiss = { scannedPairing = null }, code = qr.code)
+        RemoteManagePage(peerId = qr.nodeId, name = qr.name, online = true, onClose = { scannedPairing = null }, code = qr.code)
     }
 
     if (confirmStop) {

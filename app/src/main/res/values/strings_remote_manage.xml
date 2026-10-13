@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Remote management, the managing device's page (ui/RemoteManage*.kt): another device's
+  TailSocks run from this one. A file of its own; the pairing form and the problems of the
+  first version are in strings_remote.xml. "This device" is the one in hand, which may be a
+  phone, a tablet or a television: nothing here says "phone" or "tap".
+-->
+<resources>
+    <string name="rmanage_subtitle">Remote management · experimental</string>
+    <string name="rmanage_paired">Paired</string>
+    <string name="rmanage_fold_open">Show</string>
+    <string name="rmanage_fold_close">Hide</string>
+
+    <!-- Why a thing is there and does not answer: one sentence, and its two-word form for a folded card -->
+    <string name="rmanage_deny_full">Full control is off on %1$s. It is switched on at the device.</string>
+    <string name="rmanage_deny_owner">Only an owner can do this.</string>
+    <string name="rmanage_deny_full_short">Needs Full control</string>
+    <string name="rmanage_deny_owner_short">Owner only</string>
+    <string name="rmanage_guest_note">A guest can look, pick the exit node and identify the device. The rest is the owner\'s.</string>
+
+    <!-- The header -->
+    <string name="rmanage_android">Android %1$s</string>
+    <plurals name="rmanage_warnings">
+        <item quantity="one">%d warning</item>
+        <item quantity="other">%d warnings</item>
+    </plurals>
+    <string name="rmanage_level_basic">Basic</string>
+    <string name="rmanage_level_full">Full control</string>
+    <string name="rmanage_until_revoked">until revoked</string>
+    <string name="rmanage_left">%1$s left</string>
+    <string name="rmanage_identify">Identify</string>
+    <string name="rmanage_identify_help">Shows on that device\'s screen who is managing it, for a few seconds. Handy for telling two televisions apart.</string>
+    <string name="rmanage_identify_shown">It is on the screen of %1$s now.</string>
+    <string name="rmanage_identify_notified">TailSocks is not on screen there, so %1$s showed a notification.</string>
+    <string name="rmanage_identify_unseen">Nothing could be shown: TailSocks is not on screen on %1$s and its notifications are off.</string>
+
+    <!-- A change that is confirmed by itself -->
+    <string name="rmanage_guard_checking">Checking that %1$s still answers…</string>
+    <string name="rmanage_guard_applied">Applied on %1$s.</string>
+    <string name="rmanage_guard_silent">%1$s does not answer. At %3$s it will undo the change (%2$s) by itself. Still trying…</string>
+    <string name="rmanage_guard_away">%1$s did not answer in time and has undone the change (%2$s) by itself. Waiting for it to come back…</string>
+    <string name="rmanage_guard_reverted">The confirmation did not reach %1$s in time, so it undid the change. %2$s</string>
+    <string name="rmanage_guard_unclear">%1$s did not say whether it kept the change. %2$s</string>
+    <string name="rmanage_value_now">%1$s: %2$s.</string>
+    <string name="rmanage_on">on</string>
+    <string name="rmanage_off">off</string>
+
+    <!-- Problems the first version did not have -->
+    <string name="rmanage_problem_guard_pending">Another change on %1$s is still being confirmed. Try again in a moment.</string>
+    <string name="rmanage_problem_unclear">%1$s did not answer in time. The change may still be applied: what you see is what the device says now.</string>
+
+    <!-- Connection -->
+    <string name="rmanage_group_connection">Connection</string>
+    <string name="rmanage_sum_no_exit">No exit node</string>
+    <string name="rmanage_sum_exit">Through %1$s</string>
+    <string name="rmanage_exit_suggested">Suggested</string>
+    <string name="rmanage_setting_accept_dns_help">Resolve the tailnet\'s names and use its DNS settings.</string>
+    <string name="rmanage_setting_accept_routes_help">Reach the subnets that other devices of the tailnet offer.</string>
+    <string name="rmanage_setting_lan_help">Keep the local network reachable while an exit node is in use.</string>
+    <string name="rmanage_relays">Reconnect to relays</string>
+    <string name="rmanage_relays_help">Dials the relay servers again without restarting anything.</string>
+    <string name="rmanage_reconnect_help">Restarts the connection there. The device is out of reach for a few seconds.</string>
+
+    <!-- Why a switch does not move -->
+    <string name="rmanage_lock_needs_full">Turning this on needs Full control.</string>
+    <string name="rmanage_lock_off_at_device">This can only be turned off at the device.</string>
+    <string name="rmanage_lock_on_at_device">This can only be turned on at the device.</string>
+    <string name="rmanage_lock_read_only">This cannot be changed from afar.</string>
+
+    <!-- Files -->
+    <string name="rmanage_group_files">Files</string>
+    <string name="rmanage_send">Send a file</string>
+    <string name="rmanage_send_progress">Sending %1$s…</string>
+    <string name="rmanage_send_done_one">%1$s was sent.</string>
+    <plurals name="rmanage_send_done">
+        <item quantity="one">%d file was sent.</item>
+        <item quantity="other">%d files were sent.</item>
+    </plurals>
+    <string name="rmanage_send_failed">%1$s was not sent: %2$s</string>
+    <string name="rmanage_cannot_receive">TailSocks on %1$s is not connected, so it cannot receive a file now.</string>
+    <string name="rmanage_cannot_send">This device cannot send to %1$s: %2$s</string>
+    <string name="rmanage_receive_ready">Received files are saved to %1$s.</string>
+    <string name="rmanage_receive_ready_free">Received files are saved to %1$s. %2$s free.</string>
+    <string name="rmanage_receive_needs_access">The folder %1$s needs storage access on the device. Until it is given, received files wait inside TailSocks.</string>
+    <string name="rmanage_receive_unavailable">The folder %1$s cannot be written to. Received files wait inside TailSocks.</string>
+    <string name="rmanage_receive_inbox">Received files stay inside TailSocks on the device.</string>
+    <string name="rmanage_receive_reset">Use the default folder</string>
+    <string name="rmanage_ask_storage">Ask for storage access</string>
+    <string name="rmanage_files_waiting">Waiting inside TailSocks</string>
+    <string name="rmanage_files_saved">Saved to the folder</string>
+    <string name="rmanage_files_saved_help">The last files the receive folder took. They are managed on the device itself.</string>
+    <string name="rmanage_save_received">Move to the folder</string>
+    <string name="rmanage_browse">Browse the storage</string>
+    <string name="rmanage_browse_help">Look through the device\'s folders and have a file sent to this device.</string>
+    <string name="rmanage_browse_title">Storage of %1$s</string>
+    <string name="rmanage_fetch_confirm">Send to this device</string>
+    <string name="rmanage_fetch_title">Send %1$s to this device?</string>
+    <string name="rmanage_fetch_text">%1$s. %2$s sends it with its own Taildrop, and it arrives here like any received file.</string>
+    <string name="rmanage_fetch_sending">%1$s is on its way to this device (%2$s).</string>
+    <string name="rmanage_fetch_sent">%1$s has arrived. It is in this device\'s received files.</string>
+    <string name="rmanage_fetch_sent_ago">%1$s arrived %2$s ago. It is in this device\'s received files.</string>
+    <string name="rmanage_fetch_failed">%1$s was not sent: %2$s</string>
+    <string name="rmanage_fetch_failed_plain">%1$s was not sent.</string>
+    <string name="rmanage_fetch_open">Open received files</string>
+    <string name="rmanage_sum_saves_to">Saves to %1$s</string>
+    <string name="rmanage_sum_inbox">Keeps files inside TailSocks</string>
+    <string name="rmanage_sum_not_connected">Cannot receive now</string>
+    <plurals name="rmanage_sum_waiting">
+        <item quantity="one">%d file waiting</item>
+        <item quantity="other">%d files waiting</item>
+    </plurals>
+
+    <!-- Shared folders -->
+    <string name="rmanage_group_shares">Shared folders</string>
+    <string name="rmanage_shares_none">Nothing is shared.</string>
+    <plurals name="rmanage_shares_count">
+        <item quantity="one">%d folder</item>
+        <item quantity="other">%d folders</item>
+    </plurals>
+    <plurals name="rmanage_shares_guest">
+        <item quantity="one">%d folder is shared. Its name is shown to an owner.</item>
+        <item quantity="other">%d folders are shared. Their names are shown to an owner.</item>
+    </plurals>
+    <string name="rmanage_sum_shares_off">Taildrive is off</string>
+    <string name="rmanage_share_add">Share a folder</string>
+    <string name="rmanage_share_add_help">Choose a folder in the device\'s storage and give the share a name.</string>
+    <string name="rmanage_share_pick_title">Folder to share on %1$s</string>
+    <string name="rmanage_share_pick_confirm">Share this folder</string>
+    <string name="rmanage_share_name_title">Name of the share</string>
+    <string name="rmanage_share_name_label">Name</string>
+    <string name="rmanage_share_name_rule">1–40 Latin letters, digits or underscores.</string>
+    <string name="rmanage_share_name_action">Share</string>
+    <string name="rmanage_share_remove">Stop sharing %1$s</string>
+    <string name="rmanage_share_remove_title">Stop sharing “%1$s”?</string>
+    <string name="rmanage_share_remove_text">The folder and its files stay on %1$s. Other devices can no longer open it.</string>
+    <string name="rmanage_share_remove_action">Stop sharing</string>
+    <string name="rmanage_setting_taildrive">Taildrive</string>
+    <string name="rmanage_setting_taildrive_help">Share the folders below with the tailnet.</string>
+    <string name="rmanage_setting_taildrive_proxy">Taildrive proxy</string>
+    <string name="rmanage_setting_taildrive_proxy_help">Lets apps on the device open the folders other devices share.</string>
+
+    <!-- Permissions -->
+    <string name="rmanage_group_permissions">Permissions</string>
+    <string name="rmanage_permissions_help">What TailSocks holds on the device. Asking grants nothing: it puts Android\'s own page in front of whoever is at the device.</string>
+    <string name="rmanage_perm_storage">Storage access</string>
+    <string name="rmanage_perm_notifications">Notifications</string>
+    <string name="rmanage_perm_battery">Battery exemption</string>
+    <string name="rmanage_perm_vpn">VPN consent</string>
+    <string name="rmanage_perm_alarms">Exact alarms</string>
+    <string name="rmanage_perm_install">Installing updates</string>
+    <string name="rmanage_perm_autostart">Autostart</string>
+    <string name="rmanage_perm_granted">Granted</string>
+    <string name="rmanage_perm_missing">Missing</string>
+    <string name="rmanage_perm_unknown">Android does not say</string>
+    <string name="rmanage_perm_ask">Ask on the device</string>
+    <string name="rmanage_perm_ask_named">Ask on the device for: %1$s</string>
+    <string name="rmanage_perm_vpn_note">Given only at the device</string>
+    <string name="rmanage_asked_shown">The page is open on %1$s. Someone there has to allow it.</string>
+    <string name="rmanage_asked_notified">%1$s was asked. The page opens when someone opens TailSocks there.</string>
+    <string name="rmanage_asked_waiting">Someone has to open TailSocks on %1$s first; the page opens then.</string>
+    <string name="rmanage_sum_perm_ok">All granted</string>
+    <plurals name="rmanage_sum_perm_missing">
+        <item quantity="one">%d missing</item>
+        <item quantity="other">%d missing</item>
+    </plurals>
+
+    <!-- Device -->
+    <string name="rmanage_group_device">Device</string>
+    <string name="rmanage_fact_app">TailSocks</string>
+    <string name="rmanage_fact_app_older">%1$s · older than on this device (%2$s)</string>
+    <string name="rmanage_fact_daemon">Tailscale</string>
+    <string name="rmanage_fact_android">Android</string>
+    <string name="rmanage_fact_android_value">%1$s (API %2$d)</string>
+    <string name="rmanage_fact_model">Model</string>
+    <string name="rmanage_fact_mode">Mode</string>
+    <string name="rmanage_mode_proxy">Proxy</string>
+    <string name="rmanage_mode_tun">TUN</string>
+    <string name="rmanage_mode_tun_native">TUN · native engine</string>
+    <string name="rmanage_mode_tun_hev">TUN · hev-socks5-tunnel</string>
+    <string name="rmanage_mode_root">Root</string>
+    <string name="rmanage_fact_key">Node key</string>
+    <string name="rmanage_key_never">Does not expire</string>
+    <string name="rmanage_key_expired">Expired</string>
+    <string name="rmanage_key_in">Expires in %1$s</string>
+    <string name="rmanage_fact_build">Build</string>
+    <string name="rmanage_fact_state">State</string>
+    <string name="rmanage_health_title">Warnings</string>
+    <string name="rmanage_setting_tun">TUN mode</string>
+    <string name="rmanage_setting_tun_help">Routes the whole device through the tailnet. If the device cannot be reached that way, it goes back by itself.</string>
+    <string name="rmanage_setting_auto_reconnect_help">Restarts the connection there when it does not come up. It can be switched on from here, not off.</string>
+    <string name="rmanage_setting_keep_awake_help">Holds the connection through deep sleep and starts TailSocks after the device restarts. It can be switched on from here, not off.</string>
+    <string name="rmanage_setting_advertise_exit_help">Offers the device to the tailnet as an exit node.</string>
+    <string name="rmanage_not_approved">Waiting for approval in the admin console.</string>
+    <string name="rmanage_routes">Subnets it offers</string>
+    <string name="rmanage_routes_none">None</string>
+    <string name="rmanage_routes_pending">%1$s (not approved yet)</string>
+    <string name="rmanage_routes_label">Subnets, separated by commas</string>
+    <string name="rmanage_routes_help">For example 192.168.5.0/24. Leave empty to offer none. A list takes Full control.</string>
+    <string name="rmanage_routes_bad">That is not a list of subnets.</string>
+    <string name="rmanage_routes_full">Offering subnets needs Full control, which is switched on at the device. From here they can only be withdrawn.</string>
+    <string name="rmanage_routes_clear">Withdraw</string>
+    <string name="rmanage_first_build">TailSocks on %1$s is an early build of remote management. Files it can be sent, permissions and the rest appear here once it is updated there.</string>
+    <string name="rmanage_sum_device">TailSocks %1$s</string>
+    <string name="rmanage_sum_device_android">TailSocks %1$s · Android %2$s</string>
+
+    <!-- Diagnostics -->
+    <string name="rmanage_group_diag">Diagnostics</string>
+    <string name="rmanage_sum_diag">Log and report</string>
+    <string name="rmanage_diag_log">Log</string>
+    <string name="rmanage_diag_log_help">The last lines of the app\'s log there. Keys, passwords and sign-in links are replaced on the device before anything is sent.</string>
+    <string name="rmanage_diag_report">Report</string>
+    <string name="rmanage_diag_report_help">Versions, device, permissions, network and mode. No names, addresses, keys or accounts.</string>
+    <string name="rmanage_diag_log_title">Log of %1$s</string>
+    <string name="rmanage_diag_report_title">Report of %1$s</string>
+    <string name="rmanage_diag_empty">Nothing to show.</string>
+    <plurals name="rmanage_diag_scrubbed">
+        <item quantity="one">%d secret was replaced by […] on the device.</item>
+        <item quantity="other">%d secrets were replaced by […] on the device.</item>
+    </plurals>
+    <string name="rmanage_share">Share</string>
+    <string name="rmanage_copied">Copied</string>
+
+    <!-- Pairing -->
+    <string name="rmanage_group_pairing">Pairing</string>
+    <string name="rmanage_fact_class">This device is</string>
+    <string name="rmanage_class_help">An owner is a device of the same account as the managed one. Any other device is a guest.</string>
+    <string name="rmanage_fact_level">Level</string>
+    <string name="rmanage_level_help">Full control adds the storage, sharing a folder and diagnostics. It is switched on at the device, never from afar.</string>
+    <string name="rmanage_fact_valid">Valid</string>
+    <string name="rmanage_full_off">Switch Full control off</string>
+    <string name="rmanage_full_off_title">Switch Full control off on %1$s?</string>
+    <string name="rmanage_full_off_text">It can be switched on again only at the device.</string>
+    <string name="rmanage_full_off_action">Switch off</string>
+
+    <!-- The devices this one manages -->
+    <string name="rmanage_devices_title">Devices you manage</string>
+    <string name="rmanage_device_online">Online</string>
+    <string name="rmanage_device_offline">Offline</string>
+    <string name="rmanage_device_gone">Not in this tailnet</string>
+</resources>

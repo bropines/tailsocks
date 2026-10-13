@@ -384,6 +384,9 @@ class RemoteTokenStore(private val store: KeyValueStore, private val box: Secret
 
     fun remove(profileId: String, nodeId: String): Boolean = store.putString(key(profileId, nodeId), null)
 
+    /** The peers a profile holds a pairing for, by StableNodeID. Reads no key: a device that never paired answers from an empty file. */
+    fun peers(profileId: String): List<String> = store.keys().filter { it.startsWith("$profileId/") }.map { it.substringAfter('/') }
+
     /** Drops every token of a profile, for when the account is deleted. The devices keep their side until revoked there. */
     fun removeProfile(profileId: String) {
         store.keys().filter { it.startsWith("$profileId/") }.forEach { store.putString(it, null) }

@@ -2648,6 +2648,8 @@ fun SettingsScreen(
                     remoteOpen = true
                 }
             )
+            // The devices this one manages: nothing until it is paired with one (ui/RemoteManageDevices.kt).
+            RemoteDevices()
         }
     }
 
