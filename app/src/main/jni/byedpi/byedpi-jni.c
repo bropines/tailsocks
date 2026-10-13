@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -37,6 +38,26 @@ static bool g_running;       /* a run is between start and return */
 static jlong g_run_id;       /* which one */
 static jlong g_stopped_id;   /* every run up to this id was asked to stop */
 static int g_wake_fd = -1;   /* the listening socket of the loop, -1 without one */
+
+/*
+ * The core was written to parse its arguments once per process, and here one
+ * process runs it again at every start of the bypass. clear_params() frees
+ * what a run allocated and leaves every setting where the run put it. The
+ * group counter went on from the last run's, so the ids and the mask of group
+ * bits belonged to groups long freed: with the mask never matching, a
+ * connection that had used up every group sent the loop round them for ever,
+ * and no stop could reach it. And an option one run switched (no-domain,
+ * no-udp, no-ipv6, def-ttl, timeout, tfo, buf-size, max-conn, ...) stayed
+ * switched for the runs after it, also when that run's arguments had been
+ * refused. So what the core was built with is copied aside before the first
+ * run and put back after each one.
+ */
+static struct params g_defaults;
+static bool g_defaults_saved;
+
+/* What jniStartProxy answers besides 0, a run that came up and was stopped. */
+#define RUN_FAILED (-1)     /* busy, or no socket to listen on */
+#define RUN_BAD_ARGS (-2)   /* the core did not take the arguments */
 
 char *g_log_file_path = NULL;
 
@@ -81,29 +102,32 @@ void android_log_to_file(int level, const char *fmt, ...) {
  * and they were installed for the whole app process.
  */
 static int run_proxy(int argc, char **argv, jlong id) {
+    /* getopt keeps a position inside the argument it was reading. A parse that
+     * stopped there left it pointing into the previous run's arguments, freed
+     * by now, and optind alone does not move it. */
+    optreset = 1;
     optind = 1;
-    int status = parse_args(argc, argv);
-    if (status) {
-        return status - 1;
+    if (parse_args(argc, argv)) {
+        return RUN_BAD_ARGS;
     }
     INIT_ADDR_STR(params.laddr);
     LOG(LOG_S, "listen address: %s:%d\n", ADDR_STR, ntohs(params.laddr.in.sin_port));
 
     if (init() < 0) {
-        return -1;
+        return RUN_FAILED;
     }
     /* The core sends without MSG_NOSIGNAL. */
     signal(SIGPIPE, SIG_IGN);
 
     int fd = listen_socket(&params.laddr);
     if (fd < 0) {
-        return -1;
+        return RUN_FAILED;
     }
     int wake = fcntl(fd, F_DUPFD_CLOEXEC, 0);
     if (wake < 0) {
         uniperror("dup");
         close(fd);
-        return -1;
+        return RUN_FAILED;
     }
     pthread_mutex_lock(&g_lock);
     bool stopped = id <= g_stopped_id;
@@ -132,6 +156,27 @@ static int run_proxy(int argc, char **argv, jlong id) {
     return result;
 }
 
+/*
+ * Ends a run's hold on the core's settings: frees what it allocated and puts
+ * the settings back. Only on the thread of that run, after its loop has
+ * returned and before the run is declared over: the loop has closed its own
+ * descriptors by then, nothing else reads params, and no other run can be
+ * parsing. The one descriptor clear_params() closes is the pid file's, opened
+ * by this run's init(); its number is forgotten with the rest, so no later run
+ * closes it again.
+ */
+static void reset_params(void) {
+    clear_params(0, 0);
+    /* clear_params() frees the host lists and keeps the array that held them. */
+    free(params.need_free);
+    params = g_defaults;
+}
+
+/*
+ * Runs the proxy until it is stopped. 0: it ran, or was stopped before it
+ * began. RUN_BAD_ARGS: the core refused the arguments; ByeDpiRun.REFUSED in
+ * Kotlin is this number. RUN_FAILED: anything else that kept it from starting.
+ */
 JNIEXPORT jint JNICALL
 Java_io_github_bropines_tailscaled_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, jclass clazz, jobjectArray args, jlong id) {
     pthread_mutex_lock(&g_lock);
@@ -140,9 +185,13 @@ Java_io_github_bropines_tailscaled_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, j
     if (!busy && !stopped) {
         g_running = true;
         g_run_id = id;
+        if (!g_defaults_saved) {
+            g_defaults = params;
+            g_defaults_saved = true;
+        }
     }
     pthread_mutex_unlock(&g_lock);
-    if (busy) return -1;
+    if (busy) return RUN_FAILED;
     if (stopped) return 0;
 
     int argc = (*env)->GetArrayLength(env, args);
@@ -155,7 +204,8 @@ Java_io_github_bropines_tailscaled_core_ByeDpiProxy_jniStartProxy(JNIEnv *env, j
         (*env)->DeleteLocalRef(env, arg);
     }
     int result = run_proxy(argc, argv, id);
-    clear_params(0, 0);
+    /* Before argv goes: the settings still point into it. */
+    reset_params();
     for (int i = 0; i < argc; i++) free(argv[i]);
     free(argv);
 
