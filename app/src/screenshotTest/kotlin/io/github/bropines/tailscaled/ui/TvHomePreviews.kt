@@ -177,7 +177,8 @@ private fun ExitNodes(selectedIp: String) {
                 onRetryBest = {},
                 onChoose = { _, _ -> },
                 onClose = {},
-                modifier = Modifier.fillMaxWidth().tvSheetInset(),
+                // What the app's sheet keeps clear under its content on a television (AppModalSheet).
+                modifier = Modifier.fillMaxWidth().padding(bottom = TvSafeArea.calculateBottomPadding()),
             )
         }
     }

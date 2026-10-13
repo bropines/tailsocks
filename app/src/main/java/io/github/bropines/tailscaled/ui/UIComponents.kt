@@ -2747,6 +2747,9 @@ fun DaemonStoppedState(
         Spacer(Modifier.height(20.dp))
         Button(
             enabled = !starting,
+            // Where the remote starts on a screen that shows this: it is the one thing to
+            // press there, and the focus used to open on Refresh in the top bar.
+            modifier = Modifier.tvInitialFocus(),
             onClick = {
                 // The same refusal the main screen's toggle makes: the service would start
                 // with nowhere to listen.
