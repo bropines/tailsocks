@@ -107,9 +107,12 @@ object Diagnostics {
         val metered = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == false
         // Another app holding Android's single VPN slot is behind a whole class of reports.
         val foreignVpn = caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+        // Below 1360 (1340 over IPv4) direct connections lose their large packets without a word.
+        val linkMtu = LinkMtu.reportLine(LinkMtu.read(context))
         return """
             Transport: $transport (metered: $metered)
             VPN transport on the active network: $foreignVpn
+            $linkMtu
         """.trimIndent()
     }
 
