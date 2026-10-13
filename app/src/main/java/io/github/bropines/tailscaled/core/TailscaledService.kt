@@ -341,10 +341,13 @@ class TailscaledService : Service() {
 
         checkCoordinatorOsRefusal(isRunning, backendState, healthWarnings)
 
-        // First Running state of this run: the netmap (and with it drive:share)
-        // is in, so register Taildrive shares now if the start deferred it.
-        if (isRunning && backendState == "Running" && !taildriveAppliedWhileRunning) {
-            taildriveAppliedWhileRunning = true
+        // First Running state of every run of the daemon: the netmap (and with it
+        // drive:share) is in, so register Taildrive shares now if the start deferred
+        // it — and again after a relaunch the service did not start itself (a switch
+        // between proxy and TUN mode), whose teardown stopped the file server.
+        val daemonRun = if (isRunning) runCatching { Appctr.getDaemonStartTime() }.getOrDefault(TaildriveRun.NONE) else TaildriveRun.NONE
+        if (TaildriveRun.due(isRunning, backendState, taildriveAppliedForRun, daemonRun)) {
+            taildriveAppliedForRun = daemonRun
             applyTaildrive(this@TailscaledService)
         }
 
@@ -1773,7 +1776,7 @@ class TailscaledService : Service() {
 
     private fun startTailscale() {
         acquireKeepAliveLock()
-        taildriveAppliedWhileRunning = false
+        taildriveAppliedForRun = TaildriveRun.NONE
         // What was switched on in Tailcat comes up with the core, whichever way
         // it starts (button, boot, watchdog): while this start is still inside
         // the window that let it start a foreground service.
@@ -1914,9 +1917,9 @@ class TailscaledService : Service() {
                     // backend is still Starting and the daemon answers 403 "sharing not
                     // enabled" — a race, not a policy problem. Apply now only if already
                     // Running (re-attach); otherwise the refresh tick does it once the
-                    // state flips, see taildriveAppliedWhileRunning.
+                    // state flips, see taildriveAppliedForRun.
                     if (runCatching { Appctr.getBackendState() }.getOrDefault("") == "Running") {
-                        taildriveAppliedWhileRunning = true
+                        taildriveAppliedForRun = runCatching { Appctr.getDaemonStartTime() }.getOrDefault(TaildriveRun.NONE)
                         applyTaildrive(this@TailscaledService)
                     } else {
                         Log.i(TAG, "Taildrive: deferring share registration until the backend is Running")
@@ -2135,8 +2138,11 @@ class TailscaledService : Service() {
     /** Teardown thread of the most recent stop, while it is still running. */
     @Volatile private var shutdownInFlight: Thread? = null
 
-    /** Taildrive shares were registered after this run's backend reached Running. */
-    @Volatile private var taildriveAppliedWhileRunning = false
+    /**
+     * The run of the daemon (its start stamp, see [TaildriveRun]) Taildrive was last applied for once
+     * its backend was Running; every other run is applied afresh by the refresh tick.
+     */
+    @Volatile private var taildriveAppliedForRun = TaildriveRun.NONE
 
     /**
      * Set when a TUN start was requested, cleared once ACTION_STOP has been sent.
