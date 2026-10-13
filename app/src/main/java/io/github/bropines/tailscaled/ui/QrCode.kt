@@ -30,7 +30,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -346,7 +345,7 @@ fun QrSheet(title: String, variants: List<QrVariant>, onDismiss: () -> Unit) {
     )
     val copied = stringResource(R.string.qr_copied)
     val style = rememberQrStyle()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberFullSheetState()) {
+    AppModalSheet(onDismissRequest = onDismiss) {
         QrSheetContent(
             title = title,
             variants = variants,
