@@ -2050,6 +2050,9 @@ class TailscaledService : Service() {
             // Remote management, off unless switched on on this device; the bridge gets
             // the app's half of it along with the switch (RemoteManage).
             remoteManagement = RemoteManage.startOption(this@TailscaledService)
+            // Its two other switches: what a paired owner may do beyond the basics, and guests.
+            remoteFullControl = RemoteLevel.isFullControl(this@TailscaledService)
+            remoteNoGuests = !RemoteLevel.guestsAllowed(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the

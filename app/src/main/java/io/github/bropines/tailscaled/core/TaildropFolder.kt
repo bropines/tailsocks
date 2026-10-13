@@ -100,6 +100,16 @@ object TaildropFolder {
     }
 
     /**
+     * Forgets the chosen folder, of either kind: the device is back to what [resolve] gives an
+     * install that never chose one — a television's default, a phone's inbox. The grant on a
+     * SAF tree is kept, as in [set]: files saved there earlier are opened through it.
+     */
+    fun reset(context: Context) {
+        GlobalSettings.setString(context, KEY_PATH, "")
+        GlobalSettings.setTaildropRootUri(context, null)
+    }
+
+    /**
      * Where a television saves until told otherwise: "Taildrop" in the public Downloads
      * folder. Downloads because every player and file manager on a television starts
      * there, and because from Android 11 an app may create its own files under it with no

@@ -88,7 +88,9 @@ object RemoteManage {
         val on = isEnabled(context)
         try {
             if (on && registered.compareAndSet(false, true)) {
-                Appctr.setRemoteDelegate(RemoteSettingsDelegate(AppRemoteHost(context.applicationContext)))
+                // The three switches here; everything else a paired device may ask is core/RemoteDevice.kt's.
+                val app = context.applicationContext
+                Appctr.setRemoteDelegate(remoteDeviceDelegate(app, RemoteSettingsDelegate(AppRemoteHost(app))))
             } else if (!on && registered.compareAndSet(true, false)) {
                 Appctr.setRemoteDelegate(null)
             }
@@ -168,6 +170,9 @@ class RemoteSettingsDelegate(private val host: RemoteHost) : RemoteDelegate {
         if (name != RemoteKeys.ACTION_RECONNECT) throw RemoteRefusal("not a remote action")
         asked { host.reconnect() }
     }
+
+    /** Requests are RemoteDeviceDelegate's (core/RemoteDevice.kt), which stands in front of this one. */
+    override fun request(name: String?, args: String?): String = throw RemoteRefusal("not a remote request")
 
     /**
      * What the app answers, or its refusal. Anything else it throws stays on this device: an
