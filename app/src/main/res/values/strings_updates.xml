@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The beta channel of the in-app updater: betas are builds of the next version, published before it for testing -->
+    <string name="settings_update_beta_title">Receive beta versions</string>
+    <string name="settings_update_beta_desc">The update check also offers betas: builds of the next version that come out before the release, to be tested. Something in them may not work. To go back, switch this off and install the next stable release when it is out.</string>
+    <!-- Settings search: what a person types to find the switch above (a list, see strings_settings_search_keywords.xml) -->
+    <string name="search_kw_update_beta">pre-release, prerelease, test build, testing, early access, update channel, unstable, nightly, insider</string>
+    <!-- The app's name in the About dialog of a beta build: %1$s is TailSocks -->
+    <string name="main_about_beta_name">%1$s beta</string>
+</resources>

@@ -439,17 +439,12 @@ class MainActivity : ComponentActivity() {
             pruneUpdateDownloads(this@MainActivity)
             try {
                 val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
-                val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                if (connection.responseCode == 200) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val json = AppJson.parseToJsonElement(response).jsonObject
-                    val tag = json["tag_name"]!!.jsonPrimitive.content
-                    if (isVersionNewer(currentVersion, tag)) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainActivity, getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
-                        }
+                // Releases, and betas too for whoever asked for them (core/UpdateCheck.kt).
+                val betas = GlobalSettings.isBetaUpdates(this@MainActivity)
+                val tag = UpdateCheck.offer(currentVersion, UpdateCheck.fetch(betas), betas)?.tag
+                if (tag != null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {}
@@ -2027,7 +2022,7 @@ fun MainScreen(
                                                 // release page. The old fallback downloaded
                                                 // latest/download/app-release.apk, a file no release has had.
                                                 if (downloadUrl == null) {
-                                                    links.open("https://github.com/bropines/tailsocks/releases/latest", dlgGithub)
+                                                    links.open(UpdateCheck.page(latestVersion!!), dlgGithub)
                                                     return@Button
                                                 }
                                                 val targetUrl = downloadUrl
@@ -2098,37 +2093,14 @@ fun MainScreen(
                                                 isCheckingUpdate = true
                                                 scope.launch(Dispatchers.IO) {
                                                     try {
-                                                        val connection = java.net.URL("https://api.github.com/repos/bropines/tailsocks/releases/latest").openConnection() as java.net.HttpURLConnection
-                                                        connection.requestMethod = "GET"
-                                                        connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                                                        if (connection.responseCode == 200) {
-                                                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                                                            val json = AppJson.parseToJsonElement(response).jsonObject
-                                                            val tag = json["tag_name"]!!.jsonPrimitive.content
-                                                            var foundApkUrl: String? = null
-                                                            var anyApkUrl: String? = null
-                                                            val primaryAbi = if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else ""
-                                                            val assets = json["assets"]?.jsonArray
-                                                            if (assets != null) {
-                                                                for (asset in assets) {
-                                                                    val obj = asset.jsonObject
-                                                                    val name = (obj["name"]?.jsonPrimitive?.content ?: "").lowercase()
-                                                                    val url = obj["browser_download_url"]?.jsonPrimitive?.content ?: ""
-                                                                    if (name.endsWith(".apk")) {
-                                                                        if (anyApkUrl == null) anyApkUrl = url
-                                                                        if (primaryAbi.isNotEmpty() && name.contains(primaryAbi.lowercase())) {
-                                                                            foundApkUrl = url
-                                                                            break
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                            withContext(Dispatchers.Main) {
-                                                                latestVersion = tag
-                                                                downloadUrl = foundApkUrl ?: anyApkUrl
-                                                                isCheckingUpdate = false
-                                                            }
-                                                        } else { throw Exception("HTTP ${connection.responseCode}") }
+                                                        // The newest release — or beta, for whoever asked for them (core/UpdateCheck.kt).
+                                                        val release = UpdateCheck.latest(GlobalSettings.isBetaUpdates(context))
+                                                        val apkUrl = UpdateCheck.apkFor(release, Build.SUPPORTED_ABIS.firstOrNull().orEmpty())
+                                                        withContext(Dispatchers.Main) {
+                                                            latestVersion = release.tag
+                                                            downloadUrl = apkUrl
+                                                            isCheckingUpdate = false
+                                                        }
                                                     } catch (e: Exception) {
                                                         withContext(Dispatchers.Main) {
                                                             Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
@@ -2179,8 +2151,7 @@ fun MainScreen(
                         OutlinedButton(
                             onClick = {
                                 val opened = links.open(
-                                    if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest"
-                                    else "https://github.com/bropines/tailsocks",
+                                    latestVersion?.let { UpdateCheck.page(it) } ?: "https://github.com/bropines/tailsocks",
                                     dlgGithub
                                 )
                                 if (opened) showAboutDialog = false

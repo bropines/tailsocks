@@ -2568,6 +2568,17 @@ fun SettingsScreen(
                     GlobalSettings.setUpdateCheckOnLaunch(context, it)
                     updateCheckOnLaunch = it
                 }
+                // Under the check it widens: betas of the next version, for whoever asks (docs/RELEASING.md).
+                var betaUpdates by remember { mutableStateOf(GlobalSettings.isBetaUpdates(context)) }
+                SettingsSwitchItem(
+                    stringResource(R.string.settings_update_beta_title),
+                    stringResource(R.string.settings_update_beta_desc),
+                    Icons.Default.Science,
+                    betaUpdates
+                ) {
+                    GlobalSettings.setBetaUpdates(context, it)
+                    betaUpdates = it
+                }
             }
         }
         SettingsCard(title = stringResource(R.string.settings_sect_personalization)) {

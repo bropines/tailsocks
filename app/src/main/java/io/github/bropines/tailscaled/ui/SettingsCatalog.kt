@@ -181,6 +181,7 @@ object SettingsCatalog {
         row("show_changelog", SettingsPage.APPEARANCE, R.string.settings_show_changelog_title, R.string.settings_show_changelog_desc, R.string.search_kw_show_changelog, look)
         row("connection_summary", SettingsPage.APPEARANCE, R.string.settings_connection_summary_title, R.string.settings_connection_summary_desc, R.string.search_kw_connection_summary, look)
         row("update_check", SettingsPage.APPEARANCE, R.string.settings_update_check_title, R.string.settings_update_check_desc, R.string.search_kw_update_check, look, needs = Need.SELF_UPDATE)
+        row("update_beta", SettingsPage.APPEARANCE, R.string.settings_update_beta_title, R.string.settings_update_beta_desc, R.string.search_kw_update_beta, look, needs = Need.SELF_UPDATE)
 
         // ─── Account & connection ────────────────────────────────────────────────────────
         // The first card is titled with the account's name, which a result has no room for.

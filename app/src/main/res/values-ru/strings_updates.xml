@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_update_beta_title">Получать бета-версии</string>
+    <string name="settings_update_beta_desc">Проверка обновлений предлагает и беты — сборки следующей версии, которые выходят раньше релиза, чтобы их проверили. Что-то в них может не работать. Чтобы вернуться, выключите и установите следующий стабильный релиз, когда он выйдет.</string>
+    <string name="search_kw_update_beta">бета, предварительная версия, пре-релиз, тестовая сборка, тестирование, ранний доступ, канал обновлений, нестабильная, инсайдер</string>
+    <string name="main_about_beta_name">%1$s бета</string>
+</resources>

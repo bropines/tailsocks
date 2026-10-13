@@ -502,6 +502,13 @@ object GlobalSettings {
         UpdateChannel.selfUpdate(context) &&
             getBoolean(context, "update_check_on_launch", io.github.bropines.tailscaled.BuildConfig.UPDATE_CHECK_DEFAULT)
     fun setUpdateCheckOnLaunch(context: Context, enabled: Boolean) = setBoolean(context, "update_check_on_launch", enabled)
+    /**
+     * Whether the update check offers betas as well: builds of the next version that are
+     * published before it, as pre-releases (docs/RELEASING.md). Off unless asked for; without
+     * it only releases are offered, to a beta build too.
+     */
+    fun isBetaUpdates(context: Context): Boolean = getBoolean(context, "update_beta_channel", false)
+    fun setBetaUpdates(context: Context, enabled: Boolean) = setBoolean(context, "update_beta_channel", enabled)
 
     // -------------------------------------------------------------------------
     // Settings export
@@ -559,7 +566,7 @@ object GlobalSettings {
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
         "root_vpn_bypass",
         // Appearance
-        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "show_connection_summary",
+        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary",
         "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE
     )
 
