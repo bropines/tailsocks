@@ -195,7 +195,10 @@ package appctr
 //   - Someone at the device. Whoever can read the screen and press its
 //     buttons can pair a device; that presence is the consent.
 //
-// Does a peer reach the endpoint? In every mode, and by the same road:
+// Does a peer reach the endpoint? In every mode, and by the same road. Measured
+// on two Android 16 emulators in a Headscale tailnet (2026-10-13): the managed
+// device in proxy mode, native TUN and hev, against a managing one in each of
+// the three. Root Mode is read from the code, not measured.
 //
 //   - userspace-networking — the default proxy mode, TUN with the hev engine,
 //     Root Mode without its TUN: netstack takes every packet for the node's
@@ -211,7 +214,10 @@ package appctr
 //     above. The daemon keeps the port only while the app's switch file
 //     exists — files/remote/managed.on, found beside its socket and looked at
 //     again within a second — so the switch needs no restart, and with it off
-//     a real TUN handles the port as it did before the patch.
+//     a real TUN handles the port as it did before the patch. While the port
+//     is kept, a host socket that binds this very number for a connection of
+//     its own to a peer does not see the replies; the peerAPI port has always
+//     had that cost.
 //
 // Why netstack, and not a second listener on the tailnet address for the
 // kernel to deliver to in the TUN modes:
@@ -226,7 +232,10 @@ package appctr
 //     (TunVpnService.applyAppExclusions — the tunnel would otherwise carry
 //     itself), and the system routes into a VPN only the UIDs that VPN applies
 //     to: a listener in the app would be sent the SYN and answer it into the
-//     default network.
+//     default network. Measured on the native engine: the VPN's routing rules
+//     name every UID but the app's, a peer dialing a listener in the app's UID
+//     gets no answer until it gives up, and the same listener in the shell's
+//     UID answers at once.
 //   - One road. Proxy mode and the hev engine have no kernel path at all, so
 //     a listener there would be a second transport with a second, weaker
 //     notion of who is calling. With the port kept, every mode has the same
@@ -240,7 +249,9 @@ package appctr
 // A closed endpoint looks closed. With the switch off nothing listens on
 // loopback: in userspace-networking netstack's own dial is refused and the
 // peer is sent a reset, as for any port nobody serves; on a real TUN the port
-// was never taken from the host, which answers as it always did.
+// was never taken from the host, which answers as it always did. Measured:
+// "connection refused" at once in all three modes, the same as a port nothing
+// ever used; and the switch takes effect either way with the daemon running.
 //
 // RemoteStateJSON's "inbound" is the daemon's own word (remote_inbound.go):
 // on a real TUN the bridge asks it whether it keeps the port instead of
