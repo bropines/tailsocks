@@ -77,6 +77,7 @@ object RemoteContract {
   {"key": "exit_node_lan_access",    "kind": "bool", "writable": true,  "value": "true",  "guard": "optional"},
   {"key": "tun_mode",                "kind": "bool", "writable": true,  "value": "false", "guard": "always"},
   {"key": "auto_reconnect",          "kind": "bool", "writable": true,  "value": "false", "only": "true"},
+  {"key": "auto_start",              "kind": "bool", "writable": true,  "value": "false", "only": "true"},
   {"key": "keep_awake",              "kind": "bool", "writable": true,  "value": "true",  "only": "true"},
   {"key": "taildrive_enabled",       "kind": "bool", "writable": true,  "value": "true",  "only": "false", "needs": "full"},
   {"key": "taildrive_proxy_enabled", "kind": "bool", "writable": true,  "value": "false", "only": "false", "needs": "full"},

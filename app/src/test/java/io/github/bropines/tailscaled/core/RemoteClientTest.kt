@@ -119,7 +119,8 @@ class RemoteClientTest {
     @Test
     fun theSettingsExampleIsReadWithItsOneWayAndGuardMarks() {
         val rows = RemoteContract.settings()
-        assertEquals(13, rows.size)
+        assertEquals(14, rows.size)
+        assertEquals("true", rows.setting(ManagedKeys.AUTO_START, ManagedSetting.BOOL)?.only)
         val dns = rows.setting(ManagedKeys.ACCEPT_DNS, ManagedSetting.BOOL)!!
         assertTrue(dns.on)
         assertTrue(dns.writable)

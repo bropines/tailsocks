@@ -115,7 +115,7 @@ class RemoteManageControllerTest {
         assertEquals(listOf("GET /v1/status", "GET /v1/settings", "GET /v1/files"), sent())
         assertFalse(ui.loading)
         assertNull(ui.problem)
-        assertEquals(13, ui.settings.size)
+        assertEquals(14, ui.settings.size)
         assertEquals(2, ui.files?.size)
         assertEquals("Xiaomi MiTV-MOOQ1", ui.status?.device?.model)
         assertNotNull(ui.app)

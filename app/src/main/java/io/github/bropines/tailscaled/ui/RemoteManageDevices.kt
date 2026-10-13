@@ -153,10 +153,13 @@ internal fun RemoteDeviceRows(devices: List<RemoteDeviceRow>, modifier: Modifier
                 RemotePresence.GONE -> stringResource(R.string.rmanage_device_gone)
                 RemotePresence.UNKNOWN -> null
             }
-            SettingsClickableItem(
-                title = device.name,
-                subtitle = listOfNotNull(presence, role).joinToString(" · "),
+            // The page's own row, not Settings': a device is no setting, and the search's
+            // catalogue (ui/SettingsCatalog.kt) lists every Settings row by its title.
+            ManageOpenRow(
                 icon = remoteGlyph(device.tv),
+                title = device.name.withBreakOpportunities(),
+                value = listOfNotNull(presence, role).joinToString(" · "),
+                enabled = true,
                 onClick = { onOpen(device) }
             )
         }

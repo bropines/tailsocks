@@ -189,7 +189,9 @@
     <string name="rmanage_setting_tun">Режим TUN</string>
     <string name="rmanage_setting_tun_help">Весь трафик устройства идёт через tailnet. Если в этом режиме до устройства не достучаться, оно само вернётся обратно.</string>
     <string name="rmanage_setting_auto_reconnect_help">Перезапускает соединение, когда оно не поднимается. Отсюда можно включить, но не выключить.</string>
-    <string name="rmanage_setting_keep_awake_help">Держит соединение в глубоком сне и запускает TailSocks после перезагрузки устройства. Отсюда можно включить, но не выключить.</string>
+    <string name="rmanage_setting_auto_start">Запускаться после перезагрузки</string>
+    <string name="rmanage_setting_auto_start_help">TailSocks сам вернётся после перезагрузки или отключения питания. Отсюда можно включить, но не выключить.</string>
+    <string name="rmanage_setting_keep_awake_help">Держит соединение в глубоком сне. Отсюда можно включить, но не выключить.</string>
     <string name="rmanage_setting_advertise_exit_help">Предлагает устройство в tailnet как выходной узел.</string>
     <string name="rmanage_not_approved">Ждёт одобрения в админ-консоли.</string>
     <string name="rmanage_routes">Подсети, которые оно раздаёт</string>

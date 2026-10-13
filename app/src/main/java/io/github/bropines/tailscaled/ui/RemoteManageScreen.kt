@@ -183,7 +183,7 @@ fun RemoteManageButton(entry: RemoteManageEntryState, modifier: Modifier = Modif
         Text(entry.label, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (entry.paired && entry.pairedLabel.isNotEmpty()) {
             Spacer(Modifier.width(8.dp))
-            ManageTag(entry.pairedLabel, strong = true)
+            ManageTag(entry.pairedLabel)
         }
     }
 }

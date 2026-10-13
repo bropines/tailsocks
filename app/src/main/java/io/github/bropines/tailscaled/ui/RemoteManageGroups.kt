@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Storage
@@ -221,6 +222,7 @@ private fun settingTitle(key: String): String = when (key) {
     ManagedKeys.EXIT_NODE_LAN -> stringResource(R.string.remote_setting_lan)
     ManagedKeys.TUN_MODE -> stringResource(R.string.rmanage_setting_tun)
     ManagedKeys.AUTO_RECONNECT -> stringResource(R.string.settings_auto_reconnect_title)
+    ManagedKeys.AUTO_START -> stringResource(R.string.rmanage_setting_auto_start)
     ManagedKeys.KEEP_AWAKE -> stringResource(R.string.settings_keep_awake_title)
     ManagedKeys.ADVERTISE_EXIT_NODE -> stringResource(R.string.settings_advertise_exit_node_title)
     ManagedKeys.ADVERTISE_ROUTES -> stringResource(R.string.rmanage_routes)
@@ -239,6 +241,7 @@ private fun settingHelp(key: String): String = stringResource(
         ManagedKeys.EXIT_NODE_LAN -> R.string.rmanage_setting_lan_help
         ManagedKeys.TUN_MODE -> R.string.rmanage_setting_tun_help
         ManagedKeys.AUTO_RECONNECT -> R.string.rmanage_setting_auto_reconnect_help
+        ManagedKeys.AUTO_START -> R.string.rmanage_setting_auto_start_help
         ManagedKeys.KEEP_AWAKE -> R.string.rmanage_setting_keep_awake_help
         ManagedKeys.ADVERTISE_EXIT_NODE -> R.string.rmanage_setting_advertise_exit_help
         ManagedKeys.TAILDRIVE -> R.string.rmanage_setting_taildrive_help
@@ -252,6 +255,7 @@ private fun settingIcon(key: String): ImageVector = when (key) {
     ManagedKeys.EXIT_NODE_LAN -> Icons.Default.Router
     ManagedKeys.TUN_MODE -> Icons.Default.VpnLock
     ManagedKeys.AUTO_RECONNECT -> Icons.Default.Autorenew
+    ManagedKeys.AUTO_START -> Icons.Default.PowerSettingsNew
     ManagedKeys.KEEP_AWAKE -> Icons.Default.BatteryFull
     ManagedKeys.ADVERTISE_EXIT_NODE -> Icons.Default.CellTower
     ManagedKeys.TAILDRIVE -> Icons.Default.FolderShared

@@ -265,6 +265,7 @@ object ManagedKeys {
     const val ACCEPT_ROUTES = "accept_routes"
     const val EXIT_NODE_LAN = "exit_node_lan_access"
     const val AUTO_RECONNECT = "auto_reconnect"
+    const val AUTO_START = "auto_start"
     const val KEEP_AWAKE = "keep_awake"
     const val TUN_MODE = "tun_mode"
     const val TAILDRIVE = "taildrive_enabled"
@@ -288,7 +289,7 @@ object ManagedKeys {
     val CONNECTION = FIRST_BUILD
 
     /** How the device keeps itself running, and what it offers the tailnet. */
-    val DEVICE = listOf(TUN_MODE, AUTO_RECONNECT, KEEP_AWAKE, ADVERTISE_EXIT_NODE)
+    val DEVICE = listOf(TUN_MODE, AUTO_RECONNECT, AUTO_START, KEEP_AWAKE, ADVERTISE_EXIT_NODE)
 
     /** Taildrive as a whole. */
     val SHARING = listOf(TAILDRIVE, TAILDRIVE_PROXY)

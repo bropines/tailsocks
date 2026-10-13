@@ -188,7 +188,9 @@
     <string name="rmanage_setting_tun">TUN mode</string>
     <string name="rmanage_setting_tun_help">Routes the whole device through the tailnet. If the device cannot be reached that way, it goes back by itself.</string>
     <string name="rmanage_setting_auto_reconnect_help">Restarts the connection there when it does not come up. It can be switched on from here, not off.</string>
-    <string name="rmanage_setting_keep_awake_help">Holds the connection through deep sleep and starts TailSocks after the device restarts. It can be switched on from here, not off.</string>
+    <string name="rmanage_setting_auto_start">Start after a reboot</string>
+    <string name="rmanage_setting_auto_start_help">TailSocks comes back by itself after a reboot or a power cut. It can be switched on from here, not off.</string>
+    <string name="rmanage_setting_keep_awake_help">Holds the connection through deep sleep. It can be switched on from here, not off.</string>
     <string name="rmanage_setting_advertise_exit_help">Offers the device to the tailnet as an exit node.</string>
     <string name="rmanage_not_approved">Waiting for approval in the admin console.</string>
     <string name="rmanage_routes">Subnets it offers</string>
