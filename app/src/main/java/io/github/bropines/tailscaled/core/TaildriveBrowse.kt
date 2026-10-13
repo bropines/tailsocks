@@ -294,7 +294,20 @@ sealed interface DriveError {
     /** The proxy is on but nothing answers on its address: starting up, or the port is taken. */
     data object ProxyNotListening : DriveError
 
-    /** The device or its file server did not answer: offline, asleep, or the Tailscale app closed. */
+    /**
+     * The tailnet's policy does not give this device `drive:access`, so its daemon will not
+     * answer for the other devices' folders at all (see [TaildriveAccess]).
+     */
+    data object NotPermitted : DriveError
+
+    /**
+     * Taildrive on this device closed the connection or answered nothing: before the network map
+     * has arrived, or without `drive:access` when the app could not read the policy's verdict.
+     * Not a device's doing — it is this device's own daemon that was asked.
+     */
+    data object NoAnswer : DriveError
+
+    /** One device, past this device's own daemon, or its file server did not answer: offline, asleep, or the Tailscale app closed. */
     data object Unreachable : DriveError
 
     /** The access rules of the tailnet do not let this device into the share. */
@@ -313,30 +326,46 @@ sealed interface DriveError {
         /** What TaildriveClient throws when the daemon's SOCKS5 port is not configured. */
         private const val NO_SOCKS_MESSAGE = "SOCKS5 proxy is not running"
 
-        /** The status code of an answer, as the server's node reports an unavailable share. */
-        fun fromHttp(code: Int): DriveError = when (code) {
+        /**
+         * How deep a place is where a request leaves this device's own daemon: `/<tailnet>/<device>`.
+         * The root and the tailnet are answered by the daemon alone; from a device down, the
+         * request goes to that device, and only then can "the device" be what failed.
+         */
+        const val DEVICE_DEPTH = 2
+
+        /**
+         * The status code of an answer, as the server's node reports an unavailable share. [depth]
+         * is how deep the place asked about is: a 5xx at a device or below is the device's (or its file
+         * server's), above it there is no device to blame.
+         */
+        fun fromHttp(code: Int, depth: Int = DEVICE_DEPTH): DriveError = when (code) {
             401, 403, 407 -> AccessDenied
             404, 410 -> NotFound
             408, 504 -> Timeout
             // 500 and 502 are what a node answers when its file server is not there: on Windows
             // and macOS the Tailscale app serves the files, and with it closed the share still
             // lists (see TailsocksFileProvider.unavailableReason).
-            500, 502, 503 -> Unreachable
+            500, 502, 503 -> if (depth >= DEVICE_DEPTH) Unreachable else Failed("HTTP $code")
             else -> Failed("HTTP $code")
         }
 
-        fun from(t: Throwable): DriveError = when (t) {
-            is WebDavHttpException -> fromHttp(t.code)
+        /** [t] as the screen has to tell it; [depth] as for [fromHttp]. */
+        fun from(t: Throwable, depth: Int = DEVICE_DEPTH): DriveError = when (t) {
+            is WebDavHttpException -> fromHttp(t.code, depth)
             is SocketTimeoutException -> Timeout
             // The only thing the client connects to itself is the daemon's SOCKS5 port.
             is ConnectException -> NotConnected
-            is UnknownHostException, is NoRouteToHostException -> Unreachable
+            is UnknownHostException, is NoRouteToHostException -> deviceOrDaemon(depth)
             // The SOCKS5 server's own refusal: "SOCKS: Host unreachable", "SOCKS server general failure".
-            is SocketException -> if (t.message.orEmpty().startsWith("SOCKS")) Unreachable else Failed(describe(t))
+            is SocketException -> if (t.message.orEmpty().startsWith("SOCKS")) deviceOrDaemon(depth) else Failed(describe(t))
             is XmlPullParserException -> Failed("unreadable answer")
-            is IOException -> Unreachable
+            // A reply that never came, "unexpected end of stream": a device's failure reaches us as
+            // an HTTP 502 from our own daemon, so a connection that is just closed is the daemon's.
+            is IOException -> NoAnswer
             else -> if (t.message == NO_SOCKS_MESSAGE) NotConnected else Failed(describe(t))
         }
+
+        private fun deviceOrDaemon(depth: Int): DriveError = if (depth >= DEVICE_DEPTH) Unreachable else NoAnswer
 
         private fun describe(t: Throwable): String =
             t.javaClass.simpleName + (t.message?.takeIf { it.isNotBlank() }?.let { ": " + it.take(120) } ?: "")
@@ -607,22 +636,25 @@ class TaildriveBrowse(private val lister: DriveLister) {
      * listing of that folder is returned, with [DriveListing.location] saying so. Entries
      * starting with a dot (`.DS_Store`, `._name`) are left out unless [showHidden].
      */
-    fun list(location: DriveLocation, showHidden: Boolean = false): DriveResult<DriveListing> = try {
+    fun list(location: DriveLocation, showHidden: Boolean = false): DriveResult<DriveListing> {
+        // Where the request that failed went: the root, then the tailnet that was entered for the user.
         var here = location
-        var entries = fetch(here, showHidden)
-        if (here.isRoot) {
-            val only = entries.singleOrNull()
-            if (only != null && only.isFolder) {
-                here = here.child(only.name)
-                entries = fetch(here, showHidden)
+        return try {
+            var entries = fetch(here, showHidden)
+            if (here.isRoot) {
+                val only = entries.singleOrNull()
+                if (only != null && only.isFolder) {
+                    here = here.child(only.name)
+                    entries = fetch(here, showHidden)
+                }
             }
+            DriveResult.Ok(DriveListing(here, entries))
+        } catch (e: Exception) {
+            val error = DriveError.from(e, here.depth)
+            // The class and the status, never the message: it may name an address.
+            Log.w(TAG, "listing at depth ${here.depth} failed: ${e.javaClass.simpleName} -> $error")
+            DriveResult.Err(error)
         }
-        DriveResult.Ok(DriveListing(here, entries))
-    } catch (e: Exception) {
-        val error = DriveError.from(e)
-        // The class and the status, never the message: it may name an address.
-        Log.w(TAG, "listing at depth ${location.depth} failed: ${e.javaClass.simpleName} -> $error")
-        DriveResult.Err(error)
     }
 
     private fun fetch(location: DriveLocation, showHidden: Boolean): List<DriveEntry> =
@@ -636,16 +668,47 @@ class TaildriveBrowse(private val lister: DriveLister) {
         }
 
         /**
+         * What stops a listing before it is asked for: the daemon is off, or the policy does not
+         * give this device `drive:access` — its daemon would close the connection without a word.
+         * Null when nothing is known to be in the way, which includes a policy that has not been
+         * read (no map yet, or a bridge without the call): the listing then says what happened.
+         */
+        fun listingBlock(running: Boolean, access: TaildriveAccess.Verdict): DriveError? = when {
+            !running -> DriveError.NotConnected
+            access == TaildriveAccess.Verdict.DENIED -> DriveError.NotPermitted
+            else -> null
+        }
+
+        /**
+         * [listingBlock], then — for opening a file through the local proxy — the proxy switch and
+         * the proxy itself, in the order a person would fix them. [listening] is asked only when
+         * everything before it passed.
+         */
+        fun openingBlock(
+            running: Boolean,
+            access: TaildriveAccess.Verdict,
+            proxyEnabled: Boolean,
+            listening: () -> Boolean,
+        ): DriveError? = listingBlock(running, access) ?: when {
+            !proxyEnabled -> DriveError.ProxyOff
+            !listening() -> DriveError.ProxyNotListening
+            else -> null
+        }
+
+        /** [listingBlock] for the daemon as it is now. Blocking: a LocalAPI round trip. */
+        fun listingBlock(context: Context): DriveError? {
+            val running = ProxyState.isActualRunning(context)
+            return listingBlock(running, if (running) TaildriveAccess.report().access else TaildriveAccess.Verdict.UNKNOWN)
+        }
+
+        /**
          * Whether files can be opened and listed right now: null when yes, otherwise what to
-         * tell the user, in the order they would fix it — the daemon, then the proxy switch,
-         * then the proxy itself. Blocking: it connects to the proxy's port.
+         * tell the user, in the order they would fix it — the daemon, the policy, then the proxy
+         * switch, then the proxy itself. Blocking: it asks the daemon and connects to the proxy's port.
          */
         fun preflight(context: Context, accountId: String): DriveError? {
-            if (!ProxyState.isActualRunning(context)) return DriveError.NotConnected
             val proxy = DriveProxy.read(context, accountId)
-            if (!proxy.enabled) return DriveError.ProxyOff
-            if (!proxy.isListening()) return DriveError.ProxyNotListening
-            return null
+            return listingBlock(context) ?: openingBlock(true, TaildriveAccess.Verdict.ALLOWED, proxy.enabled, proxy::isListening)
         }
 
         /** What to hand to another app for the file at [file]; reads the proxy settings afresh and checks it answers. Blocking. */

@@ -382,9 +382,91 @@ class TaildriveBrowseTest {
         assertEquals(DriveError.NotConnected, DriveError.from(Exception("SOCKS5 proxy is not running")))
         assertEquals(DriveError.Unreachable, DriveError.from(UnknownHostException("nas")))
         assertEquals(DriveError.Unreachable, DriveError.from(SocketException("SOCKS: Host unreachable")))
-        assertEquals(DriveError.Unreachable, DriveError.from(java.io.EOFException()))
+        // A connection closed without a reply is this device's own Taildrive, not another device.
+        assertEquals(DriveError.NoAnswer, DriveError.from(java.io.EOFException()))
         assertTrue(DriveError.from(SocketException("Broken pipe")) is DriveError.Failed)
         assertTrue(DriveError.from(IllegalStateException("boom")) is DriveError.Failed)
+    }
+
+    /**
+     * What the author's phone and WSA showed: `PROPFIND /` answered by nothing at all — the daemon
+     * closes the connection of a device whose policy gives it no `drive:access` — and the platform's
+     * HttpURLConnection reports it as this plain IOException. It must not read as "the device is asleep".
+     */
+    @Test
+    fun aConnectionClosedWithoutAnAnswerIsTheDaemonsNotADevices() {
+        val closed = java.io.IOException("unexpected end of stream on com.android.okhttp.Address@927775cb")
+        assertEquals(DriveError.NoAnswer, DriveError.from(closed))
+        assertEquals(DriveError.NoAnswer, DriveError.from(closed, depth = 0))
+        assertEquals(DriveError.NoAnswer, DriveError.from(closed, depth = 3))
+        assertEquals(DriveResult.Err(DriveError.NoAnswer), TaildriveBrowse { throw closed }.list(DriveLocation.ROOT))
+    }
+
+    @Test
+    fun aDevicesFailureIsOnlyADevicesBelowTheTailnet() {
+        // 502 from the local daemon's reverse proxy: the device behind a share did not answer.
+        assertEquals(DriveError.Unreachable, DriveError.fromHttp(502, depth = DriveError.DEVICE_DEPTH))
+        assertEquals(DriveError.Unreachable, DriveError.fromHttp(502, depth = 4))
+        // At the root or in the tailnet no device has been asked: there is no one to be asleep.
+        assertEquals(DriveError.Failed("HTTP 502"), DriveError.fromHttp(502, depth = 0))
+        assertEquals(DriveError.Failed("HTTP 500"), DriveError.fromHttp(500, depth = 1))
+        assertEquals(DriveError.NoAnswer, DriveError.from(SocketException("SOCKS: Host unreachable"), depth = 1))
+        assertEquals(DriveError.Unreachable, DriveError.from(SocketException("SOCKS: Host unreachable"), depth = 2))
+        // The policy's verdicts do not depend on how deep the request was.
+        assertEquals(DriveError.AccessDenied, DriveError.fromHttp(403, depth = 0))
+        assertEquals(DriveError.Timeout, DriveError.fromHttp(504, depth = 1))
+    }
+
+    @Test
+    fun theTailnetsShareLookupReportsTheDepthItFailedAt() {
+        // The root lists one tailnet, which is entered; the second request is the one that fails.
+        val calls = mutableListOf<String>()
+        val browse = TaildriveBrowse { path ->
+            calls += path
+            if (path == "/") listOf(dir("/"), dir("/$tn/")) else throw WebDavHttpException("PROPFIND", 502, "")
+        }
+        // The tailnet level is the daemon's own: a 502 there is no device's.
+        assertEquals(DriveResult.Err(DriveError.Failed("HTTP 502")), browse.list(DriveLocation.ROOT))
+        assertEquals(listOf("/", "/$tn"), calls)
+        // A device below it is.
+        assertEquals(DriveResult.Err(DriveError.Unreachable), TaildriveBrowse { throw WebDavHttpException("PROPFIND", 502, "") }.list(shareLocation))
+    }
+
+    // --- What stops a listing, and what stops an open -----------------------------------------------
+
+    private val allowed = TaildriveAccess.Verdict.ALLOWED
+    private val denied = TaildriveAccess.Verdict.DENIED
+    private val unknown = TaildriveAccess.Verdict.UNKNOWN
+
+    @Test
+    fun theDaemonComesBeforeThePolicy() {
+        assertEquals(DriveError.NotConnected, TaildriveBrowse.listingBlock(running = false, access = denied))
+        assertEquals(DriveError.NotConnected, TaildriveBrowse.listingBlock(running = false, access = unknown))
+    }
+
+    @Test
+    fun aPolicyThatRefusesStopsTheListingBeforeAnyRequest() {
+        assertEquals(DriveError.NotPermitted, TaildriveBrowse.listingBlock(running = true, access = denied))
+    }
+
+    @Test
+    fun aPolicyThatAllowsOrIsNotKnownYetLetsTheListingAsk() {
+        assertNull(TaildriveBrowse.listingBlock(running = true, access = allowed))
+        // Not known — no map yet, or a bridge without the call — is not "refused": the listing says what it meets.
+        assertNull(TaildriveBrowse.listingBlock(running = true, access = unknown))
+    }
+
+    @Test
+    fun theProxyIsAskedAboutOnlyWhenNothingBeforeItStops() {
+        var asked = 0
+        val listening = { asked++; true }
+        assertEquals(DriveError.ProxyOff, TaildriveBrowse.openingBlock(true, allowed, proxyEnabled = false, listening = listening))
+        assertEquals(DriveError.NotPermitted, TaildriveBrowse.openingBlock(true, denied, proxyEnabled = true, listening = listening))
+        assertEquals(DriveError.NotConnected, TaildriveBrowse.openingBlock(false, allowed, proxyEnabled = true, listening = listening))
+        assertEquals(0, asked)
+        assertNull(TaildriveBrowse.openingBlock(true, allowed, proxyEnabled = true, listening = listening))
+        assertEquals(1, asked)
+        assertEquals(DriveError.ProxyNotListening, TaildriveBrowse.openingBlock(true, allowed, proxyEnabled = true, listening = { false }))
     }
 
     @Test
