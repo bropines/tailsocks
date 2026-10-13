@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- The app no longer crashes when DPI bypass is stopped or restarted.
+
 ## [4.10.1] - 2026-10-12
 
 ### Fixed
