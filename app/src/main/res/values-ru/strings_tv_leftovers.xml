@@ -6,10 +6,10 @@
     <string name="tile_remote_off">Выключено</string>
     <string name="tile_remote_waiting">Включено, ждёт сопряжения</string>
     <plurals name="tile_remote_paired">
-        <item quantity="one">Сопряжённых устройств: %d</item>
-        <item quantity="few">Сопряжённых устройств: %d</item>
-        <item quantity="many">Сопряжённых устройств: %d</item>
-        <item quantity="other">Сопряжённых устройств: %d</item>
+        <item quantity="one">Сопряжено: %d</item>
+        <item quantity="few">Сопряжено: %d</item>
+        <item quantity="many">Сопряжено: %d</item>
+        <item quantity="other">Сопряжено: %d</item>
     </plurals>
     <string name="tile_remote_mode">Недоступно в этом режиме</string>
     <string name="tile_remote_stopped">Включено, заработает с подключением</string>

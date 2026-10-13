@@ -6,7 +6,7 @@
 -->
 <resources>
     <!-- Dashboard tile: opens the list of every device this one manages -->
-    <string name="managed_all">All devices</string>
+    <string name="managed_all">Managed devices</string>
     <!-- Its second line while nothing is known of who is online: how many there are -->
     <plurals name="managed_count">
         <item quantity="one">%d device</item>

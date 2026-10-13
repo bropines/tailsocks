@@ -21,6 +21,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Experimental: manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; off by default, works in proxy and TUN mode.
 - Remote management covers the connection and the exit node (a change that cuts the link is put back by the device itself), sending a file, permissions seen and requested, and — with Full control switched on at the device — its storage, shared folders, routes and log.
 - Android TV: a "From a phone" tile on the home screen shows the state of remote management.
+- Devices you manage appear on the main screen once one is paired, each with whether it is online.
 
 ### Fixed
 
