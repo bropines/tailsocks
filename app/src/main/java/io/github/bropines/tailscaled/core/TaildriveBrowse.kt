@@ -1,10 +1,13 @@
 package io.github.bropines.tailscaled.core
 
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import io.github.bropines.tailscaled.ui.theme.findActivity
 import java.io.IOException
@@ -496,19 +499,36 @@ class DriveOpenSpec internal constructor(
         }
     }
 
-    /** Whether any installed app declares it handles this file. */
-    fun canHandle(context: Context): Boolean = intents().any { it.resolveActivity(context.packageManager) != null }
+    /** Whether any installed app declares it handles this file; a television's placeholder does not count. */
+    fun canHandle(context: Context): Boolean = intents().any { handlers(context, it).any { app -> !app.placeholder } }
 
     /**
      * Starts the first intent something answers to. From an Activity — [context] may wrap one —
      * the player joins this task, so Back returns to the page.
+     *
+     * A television answers what no app takes with a placeholder — Android TV's media stub shows a
+     * toast and finishes — and for a type that a player lists exactly the stub can outrank it, so
+     * handing the intent to the system would "start" and show a toast. Where a placeholder is in
+     * the way, the intent goes to the one real app by name, or to a chooser that leaves the
+     * placeholders out; where none is, the system decides as it always did.
      */
     fun launch(context: Context): DriveLaunch {
         val host = context.findActivity()
         for (intent in intents()) {
-            if (host == null) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val found = handlers(context, intent)
+            val apps = found.filter { !it.placeholder }
+            // Something answers, and it is nothing but placeholders: this type has no app; the family may.
+            if (found.isNotEmpty() && apps.isEmpty()) continue
+            val stubs = found.filter { it.placeholder }
+            val start = when {
+                stubs.isEmpty() -> intent
+                apps.size == 1 -> Intent(intent).setComponent(apps[0].component)
+                else -> Intent.createChooser(intent, name)
+                    .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, stubs.map { it.component }.toTypedArray())
+            }
+            if (host == null) start.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
-                (host ?: context).startActivity(intent)
+                (host ?: context).startActivity(start)
                 return DriveLaunch.Started
             } catch (_: ActivityNotFoundException) {
                 // Nothing takes this type; the family may be taken.
@@ -517,6 +537,24 @@ class DriveOpenSpec internal constructor(
             }
         }
         return DriveLaunch.NoApp
+    }
+
+    /** An activity that takes the intent, and whether it is only a television's placeholder. */
+    private class Handler(val component: ComponentName, val placeholder: Boolean)
+
+    private fun handlers(context: Context, intent: Intent): List<Handler> {
+        val pm = context.packageManager
+        val found = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+        }.getOrDefault(emptyList())
+        return found.mapNotNull { it.activityInfo }.map {
+            Handler(ComponentName(it.packageName, it.name), isPlaceholderActivity(it.packageName, it.name))
+        }
     }
 
     override fun toString(): String = "DriveOpenSpec(name=$name, mime=$mime)"
