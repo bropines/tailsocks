@@ -1,10 +1,12 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -205,12 +207,17 @@ fun TvQueryField(
  */
 @Composable
 fun TvSheetDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    // The remote opens in the sheet, on its first stop, unless something in it asks for it itself.
+    val entry = rememberWindowEntry()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.padding(LocalTvSafeArea.current).fillMaxSize()
-        ) { content() }
+            modifier = Modifier.padding(LocalTvSafeArea.current).fillMaxSize().tvWindowEntered(entry)
+        ) {
+            Box(Modifier.tvEntryPoint(entry).focusGroup(), propagateMinConstraints = true) { content() }
+        }
+        TvWindowEntry(entry)
     }
 }
 

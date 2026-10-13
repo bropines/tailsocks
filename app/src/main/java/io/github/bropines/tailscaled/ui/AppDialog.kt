@@ -1,5 +1,7 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
@@ -25,6 +27,11 @@ import androidx.compose.ui.window.DialogProperties
  * of the admin console, which a television is not offered, is Material's own.
  * A dialog of a shape that is neither (a full-screen page, a scene) pads itself
  * with LocalTvSafeArea.
+ *
+ * And a television opens a dialog with the remote in it, on the safe action: the
+ * cancel button of a dialog that has two, the only button of one that has one. A
+ * dialog that put the remote somewhere itself (tvInitialFocus, a field) keeps it
+ * there; the wrapper sends it in only for the dialog that asked for nothing.
  */
 
 /**
@@ -48,11 +55,18 @@ fun AppAlertDialog(
     tonalElevation: Dp = AlertDialogDefaults.TonalElevation,
     properties: DialogProperties = DialogProperties(),
 ) {
+    val entry = rememberWindowEntry()
+    // The safe action: cancel when there is one, the only button otherwise.
+    val safeIsConfirm = dismissButton == null
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
-        modifier = modifier.keepClearOfTheEdges(),
-        dismissButton = dismissButton,
+        confirmButton = if (entry != null && safeIsConfirm) {
+            { Box(Modifier.tvEntryPoint(entry)) { confirmButton() } }
+        } else confirmButton,
+        modifier = modifier.keepClearOfTheEdges().tvWindowEntered(entry),
+        dismissButton = if (entry != null && dismissButton != null) {
+            { Box(Modifier.tvEntryPoint(entry)) { dismissButton() } }
+        } else dismissButton,
         icon = icon,
         title = title,
         text = text,
@@ -64,9 +78,14 @@ fun AppAlertDialog(
         tonalElevation = tonalElevation,
         properties = properties,
     )
+    TvWindowEntry(entry)
 }
 
-/** `BasicAlertDialog` for the app: for a dialog that draws its own surface; see [AppAlertDialog]. */
+/**
+ * `BasicAlertDialog` for the app: for a dialog that draws its own surface; see [AppAlertDialog].
+ * On a television the remote is sent into [content] as a whole, onto its first stop: a dialog
+ * that has several says which is the safe one itself, as [AppAlertDialog]'s callers do.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppBasicAlertDialog(
@@ -75,12 +94,16 @@ fun AppBasicAlertDialog(
     properties: DialogProperties = DialogProperties(),
     content: @Composable () -> Unit,
 ) {
+    val entry = rememberWindowEntry()
     BasicAlertDialog(
         onDismissRequest = onDismissRequest,
-        modifier = modifier.keepClearOfTheEdges(),
+        modifier = modifier.keepClearOfTheEdges().tvWindowEntered(entry),
         properties = properties,
-        content = content,
+        content = if (entry == null) content else {
+            { Box(Modifier.tvEntryPoint(entry).focusGroup(), propagateMinConstraints = true) { content() } }
+        },
     )
+    TvWindowEntry(entry)
 }
 
 /**

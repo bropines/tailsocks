@@ -19,11 +19,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
@@ -36,6 +38,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /*
@@ -129,6 +132,65 @@ fun Modifier.tvInitialFocus(requester: FocusRequester = remember { FocusRequeste
     }
     return focusRequester(requester).onGloballyPositioned {
         if (!asked[0]) asked[0] = runCatching { requester.requestFocus() }.getOrDefault(false)
+    }
+}
+
+/**
+ * Where the remote starts in a window that opens over a screen — a dialog. Its [requester] is
+ * on the element to start on ([tvEntryPoint]), the window's container watches for the remote
+ * ([tvWindowEntered]) and [TvWindowEntry] sends it in for whoever did not ask for it.
+ */
+@Stable
+internal class WindowEntry {
+    internal val requester = FocusRequester()
+
+    /** Something in the window has the remote, whoever asked: nobody is to be sent in. */
+    internal var entered = false
+
+    /** The request was made and landed. */
+    internal var asked = false
+
+    /** Asks for the focus, once: it stays asked when the request succeeded. */
+    internal fun ask() {
+        if (entered || asked) return
+        asked = runCatching { requester.requestFocus() }.getOrDefault(false)
+    }
+}
+
+/** A window's entry on a television, null elsewhere: every modifier and effect below is then the identity. */
+@Composable
+internal fun rememberWindowEntry(): WindowEntry? = if (isTv) remember { WindowEntry() } else null
+
+/** On the window's container: the remote is in once something in the window has it. */
+internal fun Modifier.tvWindowEntered(entry: WindowEntry?): Modifier =
+    if (entry == null) this else onFocusChanged { if (it.hasFocus) entry.entered = true }
+
+/**
+ * On the element a window starts on, or on a container the remote is sent into as a whole. It
+ * asks as the element is placed, the first moment a request can succeed (see [tvInitialFocus]):
+ * whatever inside it asks for the remote itself comes later, and has the last word.
+ */
+internal fun Modifier.tvEntryPoint(entry: WindowEntry?): Modifier =
+    if (entry == null) this else focusRequester(entry.requester).onGloballyPositioned { entry.ask() }
+
+private const val WINDOW_ENTRY_TRIES = 20
+private const val WINDOW_ENTRY_RETRY_MS = 100L
+
+/**
+ * The second try for [tvEntryPoint], for a window whose element was not there to be asked when
+ * it was first placed: the remote is offered a few times, until something has it.
+ */
+@Composable
+internal fun TvWindowEntry(entry: WindowEntry?) {
+    if (entry == null) return
+    LaunchedEffect(entry) {
+        // A frame for the window to be placed, and for what asks for the remote itself to do so.
+        withFrameNanos { }
+        repeat(WINDOW_ENTRY_TRIES) {
+            if (entry.entered || entry.asked) return@LaunchedEffect
+            entry.ask()
+            delay(WINDOW_ENTRY_RETRY_MS)
+        }
     }
 }
 
