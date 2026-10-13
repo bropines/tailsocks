@@ -231,6 +231,17 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Small
 
+- [x] **Beta releases, the groundwork (5.0.0).** One package and one key, two channels told
+      apart by the tag: `vX.Y.Z-beta.N` is published as a GitHub pre-release, the in-app update
+      check offers betas only with "Receive beta versions" on, F-Droid's tag pattern never
+      matches one, and a beta's version code sits just under its release's. The rule and the
+      steps are in [RELEASING.md](RELEASING.md). No beta has been cut yet.
+- [x] **A network too small for direct connections is said (5.0.0).** The network check warns
+      when the link MTU is below what a WireGuard-wrapped tailnet packet needs (1360, or 1340
+      over IPv4), and the diagnostics report always names the interface and its MTU. Found on
+      WSA, whose `eth0` inherits 1280 from the Windows host's VPN adapters: every large packet
+      on a direct path was lost in silence. Fitting the tunnel to such a link automatically is
+      not done — a kernel TUN cannot go below 1280 with IPv6 on it.
 - [x] **IPv6 in the DNS redirect — said out loud (2026-09-26).** On kernels without an IPv6
       `nat` table (4.19 on the Redmi) there is nowhere to write the v6 rules, so device-wide DNS
       covers IPv4 only. The apply script now asks — `ip6tables -t nat -S`, and only when IPv6 is
