@@ -50,8 +50,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -227,6 +229,10 @@ private fun Managing(
 
     val status = ui.status
     val groups = if (status == null || ui.problem?.final == true) emptyList() else groupsOf(ui)
+    // What the device last said stays readable while it cannot be asked, dimmed: it is not news.
+    // Not so the pairing, which is this device's own to show — and forgetting it answers
+    // whatever the device does.
+    val dimmed = if (ui.old) Modifier.alpha(0.5f) else Modifier
     val card: @Composable (ManageGroup, Modifier) -> Unit = { group, place ->
         val summary = summaryOf(group, ui)
         ManageCard(
@@ -236,16 +242,21 @@ private fun Managing(
             attention = summary.attention,
             open = group in open,
             onToggle = { remembered = if (group in remembered) remembered - group else remembered + group },
+            modifier = if (group == ManageGroup.PAIRING) Modifier else dimmed,
             headerModifier = place,
         ) { GroupBody(group, ui, actions, hooks) { asked = it } }
     }
     // A television must have something in focus: the page's first action — Identify, where the
     // device offers it, else the first group's header. A banner that comes with the page has a
     // button that takes the focus instead: two that ask at once would leave it to chance.
+    // The page starts there once the device has answered it. What an earlier page heard is
+    // shown and does not answer: the remote put on it would scroll the header out from under a
+    // banner that may yet come, and would stand on a button that does nothing.
     val bannerButton = ui.problem != null || ui.guard?.phase == GuardPhase.REVERTED || ui.guard?.phase == GuardPhase.UNCLEAR
-    val startHere = remember(status != null) { !bannerButton }
-    val identify = startHere && status != null && ui.access.gate(ManagedOp.IDENTIFY).offered
-    val first = groups.firstOrNull().takeIf { startHere && !identify }
+    val answered = status != null && !ui.remembered
+    val startHere = remember(answered) { !bannerButton }
+    val identify = startHere && answered && ui.access.gate(ManagedOp.IDENTIFY).offered
+    val first = groups.firstOrNull().takeIf { startHere && answered && !identify }
     val focusOf: @Composable (ManageGroup) -> Modifier = { if (it == first) Modifier.tvInitialFocus() else Modifier }
     // The pairing is gone there, and here with it: nothing of the device is this device's to show.
     val unpaired = ui.problem == ManageProblem.REVOKED || ui.problem == ManageProblem.EXPIRED
@@ -264,22 +275,21 @@ private fun Managing(
                 if (ui.problem == ManageProblem.NO_PEER) HelpText(stringResource(R.string.rmanage_one_tailnet))
                 else ForgetButton(ui) { asked = ManageAsk.Forget }
             }
-            // What the device last said stays readable while it cannot be asked, dimmed: it is not news.
             layout.listDetail -> Row(
-                Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.old) 0.5f else 1f),
+                Modifier.fillMaxSize().padding(horizontal = layout.margin),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // The device and how it is connected on one side, everything it holds on the other.
                 val (left, right) = groups.partition { it == ManageGroup.CONNECTION }
                 PageColumn(Modifier.weight(1f)) {
-                    DeviceHeader(ui, status, actions, start = identify)
+                    Box(dimmed) { DeviceHeader(ui, status, actions, start = identify) }
                     left.forEach { card(it, focusOf(it)) }
                 }
                 PageColumn(Modifier.weight(1f)) { right.forEach { card(it, focusOf(it)) } }
             }
             else -> ReadableWidth {
-                PageColumn(Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.old) 0.5f else 1f)) {
-                    DeviceHeader(ui, status, actions, start = identify)
+                PageColumn(Modifier.fillMaxSize().padding(horizontal = layout.margin)) {
+                    Box(dimmed) { DeviceHeader(ui, status, actions, start = identify) }
                     groups.forEach { card(it, focusOf(it)) }
                 }
             }
@@ -389,11 +399,28 @@ private fun Banner(
         // column of five lines by it, so there the button stands under the text. On a phone a
         // button of three words squeezes even a short sentence, and stands under it too.
         val beside = action != null && text.length <= BANNER_BESIDE_MAX && (wide || action.length <= BANNER_ACTION_BESIDE_MAX)
-        // ManageButton's manners: a button that waits looks disabled and does not answer, and on a
-        // television it is still where the remote stands.
-        val deaf = isTv && actionWaiting
-        val colors = ButtonDefaults.buttonColors().let { if (deaf) it.copy(containerColor = it.disabledContainerColor, contentColor = it.disabledContentColor) else it }
-        val press = { if (!actionWaiting) onAction() }
+        // One button, wherever it stands. The sentence can change under a person's hands — a
+        // device that did not answer turns out to be offline — and the button may move from
+        // beside it to under it: a new button there would ask for the remote again, and take it
+        // from wherever it had gone meanwhile.
+        val label by rememberUpdatedState(action.orEmpty())
+        val waiting by rememberUpdatedState(actionWaiting)
+        val act by rememberUpdatedState(onAction)
+        val button = remember {
+            movableContentOf { place: Modifier ->
+                // ManageButton's manners: a button that waits looks disabled and does not answer,
+                // and on a television it is still where the remote stands.
+                val deaf = isTv && waiting
+                val colors = ButtonDefaults.buttonColors().let { if (deaf) it.copy(containerColor = it.disabledContainerColor, contentColor = it.disabledContentColor) else it }
+                Button(
+                    onClick = { if (!waiting) act() },
+                    enabled = !waiting || deaf,
+                    colors = colors,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = place.tvInitialFocus()
+                ) { Text(label) }
+            }
+        }
         Column(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
@@ -402,18 +429,10 @@ private fun Banner(
                 Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 if (action != null && beside) {
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = press, enabled = !actionWaiting || deaf, colors = colors, shape = MaterialTheme.shapes.medium, modifier = Modifier.tvInitialFocus()) { Text(action) }
+                    button(Modifier)
                 }
             }
-            if (action != null && !beside) {
-                Button(
-                    onClick = press,
-                    enabled = !actionWaiting || deaf,
-                    colors = colors,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.align(Alignment.End).padding(top = 8.dp).tvInitialFocus()
-                ) { Text(action) }
-            }
+            if (action != null && !beside) button(Modifier.align(Alignment.End).padding(top = 8.dp))
         }
     }
 }
@@ -579,16 +598,16 @@ private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, act
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    // Under what the device says of itself, what the tailnet says of it now.
-                    peerLine(ui.peer)?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = ink.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 HeaderTag(roleTag(ui), ink)
                 if (access.levelKnown) HeaderTag(levelText(access.level), ink)
+                // Where the tailnet has it, beside what the device says of itself. A tag and not a
+                // line: the header keeps its height, which on a television decides what the
+                // remote's first stop leaves in sight.
+                ui.peer?.address?.takeIf { it.isNotEmpty() }?.let { HeaderTag(it, ink) }
                 // Why the page is dimmed: it shows what the device said then.
                 if (ui.old && ui.heardAt > 0) HeaderTag(stringResource(R.string.rmanage_heard, agoText(LocalContext.current, ui.heardAt, ui.now)), ink)
             }
@@ -659,17 +678,6 @@ private fun presenceText(presence: RemotePresence): String? = when (presence) {
     RemotePresence.OFFLINE -> stringResource(R.string.rmanage_device_offline)
     RemotePresence.GONE -> stringResource(R.string.rmanage_device_gone)
     RemotePresence.UNKNOWN -> null
-}
-
-/**
- * What this device's own network map says of the peer, in one short line under what the device
- * says of itself: whether it is there, and its address. Since when it is not is the banner's to
- * say. Null when the map was not read or cannot say.
- */
-@Composable
-private fun peerLine(peer: ManagePeer?): String? {
-    val presence = presenceText(peer?.presence ?: return null) ?: return null
-    return listOfNotNull(presence, peer.address.takeIf { it.isNotEmpty() }).joinToString(" · ")
 }
 
 /**
