@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Verified
@@ -68,6 +70,7 @@ import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
 import io.github.bropines.tailscaled.admin.secure.LockState
 import io.github.bropines.tailscaled.admin.secure.UnlockResult
+import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.TailnetLock
 import io.github.bropines.tailscaled.core.TailnetLockPeer
 import io.github.bropines.tailscaled.core.TailnetLockStatus
@@ -82,6 +85,11 @@ import kotlinx.coroutines.withContext
  * one write: on a device whose key is trusted, signing a node that is waiting — behind a dialog
  * that names the node and then the phone's unlock (AdminWriteGate, the console's write gate).
  * A FragmentActivity because BiometricPrompt wants one.
+ *
+ * A device that is not offered signing (Feature.TAILNET_LOCK_SIGN — a television, which has no
+ * screen lock to confirm with) shows the same status with no Sign buttons and says why the
+ * nodes are signed from elsewhere. One without a clipboard to speak of (Feature.CLIPBOARD_ACTIONS)
+ * shows a value as a QR code for a phone to read, where another copies it.
  */
 class TailnetLockActivity : FragmentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -112,6 +120,9 @@ fun TailnetLockScreen(activity: FragmentActivity?, onBack: () -> Unit) {
     var signing by remember { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<TailnetLockPeer?>(null) }
     val canUnlock = remember { !inPreview && AdminWriteGate.lockState(context) != LockState.NO_SCREEN_LOCK }
+    val copies = Feature.CLIPBOARD_ACTIONS.offered()
+    // A value on show as a QR code: its title and the text.
+    var shown by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(tick) {
         if (inPreview) return@LaunchedEffect
@@ -160,13 +171,21 @@ fun TailnetLockScreen(activity: FragmentActivity?, onBack: () -> Unit) {
         signing = signing,
         onBack = onBack,
         onRefresh = { tick++ },
-        onCopy = { text ->
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.tka_title), text))
-            Toast.makeText(context, context.getString(R.string.tka_copied), Toast.LENGTH_SHORT).show()
+        onCopy = { title, text ->
+            if (copies) {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.tka_title), text))
+                Toast.makeText(context, context.getString(R.string.tka_copied), Toast.LENGTH_SHORT).show()
+            } else {
+                shown = title to text
+            }
         },
         onSign = { confirm = it },
+        signsHere = Feature.TAILNET_LOCK_SIGN.offered(),
+        copies = copies,
     )
+
+    shown?.let { (title, text) -> QrSheet(title = title, text = text, onDismiss = { shown = null }) }
 
     confirm?.let { peer ->
         // Resolved here, in the activity's locale: a dialog's window does not carry it.
@@ -198,9 +217,15 @@ internal fun TailnetLockContent(
     signing: String?,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
-    onCopy: (String) -> Unit,
+    /** A row's title and its value: copied, or shown as a code where the device does not copy. */
+    onCopy: (String, String) -> Unit,
     onSign: (TailnetLockPeer) -> Unit,
+    /** Whether this device signs nodes at all (Feature.TAILNET_LOCK_SIGN). */
+    signsHere: Boolean = true,
+    /** Whether a value is copied; false shows it as a QR code instead (Feature.CLIPBOARD_ACTIONS). */
+    copies: Boolean = true,
 ) {
+    val listState = rememberLazyListState()
     Scaffold(
         topBar = {
             AppTopBar(
@@ -214,7 +239,9 @@ internal fun TailnetLockContent(
     ) { padding ->
         ReadableWidth {
             LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize(),
+                state = listState,
+                // The state card and the waiting nodes are no stops for a remote: it scrolls to them.
+                modifier = Modifier.padding(padding).fillMaxSize().tvScrollPastStops(listState),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -234,13 +261,14 @@ internal fun TailnetLockContent(
                     is TailnetLockLoad.Loaded -> {
                         val st = load.status
                         item(key = "state") { LockStateCard(st) }
-                        item(key = "device") { DeviceCard(st, onCopy) }
+                        item(key = "device") { DeviceCard(st, copies, onCopy) }
                         // Nodes waiting matter to a signer; anyone else sees them only if there are any.
                         if (st.enabled && (st.isTrustedSigner || st.lockedOutPeers.isNotEmpty())) {
-                            item(key = "waiting-head") { WaitingHeader(st, canUnlock) }
+                            item(key = "waiting-head") { WaitingHeader(st, canUnlock, signsHere) }
                             items(st.lockedOutPeers, key = { "peer-" + it.nodeKey }) { peer ->
                                 WaitingPeerRow(
                                     peer = peer,
+                                    signsHere = signsHere,
                                     canSign = st.isTrustedSigner && canUnlock && signing == null,
                                     signing = signing == peer.nodeKey,
                                     onSign = { onSign(peer) },
@@ -299,7 +327,7 @@ private fun LockStateCard(st: TailnetLockStatus) {
 }
 
 @Composable
-private fun DeviceCard(st: TailnetLockStatus, onCopy: (String) -> Unit) {
+private fun DeviceCard(st: TailnetLockStatus, copies: Boolean, onCopy: (String, String) -> Unit) {
     SettingsCard(title = stringResource(R.string.tka_sect_device)) {
         when {
             !st.hasKey -> StateLine(Icons.Default.HourglassEmpty, stringResource(R.string.tka_device_no_key))
@@ -310,11 +338,15 @@ private fun DeviceCard(st: TailnetLockStatus, onCopy: (String) -> Unit) {
         }
         if (st.hasKey) {
             val key = TailnetLock.cliKey(st.publicKey)
-            CopyRow(Icons.Default.Key, stringResource(R.string.tka_key_title), key, stringResource(R.string.tka_key_help)) { onCopy(key) }
+            val title = stringResource(R.string.tka_key_title)
+            if (copies) CopyRow(Icons.Default.Key, title, key, stringResource(R.string.tka_key_help)) { onCopy(title, key) }
+            else ShowRow(Icons.Default.Key, title, key, stringResource(R.string.tka_key_help_show), Modifier.tvInitialFocus()) { onCopy(title, key) }
         }
         if (st.isLockedOut) {
             TailnetLock.signCommand(st)?.let { cmd ->
-                CopyRow(Icons.Default.Terminal, stringResource(R.string.tka_sign_me_title), cmd, stringResource(R.string.tka_sign_me_help)) { onCopy(cmd) }
+                val title = stringResource(R.string.tka_sign_me_title)
+                if (copies) CopyRow(Icons.Default.Terminal, title, cmd, stringResource(R.string.tka_sign_me_help)) { onCopy(title, cmd) }
+                else ShowRow(Icons.Default.Terminal, title, cmd, stringResource(R.string.tka_sign_me_help_show)) { onCopy(title, cmd) }
             }
         }
     }
@@ -348,8 +380,36 @@ private fun CopyRow(icon: ImageVector, title: String, value: String, help: Strin
     }
 }
 
+/**
+ * [CopyRow] on a device that does not copy: the same value, and the row shows it as a QR code
+ * for a phone to read. One stop for a remote, its explanation unfolding as the remote rests on it.
+ */
 @Composable
-private fun WaitingHeader(st: TailnetLockStatus, canUnlock: Boolean) {
+private fun ShowRow(icon: ImageVector, title: String, value: String, help: String, modifier: Modifier = Modifier, onShow: () -> Unit) {
+    val folded = remember(help) { mutableStateOf(false) }
+    ExplainedRow(onClick = onShow, help = folded, modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    value,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(vertical = 4.dp),
+                )
+                HelpText(help, expanded = folded, inClickableRow = true)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Default.QrCode2, contentDescription = stringResource(R.string.qr_show), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun WaitingHeader(st: TailnetLockStatus, canUnlock: Boolean, signsHere: Boolean) {
     Column(Modifier.padding(horizontal = 4.dp)) {
         Text(
             stringResource(R.string.tka_sect_waiting),
@@ -360,6 +420,7 @@ private fun WaitingHeader(st: TailnetLockStatus, canUnlock: Boolean) {
         val note = when {
             st.lockedOutPeers.isEmpty() -> R.string.tka_waiting_none
             !st.isTrustedSigner -> R.string.tka_waiting_not_signer
+            !signsHere -> R.string.tka_waiting_other_device
             !canUnlock -> R.string.tka_waiting_no_lock
             else -> null
         }
@@ -368,7 +429,7 @@ private fun WaitingHeader(st: TailnetLockStatus, canUnlock: Boolean) {
 }
 
 @Composable
-private fun WaitingPeerRow(peer: TailnetLockPeer, canSign: Boolean, signing: Boolean, onSign: () -> Unit) {
+private fun WaitingPeerRow(peer: TailnetLockPeer, signsHere: Boolean, canSign: Boolean, signing: Boolean, onSign: () -> Unit) {
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -384,11 +445,14 @@ private fun WaitingPeerRow(peer: TailnetLockPeer, canSign: Boolean, signing: Boo
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(12.dp))
-            if (signing) {
-                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-            } else {
-                FilledTonalButton(onClick = onSign, enabled = canSign) { Text(stringResource(R.string.tka_sign)) }
+            // Where the device does not sign there is no button to press, and no dead one either.
+            if (signsHere) {
+                Spacer(Modifier.width(12.dp))
+                if (signing) {
+                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else {
+                    FilledTonalButton(onClick = onSign, enabled = canSign) { Text(stringResource(R.string.tka_sign)) }
+                }
             }
         }
     }
