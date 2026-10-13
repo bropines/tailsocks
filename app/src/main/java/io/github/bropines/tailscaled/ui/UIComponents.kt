@@ -99,7 +99,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import appctr.Appctr
 import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.Serializable
@@ -2798,28 +2797,6 @@ private suspend fun awaitDaemonAnswering() = withContext(Dispatchers.IO) {
 }
 
 private val DAEMON_STARTING_STATES = setOf("", "NoState", "Starting", "Error")
-
-fun openTaildropFile(context: Context, file: TaildropFile) {
-    try {
-        var f = File(file.Path)
-        // The FileProvider only covers files/taildrop/. A Root Mode daemon
-        // started by the boot script keeps writing into the pre-4.0 directory
-        // until the app hands it the new one, so a path from outside is
-        // migrated and re-resolved instead of failing to open.
-        val root = File(context.filesDir, "taildrop").absolutePath + File.separator
-        if (!f.absolutePath.startsWith(root)) {
-            val accountId = AccountManager.getActiveAccount(context).id
-            TaildropPaths.migrate(context, accountId)
-            val moved = File(TaildropPaths.dir(context, accountId), f.name)
-            if (moved.exists()) f = moved
-        }
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", f)
-        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }, context.getString(R.string.files_open_file_chooser)))
-    } catch (e: Exception) { Toast.makeText(context, context.getString(R.string.files_error_cant_open, e.message), Toast.LENGTH_SHORT).show() }
-}
 
 fun highlightLogMessage(
     timestamp: String,

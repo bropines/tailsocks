@@ -1,6 +1,5 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 
 import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
@@ -11,9 +10,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.layout.*
@@ -23,7 +20,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
@@ -50,7 +46,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.core.AppJson
@@ -63,8 +58,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 
 class PeersActivity : ComponentActivity() {
