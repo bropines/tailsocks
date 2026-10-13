@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management, the managed device's own page (ui/RemoteManagedScreen.kt): the two switches
+         beyond the main one, what a paired device may do, and the newer lines of the log -->
+    <string name="remote_managed_switch_help">A device paired with a code from this screen can see this TailSocks and change part of it over the tailnet. What exactly is listed under “What a paired device may do”.</string>
+
+    <!-- Full control -->
+    <string name="remote_full_title">Full control</string>
+    <string name="remote_full_help">A paired device of this account can then see the name of every file in this device\'s storage and have any of them sent to itself, add shared folders, offer this device as an exit node or a router, and read the app\'s log with secrets scrubbed — a filter is a filter.\n• It is switched on here and nowhere else. A paired device can only switch it off.\n• Guests never get it.</string>
+    <string name="remote_full_confirm_title">Turn on full control?</string>
+    <string name="remote_full_confirm_text">Every paired device of this account will be able to see the name of every file in this device\'s storage and have any of them sent to itself, add shared folders, offer this device as an exit node or a router, and read the app\'s log.\n\nSecrets are scrubbed from the log, but a filter is a filter. Whoever holds a paired phone holds all of this.</string>
+    <string name="remote_full_confirm_yes">Turn on</string>
+
+    <!-- Guests -->
+    <string name="remote_guests_title">Let other people\'s devices pair as guests</string>
+    <string name="remote_guests_help_lasts">A guest sees the status and picks the exit node, and its pairing ends by itself after %1$s.</string>
+    <string name="remote_guests_help_plain">A guest sees the status and picks the exit node.</string>
+    <string name="remote_guests_help_off">• Off: only this account\'s own devices can pair, and a guest already paired is refused until this is on again.</string>
+    <string name="remote_guests_help_off_tagged">• This device is tagged, so it has no owner: with this off nobody at all can pair, and a guest already paired is refused until it is on again.</string>
+    <string name="remote_paired_help_owners">Only a device signed in to the same account as this one can pair now: guests are not let in. It pairs as an owner and stays until revoked.</string>
+    <string name="remote_paired_nobody">Nobody can pair now: this device is tagged, so it has no owner, and guests are not let in.</string>
+    <string name="remote_paired_guest_refused">refused while guests are off</string>
+
+    <!-- What a paired device may do: every line is put together from the bridge's own lists.
+         The names in a list are joined with remote_access_list_more, and, in a sentence, the last
+         one with remote_access_list_last. -->
+    <string name="remote_access_title">What a paired device may do</string>
+    <string name="remote_access_guest">A guest</string>
+    <string name="remote_access_owner">An owner</string>
+    <string name="remote_access_owner_full">An owner, with full control on</string>
+    <string name="remote_access_full">With full control</string>
+    <string name="remote_access_never">Nobody, ever</string>
+    <string name="remote_access_list_more">%1$s, %2$s</string>
+    <string name="remote_access_list_last">%1$s and %2$s</string>
+    <string name="remote_access_guests_off">Neither pair nor manage: guests are not let in</string>
+    <string name="remote_access_like_guest">Everything a guest may</string>
+    <string name="remote_access_see">See %1$s</string>
+    <string name="remote_access_set">Change: %1$s</string>
+    <string name="remote_access_set_guarded">Change (put back unless confirmed): %1$s</string>
+    <string name="remote_access_set_on_only">Turn on, never off: %1$s</string>
+    <string name="remote_access_set_off_only">Turn off, never on: %1$s</string>
+    <string name="remote_access_set_needs_full">Turn off (turning on needs full control): %1$s</string>
+    <string name="remote_access_set_with_full">Turn on: %1$s</string>
+    <string name="remote_access_permissions">Ask for a permission\'s page to be shown here (granting stays with you): %1$s</string>
+
+    <!-- What can be seen: fits after remote_access_see -->
+    <string name="remote_can_status">the status</string>
+    <string name="remote_can_exit_nodes">the exit nodes</string>
+    <string name="remote_can_settings">the settings</string>
+    <string name="remote_can_files">the list of received files</string>
+    <string name="remote_can_folders">the shared folders with their paths</string>
+    <string name="remote_can_storage_list">the name of every file in this device\'s storage</string>
+    <string name="remote_can_diag_report">the diagnostics report</string>
+    <string name="remote_can_diag_log">the app\'s log with secrets scrubbed</string>
+    <!-- What can be done: each begins a line or follows a comma -->
+    <string name="remote_can_exit_node_set">pick the exit node</string>
+    <string name="remote_can_settings_set">change settings</string>
+    <string name="remote_can_action">run actions</string>
+    <string name="remote_can_files_delete">delete received files</string>
+    <string name="remote_can_unpair">unpair itself</string>
+    <string name="remote_can_permission_request">ask for a permission\'s page to be shown here</string>
+    <string name="remote_can_confirm">confirm its own changes</string>
+    <string name="remote_can_identify">show its name on this screen</string>
+    <string name="remote_can_shares_remove">stop sharing a folder</string>
+    <string name="remote_can_shares_add">share another folder</string>
+    <string name="remote_can_storage_send">have any file from the storage sent to itself</string>
+    <string name="remote_can_act_reconnect">reconnect</string>
+    <string name="remote_can_act_reconnect_relays">redial the relay servers</string>
+    <string name="remote_can_act_receive_folder_default">reset a receive folder that stopped working</string>
+    <string name="remote_can_act_save_received">save waiting files to the receive folder</string>
+    <!-- Settings: each follows a colon, in a list -->
+    <string name="remote_can_set_accept_dns" translatable="false">MagicDNS</string>
+    <string name="remote_can_set_accept_routes">accepting subnet routes</string>
+    <string name="remote_can_set_exit_node_lan_access">LAN access with an exit node</string>
+    <string name="remote_can_set_tun_mode">TUN mode</string>
+    <string name="remote_can_set_auto_reconnect">auto-reconnect</string>
+    <string name="remote_can_set_keep_awake">keeping the connection awake</string>
+    <string name="remote_can_set_taildrive_enabled">sharing folders (Taildrive)</string>
+    <string name="remote_can_set_taildrive_proxy_enabled">the Taildrive proxy</string>
+    <string name="remote_can_set_advertise_exit_node">offering this device as an exit node</string>
+    <string name="remote_can_set_advertise_routes">the subnet routes it offers</string>
+    <string name="remote_can_set_full_control">full control</string>
+    <string name="remote_can_set_exit_node">the exit node</string>
+    <!-- Permissions, as the system names their pages -->
+    <string name="remote_perm_storage">Files and media</string>
+    <string name="remote_perm_notifications">Notifications</string>
+    <string name="remote_perm_battery">Battery optimization</string>
+    <string name="remote_perm_vpn">VPN connection</string>
+    <string name="remote_perm_alarms">Alarms &amp; reminders</string>
+    <string name="remote_perm_install">Install unknown apps</string>
+    <string name="remote_perm_autostart">Autostart</string>
+    <!-- What nobody may: each begins the line or follows a comma -->
+    <string name="remote_never_stop">stop TailSocks for good</string>
+    <string name="remote_never_sign_out">sign out</string>
+    <string name="remote_never_account">change the account or the login server</string>
+    <string name="remote_never_credentials">read or set a password or a key</string>
+    <string name="remote_never_control_proxy">change the control plane proxy or the censorship bypass</string>
+    <string name="remote_never_root_mode">touch Root Mode</string>
+    <string name="remote_never_grant_permission">grant a permission</string>
+    <string name="remote_never_full_control_on">turn full control on</string>
+
+    <!-- The log: the lines of the newer operations -->
+    <string name="remote_log_permission">Asked for a permission: %1$s</string>
+    <string name="remote_log_confirmed">Confirmed: %1$s</string>
+    <string name="remote_log_reverted">Put back: %1$s</string>
+    <string name="remote_log_reverted_unconfirmed">Put back: %1$s (not confirmed)</string>
+    <string name="remote_log_reverted_none">Exit node removed: the change was not confirmed, and the node before it is gone</string>
+    <string name="remote_log_identify">Asked to show its name here</string>
+    <string name="remote_log_share_added">Folder shared</string>
+    <string name="remote_log_share_removed">Folder no longer shared</string>
+    <string name="remote_log_file_sent">File sent to it</string>
+    <string name="remote_log_browse">Looked through the storage</string>
+    <string name="remote_log_diag">Diagnostics</string>
+    <string name="remote_log_diag_log">Read the app\'s log</string>
+    <string name="remote_log_diag_report">Read the diagnostics report</string>
+    <!-- "%1$s (%2$s)": a setting and its value, a request and what came of it -->
+    <string name="remote_log_with_note" translatable="false">%1$s (%2$s)</string>
+    <string name="remote_log_on">on</string>
+    <string name="remote_log_off">off</string>
+    <string name="remote_log_none">none</string>
+    <string name="remote_log_result_shown">shown on screen</string>
+    <string name="remote_log_result_notified">a notification was shown</string>
+    <string name="remote_log_result_waiting">waits until TailSocks is opened</string>
+    <string name="remote_log_result_unseen">nothing could be shown</string>
+    <!-- What the bridge remarks on a line when the app did not simply do as asked -->
+    <string name="remote_log_remark_pending">the app has not answered yet</string>
+    <string name="remote_log_remark_late">applied late</string>
+    <string name="remote_log_remark_failed_late">failed, late</string>
+    <string name="remote_log_remark_not_asked">the app was not asked</string>
+    <string name="remote_log_remark_bad_answer">the app\'s answer was not understood</string>
+    <string name="remote_log_remark_not_put_back">the app refused to put it back</string>
+</resources>

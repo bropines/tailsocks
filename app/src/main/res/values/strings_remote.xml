@@ -15,7 +15,6 @@
 
     <!-- The managed device's own screen -->
     <string name="remote_switch_title">Allow remote management</string>
-    <string name="remote_switch_help">A paired device can see this one\'s status and change a few things over the tailnet: the exit node, MagicDNS, subnet routes, LAN access, a reconnect, deleting received files.\n• It cannot stop TailSocks, sign out, or read files and logs.\n• Pairing always takes a code from this screen.</string>
     <string name="remote_switch_failed">The switch could not be saved on this device.</string>
     <string name="remote_reach_closing">Switching off. Until TailSocks has closed the connection, paired devices can still get in.</string>
     <string name="remote_reach_title">Other devices cannot connect now</string>

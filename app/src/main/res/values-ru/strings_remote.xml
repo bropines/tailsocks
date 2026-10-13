@@ -17,7 +17,6 @@
 
     <!-- The managed device's own screen -->
     <string name="remote_switch_title">Разрешить удалённое управление</string>
-    <string name="remote_switch_help">Сопряжённое устройство видит состояние этого и может кое-что менять через tailnet: выходной узел, MagicDNS, маршруты подсетей, доступ к локальной сети, переподключение, удаление полученных файлов.\n• Остановить TailSocks, выйти из аккаунта, прочитать файлы и журнал оно не может.\n• Для сопряжения всегда нужен код с этого экрана.</string>
     <string name="remote_switch_failed">Не удалось сохранить переключатель на этом устройстве.</string>
     <string name="remote_reach_closing">Выключается. Пока TailSocks не закрыл подключение, сопряжённые устройства ещё могут войти.</string>
     <string name="remote_reach_title">Сейчас другие устройства не подключатся</string>

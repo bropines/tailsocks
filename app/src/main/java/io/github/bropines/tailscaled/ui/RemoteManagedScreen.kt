@@ -21,13 +21,18 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.SettingsRemote
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -49,9 +54,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.pluralStringResource
@@ -74,10 +86,14 @@ import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.REMOTE_CLASS_OWNER
+import io.github.bropines.tailscaled.core.RemoteAccess
+import io.github.bropines.tailscaled.core.RemoteAccessClass
+import io.github.bropines.tailscaled.core.RemoteAccessSetting
 import io.github.bropines.tailscaled.core.RemoteCode
 import io.github.bropines.tailscaled.core.RemoteDurationUnit
 import io.github.bropines.tailscaled.core.RemoteEvent
 import io.github.bropines.tailscaled.core.RemoteJson
+import io.github.bropines.tailscaled.core.RemoteLevel
 import io.github.bropines.tailscaled.core.RemoteManage
 import io.github.bropines.tailscaled.core.RemoteOutcome
 import io.github.bropines.tailscaled.core.RemotePairedDevice
@@ -88,9 +104,11 @@ import io.github.bropines.tailscaled.core.remoteCodeGroups
 import io.github.bropines.tailscaled.core.remoteCountdown
 import io.github.bropines.tailscaled.core.remoteDuration
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -100,16 +118,22 @@ import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 
 /*
- * Remote management, the managed device's own screen (core/RemoteManage.kt; the bridge's
- * appctr/remote.go is the model): the switch, a pairing code to show, who is paired and what
- * they changed. A page, not an Activity — whoever owns the settings shows it.
+ * Remote management, the managed device's own screen (core/RemoteManage.kt, core/RemoteLevel.kt;
+ * the bridge's appctr/remote.go is the model): the switch and the two that go with it — full
+ * control, and guests let in or not — a pairing code to show, who is paired, what a paired
+ * device may do and what they changed. A page, not an Activity — whoever owns the settings
+ * shows it.
  *
  * Made for a television first: every control is one stop for the remote and OK does its one
  * thing; nothing waits for a long press. An explanation that would be tapped open on a phone
- * unfolds while the remote is on it. On a phone it is one column, the same content.
+ * unfolds while the remote is on it. On a phone it is one column, the same content; from a
+ * medium window up, what one does is on the left and what one reads on the right.
  *
  * What it never hides: with the native TUN engine or Root Mode's own interface nobody can
- * connect, and then it says so and offers no code; pairing always takes a code from here.
+ * connect, and then it says so and offers no code; pairing always takes a code from here. And
+ * what it never writes itself: the list of what a paired device may do is put together from
+ * the lists the endpoint enforces (RemoteAccessJSON, remoteAccessGroups below), so the page
+ * cannot promise less than is done from afar.
  */
 
 /** A line about the last thing done on this screen that did not go as asked. */
@@ -120,6 +144,10 @@ enum class RemoteNotice {
     NO_CODE,
     /** The switch could not be stored. */
     NO_SWITCH,
+    /** Nor could the one for full control. */
+    NO_FULL,
+    /** Nor the one for guests. */
+    NO_GUESTS,
 }
 
 /** Everything the screen draws. */
@@ -137,17 +165,27 @@ data class RemoteManagedUi(
     val notice: RemoteNotice? = null,
     /** What "used 2 h ago" is measured against, milliseconds. */
     val now: Long = 0,
+    /** Full control, as stored on this device. Never on without [enabled]. */
+    val fullControl: Boolean = false,
+    /** Whether other people's devices may pair as guests, as stored on this device. */
+    val guests: Boolean = true,
+    /** What a paired device may do right now, as the bridge enforces it: it follows the two switches a moment later. */
+    val access: RemoteAccess = RemoteAccess(),
+    val accessOpen: Boolean = false,
 )
 
 /** What the screen can ask for. */
 interface RemoteManagedActions {
     fun setEnabled(on: Boolean)
+    fun setFullControl(on: Boolean) {}
+    fun setGuests(allowed: Boolean) {}
     /** A fresh code, replacing the one on show. */
     fun showCode()
     fun hideCode()
     fun revoke(nodeId: String)
     fun revokeAll()
     fun toggleLog()
+    fun toggleAccess() {}
 
     object None : RemoteManagedActions {
         override fun setEnabled(on: Boolean) {}
@@ -184,6 +222,8 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
 
     // Counts what was done on this screen: a reading that started before the last of it is old news.
     val changes = remember { AtomicInteger() }
+    // Cuts the wait between two readings short: something was just asked for on this screen.
+    val wake = remember { Channel<Unit>(Channel.CONFLATED) }
 
     suspend fun refresh(lists: Boolean) {
         val before = ui
@@ -191,7 +231,7 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
         val read = withContext(Dispatchers.IO) { readManaged(context, before, lists) }
         if (at != changes.get()) return
         // The bridge's word replaces everything but what belongs to the screen itself.
-        ui = read.copy(logOpen = ui.logOpen, notice = ui.notice)
+        ui = read.copy(logOpen = ui.logOpen, accessOpen = ui.accessOpen, notice = ui.notice)
     }
 
     if (live) {
@@ -204,15 +244,15 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
                 while (true) {
                     refresh(lists = polls % LIST_EVERY_POLLS == 0)
                     polls++
-                    // The service applies the switch within a moment; if it does not, stop hurrying.
-                    applying = if (ui.reach == RemoteReach.APPLYING || ui.reach == RemoteReach.CLOSING) applying + 1 else 0
-                    delay(
-                        when {
-                            applying in 1..APPLYING_POLLS -> POLL_APPLYING_MS
-                            ui.state.pairing != null -> POLL_WITH_CODE_MS
-                            else -> POLL_IDLE_MS
-                        }
-                    )
+                    // The service applies a switch within a moment; if it does not, stop hurrying.
+                    val behind = ui.reach == RemoteReach.APPLYING || ui.reach == RemoteReach.CLOSING || ui.levelBehind
+                    applying = if (behind) applying + 1 else 0
+                    val wait = when {
+                        applying in 1..APPLYING_POLLS -> POLL_APPLYING_MS
+                        ui.state.pairing != null -> POLL_WITH_CODE_MS
+                        else -> POLL_IDLE_MS
+                    }
+                    withTimeoutOrNull(wait) { wake.receive() }
                 }
             }
         }
@@ -237,14 +277,32 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
                     changes.incrementAndGet()
                     ui = ui.copy(notice = notice)
                     refresh(lists = true)
+                    // The service applies it a moment later: look again now, not when the idle wait is over.
+                    wake.trySend(Unit)
                 }
             }
 
             override fun setEnabled(on: Boolean) {
                 // The switch answers at once; the endpoint follows when the service has applied it.
                 val reach = if (on) RemoteReach.APPLYING else RemoteReach.of(false, ui.state)
-                ui = ui.copy(enabled = on, reach = reach)
-                change { if (RemoteManage.setEnabled(context, on)) null else RemoteNotice.NO_SWITCH }
+                ui = ui.copy(enabled = on, reach = reach, fullControl = false)
+                change {
+                    // Full control goes off with the switch, whichever way it is turned: it does not
+                    // outlive management, and switching management on again next month never brings
+                    // it back unasked.
+                    val level = RemoteLevel.setFullControl(context, false)
+                    if (RemoteManage.setEnabled(context, on) && level) null else RemoteNotice.NO_SWITCH
+                }
+            }
+
+            override fun setFullControl(on: Boolean) {
+                ui = ui.copy(fullControl = on)
+                change { if (RemoteLevel.setFullControl(context, on)) null else RemoteNotice.NO_FULL }
+            }
+
+            override fun setGuests(allowed: Boolean) {
+                ui = ui.copy(guests = allowed)
+                change { if (RemoteLevel.setGuestsAllowed(context, allowed)) null else RemoteNotice.NO_GUESTS }
             }
 
             override fun showCode() = change {
@@ -260,6 +318,10 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
             override fun toggleLog() {
                 ui = ui.copy(logOpen = !ui.logOpen)
             }
+
+            override fun toggleAccess() {
+                ui = ui.copy(accessOpen = !ui.accessOpen)
+            }
         }
     }
     // A television's top bar has no arrow: the remote's Back key is the way out.
@@ -270,7 +332,10 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
 private fun noticeOf(answer: RemoteRevoked): RemoteNotice? =
     if (answer.error == RemoteRevoked.NOT_SAVED) RemoteNotice.NOT_SAVED else null
 
-/** One reading of the bridge. Blocking; [lists] reads the paired devices and the log whatever the revision. */
+/**
+ * One reading of the switches and the bridge. Blocking; [lists] reads the paired devices, the
+ * log and what a paired device may do whatever the revision.
+ */
 private fun readManaged(context: android.content.Context, before: RemoteManagedUi, lists: Boolean): RemoteManagedUi {
     val enabled = RemoteManage.isEnabled(context)
     val state = RemoteJson.state(Appctr.remoteStateJSON())
@@ -283,8 +348,21 @@ private fun readManaged(context: android.content.Context, before: RemoteManagedU
         devices = if (changed) RemoteJson.paired(Appctr.remotePairedJSON()) else before.devices,
         log = if (changed) RemoteJson.actions(Appctr.remoteActionsJSON()) else before.log,
         now = System.currentTimeMillis(),
+        // The switches are files, read every time: a paired owner may have given full control up.
+        fullControl = RemoteLevel.isFullControl(context),
+        guests = RemoteLevel.guestsAllowed(context),
+        // The document is there with the service stopped as well, at the basic level.
+        access = if (changed) RemoteAccess.of(Appctr.remoteAccessJSON()) else before.access,
     )
 }
+
+/**
+ * The bridge has not caught up with this page's two switches: it takes them from the running
+ * service, which applies them a moment after they are turned. Never while the endpoint is
+ * off — then nothing is applied, and nobody can connect either.
+ */
+private val RemoteManagedUi.levelBehind: Boolean
+    get() = state.enabled && ((access.level == RemoteAccess.LEVEL_FULL) != fullControl || access.guests != guests)
 
 /** Whether this node runs under ACL tags, from the daemon's status; false when it does not say. */
 private fun selfTagged(): Boolean = runCatching {
@@ -296,16 +374,30 @@ private fun selfTagged(): Boolean = runCatching {
 @Composable
 internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedActions, onBack: () -> Unit) {
     val layout = rememberWindowLayout()
-    // Resolved here: the confirmation is a window of its own (see wrapContextWithLocale).
+    // Resolved here: a confirmation is a window of its own (see wrapContextWithLocale).
     val confirmTitle = stringResource(R.string.remote_revoke_all_title)
     val confirmText = stringResource(R.string.remote_revoke_all_text)
     val confirmYes = stringResource(R.string.remote_revoke_all)
     val confirmNo = stringResource(R.string.action_cancel)
+    val fullTitle = stringResource(R.string.remote_full_confirm_title)
+    val fullText = stringResource(R.string.remote_full_confirm_text)
+    val fullYes = stringResource(R.string.remote_full_confirm_yes)
     var confirmAll by remember { mutableStateOf(false) }
+    var confirmFull by remember { mutableStateOf(false) }
+    val access = remember(ui.access) { remoteAccessGroups(ui.access) }
 
+    // What one does: the switches and the code.
     val first: @Composable ColumnScope.() -> Unit = {
-        SwitchCard(ui.enabled, actions::setEnabled)
-        if (ui.notice == RemoteNotice.NO_SWITCH) NoticeLine(stringResource(R.string.remote_switch_failed))
+        val failed = stringResource(R.string.remote_switch_failed)
+        SwitchCard(
+            Icons.Default.SettingsRemote,
+            stringResource(R.string.remote_switch_title),
+            stringResource(R.string.remote_managed_switch_help),
+            ui.enabled,
+            actions::setEnabled,
+            Modifier.tvInitialFocus()
+        )
+        if (ui.notice == RemoteNotice.NO_SWITCH) NoticeLine(failed)
         // Off is not claimed before the endpoint is closed.
         if (ui.reach == RemoteReach.CLOSING) {
             Text(
@@ -315,13 +407,30 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
             )
         }
         ReachCard(ui.reach, ui.state.port)
-        if (ui.enabled) PairCard(ui, actions, wide = !layout.isPhone)
+        if (ui.enabled) {
+            // The code first: it is what one comes here for. How much a pairing gives, and to whom, is set once.
+            PairCard(ui, actions, wide = !layout.isPhone)
+            SwitchCard(
+                Icons.Default.AdminPanelSettings,
+                stringResource(R.string.remote_full_title),
+                stringResource(R.string.remote_full_help),
+                ui.fullControl,
+                // On is asked about once; off is never in anyone's way.
+                { on -> if (on) confirmFull = true else actions.setFullControl(false) }
+            )
+            if (ui.notice == RemoteNotice.NO_FULL) NoticeLine(failed)
+            SwitchCard(Icons.Default.Group, stringResource(R.string.remote_guests_title), guestsHelp(ui), ui.guests, actions::setGuests)
+            if (ui.notice == RemoteNotice.NO_GUESTS) NoticeLine(failed)
+        }
     }
-    // Pairings outlive the switch: they are listed, and can be revoked, while it is off too.
-    val hasSecond = ui.enabled || ui.devices.isNotEmpty()
+    // What one reads. Pairings outlive the switch: they are listed, and can be revoked, while it
+    // is off too; and what a paired device may do can be read before the switch is ever turned.
+    val listed = ui.enabled || ui.devices.isNotEmpty()
+    val hasSecond = listed || access.isNotEmpty()
     val second: @Composable ColumnScope.() -> Unit = {
-        DevicesCard(ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true })
-        LogCard(ui.log, ui.logOpen, ui.now, actions::toggleLog)
+        if (listed) DevicesCard(ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true })
+        if (access.isNotEmpty()) AccessCard(access, ui.accessOpen, actions::toggleAccess)
+        if (listed) LogCard(ui.log, ui.logOpen, ui.now, actions::toggleLog)
     }
 
     Scaffold(
@@ -381,6 +490,28 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
             dismissButton = { TextButton(onClick = { confirmAll = false }, modifier = Modifier.tvInitialFocus()) { Text(confirmNo) } }
         )
     }
+    if (confirmFull) {
+        AppAlertDialog(
+            onDismissRequest = { confirmFull = false },
+            title = { Text(fullTitle) },
+            text = { Text(fullText) },
+            confirmButton = { TextButton(onClick = { confirmFull = false; actions.setFullControl(true) }) { Text(fullYes) } },
+            // So does one that hands more of the device out.
+            dismissButton = { TextButton(onClick = { confirmFull = false }, modifier = Modifier.tvInitialFocus()) { Text(confirmNo) } }
+        )
+    }
+}
+
+/** What the guests switch means, with how long a guest stays and, on a tagged node, what off then costs. */
+@Composable
+private fun guestsHelp(ui: RemoteManagedUi): String {
+    val hours = (ui.state.policy.guestSeconds / 3600).toInt()
+    val guest = if (hours > 0) {
+        stringResource(R.string.remote_guests_help_lasts, pluralStringResource(R.plurals.remote_hours, hours, hours))
+    } else stringResource(R.string.remote_guests_help_plain)
+    // A tagged node has no owner: without guests nobody is left who could pair.
+    val off = stringResource(if (ui.tagged) R.string.remote_guests_help_off_tagged else R.string.remote_guests_help_off)
+    return "$guest\n$off"
 }
 
 /** The container every block of this screen stands in: a card on the screen's background. */
@@ -438,22 +569,44 @@ private fun FoldedHelp(text: String, modifier: Modifier = Modifier) {
     ) { HelpText(text, expanded = open) }
 }
 
-/** The switch: the whole card turns it, and its explanation unfolds under the remote. */
+/**
+ * How long the remote rests on a switch before its explanation unfolds. Three of them stand one
+ * under another, and a remote on its way down must not make each swell and shrink as it passes
+ * (ExplainedRow.kt keeps the same rule for the rows of Settings).
+ */
+private const val HELP_REVEAL_MS = 700L
+
+/** A switch: the whole card turns it, and its explanation unfolds under the remote. */
 @Composable
-private fun SwitchCard(on: Boolean, onChange: (Boolean) -> Unit) {
+private fun SwitchCard(
+    icon: ImageVector,
+    title: String,
+    help: String,
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val source = remember { MutableInteractionSource() }
-    val help = remember { mutableStateOf(false) }
-    if (isTv) {
+    val open = remember { mutableStateOf(false) }
+    val tv = isTv
+    val scope = rememberCoroutineScope()
+    val inView = remember { BringIntoViewRequester() }
+    if (tv) {
         val focused by source.collectIsFocusedAsState()
-        LaunchedEffect(focused) { help.value = focused }
+        LaunchedEffect(focused) {
+            if (focused) delay(HELP_REVEAL_MS)
+            open.value = focused
+        }
     }
     val shape = MaterialTheme.shapes.large
     Surface(
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .tvInitialFocus()
+            // An explanation unfolds downwards: under the last card in view that is below the edge.
+            .bringIntoViewRequester(inView)
+            .onSizeChanged { if (tv && open.value) scope.launch { inView.bringIntoView() } }
             .tvFocusRing(source, shape)
             .clip(shape)
             .toggleable(
@@ -465,22 +618,37 @@ private fun SwitchCard(on: Boolean, onChange: (Boolean) -> Unit) {
             )
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.SettingsRemote, null, tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.remote_switch_title), style = MaterialTheme.typography.titleMedium)
+                Text(title, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(2.dp))
-                HelpText(
-                    stringResource(R.string.remote_switch_help),
-                    modifier = Modifier.tvNoFocus(),
-                    expanded = help,
-                    inClickableRow = true
-                )
+                HelpText(help, modifier = Modifier.tvNoFocus(), expanded = open, inClickableRow = true)
             }
             Spacer(Modifier.width(12.dp))
             Switch(checked = on, onCheckedChange = null)
         }
     }
+}
+
+/**
+ * For a block whose buttons come and go with [state]. The button the remote was on is taken
+ * away with the state it belonged to, and the focus with it: the next key would start from
+ * the top of the page. When that happens this hands the focus to whatever carries [heir] in
+ * the new state. Goes on the block.
+ */
+@Composable
+private fun Modifier.keepsFocus(state: Any?, heir: FocusRequester): Modifier {
+    val inside = remember { booleanArrayOf(false) }
+    // Read while the new state is composed: the old buttons, and the focus on one, are still there.
+    val follow = remember(state) { inside[0] }
+    LaunchedEffect(state) {
+        if (!follow) return@LaunchedEffect
+        // The heir is in the tree once this frame is laid out.
+        withFrameNanos { }
+        runCatching { heir.requestFocus() }
+    }
+    return onFocusChanged { inside[0] = it.hasFocus }
 }
 
 /** Why nobody can connect right now, and what to switch. Nothing while they can. */
@@ -520,12 +688,16 @@ private fun NoticeLine(text: String) {
 @Composable
 private fun PairCard(ui: RemoteManagedUi, actions: RemoteManagedActions, wide: Boolean) {
     val code = ui.state.pairing
-    RemoteCard(stringResource(R.string.remote_pair_title)) {
+    // "Show a code" gives way to "New code" and "Hide", and back when the code is hidden, used or
+    // out of time: the remote stays in the card through each of these.
+    val first = remember { FocusRequester() }
+    RemoteCard(stringResource(R.string.remote_pair_title), Modifier.keepsFocus(code != null, first)) {
         if (code == null) {
             Button(
                 onClick = actions::showCode,
                 enabled = ui.reach.canPair,
-                shape = MaterialTheme.shapes.medium
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.focusRequester(first)
             ) { Text(stringResource(R.string.remote_pair_show)) }
             outcomeText(ui.state.lastPairing)?.let {
                 Spacer(Modifier.height(8.dp))
@@ -554,7 +726,7 @@ private fun PairCard(ui: RemoteManagedUi, actions: RemoteManagedActions, wide: B
             }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = actions::showCode, shape = MaterialTheme.shapes.medium) {
+                OutlinedButton(onClick = actions::showCode, shape = MaterialTheme.shapes.medium, modifier = Modifier.focusRequester(first)) {
                     Text(stringResource(R.string.remote_pair_new))
                 }
                 TextButton(onClick = actions::hideCode, shape = MaterialTheme.shapes.medium) {
@@ -679,34 +851,41 @@ private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevok
             )
         }
         ui.devices.forEach { device ->
-            DeviceRow(device, ui.now, onRevoke = { onRevoke(device.nodeId) })
+            // A guest paired before guests were shut out keeps its place and is refused meanwhile.
+            DeviceRow(device, ui.now, refused = !device.owner && !ui.guests, onRevoke = { onRevoke(device.nodeId) })
             Spacer(Modifier.height(8.dp))
         }
         if (ui.notice == RemoteNotice.NOT_SAVED) NoticeLine(stringResource(R.string.remote_revoke_not_saved))
         else if (ui.state.unsaved) NoticeLine(stringResource(R.string.remote_unsaved))
         Spacer(Modifier.height(4.dp))
-        if (ui.tagged) {
-            Text(
-                stringResource(R.string.remote_paired_tagged),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        // Who can pair. A tagged node has no owner; with guests shut out as well, that is nobody.
+        val fact = when {
+            ui.tagged && !ui.guests -> R.string.remote_paired_nobody
+            ui.tagged -> R.string.remote_paired_tagged
+            else -> null
+        }
+        if (fact != null) {
+            Text(stringResource(fact), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
         }
         val hours = (ui.state.policy.guestSeconds / 3600).toInt()
-        if (hours > 0) {
-            FoldedHelp(stringResource(R.string.remote_paired_help, pluralStringResource(R.plurals.remote_hours, hours, hours)))
+        when {
+            !ui.guests -> if (!ui.tagged) FoldedHelp(stringResource(R.string.remote_paired_help_owners))
+            hours > 0 -> FoldedHelp(stringResource(R.string.remote_paired_help, pluralStringResource(R.plurals.remote_hours, hours, hours)))
         }
     }
 }
 
 @Composable
-private fun DeviceRow(device: RemotePairedDevice, now: Long, onRevoke: () -> Unit) {
+private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, onRevoke: () -> Unit) {
     val context = LocalContext.current
     val term = if (device.left < 0) stringResource(R.string.remote_paired_until_revoked)
     else stringResource(R.string.remote_paired_expires_in, remoteDurationText(device.left))
-    val used = if (device.lastUsed <= 0) stringResource(R.string.remote_paired_never_used)
-    else stringResource(R.string.remote_paired_last_used, agoText(context, device.lastUsed * 1000, now))
+    val used = when {
+        refused -> stringResource(R.string.remote_paired_guest_refused)
+        device.lastUsed <= 0 -> stringResource(R.string.remote_paired_never_used)
+        else -> stringResource(R.string.remote_paired_last_used, agoText(context, device.lastUsed * 1000, now))
+    }
     val revokeLabel = stringResource(R.string.remote_revoke_named, device.name)
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -754,13 +933,20 @@ private fun DeviceRow(device: RemotePairedDevice, now: Long, onRevoke: () -> Uni
     }
 }
 
-/** How much of the log is drawn: the bridge keeps a hundred lines, a screen needs the recent ones. */
-private const val LOG_LINES = 30
-
-/** What paired devices changed, folded until asked for. */
+/**
+ * A card folded until asked for: its title is the button. A television cannot drag a page, so
+ * there what unfolds scrolls in a pane of its own, [pane] high at most, which the remote stops
+ * on and moves with Up and Down.
+ */
 @Composable
-private fun LogCard(log: List<RemoteEvent>, open: Boolean, now: Long, onToggle: () -> Unit) {
-    val context = LocalContext.current
+private fun FoldCard(
+    title: String,
+    open: Boolean,
+    onToggle: () -> Unit,
+    pane: Dp,
+    spacing: Dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val source = remember { MutableInteractionSource() }
     val shape = MaterialTheme.shapes.large
     Surface(
@@ -779,7 +965,7 @@ private fun LogCard(log: List<RemoteEvent>, open: Boolean, now: Long, onToggle: 
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    stringResource(R.string.remote_log_title),
+                    title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -792,32 +978,265 @@ private fun LogCard(log: List<RemoteEvent>, open: Boolean, now: Long, onToggle: 
                 )
             }
             if (open) {
-                // A television cannot drag a page: there the lines scroll in a pane of their own,
-                // which the remote stops on and moves with Up and Down.
                 val lines = if (isTv) {
                     val scroll = rememberScrollState()
-                    Modifier.heightIn(max = 200.dp).tvScrollKeys(scroll).verticalScroll(scroll)
+                    Modifier.heightIn(max = pane).tvScrollKeys(scroll).verticalScroll(scroll)
                 } else Modifier
                 Column(
                     lines.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (log.isEmpty()) {
+                    verticalArrangement = Arrangement.spacedBy(spacing),
+                    content = content
+                )
+            }
+        }
+    }
+}
+
+// ─── What a paired device may do ────────────────────────────────────────────────────────────
+
+/** A name from one of the bridge's lists, and this page's words for it; 0 where it has none, and then the name is shown as it came. */
+data class RemoteAccessName(val name: String, @param:StringRes val text: Int = 0)
+
+/**
+ * One line of the card: the sentence [text] with [names] in it as a list — the last joined
+ * with "and" where [and] — or, with no sentence (0), the names alone; or a sentence alone.
+ */
+data class RemoteAccessRow(@param:StringRes val text: Int, val names: List<RemoteAccessName> = emptyList(), val and: Boolean = false)
+
+/** The lines under one heading: a class of paired device, what full control adds, what nobody may. */
+data class RemoteAccessGroup(@param:StringRes val title: Int, val rows: List<RemoteAccessRow>)
+
+/**
+ * This page's words for every name the bridge's lists are made of (appctr/remote_policy.go,
+ * remote_level.go). RemoteManagedAccessTest holds them against the bridge's own list, so a name
+ * added there fails the build here until it has words.
+ */
+internal object RemoteAccessWords {
+    const val OP_SET = "settings.set"
+    const val OP_ACTION = "action"
+    const val OP_ASK = "permission.request"
+    /** What a guarded change of the exit node is called in the log (the bridge's RemoteKeyExitNode). */
+    const val KEY_EXIT_NODE = "exit_node"
+
+    /** Operations that show something: together they are one sentence, "See …". */
+    val seen: Map<String, Int> = mapOf(
+        "status" to R.string.remote_can_status,
+        "exit_nodes" to R.string.remote_can_exit_nodes,
+        "settings" to R.string.remote_can_settings,
+        "files" to R.string.remote_can_files,
+        "folders" to R.string.remote_can_folders,
+        "storage.list" to R.string.remote_can_storage_list,
+        "diag.report" to R.string.remote_can_diag_report,
+        "diag.log" to R.string.remote_can_diag_log,
+    )
+
+    /**
+     * Operations that do something. Three of them stand for a list of their own — the settings,
+     * the actions, the permissions — and are said in these words only where that list is empty.
+     */
+    val done: Map<String, Int> = mapOf(
+        "exit_node.set" to R.string.remote_can_exit_node_set,
+        OP_SET to R.string.remote_can_settings_set,
+        OP_ACTION to R.string.remote_can_action,
+        "files.delete" to R.string.remote_can_files_delete,
+        "unpair" to R.string.remote_can_unpair,
+        OP_ASK to R.string.remote_can_permission_request,
+        "confirm" to R.string.remote_can_confirm,
+        "identify" to R.string.remote_can_identify,
+        "shares.remove" to R.string.remote_can_shares_remove,
+        "shares.add" to R.string.remote_can_shares_add,
+        "storage.send" to R.string.remote_can_storage_send,
+    )
+
+    val settings: Map<String, Int> = mapOf(
+        "accept_dns" to R.string.remote_can_set_accept_dns,
+        "accept_routes" to R.string.remote_can_set_accept_routes,
+        "exit_node_lan_access" to R.string.remote_can_set_exit_node_lan_access,
+        "tun_mode" to R.string.remote_can_set_tun_mode,
+        "auto_reconnect" to R.string.remote_can_set_auto_reconnect,
+        "keep_awake" to R.string.remote_can_set_keep_awake,
+        "taildrive_enabled" to R.string.remote_can_set_taildrive_enabled,
+        "taildrive_proxy_enabled" to R.string.remote_can_set_taildrive_proxy_enabled,
+        "advertise_exit_node" to R.string.remote_can_set_advertise_exit_node,
+        "advertise_routes" to R.string.remote_can_set_advertise_routes,
+        "full_control" to R.string.remote_can_set_full_control,
+    )
+
+    val actions: Map<String, Int> = mapOf(
+        "reconnect" to R.string.remote_can_act_reconnect,
+        "reconnect_relays" to R.string.remote_can_act_reconnect_relays,
+        "receive_folder_default" to R.string.remote_can_act_receive_folder_default,
+        "save_received" to R.string.remote_can_act_save_received,
+    )
+
+    val permissions: Map<String, Int> = mapOf(
+        "storage" to R.string.remote_perm_storage,
+        "notifications" to R.string.remote_perm_notifications,
+        "battery" to R.string.remote_perm_battery,
+        "vpn" to R.string.remote_perm_vpn,
+        "alarms" to R.string.remote_perm_alarms,
+        "install" to R.string.remote_perm_install,
+        "autostart" to R.string.remote_perm_autostart,
+    )
+
+    val never: Map<String, Int> = mapOf(
+        "stop" to R.string.remote_never_stop,
+        "sign_out" to R.string.remote_never_sign_out,
+        "account" to R.string.remote_never_account,
+        "credentials" to R.string.remote_never_credentials,
+        "control_proxy" to R.string.remote_never_control_proxy,
+        "root_mode" to R.string.remote_never_root_mode,
+        "grant_permission" to R.string.remote_never_grant_permission,
+        "full_control_on" to R.string.remote_never_full_control_on,
+    )
+
+    /** What the app did about a request to show something, as the log quotes it. */
+    val results: Map<String, Int> = mapOf(
+        "shown" to R.string.remote_log_result_shown,
+        "notified" to R.string.remote_log_result_notified,
+        "waiting" to R.string.remote_log_result_waiting,
+        "unseen" to R.string.remote_log_result_unseen,
+    )
+
+    /** What the bridge adds to a line when the app did not simply do as asked (remote_server.go, changeTold; remote_guard.go). */
+    val remarks: Map<String, Int> = mapOf(
+        "(no answer from the app yet)" to R.string.remote_log_remark_pending,
+        "(applied late)" to R.string.remote_log_remark_late,
+        "(failed late)" to R.string.remote_log_remark_failed_late,
+        "(not asked of the app)" to R.string.remote_log_remark_not_asked,
+        "(the app's answer was not understood)" to R.string.remote_log_remark_bad_answer,
+        "(the app refused to put it back)" to R.string.remote_log_remark_not_put_back,
+    )
+
+    /** What a line of the log can say was changed: a setting, or the exit node. */
+    val changed: Map<String, Int> = settings + (KEY_EXIT_NODE to R.string.remote_can_set_exit_node)
+
+    fun name(name: String, words: Map<String, Int>) = RemoteAccessName(name, words[name] ?: 0)
+}
+
+/**
+ * The bridge's document as the lines the card draws, and nothing that is not in the document:
+ * a guest's operations, an owner's with which way each setting goes, what full control would
+ * add — no such group while it is on, those lines are the owner's then — and what nobody may.
+ * Merged so that it reads as a dozen lines: what is seen is one sentence, what is done another,
+ * the settings one line for each way they go, and an owner who may all a guest may is said so
+ * instead of said twice.
+ */
+internal fun remoteAccessGroups(access: RemoteAccess): List<RemoteAccessGroup> {
+    val words = RemoteAccessWords
+    val guestOps = access.guest.ops
+    // With guests shut out a guest is nobody, whatever the list says a guest could do.
+    val guest = if (access.guests) classRows(access.guest, guestOps, ::settingRows)
+    else listOf(RemoteAccessRow(R.string.remote_access_guests_off))
+    val alike = access.guests && guestOps.isNotEmpty() && access.owner.ops.containsAll(guestOps)
+    val owner = (if (alike) listOf(RemoteAccessRow(R.string.remote_access_like_guest)) else emptyList()) +
+        classRows(access.owner, if (alike) access.owner.ops - guestOps.toSet() else access.owner.ops, ::settingRows)
+    // What full control opens of a setting is turning it on: off was the owner's already.
+    val full = classRows(access.full, access.full.ops) { settings ->
+        listOf(RemoteAccessRow(R.string.remote_access_set_with_full, settings.map { words.name(it.key, words.settings) }))
+    }
+    val never = if (access.never.isEmpty()) emptyList()
+    else listOf(RemoteAccessRow(0, access.never.map { words.name(it, words.never) }))
+    return listOf(
+        RemoteAccessGroup(R.string.remote_access_guest, guest),
+        RemoteAccessGroup(
+            if (access.level == RemoteAccess.LEVEL_FULL) R.string.remote_access_owner_full else R.string.remote_access_owner,
+            owner
+        ),
+        RemoteAccessGroup(R.string.remote_access_full, full),
+        RemoteAccessGroup(R.string.remote_access_never, never),
+    ).filter { it.rows.isNotEmpty() }
+}
+
+/** One class's lines: what it sees, the settings, what it does — its actions among that — and the permissions it may ask for. */
+private fun classRows(
+    of: RemoteAccessClass,
+    ops: List<String>,
+    settingsAs: (List<RemoteAccessSetting>) -> List<RemoteAccessRow>,
+): List<RemoteAccessRow> {
+    val words = RemoteAccessWords
+    val rows = mutableListOf<RemoteAccessRow>()
+    val seen = ops.filter { it in words.seen }
+    if (seen.isNotEmpty()) rows += RemoteAccessRow(R.string.remote_access_see, seen.map { words.name(it, words.seen) }, and = true)
+    if (of.settings.isNotEmpty()) rows += settingsAs(of.settings)
+    val done = ops.flatMap { op ->
+        when {
+            op in words.seen -> emptyList()
+            // Said by its own list, below or above; by its own words only where there is no list.
+            op == words.OP_SET && of.settings.isNotEmpty() -> emptyList()
+            op == words.OP_ASK && of.permissions.isNotEmpty() -> emptyList()
+            op == words.OP_ACTION && of.actions.isNotEmpty() -> of.actions.map { words.name(it, words.actions) }
+            // An operation this page has never heard of lands here, under the name it came with.
+            else -> listOf(words.name(op, words.done))
+        }
+    }
+    if (done.isNotEmpty()) rows += RemoteAccessRow(0, done)
+    if (of.permissions.isNotEmpty()) {
+        rows += RemoteAccessRow(R.string.remote_access_permissions, of.permissions.map { words.name(it, words.permissions) })
+    }
+    return rows
+}
+
+/** The settings, one line for each way they go from afar, in the order the bridge lists them. */
+private fun settingRows(settings: List<RemoteAccessSetting>): List<RemoteAccessRow> =
+    settings.groupBy(::settingWay).map { (way, group) ->
+        RemoteAccessRow(way, group.map { RemoteAccessWords.name(it.key, RemoteAccessWords.settings) })
+    }
+
+@StringRes
+private fun settingWay(setting: RemoteAccessSetting): Int = when {
+    // Off, or cleared, at any level; the other way takes full control.
+    setting.needs.isNotEmpty() -> R.string.remote_access_set_needs_full
+    setting.only == "true" -> R.string.remote_access_set_on_only
+    setting.only == "false" -> R.string.remote_access_set_off_only
+    // Either way, and the device puts it back unless the change is confirmed.
+    setting.guard.isNotEmpty() -> R.string.remote_access_set_guarded
+    else -> R.string.remote_access_set
+}
+
+/** A line in words: its names joined the way this language joins a list, inside the sentence the line is. */
+@Composable
+private fun accessRowText(row: RemoteAccessRow): String {
+    if (row.names.isEmpty()) return stringResource(row.text)
+    var list = ""
+    row.names.forEachIndexed { i, name ->
+        val word = if (name.text != 0) stringResource(name.text) else name.name
+        list = when {
+            i == 0 -> word
+            row.and && i == row.names.lastIndex -> stringResource(R.string.remote_access_list_last, list, word)
+            else -> stringResource(R.string.remote_access_list_more, list, word)
+        }
+    }
+    if (row.text != 0) return stringResource(row.text, list)
+    // Names alone begin like a sentence — unless the first is a name left as the bridge sent it.
+    val locale = LocalConfiguration.current.locales[0]
+    return if (row.names.first().text != 0) list.replaceFirstChar { it.titlecase(locale) } else list
+}
+
+/** How tall the pane of each folded card may get on a television. */
+private val ACCESS_PANE = 260.dp
+private val LOG_PANE = 200.dp
+
+/** What a paired device may do, class by class, folded until asked for: [remoteAccessGroups] in words. */
+@Composable
+private fun AccessCard(groups: List<RemoteAccessGroup>, open: Boolean, onToggle: () -> Unit) {
+    FoldCard(stringResource(R.string.remote_access_title), open, onToggle, ACCESS_PANE, spacing = 12.dp) {
+        groups.forEach { group ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(group.title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                group.rows.forEach { row ->
+                    Row {
                         Text(
-                            stringResource(R.string.remote_log_empty),
+                            "•",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(14.dp)
+                        )
+                        Text(
+                            accessRowText(row),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    log.take(LOG_LINES).forEach { event ->
-                        Column {
-                            Text(eventText(event), style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                listOf(event.name, agoText(context, event.time * 1000, now)).filter { it.isNotEmpty() }.joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
             }
@@ -825,10 +1244,61 @@ private fun LogCard(log: List<RemoteEvent>, open: Boolean, now: Long, onToggle: 
     }
 }
 
-/** One line of the log: what happened, the bridge's own detail after it, and whether it was done. */
+// ─── What they changed ──────────────────────────────────────────────────────────────────────
+
+/** How much of the log is drawn: the bridge keeps a hundred lines, a screen needs the recent ones. */
+private const val LOG_LINES = 30
+
+/** What paired devices changed, folded until asked for. */
+@Composable
+private fun LogCard(log: List<RemoteEvent>, open: Boolean, now: Long, onToggle: () -> Unit) {
+    val context = LocalContext.current
+    FoldCard(stringResource(R.string.remote_log_title), open, onToggle, LOG_PANE, spacing = 8.dp) {
+        if (log.isEmpty()) {
+            Text(
+                stringResource(R.string.remote_log_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        log.take(LOG_LINES).forEach { event ->
+            Column {
+                Text(eventText(event), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    listOf(event.name, agoText(context, event.time * 1000, now)).filter { it.isNotEmpty() }.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A log line's detail taken apart the way the bridge puts it together: a [name] — a setting's
+ * key, a permission's id, an action — then "=" or ": " and a [value], null where there is
+ * neither, then the bridge's own remark in brackets ("(no answer from the app yet)"), kept
+ * with its brackets. Not for a detail that is a file's or a node's name: those are never taken
+ * apart.
+ */
+internal data class RemoteLogDetail(val name: String, val value: String? = null, val note: String = "")
+
+internal fun remoteLogDetail(detail: String): RemoteLogDetail {
+    val text = detail.trim()
+    val noteAt = if (text.startsWith("(")) 0 else text.indexOf(" (")
+    val head = if (noteAt < 0) text else text.substring(0, noteAt)
+    val note = if (noteAt < 0) "" else text.substring(noteAt).trim()
+    val cut = head.indexOfFirst { it == '=' || it == ':' }
+    return if (cut < 0) RemoteLogDetail(head, null, note)
+    else RemoteLogDetail(head.substring(0, cut).trim(), head.substring(cut + 1).trim(), note)
+}
+
+/** One line of the log: what happened and to what, in this page's words where it has them, and whether it was done. */
 @Composable
 private fun eventText(event: RemoteEvent): String {
-    val what = when (event.op) {
+    val words = RemoteAccessWords
+    val detail = remoteLogDetail(event.detail)
+    val line = when (event.op) {
         "paired" -> stringResource(R.string.remote_op_paired)
         "pair_failed" -> stringResource(R.string.remote_op_pair_failed)
         "pair_locked" -> stringResource(R.string.remote_op_pair_locked)
@@ -837,18 +1307,83 @@ private fun eventText(event: RemoteEvent): String {
         "revoked_all" -> stringResource(R.string.remote_op_revoked_all)
         "expired" -> stringResource(R.string.remote_op_expired)
         "reset" -> stringResource(R.string.remote_op_reset)
-        "exit_node" -> stringResource(R.string.remote_op_exit_node)
-        "setting" -> stringResource(R.string.remote_op_setting)
-        "action" -> stringResource(R.string.remote_op_action)
-        "file_deleted" -> stringResource(R.string.remote_op_file_deleted)
-        "denied" -> stringResource(R.string.remote_op_denied)
+        "browse" -> stringResource(R.string.remote_log_browse)
+        // The detail is the bridge's and stays whole: a node's, a file's or a share's name, a refusal's reason.
+        "exit_node" -> titled(R.string.remote_op_exit_node, event.detail)
+        "file_deleted" -> titled(R.string.remote_op_file_deleted, event.detail)
+        "denied" -> titled(R.string.remote_op_denied, event.detail)
+        "share_added" -> titled(R.string.remote_log_share_added, event.detail)
+        "share_removed" -> titled(R.string.remote_log_share_removed, event.detail)
+        "file_sent" -> titled(R.string.remote_log_file_sent, event.detail)
+        // A key or an id, which has words here, and the bridge's remark after it.
+        "setting" -> remarked(titled(R.string.remote_op_setting, changeText(detail)), detail)
+        "action" -> remarked(titled(R.string.remote_op_action, word(detail.name, words.actions)), detail)
+        "confirmed" -> remarked(stringResource(R.string.remote_log_confirmed, changeText(detail)), detail)
+        "reverted" -> remarked(revertedText(detail), detail)
+        "permission" -> remarked(
+            stringResource(R.string.remote_log_permission, noted(word(detail.name, words.permissions), detail.value?.let { word(it, words.results) })),
+            detail
+        )
+        "identify" -> remarked(
+            noted(stringResource(R.string.remote_log_identify), detail.name.takeIf { it.isNotEmpty() }?.let { word(it, words.results) }),
+            detail
+        )
+        "diag" -> when (event.detail) {
+            "log" -> stringResource(R.string.remote_log_diag_log)
+            "report" -> stringResource(R.string.remote_log_diag_report)
+            else -> titled(R.string.remote_log_diag, event.detail)
+        }
         else -> event.op
     }
-    // The detail is the bridge's: a setting's key and value, a node's or a file's name.
-    val detailed = event.op in CHANGES || event.op == "denied"
-    val line = if (detailed && event.detail.isNotEmpty()) "$what: ${event.detail}" else what
-    return if (event.op in CHANGES && !event.ok) "$line — ${stringResource(R.string.remote_log_failed)}" else line
+    return if (event.op in CAN_FAIL && !event.ok) "$line — ${stringResource(R.string.remote_log_failed)}" else line
 }
 
-/** The log's lines that are changes asked of this device, which can fail. */
-private val CHANGES = setOf("exit_node", "setting", "action", "file_deleted")
+/** The log's lines that are something asked of this device, which can fail. */
+private val CAN_FAIL = setOf(
+    "exit_node", "setting", "action", "file_deleted", "reverted", "share_added", "share_removed", "file_sent", "permission", "identify",
+)
+
+@Composable
+private fun word(name: String, words: Map<String, Int>): String = words[name]?.let { stringResource(it) } ?: name
+
+@Composable
+private fun titled(@StringRes title: Int, what: String): String =
+    if (what.isEmpty()) stringResource(title) else "${stringResource(title)}: $what"
+
+@Composable
+private fun noted(text: String, note: String?): String =
+    if (note.isNullOrEmpty()) text else stringResource(R.string.remote_log_with_note, text, note)
+
+/** [line] with the bridge's remark after it: in this page's words for the ones it knows, as it came otherwise. */
+@Composable
+private fun remarked(line: String, detail: RemoteLogDetail): String = when {
+    detail.note.isEmpty() -> line
+    detail.note in RemoteAccessWords.remarks -> noted(line, word(detail.note, RemoteAccessWords.remarks))
+    else -> "$line ${detail.note}"
+}
+
+/** "accept_routes=true" as "accepting subnet routes (on)"; the exit node, which the log names without a value, alone. */
+@Composable
+private fun changeText(detail: RemoteLogDetail): String {
+    val what = word(detail.name, RemoteAccessWords.changed)
+    val value = when (detail.value) {
+        null -> return what
+        "true" -> stringResource(R.string.remote_log_on)
+        "false" -> stringResource(R.string.remote_log_off)
+        "" -> stringResource(R.string.remote_log_none)
+        else -> detail.value
+    }
+    return noted(what, value)
+}
+
+/** A change the device put back by itself: because nobody confirmed it, in the bridge's two wordings of that, or in its own words otherwise. */
+@Composable
+private fun revertedText(detail: RemoteLogDetail): String {
+    val what = word(detail.name, RemoteAccessWords.changed)
+    return when (detail.value) {
+        "not confirmed" -> stringResource(R.string.remote_log_reverted_unconfirmed, what)
+        "not confirmed; the one before is gone, so none" -> stringResource(R.string.remote_log_reverted_none)
+        null, "" -> stringResource(R.string.remote_log_reverted, what)
+        else -> stringResource(R.string.remote_log_reverted, "$what: ${detail.value}")
+    }
+}

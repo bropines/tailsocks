@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management, the managed device's own page (ui/RemoteManagedScreen.kt): the two switches
+         beyond the main one, what a paired device may do, and the newer lines of the log -->
+    <string name="remote_managed_switch_help">Устройство, сопряжённое по коду с этого экрана, видит этот TailSocks и может кое-что в нём менять через tailnet. Что именно — в списке «Что может сопряжённое устройство».</string>
+
+    <!-- Full control -->
+    <string name="remote_full_title">Полный доступ</string>
+    <string name="remote_full_help">Сопряжённое устройство этого аккаунта сможет видеть имена всех файлов в памяти устройства и получить любой из них, открывать доступ к новым папкам, предлагать это устройство как выходной узел или маршрутизатор и читать журнал приложения — секреты из него вычищаются, но фильтр есть фильтр.\n• Включается только здесь. Сопряжённое устройство может его лишь выключить.\n• Гостям он не даётся никогда.</string>
+    <string name="remote_full_confirm_title">Включить полный доступ?</string>
+    <string name="remote_full_confirm_text">Любое сопряжённое устройство этого аккаунта сможет видеть имена всех файлов в памяти устройства и получить любой из них, открывать доступ к новым папкам, предлагать это устройство как выходной узел или маршрутизатор и читать журнал приложения.\n\nСекреты из журнала вычищаются, но фильтр есть фильтр. У кого в руках сопряжённый телефон, у того в руках и всё это.</string>
+    <string name="remote_full_confirm_yes">Включить</string>
+
+    <!-- Guests -->
+    <string name="remote_guests_title">Пускать чужие устройства как гостей</string>
+    <string name="remote_guests_help_lasts">Гость видит состояние и выбирает выходной узел, а его сопряжение заканчивается само через %1$s.</string>
+    <string name="remote_guests_help_plain">Гость видит состояние и выбирает выходной узел.</string>
+    <string name="remote_guests_help_off">• Если выключить, сопрягаться смогут только устройства этого аккаунта, а уже сопряжённым гостям будет отказано, пока не включите снова.</string>
+    <string name="remote_guests_help_off_tagged">• У этого устройства есть тег, поэтому владельца у него нет: если выключить, сопрячься не сможет вообще никто, а уже сопряжённым гостям будет отказано, пока не включите снова.</string>
+    <string name="remote_paired_help_owners">Сейчас сопрячься может только устройство из того же аккаунта, что и это: гостей не пускают. Оно становится устройством владельца и остаётся, пока его не отзовут.</string>
+    <string name="remote_paired_nobody">Сейчас сопрячься не может никто: у этого устройства есть тег, поэтому владельца у него нет, а гостей не пускают.</string>
+    <string name="remote_paired_guest_refused">отказ, пока гостей не пускают</string>
+
+    <!-- What a paired device may do: every line is put together from the bridge's own lists.
+         The names in a list are joined with remote_access_list_more, and, in a sentence, the last
+         one with remote_access_list_last. -->
+    <string name="remote_access_title">Что может сопряжённое устройство</string>
+    <string name="remote_access_guest">Гость</string>
+    <string name="remote_access_owner">Владелец</string>
+    <string name="remote_access_owner_full">Владелец, полный доступ включён</string>
+    <string name="remote_access_full">С полным доступом</string>
+    <string name="remote_access_never">Никто и никогда</string>
+    <string name="remote_access_list_more">%1$s, %2$s</string>
+    <string name="remote_access_list_last">%1$s и %2$s</string>
+    <string name="remote_access_guests_off">Ни сопрячься, ни управлять: гостей не пускают</string>
+    <string name="remote_access_like_guest">Всё, что может гость</string>
+    <string name="remote_access_see">Видеть %1$s</string>
+    <string name="remote_access_set">Менять: %1$s</string>
+    <string name="remote_access_set_guarded">Менять (без подтверждения вернётся как было): %1$s</string>
+    <string name="remote_access_set_on_only">Только включать: %1$s</string>
+    <string name="remote_access_set_off_only">Только выключать: %1$s</string>
+    <string name="remote_access_set_needs_full">Выключать (чтобы включить, нужен полный доступ): %1$s</string>
+    <string name="remote_access_set_with_full">Включать: %1$s</string>
+    <string name="remote_access_permissions">Попросить показать здесь страницу разрешения (выдаёте его всё равно вы): %1$s</string>
+
+    <!-- What can be seen: fits after remote_access_see -->
+    <string name="remote_can_status">состояние</string>
+    <string name="remote_can_exit_nodes">выходные узлы</string>
+    <string name="remote_can_settings">настройки</string>
+    <string name="remote_can_files">список полученных файлов</string>
+    <string name="remote_can_folders">общие папки и пути к ним</string>
+    <string name="remote_can_storage_list">имена всех файлов в памяти устройства</string>
+    <string name="remote_can_diag_report">отчёт диагностики</string>
+    <string name="remote_can_diag_log">журнал приложения с вычищенными секретами</string>
+    <!-- What can be done: each begins a line or follows a comma -->
+    <string name="remote_can_exit_node_set">выбрать выходной узел</string>
+    <string name="remote_can_settings_set">менять настройки</string>
+    <string name="remote_can_action">запускать действия</string>
+    <string name="remote_can_files_delete">удалить полученные файлы</string>
+    <string name="remote_can_unpair">отменить своё сопряжение</string>
+    <string name="remote_can_permission_request">попросить показать здесь страницу разрешения</string>
+    <string name="remote_can_confirm">подтвердить свои изменения</string>
+    <string name="remote_can_identify">показать своё имя на этом экране</string>
+    <string name="remote_can_shares_remove">закрыть общий доступ к папке</string>
+    <string name="remote_can_shares_add">открыть общий доступ к новой папке</string>
+    <string name="remote_can_storage_send">получить любой файл из памяти устройства</string>
+    <string name="remote_can_act_reconnect">перезапустить подключение</string>
+    <string name="remote_can_act_reconnect_relays">заново подключиться к реле</string>
+    <string name="remote_can_act_receive_folder_default">сбросить неработающую папку приёма</string>
+    <string name="remote_can_act_save_received">сохранить ждущие файлы в папку приёма</string>
+    <!-- Settings: each follows a colon, in a list -->
+    <string name="remote_can_set_accept_routes">приём маршрутов подсетей</string>
+    <string name="remote_can_set_exit_node_lan_access">доступ к локальной сети при выходном узле</string>
+    <string name="remote_can_set_tun_mode">режим TUN</string>
+    <string name="remote_can_set_auto_reconnect">автопереподключение</string>
+    <string name="remote_can_set_keep_awake">«Держать соединение активным»</string>
+    <string name="remote_can_set_taildrive_enabled">общий доступ к папкам (Taildrive)</string>
+    <string name="remote_can_set_taildrive_proxy_enabled">прокси Taildrive</string>
+    <string name="remote_can_set_advertise_exit_node">это устройство как выходной узел</string>
+    <string name="remote_can_set_advertise_routes">раздаваемые подсети</string>
+    <string name="remote_can_set_full_control">полный доступ</string>
+    <string name="remote_can_set_exit_node">выходной узел</string>
+    <!-- Permissions, as the system names their pages -->
+    <string name="remote_perm_storage">Доступ к файлам</string>
+    <string name="remote_perm_notifications">Уведомления</string>
+    <string name="remote_perm_battery">Оптимизация батареи</string>
+    <string name="remote_perm_vpn">VPN-подключение</string>
+    <string name="remote_perm_alarms">Будильники и напоминания</string>
+    <string name="remote_perm_install">Установка неизвестных приложений</string>
+    <string name="remote_perm_autostart">Автозапуск</string>
+    <!-- What nobody may: each begins the line or follows a comma -->
+    <string name="remote_never_stop">остановить TailSocks насовсем</string>
+    <string name="remote_never_sign_out">выйти из аккаунта</string>
+    <string name="remote_never_account">сменить аккаунт или сервер входа</string>
+    <string name="remote_never_credentials">прочитать или задать пароль или ключ</string>
+    <string name="remote_never_control_proxy">менять прокси Control Plane и обход блокировок</string>
+    <string name="remote_never_root_mode">трогать Root-режим</string>
+    <string name="remote_never_grant_permission">выдать разрешение</string>
+    <string name="remote_never_full_control_on">включить полный доступ</string>
+
+    <!-- The log: the lines of the newer operations -->
+    <string name="remote_log_permission">Запрошено разрешение: %1$s</string>
+    <string name="remote_log_confirmed">Подтверждено: %1$s</string>
+    <string name="remote_log_reverted">Возвращено как было: %1$s</string>
+    <string name="remote_log_reverted_unconfirmed">Возвращено как было: %1$s (не подтверждено)</string>
+    <string name="remote_log_reverted_none">Выходной узел убран: изменение не подтверждено, а прежнего узла больше нет</string>
+    <string name="remote_log_identify">Просило показать здесь своё имя</string>
+    <string name="remote_log_share_added">Открыт доступ к папке</string>
+    <string name="remote_log_share_removed">Закрыт доступ к папке</string>
+    <string name="remote_log_file_sent">Ему отправлен файл</string>
+    <string name="remote_log_browse">Просматривало память устройства</string>
+    <string name="remote_log_diag">Диагностика</string>
+    <string name="remote_log_diag_log">Прочитан журнал приложения</string>
+    <string name="remote_log_diag_report">Прочитан отчёт диагностики</string>
+    <string name="remote_log_on">вкл.</string>
+    <string name="remote_log_off">выкл.</string>
+    <string name="remote_log_none">нет</string>
+    <string name="remote_log_result_shown">показано на экране</string>
+    <string name="remote_log_result_notified">показано уведомление</string>
+    <string name="remote_log_result_waiting">ждёт, пока откроют TailSocks</string>
+    <string name="remote_log_result_unseen">показать не удалось</string>
+    <!-- What the bridge remarks on a line when the app did not simply do as asked -->
+    <string name="remote_log_remark_pending">приложение ещё не ответило</string>
+    <string name="remote_log_remark_late">применено с опозданием</string>
+    <string name="remote_log_remark_failed_late">не удалось, с опозданием</string>
+    <string name="remote_log_remark_not_asked">приложение не спрашивали</string>
+    <string name="remote_log_remark_bad_answer">ответ приложения не разобран</string>
+    <string name="remote_log_remark_not_put_back">приложение отказалось вернуть</string>
+</resources>

@@ -1,0 +1,267 @@
+package io.github.bropines.tailscaled.ui
+
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.RemoteAccess
+import io.github.bropines.tailscaled.core.RemoteAccessClass
+import io.github.bropines.tailscaled.core.RemoteAccessSetting
+import kotlinx.serialization.Serializable
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * "What a paired device may do" on the managed device's page: every name the bridge can send
+ * has words, and the lines are the bridge's document and nothing else.
+ *
+ * The names come from the bridge's own list, appctr/testdata/remote_allowlist.json, which its
+ * tests hold against the code (remote_server_test.go). A name added there fails here until
+ * the page has words for it.
+ */
+class RemoteManagedAccessTest {
+
+    @Serializable
+    private data class ListedSetting(val key: String = "", val writable: Boolean = false, val only: String = "", val full: String = "", val guard: String = "")
+
+    @Serializable
+    private data class ListedOp(val op: String = "", @kotlinx.serialization.SerialName("class") val role: String = "", val full: Boolean = false)
+
+    @Serializable
+    private data class Allowlist(
+        val settings: List<ListedSetting> = emptyList(),
+        val actions: List<String> = emptyList(),
+        val permissions: List<String> = emptyList(),
+        val askable: List<String> = emptyList(),
+        val askResults: List<String> = emptyList(),
+        val identifyResults: List<String> = emptyList(),
+        val ops: List<ListedOp> = emptyList(),
+        val never: List<String> = emptyList(),
+    )
+
+    // The working directory of a unit test is the module's: app/.
+    private val listed: Allowlist = AppJson.decodeFromString(File("../appctr/testdata/remote_allowlist.json").readText())
+
+    /**
+     * The document as the bridge makes it from those lists (appctr/remote_level.go, access):
+     * what needs full control is the owner's at that level and listed apart below it.
+     */
+    private fun document(full: Boolean, guests: Boolean = true): RemoteAccess {
+        val writable = listed.settings.filter { it.writable }
+        return RemoteAccess(
+            level = if (full) RemoteAccess.LEVEL_FULL else RemoteAccess.LEVEL_BASIC,
+            guests = guests,
+            guest = RemoteAccessClass(ops = listed.ops.filter { it.role == "guest" && (full || !it.full) }.map { it.op }),
+            owner = RemoteAccessClass(
+                ops = listed.ops.filter { full || !it.full }.map { it.op },
+                settings = writable.map {
+                    val needs = it.full.isNotEmpty() && !full
+                    RemoteAccessSetting(it.key, only = if (needs && it.full == "true") "false" else it.only, needs = if (needs) "full" else "", guard = it.guard)
+                },
+                actions = listed.actions,
+                permissions = listed.askable,
+            ),
+            full = if (full) RemoteAccessClass() else RemoteAccessClass(
+                ops = listed.ops.filter { it.full }.map { it.op },
+                settings = writable.filter { it.full.isNotEmpty() }.map { RemoteAccessSetting(it.key) },
+            ),
+            never = listed.never,
+        )
+    }
+
+    private fun List<RemoteAccessGroup>.group(title: Int) = firstOrNull { it.title == title }
+    private fun RemoteAccessGroup.row(text: Int) = rows.firstOrNull { it.text == text }
+    private fun RemoteAccessRow.said() = names.map { it.name }
+    private fun List<RemoteAccessGroup>.names() = flatMap { it.rows }.flatMap { it.names }
+
+    @Test
+    fun theBridgesListIsThere() {
+        // An empty list would pass everything below.
+        assertTrue(listed.ops.size >= 19 && listed.settings.size >= 13 && listed.never.size >= 8)
+        assertTrue(listed.actions.isNotEmpty() && listed.askable.isNotEmpty() && listed.askResults.isNotEmpty())
+    }
+
+    @Test
+    fun everyNameTheBridgeCanSendHasWords() {
+        val words = RemoteAccessWords
+        fun missing(names: List<String>, known: Map<String, Int>) = names.filterNot { it in known }
+        assertEquals("operations", emptyList<String>(), missing(listed.ops.map { it.op }, words.seen + words.done))
+        assertEquals("settings", emptyList<String>(), missing(listed.settings.filter { it.writable }.map { it.key }, words.settings))
+        assertEquals("actions", emptyList<String>(), missing(listed.actions, words.actions))
+        assertEquals("permissions", emptyList<String>(), missing(listed.permissions + listed.askable, words.permissions))
+        assertEquals("never", emptyList<String>(), missing(listed.never, words.never))
+        assertEquals("what came of a request", emptyList<String>(), missing(listed.askResults + listed.identifyResults, words.results))
+        // And the log names a guarded exit node by its own key.
+        assertTrue(words.KEY_EXIT_NODE in words.changed && words.changed.keys.containsAll(words.settings.keys))
+    }
+
+    @Test
+    fun noOperationIsBothSeenAndDone() {
+        assertEquals(emptySet<String>(), RemoteAccessWords.seen.keys intersect RemoteAccessWords.done.keys)
+    }
+
+    @Test
+    fun atEitherLevelEveryLineIsInWordsAndNothingIsLeftOut() {
+        for (full in listOf(false, true)) {
+            val doc = document(full)
+            val groups = remoteAccessGroups(doc)
+            val names = groups.names()
+            assertEquals("a name without words at full=$full", emptyList<String>(), names.filter { it.text == 0 }.map { it.name })
+            val said = names.map { it.name }.toSet()
+            // Every setting, action, permission and "never" of the document is on the card, and every operation
+            // that is not said through its own list.
+            val lists = setOf(RemoteAccessWords.OP_SET, RemoteAccessWords.OP_ACTION, RemoteAccessWords.OP_ASK)
+            val expected = doc.owner.ops + doc.full.ops - lists + doc.owner.settings.map { it.key } + doc.owner.actions +
+                doc.owner.permissions + doc.never
+            assertEquals("left out at full=$full", emptyList<String>(), expected.filterNot { it in said })
+            // A dozen lines, not forty.
+            val lines = groups.sumOf { it.rows.size }
+            assertTrue("$lines lines at full=$full", lines in 8..16)
+        }
+    }
+
+    @Test
+    fun theBasicLevelSaysWhatFullControlWouldAdd() {
+        val groups = remoteAccessGroups(document(full = false))
+        assertEquals(
+            listOf(R.string.remote_access_guest, R.string.remote_access_owner, R.string.remote_access_full, R.string.remote_access_never),
+            groups.map { it.title }
+        )
+        val guest = groups.group(R.string.remote_access_guest)!!
+        assertEquals(listOf("status", "exit_nodes", "settings", "files"), guest.row(R.string.remote_access_see)!!.said())
+        assertTrue(guest.row(R.string.remote_access_see)!!.and)
+        assertEquals(listOf("exit_node.set", "unpair", "confirm", "identify"), guest.row(0)!!.said())
+
+        val owner = groups.group(R.string.remote_access_owner)!!
+        // An owner may all a guest may: said once, and only the rest is listed.
+        assertEquals(R.string.remote_access_like_guest, owner.rows.first().text)
+        assertEquals(listOf("folders"), owner.row(R.string.remote_access_see)!!.said())
+        assertEquals(
+            listOf("accept_dns", "accept_routes", "exit_node_lan_access", "tun_mode"),
+            owner.row(R.string.remote_access_set_guarded)!!.said()
+        )
+        assertEquals(listOf("auto_reconnect", "keep_awake"), owner.row(R.string.remote_access_set_on_only)!!.said())
+        assertEquals(
+            listOf("taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node", "advertise_routes"),
+            owner.row(R.string.remote_access_set_needs_full)!!.said()
+        )
+        assertEquals(listOf("full_control"), owner.row(R.string.remote_access_set_off_only)!!.said())
+        assertNull(owner.row(R.string.remote_access_set))
+        // The actions stand where "action" stood, among what an owner does.
+        assertEquals(
+            listOf("reconnect", "reconnect_relays", "receive_folder_default", "save_received", "files.delete", "shares.remove"),
+            owner.row(0)!!.said()
+        )
+        assertEquals(
+            listOf("storage", "notifications", "battery", "alarms", "install", "autostart"),
+            owner.row(R.string.remote_access_permissions)!!.said()
+        )
+
+        val full = groups.group(R.string.remote_access_full)!!
+        assertEquals(listOf("storage.list", "diag.report", "diag.log"), full.row(R.string.remote_access_see)!!.said())
+        assertEquals(listOf("shares.add", "storage.send"), full.row(0)!!.said())
+        assertEquals(
+            listOf("taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node", "advertise_routes"),
+            full.row(R.string.remote_access_set_with_full)!!.said()
+        )
+        assertEquals(listed.never, groups.group(R.string.remote_access_never)!!.rows.single().said())
+    }
+
+    @Test
+    fun withFullControlOnItsLinesAreTheOwners() {
+        val groups = remoteAccessGroups(document(full = true))
+        assertNull(groups.group(R.string.remote_access_full))
+        assertNull(groups.group(R.string.remote_access_owner))
+        val owner = groups.group(R.string.remote_access_owner_full)!!
+        assertEquals(listOf("folders", "storage.list", "diag.report", "diag.log"), owner.row(R.string.remote_access_see)!!.said())
+        assertTrue(owner.row(0)!!.said().containsAll(listOf("shares.add", "storage.send")))
+        // What needed full control goes either way now; giving the level up stays one way.
+        assertEquals(
+            listOf("taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node", "advertise_routes"),
+            owner.row(R.string.remote_access_set)!!.said()
+        )
+        assertNull(owner.row(R.string.remote_access_set_needs_full))
+        assertEquals(listOf("full_control"), owner.row(R.string.remote_access_set_off_only)!!.said())
+        // A guest gets none of it.
+        val guest = groups.group(R.string.remote_access_guest)!!.rows.flatMap { it.said() }
+        assertFalse(guest.any { it.startsWith("storage") || it.startsWith("diag") || it.startsWith("shares") })
+    }
+
+    @Test
+    fun withGuestsShutOutAGuestIsNobodyAndTheOwnerIsSaidInFull() {
+        val groups = remoteAccessGroups(document(full = false, guests = false))
+        assertEquals(listOf(RemoteAccessRow(R.string.remote_access_guests_off)), groups.group(R.string.remote_access_guest)!!.rows)
+        val owner = groups.group(R.string.remote_access_owner)!!
+        assertNull(owner.row(R.string.remote_access_like_guest))
+        assertEquals(listOf("status", "exit_nodes", "settings", "files", "folders"), owner.row(R.string.remote_access_see)!!.said())
+        assertTrue(owner.row(0)!!.said().containsAll(listOf("exit_node.set", "unpair", "confirm", "identify")))
+    }
+
+    @Test
+    fun aNameWithoutWordsIsShownAsItCame() {
+        val doc = RemoteAccess(
+            guest = RemoteAccessClass(ops = listOf("status", "teleport")),
+            owner = RemoteAccessClass(
+                // Not all a guest may: nothing is folded into "everything a guest may".
+                ops = listOf("status", "settings.set", "action", "permission.request", "levitate"),
+                settings = listOf(RemoteAccessSetting("warp_drive", only = "true")),
+                actions = listOf("self_destruct"),
+                permissions = listOf("telepathy"),
+            ),
+            full = RemoteAccessClass(ops = listOf("time.travel"), settings = listOf(RemoteAccessSetting("flux"))),
+            never = listOf("stop", "unheard_of"),
+        )
+        val groups = remoteAccessGroups(doc)
+        val unnamed = groups.names().filter { it.text == 0 }.map { it.name }
+        assertEquals(listOf("teleport", "warp_drive", "self_destruct", "levitate", "telepathy", "flux", "time.travel", "unheard_of"), unnamed)
+        assertNull(groups.group(R.string.remote_access_owner)!!.row(R.string.remote_access_like_guest))
+    }
+
+    @Test
+    fun anOperationWithoutItsListKeepsItsOwnWords() {
+        // A class the bridge sends no settings, actions or permissions for is still said to have the operation.
+        val groups = remoteAccessGroups(RemoteAccess(owner = RemoteAccessClass(ops = listOf("settings.set", "action", "permission.request"))))
+        val row = groups.single().rows.single()
+        assertEquals(listOf("settings.set", "action", "permission.request"), row.said())
+        assertTrue(row.names.all { it.text != 0 })
+    }
+
+    @Test
+    fun anEmptyDocumentDrawsNothing() {
+        assertEquals(emptyList<RemoteAccessGroup>(), remoteAccessGroups(RemoteAccess()))
+        assertEquals(emptyList<RemoteAccessGroup>(), remoteAccessGroups(RemoteAccess.of("not a document")))
+    }
+
+    @Test
+    fun theBridgesDocumentIsRead() {
+        val doc = RemoteAccess.of(
+            """{"level":"full","guests":false,"guest":{"ops":["status"]},
+               "owner":{"ops":["status","settings.set"],"settings":[{"key":"tun_mode","guard":"always"},{"key":"advertise_routes","needs":"full"}],
+                        "actions":["reconnect"],"permissions":["storage"]},
+               "full":{"ops":[]},"never":["stop"]}"""
+        )
+        assertEquals(RemoteAccess.LEVEL_FULL, doc.level)
+        assertFalse(doc.guests)
+        assertEquals(RemoteAccessSetting("advertise_routes", needs = "full"), doc.owner.settings[1])
+        assertEquals(listOf("stop"), doc.never)
+    }
+
+    @Test
+    fun aLogLinesDetailIsTakenApartAsTheBridgePutsItTogether() {
+        assertEquals(RemoteLogDetail("storage", "shown"), remoteLogDetail("storage: shown"))
+        assertEquals(RemoteLogDetail("storage"), remoteLogDetail("storage"))
+        assertEquals(RemoteLogDetail("accept_routes", "true"), remoteLogDetail("accept_routes=true"))
+        assertEquals(RemoteLogDetail("advertise_routes", ""), remoteLogDetail("advertise_routes="))
+        assertEquals(RemoteLogDetail("advertise_routes", "fd00::/8,10.0.0.0/8"), remoteLogDetail("advertise_routes=fd00::/8,10.0.0.0/8"))
+        assertEquals(RemoteLogDetail("exit_node", "not confirmed"), remoteLogDetail("exit_node: not confirmed"))
+        assertEquals(
+            RemoteLogDetail("exit_node", "not confirmed; the one before is gone, so none", "(the app refused to put it back)"),
+            remoteLogDetail("exit_node: not confirmed; the one before is gone, so none (the app refused to put it back)")
+        )
+        assertEquals(RemoteLogDetail("reconnect", null, "(no answer from the app yet)"), remoteLogDetail("reconnect (no answer from the app yet)"))
+        assertEquals(RemoteLogDetail("", null, "(no answer from the app yet)"), remoteLogDetail(" (no answer from the app yet)"))
+        assertEquals(RemoteLogDetail(""), remoteLogDetail(""))
+    }
+}
