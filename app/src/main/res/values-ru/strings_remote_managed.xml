@@ -30,6 +30,7 @@
     <string name="remote_access_owner_full">Владелец, полный доступ включён</string>
     <string name="remote_access_full">С полным доступом</string>
     <string name="remote_access_never">Никто и никогда</string>
+    <string name="remote_access_not_applied">TailSocks не запущен, поэтому переключатели выше ещё не применены. Список изменится вслед за ними, когда он заработает.</string>
     <string name="remote_access_list_more">%1$s, %2$s</string>
     <string name="remote_access_list_last">%1$s и %2$s</string>
     <string name="remote_access_guests_off">Ни сопрячься, ни управлять: гостей не пускают</string>
@@ -73,6 +74,7 @@
     <string name="remote_can_set_exit_node_lan_access">доступ к локальной сети при выходном узле</string>
     <string name="remote_can_set_tun_mode">режим TUN</string>
     <string name="remote_can_set_auto_reconnect">автопереподключение</string>
+    <string name="remote_can_set_auto_start">автозапуск после перезагрузки</string>
     <string name="remote_can_set_keep_awake">«Держать соединение активным»</string>
     <string name="remote_can_set_taildrive_enabled">общий доступ к папкам (Taildrive)</string>
     <string name="remote_can_set_taildrive_proxy_enabled">прокси Taildrive</string>

@@ -71,6 +71,14 @@ class RemoteManagedAccessTest {
         )
     }
 
+    // The settings by the way they go from afar, as the bridge's list has them: the expectations below
+    // follow the list, so a setting added there moves them with it.
+    private val settable = listed.settings.filter { it.writable }
+    private val needFull = settable.filter { it.full.isNotEmpty() }.map { it.key }
+    private val onOnly = settable.filter { it.only == "true" }.map { it.key }
+    private val offOnly = settable.filter { it.only == "false" }.map { it.key }
+    private val guarded = settable.filter { it.guard.isNotEmpty() && it.only.isEmpty() && it.full.isEmpty() }.map { it.key }
+
     private fun List<RemoteAccessGroup>.group(title: Int) = firstOrNull { it.title == title }
     private fun RemoteAccessGroup.row(text: Int) = rows.firstOrNull { it.text == text }
     private fun RemoteAccessRow.said() = names.map { it.name }
@@ -138,34 +146,24 @@ class RemoteManagedAccessTest {
         // An owner may all a guest may: said once, and only the rest is listed.
         assertEquals(R.string.remote_access_like_guest, owner.rows.first().text)
         assertEquals(listOf("folders"), owner.row(R.string.remote_access_see)!!.said())
-        assertEquals(
-            listOf("accept_dns", "accept_routes", "exit_node_lan_access", "tun_mode"),
-            owner.row(R.string.remote_access_set_guarded)!!.said()
-        )
-        assertEquals(listOf("auto_reconnect", "keep_awake"), owner.row(R.string.remote_access_set_on_only)!!.said())
-        assertEquals(
-            listOf("taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node", "advertise_routes"),
-            owner.row(R.string.remote_access_set_needs_full)!!.said()
-        )
-        assertEquals(listOf("full_control"), owner.row(R.string.remote_access_set_off_only)!!.said())
+        // Each setting on the line of the way it goes, and each of those ways has a setting today.
+        assertTrue(guarded.containsAll(listOf("accept_dns", "tun_mode")) && onOnly.containsAll(listOf("auto_reconnect", "keep_awake")))
+        assertTrue("taildrive_enabled" in needFull && "advertise_routes" in needFull && offOnly == listOf("full_control"))
+        assertEquals(guarded, owner.row(R.string.remote_access_set_guarded)!!.said())
+        assertEquals(onOnly, owner.row(R.string.remote_access_set_on_only)!!.said())
+        // A list that may be cleared and not filled stands with the switches that may be turned off and not on.
+        assertEquals(needFull, owner.row(R.string.remote_access_set_needs_full)!!.said())
+        assertEquals(offOnly, owner.row(R.string.remote_access_set_off_only)!!.said())
         assertNull(owner.row(R.string.remote_access_set))
         // The actions stand where "action" stood, among what an owner does.
-        assertEquals(
-            listOf("reconnect", "reconnect_relays", "receive_folder_default", "save_received", "files.delete", "shares.remove"),
-            owner.row(0)!!.said()
-        )
-        assertEquals(
-            listOf("storage", "notifications", "battery", "alarms", "install", "autostart"),
-            owner.row(R.string.remote_access_permissions)!!.said()
-        )
+        assertEquals(listed.actions + listOf("files.delete", "shares.remove"), owner.row(0)!!.said())
+        assertEquals(listed.askable, owner.row(R.string.remote_access_permissions)!!.said())
+        assertFalse("vpn" in listed.askable)
 
         val full = groups.group(R.string.remote_access_full)!!
         assertEquals(listOf("storage.list", "diag.report", "diag.log"), full.row(R.string.remote_access_see)!!.said())
         assertEquals(listOf("shares.add", "storage.send"), full.row(0)!!.said())
-        assertEquals(
-            listOf("taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node", "advertise_routes"),
-            full.row(R.string.remote_access_set_with_full)!!.said()
-        )
+        assertEquals(needFull, full.row(R.string.remote_access_set_with_full)!!.said())
         assertEquals(listed.never, groups.group(R.string.remote_access_never)!!.rows.single().said())
     }
 
@@ -178,12 +176,9 @@ class RemoteManagedAccessTest {
         assertEquals(listOf("folders", "storage.list", "diag.report", "diag.log"), owner.row(R.string.remote_access_see)!!.said())
         assertTrue(owner.row(0)!!.said().containsAll(listOf("shares.add", "storage.send")))
         // What needed full control goes either way now; giving the level up stays one way.
-        assertEquals(
-            listOf("taildrive_enabled", "taildrive_proxy_enabled", "advertise_exit_node", "advertise_routes"),
-            owner.row(R.string.remote_access_set)!!.said()
-        )
+        assertEquals(needFull, owner.row(R.string.remote_access_set)!!.said())
         assertNull(owner.row(R.string.remote_access_set_needs_full))
-        assertEquals(listOf("full_control"), owner.row(R.string.remote_access_set_off_only)!!.said())
+        assertEquals(offOnly, owner.row(R.string.remote_access_set_off_only)!!.said())
         // A guest gets none of it.
         val guest = groups.group(R.string.remote_access_guest)!!.rows.flatMap { it.said() }
         assertFalse(guest.any { it.startsWith("storage") || it.startsWith("diag") || it.startsWith("shares") })

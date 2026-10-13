@@ -30,6 +30,7 @@
     <string name="remote_access_owner_full">An owner, with full control on</string>
     <string name="remote_access_full">With full control</string>
     <string name="remote_access_never">Nobody, ever</string>
+    <string name="remote_access_not_applied">TailSocks is not running, so the switches above are not applied yet. This list follows them once it runs.</string>
     <string name="remote_access_list_more">%1$s, %2$s</string>
     <string name="remote_access_list_last">%1$s and %2$s</string>
     <string name="remote_access_guests_off">Neither pair nor manage: guests are not let in</string>
@@ -74,6 +75,7 @@
     <string name="remote_can_set_exit_node_lan_access">LAN access with an exit node</string>
     <string name="remote_can_set_tun_mode">TUN mode</string>
     <string name="remote_can_set_auto_reconnect">auto-reconnect</string>
+    <string name="remote_can_set_auto_start">starting after a reboot</string>
     <string name="remote_can_set_keep_awake">keeping the connection awake</string>
     <string name="remote_can_set_taildrive_enabled">sharing folders (Taildrive)</string>
     <string name="remote_can_set_taildrive_proxy_enabled">the Taildrive proxy</string>

@@ -49,7 +49,7 @@ private const val PERMISSIONS = """"permissions":["storage","notifications","bat
 private const val NEVER = """"never":["stop","sign_out","account","credentials","control_proxy","root_mode","grant_permission","full_control_on"]"""
 private const val CONNECTION = """{"key":"accept_dns","guard":"optional"},{"key":"accept_routes","guard":"optional"},""" +
     """{"key":"exit_node_lan_access","guard":"optional"},{"key":"tun_mode","guard":"always"},""" +
-    """{"key":"auto_reconnect","only":"true"},{"key":"keep_awake","only":"true"}"""
+    """{"key":"auto_reconnect","only":"true"},{"key":"auto_start","only":"true"},{"key":"keep_awake","only":"true"}"""
 
 private fun basicAccess(guests: Boolean = true) = RemoteAccess.of(
     """{"level":"basic","guests":$guests,"guest":{"ops":[$GUEST_OPS]},
@@ -137,8 +137,10 @@ private val guestsOff = managed(basicAccess(guests = false), guests = false)
 private val taggedGuestsOff = managed(basicAccess(guests = false), devices = listOf(ann), guests = false, tagged = true, accessOpen = false)
 private val tagged = managed(devices = listOf(ann), tagged = true, accessOpen = false)
 private val logged = managed(fullAccess, fullControl = true, accessOpen = false).copy(log = newLog, logOpen = true)
-// The switch is on and the service has not told the bridge yet: the card still draws the level it enforces.
-private val fullNotApplied = managed(fullControl = true)
+// Full control switched on with TailSocks stopped: the bridge still has the level from before, and the card says so.
+private val fullNotApplied = managed(fullControl = true, devices = emptyList()).copy(
+    state = RemoteState(available = true, enabled = true, port = 28115, policy = policy), reach = RemoteReach.NOT_RUNNING,
+)
 
 @Composable
 private fun Managed(ui: RemoteManagedUi, tv: Boolean = false) =
@@ -178,9 +180,12 @@ fun RemoteManagedFullControl() = Managed(full)
 @PreviewTest @ManagedTv @Composable
 fun RemoteManagedFullControlTv() = Managed(full, tv = true)
 
-/** Full control switched on a moment ago: the card follows when the bridge has it. */
+/** Full control switched on while TailSocks is stopped: the list is the one from before, and says why. */
 @PreviewTest @ManagedPhoneTall @Composable
 fun RemoteManagedFullControlNotApplied() = Managed(fullNotApplied)
+
+@PreviewTest @ManagedTv @Composable
+fun RemoteManagedFullControlNotAppliedTv() = Managed(fullNotApplied, tv = true)
 
 /** Guests shut out: the guest paired before is listed as refused, and the card says a guest is nobody. */
 @PreviewTest @ManagedPhoneTall @Composable

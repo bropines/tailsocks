@@ -356,13 +356,21 @@ private fun readManaged(context: android.content.Context, before: RemoteManagedU
     )
 }
 
+/** The bridge's document is not what this page's two switches say: it takes them from the running service. */
+private val RemoteManagedUi.switchesBehind: Boolean
+    get() = (access.level == RemoteAccess.LEVEL_FULL) != fullControl || access.guests != guests
+
 /**
- * The bridge has not caught up with this page's two switches: it takes them from the running
- * service, which applies them a moment after they are turned. Never while the endpoint is
- * off — then nothing is applied, and nobody can connect either.
+ * The bridge is about to catch up: the service applies a switch a moment after it is turned.
+ * Never while the endpoint is off — then nothing is applied, and nobody can connect either.
  */
-private val RemoteManagedUi.levelBehind: Boolean
-    get() = state.enabled && ((access.level == RemoteAccess.LEVEL_FULL) != fullControl || access.guests != guests)
+private val RemoteManagedUi.levelBehind: Boolean get() = state.enabled && switchesBehind
+
+/**
+ * And it will not catch up until TailSocks is started: the list of what a paired device may do
+ * is then the one from before the switches were turned, and says so.
+ */
+private val RemoteManagedUi.accessNotApplied: Boolean get() = reach == RemoteReach.NOT_RUNNING && switchesBehind
 
 /** Whether this node runs under ACL tags, from the daemon's status; false when it does not say. */
 private fun selfTagged(): Boolean = runCatching {
@@ -429,7 +437,7 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
     val hasSecond = listed || access.isNotEmpty()
     val second: @Composable ColumnScope.() -> Unit = {
         if (listed) DevicesCard(ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true })
-        if (access.isNotEmpty()) AccessCard(access, ui.accessOpen, actions::toggleAccess)
+        if (access.isNotEmpty()) AccessCard(access, ui.accessOpen, ui.accessNotApplied, actions::toggleAccess)
         if (listed) LogCard(ui.log, ui.logOpen, ui.now, actions::toggleLog)
     }
 
@@ -949,10 +957,21 @@ private fun FoldCard(
 ) {
     val source = remember { MutableInteractionSource() }
     val shape = MaterialTheme.shapes.large
+    // Unfolded at the foot of the page, the card would open below the edge with only its arrow to
+    // show for it: it is brought into view when it is opened. Not when the page is drawn with it open.
+    val inView = remember { BringIntoViewRequester() }
+    val wasOpen = remember { booleanArrayOf(open) }
+    LaunchedEffect(open) {
+        val opened = open && !wasOpen[0]
+        wasOpen[0] = open
+        if (!opened) return@LaunchedEffect
+        withFrameNanos { }
+        inView.bringIntoView()
+    }
     Surface(
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().bringIntoViewRequester(inView)
     ) {
         Column {
             Row(
@@ -1054,6 +1073,7 @@ internal object RemoteAccessWords {
         "exit_node_lan_access" to R.string.remote_can_set_exit_node_lan_access,
         "tun_mode" to R.string.remote_can_set_tun_mode,
         "auto_reconnect" to R.string.remote_can_set_auto_reconnect,
+        "auto_start" to R.string.remote_can_set_auto_start,
         "keep_awake" to R.string.remote_can_set_keep_awake,
         "taildrive_enabled" to R.string.remote_can_set_taildrive_enabled,
         "taildrive_proxy_enabled" to R.string.remote_can_set_taildrive_proxy_enabled,
@@ -1217,10 +1237,21 @@ private fun accessRowText(row: RemoteAccessRow): String {
 private val ACCESS_PANE = 260.dp
 private val LOG_PANE = 200.dp
 
-/** What a paired device may do, class by class, folded until asked for: [remoteAccessGroups] in words. */
+/**
+ * What a paired device may do, class by class, folded until asked for: [remoteAccessGroups] in
+ * words. [notApplied] when the switches were turned with TailSocks stopped and the list is still
+ * the one from before.
+ */
 @Composable
-private fun AccessCard(groups: List<RemoteAccessGroup>, open: Boolean, onToggle: () -> Unit) {
+private fun AccessCard(groups: List<RemoteAccessGroup>, open: Boolean, notApplied: Boolean, onToggle: () -> Unit) {
     FoldCard(stringResource(R.string.remote_access_title), open, onToggle, ACCESS_PANE, spacing = 12.dp) {
+        if (notApplied) {
+            Text(
+                stringResource(R.string.remote_access_not_applied),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         groups.forEach { group ->
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(group.title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
