@@ -13,7 +13,8 @@ package appctr
 //     the daemon's netstack, which dials the loopback listener itself and
 //     records which peer that loopback connection stands for
 //     (wgengine/netstack acceptTCP -> forwardTCP ->
-//     proxymap.RegisterIPPortIdentity).
+//     proxymap.RegisterIPPortIdentity). That is the road in every mode the
+//     daemon runs in; "Does a peer reach the endpoint?" below.
 //   - Who is calling is asked of the daemon, never of the caller: LocalAPI
 //     whois on the connection's loopback source address returns the node and
 //     its user (ipnlocal.WhoIs, the proxy-map branch). That answer is
@@ -194,30 +195,58 @@ package appctr
 //   - Someone at the device. Whoever can read the screen and press its
 //     buttons can pair a device; that presence is the consent.
 //
-// Does a peer reach the endpoint? Read from the code, not measured on devices:
+// Does a peer reach the endpoint? In every mode, and by the same road:
 //
 //   - userspace-networking — the default proxy mode, TUN with the hev engine,
-//     Root Mode without its TUN: yes. netstack takes every packet for the
-//     node's own addresses (ProcessLocalIPs = onlyNetstack,
-//     cmd/tailscaled/netstack.go) and forwards a TCP port nothing else claims
-//     to 127.0.0.1 with the peer's identity registered.
-//   - native TUN engine (--tun=android-vpn, TUN's default): NO. There
-//     ProcessLocalIPs is false and patch 19 only lets netstack keep the
-//     replies to flows it dialed itself (CheckLocalTransportEndpoints); a SYN
-//     for <tailnet address>:RemotePort goes to the VpnService device and the
-//     host stack, where nothing listens on that address.
-//   - Root Mode with tailscale0: NO, for the same reason — the kernel owns
-//     the node's addresses and this listener is loopback-only.
+//     Root Mode without its TUN: netstack takes every packet for the node's
+//     own addresses (ProcessLocalIPs = onlyNetstack, cmd/tailscaled/
+//     netstack.go) and forwards a TCP port nothing else claims to 127.0.0.1
+//     with the peer's identity registered.
+//   - a real TUN — the native engine (--tun=android-vpn, TUN's default) and
+//     Root Mode with tailscale0: there the node's addresses are the host
+//     stack's (ProcessLocalIPs is false), and patch 22 has netstack keep this
+//     one port all the same (netstack.Impl.ProcessLocalTCPPort, set from
+//     cmd/tailscaled/android_remote.go), the way upstream keeps the peerAPI
+//     port. From there the connection is forwarded and registered exactly as
+//     above. The daemon keeps the port only while the app's switch file
+//     exists — files/remote/managed.on, found beside its socket and looked at
+//     again within a second — so the switch needs no restart, and with it off
+//     a real TUN handles the port as it did before the patch.
 //
-// Listening on the tailnet address instead would not be an honest fix: the
-// app excludes its own package from the VPN (TunVpnService.applyAppExclusions),
-// so its replies would leave by the default network, and identity would come
-// from a source address seen by a host socket rather than from the daemon's
-// proxy map. The fix is a daemon patch that makes netstack claim RemotePort in
-// those modes (shouldProcessInbound), after which forwarding and identity work
-// as in userspace mode. It is not part of this change; until then
-// RemoteStateJSON reports "inbound":"none" there, from the daemon's own TUN
-// flag, so the screen can say so instead of showing a code nobody can use.
+// Why netstack, and not a second listener on the tailnet address for the
+// kernel to deliver to in the TUN modes:
+//
+//   - Identity. Behind netstack a caller is the peer whose WireGuard session
+//     the packets came out of, found through a loopback socket that only the
+//     daemon's forwarder registers. A host socket has a source address and
+//     nothing else, and the kernel hands it a packet for that address from
+//     any interface, the LAN's included. whois (remote_auth.go) refuses every
+//     source that is not loopback for this reason, and still does.
+//   - Android. The app keeps itself out of its own VPN
+//     (TunVpnService.applyAppExclusions — the tunnel would otherwise carry
+//     itself), and the system routes into a VPN only the UIDs that VPN applies
+//     to: a listener in the app would be sent the SYN and answer it into the
+//     default network.
+//   - One road. Proxy mode and the hev engine have no kernel path at all, so
+//     a listener there would be a second transport with a second, weaker
+//     notion of who is calling. With the port kept, every mode has the same
+//     listener, the same lookup and the same gate.
+//
+// So identity on a real TUN is what it is in proxy mode, no stronger and no
+// weaker: necessary, never sufficient (remote_auth.go). The proxy map is the
+// smaller there — netstack forwards this port and little else to loopback —
+// which leaves a local process fewer connections to share a source port with.
+//
+// A closed endpoint looks closed. With the switch off nothing listens on
+// loopback: in userspace-networking netstack's own dial is refused and the
+// peer is sent a reset, as for any port nobody serves; on a real TUN the port
+// was never taken from the host, which answers as it always did.
+//
+// RemoteStateJSON's "inbound" is the daemon's own word (remote_inbound.go):
+// on a real TUN the bridge asks it whether it keeps the port instead of
+// inferring that from the mode, so a daemon that does not — an older one that
+// outlived an update of the app in Root Mode — shows as "none" on the screen
+// rather than as a code nobody could use.
 
 import (
 	"encoding/json"
@@ -801,8 +830,8 @@ type remoteStateView struct {
 	// change may be lost with the app's process.
 	Unsaved bool `json:"unsaved,omitempty"`
 	// Inbound says whether a peer's connection can reach the listener in the
-	// daemon's current mode: "netstack" yes, "none" no (native TUN, Root Mode
-	// with its TUN), "unknown" while the daemon does not answer.
+	// daemon's current mode: "netstack" yes, "none" no (a daemon on a real TUN
+	// that does not keep the port), "unknown" while the daemon does not answer.
 	Inbound string `json:"inbound"`
 	// Delegate: the app has registered its RemoteDelegate.
 	Delegate bool `json:"delegate"`
@@ -831,13 +860,13 @@ type remoteStateView struct {
 //
 // "pairing" is absent while no code is on show, "lastPairing" until one has
 // ended. "inbound" is "netstack" when peers can reach the endpoint, "none" when
-// the daemon's mode keeps them out (native TUN, Root Mode with its TUN) and
+// the running daemon does not pass the port on (remote_inbound.go) and
 // "unknown" while the daemon does not answer. "rev" changes whenever this, the
 // paired list or the action log may have: poll this, re-read those on a change.
 func RemoteStateJSON() string { return remoteReply(remote.state()) }
 
 func (m *remoteManager) state() remoteStateView {
-	self, selfErr := m.selfIdentity()
+	inbound := m.inbound(m.selfIdentity())
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.expireLocked()
@@ -846,7 +875,7 @@ func (m *remoteManager) state() remoteStateView {
 		Enabled:   m.enabled,
 		Listening: m.listener != nil,
 		Port:      RemotePort,
-		Inbound:   "unknown",
+		Inbound:   inbound,
 		Delegate:  m.delegate != nil,
 		Pairing:   m.windowViewLocked(),
 		Policy: remotePolicyView{
@@ -864,12 +893,6 @@ func (m *remoteManager) state() remoteStateView {
 		// An error is about a port that is not open; while one is, whatever
 		// an earlier attempt ran into is history.
 		v.Error = m.listenErr
-	}
-	if selfErr == nil {
-		v.Inbound = "netstack"
-		if self.TUN {
-			v.Inbound = "none"
-		}
 	}
 	if m.store != nil {
 		v.Paired = len(m.store.data.Pairings)
