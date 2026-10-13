@@ -9,6 +9,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - The app no longer crashes when DPI bypass is stopped or restarted.
 - DPI bypass: each start uses only its own flags — earlier options, Force IPv4 included, no longer persist until the app is killed.
 - DPI bypass: empty or refused flags run the defaults instead of cutting the control connection, and the card says what is really running.
+- "Auto-start on Boot" now starts the app after a reboot; only "Keep the connection awake" did before.
 
 ## [4.10.1] - 2026-10-12
 
