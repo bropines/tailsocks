@@ -26,6 +26,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -202,6 +204,13 @@ fun DnsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    // A television: no clipboard to copy for (the values are read off the screen, a size
+    // larger), buttons big enough to hit with a remote, and the remote put back on the lookup
+    // button when the keyboard has been dismissed.
+    val tv = isTv
+    val tvBump = if (tv) 3 else 0
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    val queryButtonFocus = remember { FocusRequester() }
     // The preview renderer has no daemon and no native bridge: there the demo, or its
     // absence, says whether the service counts as running. In the app a load decides.
     val inPreview = LocalInspectionMode.current
@@ -289,6 +298,8 @@ fun DnsScreen(onBack: () -> Unit) {
             withContext(Dispatchers.Main) {
                 queryResult = out.trim()
                 isQuerying = false
+                // clearFocus() above let the keyboard go and the remote with it.
+                if (tv) runCatching { queryButtonFocus.requestFocus() }
             }
         }
     }
@@ -326,7 +337,7 @@ fun DnsScreen(onBack: () -> Unit) {
                 Text(
                     msg,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
+                    fontSize = (12 + tvBump).sp,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
@@ -360,8 +371,9 @@ fun DnsScreen(onBack: () -> Unit) {
                     )
                     Spacer(Modifier.width(12.dp))
                     Button(
-                        onClick = { runLocalDnsTest() },
-                        enabled = !isTestingLocal,
+                        onClick = { if (!isTestingLocal) runLocalDnsTest() },
+                        // Still a target for the remote while the test runs: see the route tests.
+                        enabled = !isTestingLocal || tv,
                         shape = MaterialTheme.shapes.small,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         modifier = Modifier.height(36.dp)
@@ -373,7 +385,7 @@ fun DnsScreen(onBack: () -> Unit) {
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 stringResource(R.string.dns_test_btn),
-                                fontSize = 12.sp,
+                                fontSize = (12 + tvBump).sp,
                                 maxLines = 1,
                                 softWrap = false
                             )
@@ -400,7 +412,7 @@ fun DnsScreen(onBack: () -> Unit) {
                             text = textMsg,
                             color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp,
+                            fontSize = (12 + tvBump).sp,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         )
                     }
@@ -418,7 +430,13 @@ fun DnsScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.dns_lookup_tool), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    CompactSearchBar(
+                    if (tv) TvQueryField(
+                        value = queryDomain,
+                        onValueChange = { queryDomain = it },
+                        placeholder = stringResource(R.string.dns_lookup_placeholder),
+                        modifier = Modifier.weight(1f),
+                        onDone = { performQuery(queryDomain) }
+                    ) else CompactSearchBar(
                         value = queryDomain,
                         onValueChange = { queryDomain = it },
                         placeholderText = stringResource(R.string.dns_lookup_placeholder),
@@ -429,7 +447,7 @@ fun DnsScreen(onBack: () -> Unit) {
                     FilledIconButton(
                         onClick = { performQuery(queryDomain) },
                         shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.size(height = 40.dp, width = 50.dp)
+                        modifier = Modifier.size(height = 40.dp, width = 50.dp).focusRequester(queryButtonFocus)
                     ) {
                         if (isQuerying) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
@@ -449,7 +467,7 @@ fun DnsScreen(onBack: () -> Unit) {
                         Text(
                             text = queryResult!!,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 13.sp,
+                            fontSize = (13 + tvBump).sp,
                             modifier = Modifier.padding(12.dp)
                         )
                     }
@@ -484,7 +502,7 @@ fun DnsScreen(onBack: () -> Unit) {
                             text = if (magicActive) stringResource(R.string.dns_magic_enabled) else stringResource(R.string.dns_magic_disabled),
                             color = if (magicActive) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
+                            fontSize = (11 + tvBump).sp,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
@@ -497,7 +515,7 @@ fun DnsScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(stringResource(R.string.dns_network_domain), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
-                        Text(suffix, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                        Text(suffix, fontFamily = FontFamily.Monospace, fontSize = (13 + tvBump).sp)
                     }
                 }
                 data.tailnet?.selfName?.let { name ->
@@ -505,22 +523,33 @@ fun DnsScreen(onBack: () -> Unit) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.dns_device_name), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
                         Spacer(Modifier.height(2.dp))
-                        // Surface(onClick), so the ripple keeps to the corners.
-                        Surface(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("SelfName", name))
-                                Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
-                            },
-                            shape = MaterialTheme.shapes.small,
-                            color = MaterialTheme.colorScheme.surface,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        val nameRow: @Composable () -> Unit = {
                             Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(name, fontFamily = FontFamily.Monospace, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                                Text(name, fontFamily = FontFamily.Monospace, fontSize = (12 + tvBump).sp, modifier = Modifier.weight(1f))
+                                if (clipboardOffered) Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                             }
+                        }
+                        if (clipboardOffered) {
+                            // Surface(onClick), so the ripple keeps to the corners.
+                            Surface(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("SelfName", name))
+                                    Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
+                                },
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.surface,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { nameRow() }
+                        } else {
+                            // Only to be read: no copy, so no target either.
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.surface,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) { nameRow() }
                         }
                     }
                 }
@@ -535,11 +564,11 @@ fun DnsScreen(onBack: () -> Unit) {
             shape = MaterialTheme.shapes.small
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.outline, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.dns_split_route), color = MaterialTheme.colorScheme.outline, fontSize = (11 + tvBump).sp, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val cleanDomain = domain.trimEnd('.')
                     Text(cleanDomain, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    IconButton(onClick = {
+                    if (clipboardOffered) IconButton(onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("Domain", cleanDomain))
                         Toast.makeText(context, context.getString(R.string.dns_domain_copied), Toast.LENGTH_SHORT).show()
@@ -566,7 +595,7 @@ fun DnsScreen(onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(ip, fontFamily = FontFamily.Monospace, fontSize = 13.sp)
+                                Text(ip, fontFamily = FontFamily.Monospace, fontSize = (13 + tvBump).sp)
                                 if (testRes != null) {
                                     val isSuccess = testRes.startsWith("Success")
                                     val latency = if (isSuccess) {
@@ -574,48 +603,52 @@ fun DnsScreen(onBack: () -> Unit) {
                                     } else 0
                                     Text(
                                         text = if (isSuccess) "Ping: $latency ms" else "Failed",
-                                        fontSize = 11.sp,
+                                        fontSize = (11 + tvBump).sp,
                                         color = if (isSuccess) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
 
-                            // Test button
+                            // Test button. A remote's target is wider than a finger's, and it stays
+                            // one while the test runs (the click is ignored): a button that goes
+                            // dead takes the remote's focus with it.
                             IconButton(
-                                onClick = { runRouteTest(domain, ip) },
-                                modifier = Modifier.size(28.dp),
-                                enabled = !isTesting
+                                onClick = { if (!isTesting) runRouteTest(domain, ip) },
+                                modifier = Modifier.size(if (tv) 44.dp else 28.dp),
+                                enabled = !isTesting || tv
                             ) {
                                 if (isTesting) {
-                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(modifier = Modifier.size(if (tv) 20.dp else 14.dp), strokeWidth = 2.dp)
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = stringResource(R.string.dns_cd_test_server),
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(if (tv) 26.dp else 16.dp),
                                         tint = if (testRes != null && testRes.startsWith("Success")) androidx.compose.ui.graphics.Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline
                                     )
                                 }
                             }
 
-                            Spacer(Modifier.width(4.dp))
+                            if (clipboardOffered) {
+                                Spacer(Modifier.width(4.dp))
 
-                            // Copy button
-                            IconButton(
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("IP", ip))
-                                    Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
-                                },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentCopy,
-                                    contentDescription = stringResource(R.string.dns_cd_copy_ip),
-                                    modifier = Modifier.size(14.dp),
-                                    tint = MaterialTheme.colorScheme.outline
-                                )
+                                // Copy button
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("IP", ip))
+                                        Toast.makeText(context, context.getString(R.string.dns_ips_copied), Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = stringResource(R.string.dns_cd_copy_ip),
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.outline
+                                    )
+                                }
                             }
                         }
                     }

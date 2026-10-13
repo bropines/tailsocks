@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +49,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.Diagnostics
+import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.TunEngines
 import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.parseHealthWarnings
@@ -168,40 +171,84 @@ fun LiveDiagnosticsCard(
     // SettingsCard's look, with a copy button beside the title that SettingsCard has no room for.
     // Filling a height it is given, the card has no margin of its own: the cards beside it
     // start and end where it does.
+    //
+    // On a television there is no clipboard to copy for, and no tap on the SOCKS5 row: the
+    // header carries a labelled button that checks the port again. A card that fills a height
+    // it is given and scrolls its rows is split there: the title, the button and the folded
+    // help stay put — they are stops of their own, which a pane's keys would pass over — and
+    // the rows are the pane, one stop that the arrows read.
+    val tv = isTv
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    val scroll = rememberScrollState()
+    val header: @Composable () -> Unit = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.diag_live_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
+            )
+            if (tv) {
+                // Never disabled by the first read: a target that goes dead takes the remote with it.
+                TextButton(onClick = { if (state?.socks5?.isNotBlank() == true) onRecheck() }) {
+                    Text(stringResource(R.string.tv_diag_live_recheck))
+                }
+            }
+            if (clipboardOffered) {
+                IconButton(onClick = onCopy, enabled = state != null) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.diag_live_copy))
+                }
+            }
+        }
+    }
+    val help: @Composable () -> Unit = {
+        HelpText(stringResource(if (tv) R.string.tv_diag_live_help else R.string.diag_live_help))
+    }
+    val rows: @Composable () -> Unit = {
+        if (state == null) {
+            Text(
+                stringResource(R.string.diag_live_collecting),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            LiveRows(state, if (tv) null else onRecheck)
+        }
+    }
     Card(
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
         modifier = if (fillHeight) modifier.fillMaxWidth() else modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .then(if (fillHeight) Modifier.verticalScroll(rememberScrollState()) else Modifier)
-                .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.diag_live_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(onClick = onCopy, enabled = state != null) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.diag_live_copy))
+        if (tv && fillHeight) {
+            Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)) {
+                header()
+                Column(Modifier.padding(end = 12.dp)) {
+                    help()
+                    Spacer(Modifier.height(10.dp))
                 }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .tvReadingPane(scroll)
+                        .verticalScroll(scroll)
+                        .padding(end = 12.dp)
+                ) { rows() }
             }
-            Column(Modifier.padding(end = 12.dp)) {
-                HelpText(stringResource(R.string.diag_live_help))
-                Spacer(Modifier.height(10.dp))
-                if (state == null) {
-                    Text(
-                        stringResource(R.string.diag_live_collecting),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LiveRows(state, onRecheck)
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (fillHeight) Modifier.verticalScroll(scroll) else Modifier)
+                    .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)
+            ) {
+                header()
+                Column(Modifier.padding(end = 12.dp)) {
+                    help()
+                    Spacer(Modifier.height(10.dp))
+                    rows()
                 }
             }
         }
@@ -209,7 +256,7 @@ fun LiveDiagnosticsCard(
 }
 
 @Composable
-private fun LiveRows(s: Diagnostics.Live, onRecheck: () -> Unit) {
+private fun LiveRows(s: Diagnostics.Live, onRecheck: (() -> Unit)?) {
     val context = LocalContext.current
     val span = spanFormatter()
     val on = stringResource(R.string.diag_live_on)

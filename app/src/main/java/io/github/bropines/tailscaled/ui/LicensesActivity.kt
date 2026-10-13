@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -56,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.Feature
+import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.serialization.Serializable
@@ -122,6 +126,8 @@ internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit, initialOpen: 
     // over it, so one licence after another can be read without opening and closing.
     val window = rememberWindowLayout()
     val twoPane = window.listDetail && doc != null
+    val tv = isTv
+    val initialFocusSpent = remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             AppTopBar(
@@ -148,11 +154,15 @@ internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit, initialOpen: 
             ?: doc.sections.firstOrNull { it.components.isNotEmpty() }?.let { keyOf(it, it.components.first()) }
         val list: @Composable (Modifier) -> Unit = { modifier ->
             LazyColumn(
-                modifier = modifier,
+                modifier = modifier.tvFocusGroup(),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp)
             ) {
                 item(key = "intro") {
-                    HelpText(stringResource(R.string.licenses_help), modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp))
+                    // The sentence says what a tap does; a remote selects.
+                    HelpText(
+                        stringResource(if (tv) R.string.tv_licenses_help else R.string.licenses_help),
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                    )
                 }
                 for (section in doc.sections) {
                     item(key = "h-" + section.id) {
@@ -172,7 +182,12 @@ internal fun LicensesContent(doc: LicenseDoc?, onBack: () -> Unit, initialOpen: 
                             Column {
                                 section.components.forEachIndexed { i, c ->
                                     if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                                    LicenseRow(c, selected = keyOf(section, c) == shownKey) { openName = keyOf(section, c) }
+                                    LicenseRow(
+                                        c,
+                                        selected = keyOf(section, c) == shownKey,
+                                        // Where the remote starts: on the first component.
+                                        modifier = if (i == 0 && section === doc.sections.first()) Modifier.tvFocusOnce(initialFocusSpent) else Modifier
+                                    ) { openName = keyOf(section, c) }
                                 }
                             }
                         }
@@ -223,9 +238,9 @@ private fun sectionTitle(id: String): String = stringResource(
 
 /** [selected]: the row whose licence the pane beside the list is showing; only two panes have one. */
 @Composable
-private fun LicenseRow(c: LicenseComponent, selected: Boolean = false, onClick: () -> Unit) {
+private fun LicenseRow(c: LicenseComponent, selected: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .then(
@@ -274,17 +289,42 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
     val resources = LocalResources.current
     val includesLabel = stringResource(R.string.licenses_includes)
     val pageLabel = stringResource(R.string.licenses_open_page)
+    val pageTitle = stringResource(R.string.tv_licenses_page)
     // A sheet has its handle above the text; a pane starts at its own edge.
     val top = if (LocalInPane.current) 20.dp else 0.dp
+    // A television reads the text with the arrows: the text is one stop, so the page button is
+    // not inside it, and where there is no browser there is no button, only the address.
+    val tv = isTv
+    val hasPage = c.url.startsWith("http")
+    val browser = Feature.BROWSER.offered()
+    val pageButton: @Composable () -> Unit = {
+        OutlinedButton(onClick = {
+            context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(c.url)))
+        }) {
+            Icon(Icons.AutoMirrored.Filled.OpenInNew, null)
+            Spacer(Modifier.width(8.dp))
+            Text(pageLabel)
+        }
+    }
+    val listState = rememberLazyListState()
     SheetOrPane(onDismiss = onDismiss) {
         CompositionLocalProvider(
             LocalContext provides context,
             LocalConfiguration provides configuration,
             LocalResources provides resources
         ) {
+            if (tv && hasPage && browser) {
+                Box(Modifier.padding(start = 20.dp, top = top, end = 20.dp, bottom = 4.dp)) { pageButton() }
+            }
             LazyColumn(
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                contentPadding = PaddingValues(start = 20.dp, top = top, end = 20.dp, bottom = 24.dp),
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .tvReadingPane(listState),
+                contentPadding = PaddingValues(
+                    start = 20.dp, top = if (tv && hasPage && browser) 8.dp else top, end = 20.dp, bottom = 24.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
@@ -304,14 +344,16 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
                         }
                     }
                 }
-                if (c.url.startsWith("http")) {
+                if (hasPage) {
                     item {
-                        OutlinedButton(onClick = {
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(c.url))) }
-                        }) {
-                            Icon(Icons.AutoMirrored.Filled.OpenInNew, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(pageLabel)
+                        when {
+                            !tv -> pageButton()
+                            // No browser to open it in: the address, to read and type elsewhere.
+                            !browser -> Column {
+                                Text(pageTitle, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                                Text(c.url, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
+                            }
+                            else -> Unit
                         }
                     }
                 }
@@ -321,13 +363,18 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
                         color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        SelectionContainer {
+                        val text: @Composable () -> Unit = {
                             Text(
                                 texts[id].orEmpty().trimEnd(),
-                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp, lineHeight = 15.sp),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = if (tv) 14.sp else 11.sp,
+                                    lineHeight = if (tv) 19.sp else 15.sp
+                                ),
                                 modifier = Modifier.padding(12.dp)
                             )
                         }
+                        if (tv) text() else SelectionContainer { text() }
                     }
                 }
             }

@@ -2,6 +2,8 @@ package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
 
 import io.github.bropines.tailscaled.core.Changelog
+import io.github.bropines.tailscaled.core.Feature
+import io.github.bropines.tailscaled.core.tryStartActivity
 
 import android.content.Intent
 import android.net.Uri
@@ -43,6 +45,10 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
 
     val configuration = LocalConfiguration.current
     val maxHeight = (configuration.screenHeightDp * 0.6f).dp
+    // A television has no browser as often as not: then there is no link to the full list.
+    val browser = Feature.BROWSER.offered()
+    val scroll = rememberScrollState()
+    val focusSpent = remember { mutableStateOf(false) }
 
     // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
     AlertDialog(
@@ -69,7 +75,9 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = maxHeight)
-                    .verticalScroll(rememberScrollState())
+                    // The text is the one stop a remote has in it, so its arrows read the list.
+                    .tvReadingPane(scroll, focusOnce = focusSpent)
+                    .verticalScroll(scroll)
             ) {
                 val s = section
                 when {
@@ -86,16 +94,18 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                try {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Changelog.FULL_CHANGELOG_URL)))
-                } catch (_: Exception) {}
-                onDismiss()
-            }) { Text(context.getString(R.string.whats_new_full_changelog)) }
+            if (browser) {
+                TextButton(onClick = {
+                    context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Changelog.FULL_CHANGELOG_URL)))
+                    onDismiss()
+                }) { Text(context.getString(R.string.whats_new_full_changelog)) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) }
+            }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) }
-        }
+        dismissButton = if (browser) {
+            { TextButton(onClick = onDismiss) { Text(context.getString(R.string.action_close)) } }
+        } else null
     )
 }
 

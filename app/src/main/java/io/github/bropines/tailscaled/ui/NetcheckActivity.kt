@@ -23,6 +23,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -377,6 +378,9 @@ fun NetcheckScreen(onBack: () -> Unit) {
         )
     }
     val busy = isRunning || startingService
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    /** Where the remote starts on a television: on the report, once. */
+    val initialFocusSpent = remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -487,12 +491,15 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.netcheck_title),
                 onBack = onBack,
                 actions = {
-                    result?.let { shown ->
+                    // Nothing to paste into on a television: the report is read off the screen.
+                    result?.takeIf { clipboardOffered }?.let { shown ->
                         IconButton(onClick = { copyToClipboard(shown.textReport) }) {
                             Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.netcheck_cd_copy_report))
                         }
                     }
-                    IconButton(onClick = { runDiagnostics() }, enabled = !busy) {
+                    // On a television the button stays a target while a run is under way (the click
+                    // is ignored): a target that goes dead takes the remote's focus with it.
+                    IconButton(onClick = { if (!busy) runDiagnostics() }, enabled = !busy || isTv) {
                         if (busy) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         } else {
@@ -511,7 +518,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                     .padding(padding)
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
-            ) { NetcheckWide(wideResult, window) }
+            ) { NetcheckWide(wideResult, window, initialFocusSpent) }
         } else {
         // Held to a readable width on a tablet; see ReadableWidth.
         ReadableWidth {
@@ -618,9 +625,12 @@ fun NetcheckScreen(onBack: () -> Unit) {
                     val report = shown.diagnostics
                     val derpLatencies = shown.derpLatencies
 
+                    val listState = rememberLazyListState()
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxSize()
+                            .tvReadingPane(listState, focusOnce = initialFocusSpent)
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 24.dp)
@@ -887,16 +897,20 @@ private fun NetcheckHint() {
  * the checks side by side when both fit, the relays across under them.
  */
 @Composable
-private fun NetcheckWide(shown: NetcheckResult, window: WindowLayout) {
+private fun NetcheckWide(shown: NetcheckResult, window: WindowLayout, focusOnce: MutableState<Boolean>) {
     val status = shown.connection
     val report = shown.diagnostics
     val derpLatencies = shown.derpLatencies
     if (window.listDetail && derpLatencies.isNotEmpty()) {
         SideBySide(window, Modifier.fillMaxSize(), start = { side ->
+            // Nothing in a report is a target for the remote, so each column is one: ringed
+            // while the remote is on it, paged by Up and Down.
+            val scroll = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .tvReadingPane(scroll, focusOnce = focusOnce)
+                    .verticalScroll(scroll)
                     .padding(start = side.start, end = side.end, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -905,20 +919,24 @@ private fun NetcheckWide(shown: NetcheckResult, window: WindowLayout) {
                 NetcheckHint()
             }
         }, end = { side ->
+            val scroll = rememberScrollState()
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .tvReadingPane(scroll)
+                    .verticalScroll(scroll)
                     .padding(start = side.start, end = side.end, top = 8.dp, bottom = 24.dp)
             ) {
                 NetcheckDerpCard(report, derpLatencies, minRowWidth = DerpRowMinWidth)
             }
         })
     } else {
+        val scroll = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .tvReadingPane(scroll, focusOnce = focusOnce)
+                .verticalScroll(scroll)
                 .padding(start = window.margin, end = window.margin, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
