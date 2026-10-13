@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Handing a share's file to another app (core/TaildriveOpenPlan.kt, ui/TaildriveBrowser.kt):
+     the dialog for a file that only a web browser would take, and the switch for the link road. -->
+<resources>
+    <string name="taildrive_open_browseronly_title">No player for this file</string>
+    <string name="taildrive_open_browseronly_body">Nothing on this device plays this kind of file from a link — only a web browser takes it. Install a video player that opens network links, for example VLC, or open the address on another device.</string>
+    <string name="taildrive_open_in_browser">Open in the browser anyway</string>
+    <!-- Content description of the bar's switch; it is read out with its state. -->
+    <string name="taildrive_open_via_link">Open files through a link</string>
+</resources>

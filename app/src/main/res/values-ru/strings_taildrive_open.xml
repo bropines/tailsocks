@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrive_open_browseronly_title">Нет приложения для этого файла</string>
+    <string name="taildrive_open_browseronly_body">На этом устройстве ничто не воспроизводит такие файлы по ссылке — её берёт только браузер. Установите видеоплеер, который открывает сетевые ссылки (например, VLC), или откройте адрес на другом устройстве.</string>
+    <string name="taildrive_open_in_browser">Всё равно открыть в браузере</string>
+    <string name="taildrive_open_via_link">Открывать файлы по ссылке</string>
+</resources>

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.filled.FolderShared
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -44,6 +47,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -87,6 +91,7 @@ import io.github.bropines.tailscaled.core.DriveError
 import io.github.bropines.tailscaled.core.DriveKind
 import io.github.bropines.tailscaled.core.DriveLaunch
 import io.github.bropines.tailscaled.core.DriveLocation
+import io.github.bropines.tailscaled.core.DriveProxy
 import io.github.bropines.tailscaled.core.DriveResult
 import io.github.bropines.tailscaled.core.TaildriveBrowse
 import io.github.bropines.tailscaled.core.formatFileSize
@@ -131,8 +136,11 @@ internal sealed interface BrowserPhase {
 
 /** What is asked of the user after a file was handed over and nothing took it. */
 internal sealed interface OpenNotice {
-    /** No installed app takes the file; [address] is where any Tailscale client can fetch it. */
-    data class NoApp(val name: String, val address: String) : OpenNotice
+    /**
+     * No installed app takes the file; [address] is where any Tailscale client can fetch it. With
+     * [openInBrowser] set a web browser does take the link, and it is for the person to say whether that will do.
+     */
+    class NoApp(val name: String, val address: String, val openInBrowser: (() -> Unit)? = null) : OpenNotice
 
     data class Failed(val name: String, val detail: String) : OpenNotice
 }
@@ -147,6 +155,10 @@ internal class DriveBrowserActions(
     val onDismissNotice: () -> Unit,
     /** The way into the policy editor, for a device the policy does not let in; null where it is not offered. */
     val onFixPolicy: (() -> Unit)? = null,
+    /** Files open through the link on the local proxy before the document road: the person's switch, in the bar. */
+    val viaLink: Boolean = false,
+    /** Null where the switch is not shown (the previews of states that have no bar to show it in). */
+    val onToggleLink: (() -> Unit)? = null,
 ) {
     companion object {
         val None = DriveBrowserActions({}, {}, {}, {}, {}, {})
@@ -192,25 +204,26 @@ fun TaildriveBrowserPage(
     var notice by remember { mutableStateOf<OpenNotice?>(null) }
     var loadKey by remember { mutableIntStateOf(0) }
     var starting by remember { mutableStateOf(false) }
+    // The person's own switch for the link road (see TaildriveOpenPlan); the document road is the default.
+    var viaLink by remember { mutableStateOf(DriveProxy.openViaLink(appContext, account)) }
 
-    // Every load: is the daemon up and the proxy answering, then the listing. A new key cancels
-    // the load in flight, so a slow share never overwrites the folder entered after it.
+    // Every load: is the daemon up and is the policy against it, then the listing. A new key cancels
+    // the load in flight, so a slow share never overwrites the folder entered after it. The proxy is
+    // no part of it — a file reaches a player as a document of the app's own — except for a page that
+    // has just asked for it, which waits until it answers so that the next file finds it.
     LaunchedEffect(loadKey) {
         val waiting = starting
         starting = false
         phase = if (waiting) BrowserPhase.StartingProxy else BrowserPhase.Loading
         val wanted = location
         val (next, shown) = withContext(Dispatchers.IO) {
-            var blocked = TaildriveBrowse.preflight(appContext, account)
             // The service applies the switch a moment after the callback has run.
             var waited = 0L
-            while (waiting && waited < PROXY_WAIT_MS &&
-                (blocked == DriveError.ProxyOff || blocked == DriveError.ProxyNotListening)
-            ) {
+            while (waiting && waited < PROXY_WAIT_MS && !DriveProxy.read(appContext, account).let { it.enabled && it.isListening() }) {
                 delay(PROXY_POLL_MS)
                 waited += PROXY_POLL_MS
-                blocked = TaildriveBrowse.preflight(appContext, account)
             }
+            val blocked = TaildriveBrowse.listingBlock(appContext)
             if (blocked != null) return@withContext BrowserPhase.Failed(blocked) to wanted
             when (val result = browse.list(wanted)) {
                 is DriveResult.Ok -> BrowserPhase.Listed(result.value.entries) to result.value.location
@@ -262,13 +275,21 @@ fun TaildriveBrowserPage(
             if (entry.isFolder) go(location.child(entry.name))
             else scope.launch {
                 val file = location.child(entry.name)
-                when (val prepared = withContext(Dispatchers.IO) { TaildriveBrowse.prepareOpen(appContext, account, file) }) {
-                    // The proxy went off since the list was drawn: say so, and carry on from here.
+                when (val prepared = withContext(Dispatchers.IO) { TaildriveBrowse.prepareOpen(appContext, account, file, viaLink) }) {
+                    // The link was asked for and the proxy is not there: say so, and carry on from here.
                     is DriveResult.Err -> phase = BrowserPhase.Failed(prepared.error)
-                    is DriveResult.Ok -> when (val launched = prepared.value.launch(context)) {
-                        DriveLaunch.Started -> Unit
-                        DriveLaunch.NoApp -> notice = OpenNotice.NoApp(entry.name, prepared.value.tailnetUrl)
-                        is DriveLaunch.Failed -> notice = OpenNotice.Failed(entry.name, launched.detail)
+                    is DriveResult.Ok -> {
+                        val spec = prepared.value
+                        notice = when (val launched = spec.launch(context, viaLink)) {
+                            DriveLaunch.Started -> null
+                            DriveLaunch.NoApp -> OpenNotice.NoApp(entry.name, spec.tailnetUrl)
+                            // Nothing but a browser takes it: not opened until the person says so.
+                            is DriveLaunch.OnlyBrowser -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, openInBrowser = {
+                                notice = null
+                                (launched.openAnyway() as? DriveLaunch.Failed)?.let { notice = OpenNotice.Failed(entry.name, it.detail) }
+                            })
+                            is DriveLaunch.Failed -> OpenNotice.Failed(entry.name, launched.detail)
+                        }
                     }
                 }
             }
@@ -283,6 +304,11 @@ fun TaildriveBrowserPage(
         onDaemonStarted = { loadKey++ },
         onDismissNotice = { notice = null },
         onFixPolicy = fix?.let { intent -> { context.tryStartActivity(intent); Unit } },
+        viaLink = viaLink,
+        onToggleLink = {
+            viaLink = !viaLink
+            DriveProxy.setOpenViaLink(appContext, account, viaLink)
+        },
     )
     TaildriveBrowserContent(location, phase, focusName, notice, actions, modifier)
 }
@@ -320,7 +346,18 @@ internal fun TaildriveBrowserContent(
             AppTopBar(
                 title = stringResource(R.string.taildrive_browser_title),
                 subtitle = subtitle,
-                onBack = actions.onUp
+                onBack = actions.onUp,
+                actions = {
+                    actions.onToggleLink?.let { toggle ->
+                        IconToggleButton(checked = actions.viaLink, onCheckedChange = { toggle() }) {
+                            Icon(
+                                Icons.Default.Link,
+                                contentDescription = stringResource(R.string.taildrive_open_via_link),
+                                tint = if (actions.viaLink) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             )
         }
     ) { padding ->
@@ -594,9 +631,17 @@ private fun State(
 @Composable
 private fun NoAppDialog(notice: OpenNotice.NoApp, onDismiss: () -> Unit) {
     var showAddress by remember { mutableStateOf(false) }
+    val browserOnly = notice.openInBrowser != null
     val labels = NoticeLabels(
-        title = stringResource(if (showAddress) R.string.taildrive_browser_address_title else R.string.taildrive_browser_noapp_title),
-        body = stringResource(R.string.taildrive_browser_noapp_body),
+        title = stringResource(
+            when {
+                showAddress -> R.string.taildrive_browser_address_title
+                browserOnly -> R.string.taildrive_open_browseronly_title
+                else -> R.string.taildrive_browser_noapp_title
+            }
+        ),
+        body = stringResource(if (browserOnly) R.string.taildrive_open_browseronly_body else R.string.taildrive_browser_noapp_body),
+        openInBrowser = stringResource(R.string.taildrive_open_in_browser),
         addressHelp = stringResource(R.string.taildrive_browser_address_help),
         showAddress = stringResource(R.string.taildrive_browser_noapp_show_address),
         close = stringResource(R.string.action_close),
@@ -605,7 +650,12 @@ private fun NoAppDialog(notice: OpenNotice.NoApp, onDismiss: () -> Unit) {
     )
     AppBasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-            NoAppCard(notice.name, notice.address, showAddress, labels, onShowAddress = { showAddress = true }, onClose = onDismiss)
+            NoAppCard(
+                notice.name, notice.address, showAddress, labels,
+                onShowAddress = { showAddress = true },
+                onClose = onDismiss,
+                onOpenInBrowser = notice.openInBrowser
+            )
         }
     }
 }
@@ -636,6 +686,8 @@ internal class NoticeLabels(
     val close: String,
     val qrDescription: String,
     val qrTooLong: String,
+    /** The button that hands the link to a browser anyway; the card has it only when it is given an action for it. */
+    val openInBrowser: String = "",
 )
 
 /**
@@ -651,6 +703,7 @@ internal fun NoAppCard(
     onShowAddress: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenInBrowser: (() -> Unit)? = null,
 ) {
     Column(modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(labels.title, style = MaterialTheme.typography.headlineSmall)
@@ -682,8 +735,11 @@ internal fun NoAppCard(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        @OptIn(ExperimentalLayoutApi::class)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            // The safe choice takes the focus: OK on a remote shows the address, and opens nothing.
             if (!showAddress) ActionButton(labels.showAddress, onShowAddress, focused = true)
+            if (onOpenInBrowser != null) ActionButton(labels.openInBrowser, onOpenInBrowser, focused = false)
             ActionButton(labels.close, onClose, focused = showAddress)
         }
     }
