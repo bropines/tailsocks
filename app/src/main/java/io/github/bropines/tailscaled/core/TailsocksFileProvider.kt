@@ -244,6 +244,12 @@ class TailsocksFileProvider : DocumentsProvider() {
             } else {
                 parentDocumentId.substring("drive_account:".length)
             }
+            // The daemon off, or a policy that gives this device no Taildrive: say so before the
+            // request that would be closed without an answer.
+            TaildriveBrowse.listingBlock(context)?.let { block ->
+                result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, block)) }
+                return result
+            }
             val client = TaildriveClient(context, accId)
             try {
                 val list = client.list("/")
@@ -270,17 +276,22 @@ class TailsocksFileProvider : DocumentsProvider() {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Taildrive", "Error querying drive root children: ${e.message}")
-                result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, e)) }
+                // The class only: a message may carry an address.
+                android.util.Log.e("Taildrive", "Error querying drive root children: ${e.javaClass.simpleName}")
+                result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, e, depth = 0)) }
             }
             return result
         }
-        
+
         if (parentDocumentId.startsWith("drive_path:")) {
             val parts = parentDocumentId.substring("drive_path:".length).split(":", limit = 2)
             if (parts.size == 2) {
                 val accId = parts[0]
                 val parentPath = parts[1]
+                TaildriveBrowse.listingBlock(context)?.let { block ->
+                    result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, block)) }
+                    return result
+                }
                 val client = TaildriveClient(context, accId)
                 try {
                     val list = client.list(parentPath)
@@ -294,6 +305,10 @@ class TailsocksFileProvider : DocumentsProvider() {
                     // Tailscale app. With that app closed the share still lists and then
                     // answers 500 to everything inside, so probe each share here and say so.
                     val summaries = if (isNodeLevel(normalizedParent)) shareSummaries(context, client, entries) else emptyMap()
+                    // An empty folder says why when it can: nobody shares, or nothing is shared with us.
+                    if (entries.isEmpty()) emptyInfo(context, depthOf(normalizedParent))?.let { info ->
+                        result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_INFO, info) }
+                    }
 
                     for (file in entries) {
                         val cleanHref = file.href.trimEnd('/')
@@ -317,10 +332,10 @@ class TailsocksFileProvider : DocumentsProvider() {
                         }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.message}")
+                    android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.javaClass.simpleName}")
                     val name = parentPath.trimEnd('/').substringAfterLast("/")
                     result.extras = Bundle().apply {
-                        putString(DocumentsContract.EXTRA_ERROR, "$name: ${unavailableReason(context, e)}")
+                        putString(DocumentsContract.EXTRA_ERROR, "$name: ${unavailableReason(context, e, depthOf(parentPath))}")
                     }
                 }
             }
@@ -329,8 +344,17 @@ class TailsocksFileProvider : DocumentsProvider() {
     }
 
     /** `/<tailnet>/<node>`: the level whose children are the node's shares. */
-    private fun isNodeLevel(path: String): Boolean =
-        path.split('/').count { it.isNotEmpty() } == 2
+    private fun isNodeLevel(path: String): Boolean = depthOf(path) == 2
+
+    /** How many names a path has: the root 0, a tailnet 1, a device 2 (see [DriveError.DEVICE_DEPTH]). */
+    private fun depthOf(path: String): Int = path.split('/').count { it.isNotEmpty() }
+
+    /** What an empty folder at [depth] means, for the picker to show; null where there is nothing to say. */
+    private fun emptyInfo(context: Context, depth: Int): String? = when (depth) {
+        1 -> wrapContextWithLocale(context).getString(R.string.taildrive_browser_empty_devices)
+        2 -> wrapContextWithLocale(context).getString(R.string.taildrive_browser_empty_shares)
+        else -> null
+    }
 
     /**
      * One OPTIONS per share, in parallel. Returns a reason for every share that did not
@@ -344,9 +368,9 @@ class TailsocksFileProvider : DocumentsProvider() {
                 async(Dispatchers.IO) {
                     val reason = try {
                         val code = client.probe(share.href)
-                        if (code == 200) null else unavailableReason(context, WebDavHttpException("OPTIONS", code, ""))
+                        if (code == 200) null else unavailableReason(context, WebDavHttpException("OPTIONS", code, ""), depthOf(share.href))
                     } catch (e: Exception) {
-                        unavailableReason(context, e)
+                        unavailableReason(context, e, depthOf(share.href))
                     }
                     reason?.let { share.href.trimEnd('/') to it }
                 }
@@ -354,18 +378,20 @@ class TailsocksFileProvider : DocumentsProvider() {
         }
     }
 
-    /** The reason a share or folder could not be listed, in the user's words. */
-    private fun unavailableReason(context: Context, e: Exception): String = when {
-        // 500 is the node's daemon with no file server to hand the request to: on
-        // Windows and macOS the Tailscale app is closed (it serves the files); 502 is a
-        // file server that registered and then went away.
-        e is WebDavHttpException && (e.code == 500 || e.code == 502) -> context.getString(R.string.taildrive_unavailable_no_fileserver)
-        e is WebDavHttpException && e.code == 403 -> context.getString(R.string.taildrive_unavailable_forbidden)
-        e is WebDavHttpException && e.code == 404 -> context.getString(R.string.taildrive_unavailable_not_found)
-        else -> context.getString(R.string.taildrive_unavailable_generic, e.message ?: e.javaClass.simpleName)
-    }
+    /**
+     * The reason a share or folder could not be listed, in the user's words: what [DriveError]
+     * makes of the failure at [depth], never the exception's own text (it may name an address).
+     */
+    private fun unavailableReason(context: Context, e: Exception, depth: Int): String =
+        unavailableReason(context, DriveError.from(e, depth))
+
+    private fun unavailableReason(context: Context, error: DriveError): String =
+        wrapContextWithLocale(context).getString(documentReasonRes(error))
 
     private fun getMimeTypeForName(name: String): String {
+        // The app's own table first: the platform's lacks mkv, opus, m4v on older Android, and the
+        // type is what decides which players a file is offered to.
+        DriveMime.guess(name).takeIf { it != DriveMime.FALLBACK }?.let { return it }
         val lastDot = name.lastIndexOf('.')
         if (lastDot >= 0) {
             val extension = name.substring(lastDot + 1).lowercase()
@@ -451,9 +477,9 @@ class TailsocksFileProvider : DocumentsProvider() {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Taildrive", "Error writing file to WebDAV: ${e.message}")
+                android.util.Log.e("Taildrive", "Error writing file to WebDAV: ${e.javaClass.simpleName}")
                 try {
-                    readFd.closeWithError(e.message ?: "Write error")
+                    readFd.closeWithError("Write error")
                 } catch (ex: Exception) {}
             } finally {
                 try { input?.close() } catch (e: Exception) {}
@@ -478,7 +504,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                 try {
                     client.delete(path)
                 } catch (e: Exception) {
-                    throw FileNotFoundException("Failed to delete WebDAV document: ${e.message}")
+                    throw FileNotFoundException("Failed to delete WebDAV document (${e.javaClass.simpleName})")
                 }
             }
             return
@@ -528,7 +554,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                 }
                 return "drive_path:$accId:$childPath"
             } catch (e: Exception) {
-                throw FileNotFoundException("Failed to create WebDAV document: ${e.message}")
+                throw FileNotFoundException("Failed to create WebDAV document (${e.javaClass.simpleName})")
             }
         }
         throw FileNotFoundException("Create document not supported for Taildrop")
@@ -553,7 +579,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                     client.move(oldPath, newPath)
                     return "drive_path:$accId:$newPath"
                 } catch (e: Exception) {
-                    throw FileNotFoundException("Failed to rename WebDAV document: ${e.message}")
+                    throw FileNotFoundException("Failed to rename WebDAV document (${e.javaClass.simpleName})")
                 }
             }
         }
@@ -584,7 +610,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                     client.move(oldPath, newPath)
                     return "drive_path:$accId:$newPath"
                 } catch (e: Exception) {
-                    throw FileNotFoundException("Failed to move WebDAV document: ${e.message}")
+                    throw FileNotFoundException("Failed to move WebDAV document (${e.javaClass.simpleName})")
                 }
             }
         }
