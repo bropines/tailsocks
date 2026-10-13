@@ -67,6 +67,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 /**
@@ -487,6 +488,19 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
     var scale by remember { mutableFloatStateOf(1f) }
     val listState = rememberLazyListState()
 
+    // A television: no pinch, no pull, no touch selection, no clipboard to paste from, and
+    // maybe no document picker. The log is read page by page with the arrows (tvReadingPane),
+    // its size and its folds are buttons, and a file goes to a folder chosen in the app.
+    val tv = isTv
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    val pickerOffered = Feature.SYSTEM_FILE_PICKER.offered()
+    var unfoldLong by remember { mutableStateOf(false) }
+    /** Where the remote starts: on the log, once. */
+    val initialFocusSpent = remember { mutableStateOf(false) }
+    var pickingFolder by remember { mutableStateOf(false) }
+    /** Where the last in-app save went; shown until acknowledged. */
+    var savedPath by remember { mutableStateOf<String?>(null) }
+
     val isRootMode = remember { GlobalSettings.isRootModeEnabled(context) }
     val showTailcat = remember(allLogs, selectedCategory) {
         selectedCategory == TAILCAT_CATEGORY || allLogs.any { it.category == TAILCAT_CATEGORY }
@@ -548,6 +562,25 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                 }
             }
         }
+    }
+
+    /** Where the picker is missing: the whole log into [dir], and a dialog saying where it went. */
+    fun saveLogInto(dir: File) {
+        coroutineScope.launch(Dispatchers.IO) {
+            val file = File(dir, "tailsocks_logs_${System.currentTimeMillis()}.txt")
+            try {
+                file.writeText(buildFullLogString(context))
+                withContext(Dispatchers.Main) { savedPath = file.path }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
+    fun saveLog() {
+        // A television's placeholder picker counts as none (tryLaunch), and so does a phone's
+        // missing one: the in-app browser stands in.
+        if (!pickerOffered || !saveFileLauncher.tryLaunch("tailsocks_logs_${System.currentTimeMillis()}.txt")) pickingFolder = true
     }
 
     fun loadLogsData(manual: Boolean = false) {
@@ -647,6 +680,38 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
     val window = rememberWindowLayout()
     val filtersInOneRow = !window.isPhone && window.widthClass >= WindowWidthClass.EXPANDED
 
+    if (pickingFolder) {
+        // In place of the screen, not over it: the remote must not wander onto what is under.
+        PickFolderScreen(
+            source = remember { RealFileSource(context) },
+            onPicked = { dir ->
+                pickingFolder = false
+                saveLogInto(dir)
+            },
+            onCancel = { pickingFolder = false },
+            writable = true,
+            title = stringResource(R.string.tv_logs_save_title),
+            confirmLabel = stringResource(R.string.tv_logs_save_here)
+        )
+        return
+    }
+    savedPath?.let { path ->
+        val strTitle = stringResource(R.string.tv_logs_saved_title)
+        val strWhere = stringResource(R.string.tv_logs_saved_where)
+        val strClose = stringResource(R.string.action_close)
+        AlertDialog(
+            onDismissRequest = { savedPath = null },
+            title = { Text(strTitle) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(strWhere)
+                    Text(path, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            confirmButton = { TextButton(onClick = { savedPath = null }, modifier = Modifier.tvInitialFocus()) { Text(strClose) } }
+        )
+    }
+
     PredictiveBackContainer(
         onBack = onBack,
         // Back here only closes the Activity, so the container installs no callback and
@@ -660,16 +725,21 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                         title = stringResource(R.string.logs_title),
                         onBack = onBack,
                         actions = {
-                            IconButton(onClick = {
+                            val flushDns = {
                                 coroutineScope.launch(Dispatchers.IO) {
                                     Appctr.flushDNS()
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(context, context.getString(R.string.logs_dns_flushed), Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                            }) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
-
-                            IconButton(onClick = {
+                                Unit
+                            }
+                            val toggleLogcat = {
+                                includeLogcat = !includeLogcat
+                                GlobalSettings.setBoolean(context, LOGCAT_PREF, includeLogcat)
+                                if (!includeLogcat && selectedCategory == LOGCAT_CATEGORY) selectedCategory = "ALL"
+                            }
+                            val copyLog = {
                                 // Reads the root daemon log and calls JNI — off the main thread.
                                 coroutineScope.launch(Dispatchers.IO) {
                                     val (text, truncated) = buildClipboardLogString(context)
@@ -687,20 +757,37 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                                         }
                                     }
                                 }
-                            }) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
-                            
-                            IconButton(onClick = { saveFileLauncher.launch("tailsocks_logs_${System.currentTimeMillis()}.txt") }) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
-
-                            IconButton(onClick = {
-                                includeLogcat = !includeLogcat
-                                GlobalSettings.setBoolean(context, LOGCAT_PREF, includeLogcat)
-                                if (!includeLogcat && selectedCategory == LOGCAT_CATEGORY) selectedCategory = "ALL"
-                            }) {
-                                Icon(
-                                    Icons.Default.BugReport,
-                                    contentDescription = stringResource(R.string.logs_cd_logcat),
-                                    tint = if (includeLogcat) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                                Unit
+                            }
+                            if (tv) {
+                                // Words, not icons: nothing on a remote says what an icon is for.
+                                TvTextAction(Icons.Default.CleaningServices, stringResource(R.string.logs_cd_flush_dns), onClick = flushDns)
+                                if (clipboardOffered) TvTextAction(Icons.Default.ContentCopy, stringResource(R.string.action_copy), onClick = copyLog)
+                                TvTextAction(Icons.Default.Save, stringResource(R.string.action_save), onClick = ::saveLog)
+                                TvTextAction(
+                                    Icons.Default.BugReport, stringResource(R.string.tv_logs_logcat),
+                                    active = includeLogcat, onClick = toggleLogcat
                                 )
+                                TvTextAction(
+                                    Icons.Default.TextFields, stringResource(R.string.tv_text_size, (scale * 100).roundToInt()),
+                                    onClick = { scale = nextTvTextScale(scale) }
+                                )
+                                TvTextAction(
+                                    if (unfoldLong) Icons.Default.UnfoldLess else Icons.Default.UnfoldMore,
+                                    stringResource(if (unfoldLong) R.string.tv_logs_fold_long else R.string.tv_logs_unfold_long),
+                                    active = unfoldLong, onClick = { unfoldLong = !unfoldLong }
+                                )
+                            } else {
+                                IconButton(onClick = flushDns) { Icon(Icons.Default.CleaningServices, contentDescription = stringResource(R.string.logs_cd_flush_dns)) }
+                                IconButton(onClick = copyLog) { Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy)) }
+                                IconButton(onClick = ::saveLog) { Icon(Icons.Default.Save, contentDescription = stringResource(R.string.action_save)) }
+                                IconButton(onClick = toggleLogcat) {
+                                    Icon(
+                                        Icons.Default.BugReport,
+                                        contentDescription = stringResource(R.string.logs_cd_logcat),
+                                        tint = if (includeLogcat) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                                    )
+                                }
                             }
                         }
                     )
@@ -726,7 +813,12 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            CompactSearchBar(
+                            if (tv) TvQueryField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = stringResource(R.string.logs_search_placeholder),
+                                modifier = Modifier.weight(1f)
+                            ) else CompactSearchBar(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
                                 placeholderText = stringResource(R.string.logs_search_placeholder),
@@ -735,7 +827,12 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                             chips(Modifier.widthIn(max = LogFilterChipsMaxWidth))
                         }
                     } else {
-                        CompactSearchBar(
+                        if (tv) TvQueryField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = stringResource(R.string.logs_search_placeholder),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) else CompactSearchBar(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
                             placeholderText = stringResource(R.string.logs_search_placeholder),
@@ -752,6 +849,13 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
             },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // The arrows page through the log, so the start is a button too: a key held down
+                // takes a few seconds to cross a full buffer.
+                if (tv) AnimatedVisibility(visible = listState.canScrollBackward) {
+                    SmallFloatingActionButton(onClick = { coroutineScope.launch { listState.scrollToItem(0) } }) {
+                        Icon(Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.tv_logs_to_start))
+                    }
+                }
                 // Back to the live tail after reading further up; following resumes.
                 AnimatedVisibility(visible = !isAutoScroll && rows.isNotEmpty()) {
                     SmallFloatingActionButton(onClick = {
@@ -824,30 +928,46 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                         }
                     }
                 }
-            } else SelectionContainer {
-                LazyColumn(
-                    state = listState,
-                    // Room under the last line for the buttons, which otherwise cover the tail.
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp).pointerInput(Unit) {
-                        detectTransformGestures { _, _, zoom, _ -> scale = (scale * zoom).coerceIn(0.5f, 4f) }
-                    }
-                ) {
-                    items(rows, contentType = { it::class }) { row ->
-                        when (row) {
-                            is LogRow.Day -> DayDivider(row.label)
-                            is LogRow.Entry -> {
-                                val key = foldKey(row.log)
-                                LogEntryRow(
-                                    log = row.log,
-                                    scale = scale,
-                                    expanded = key in unfolded,
-                                    onToggle = { unfolded = if (key in unfolded) unfolded - key else unfolded + key }
-                                )
+            } else {
+                val lines: @Composable () -> Unit = {
+                    LazyColumn(
+                        state = listState,
+                        // Room under the last line for the buttons, which otherwise cover the tail.
+                        // A television keeps them beside the log instead, out of the way of the
+                        // arrows: the log is a stop of its own and the buttons are the next.
+                        contentPadding = PaddingValues(bottom = if (tv) 16.dp else 96.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (tv) Modifier.padding(end = LogButtonsStrip) else Modifier)
+                            .tvReadingPane(listState, focusOnce = initialFocusSpent)
+                            .padding(horizontal = 8.dp)
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, _, zoom, _ -> scale = (scale * zoom).coerceIn(0.5f, 4f) }
+                            }
+                    ) {
+                        items(rows, contentType = { it::class }) { row ->
+                            when (row) {
+                                is LogRow.Day -> DayDivider(row.label)
+                                is LogRow.Entry -> {
+                                    val key = foldKey(row.log)
+                                    LogEntryRow(
+                                        log = row.log,
+                                        scale = scale,
+                                        expanded = unfoldLong || key in unfolded,
+                                        // A line that is a stop of its own would take the arrows from
+                                        // the page: on a television the folds are one button above.
+                                        onToggle = if (tv) null else {
+                                            { unfolded = if (key in unfolded) unfolded - key else unfolded + key }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
+                // No touch selection on a television, and a thousand selectable lines are weight
+                // the page-by-page reading does not need.
+                if (tv) lines() else SelectionContainer { lines() }
             }
         }
     }
@@ -871,24 +991,33 @@ private fun DayDivider(label: String) {
     }
 }
 
+/**
+ * One entry. [onToggle] folds and unfolds a long one; null where the line is not a target (a
+ * television), and then a folded entry says how much is hidden instead of how to open it.
+ */
 @Composable
-private fun LogEntryRow(log: LogEntry, scale: Float, expanded: Boolean, onToggle: () -> Unit) {
+private fun LogEntryRow(log: LogEntry, scale: Float, expanded: Boolean, onToggle: (() -> Unit)?) {
     val context = LocalContext.current
     val defaultColor = MaterialTheme.colorScheme.onSurface
     val hintColor = MaterialTheme.colorScheme.primary
     val lineCount = remember(log.message) { log.message.count { it == '\n' } + 1 }
     val foldable = lineCount > FOLD_OVER_LINES
-    val text = remember(log, defaultColor, expanded) {
+    val text = remember(log, defaultColor, expanded, onToggle == null) {
         val shown = if (foldable && !expanded) log.message.lineSequence().take(FOLDED_LINES).joinToString("\n") else log.message
         val body = highlightLogMessage(log.timestamp, log.category, shown, defaultColor)
-        if (!foldable) body else buildAnnotatedString {
+        val hint = when {
+            !foldable -> null
+            onToggle != null ->
+                if (expanded) context.getString(R.string.logs_collapse)
+                else context.getString(R.string.logs_expand_more, lineCount - FOLDED_LINES)
+            expanded -> null
+            else -> context.getString(R.string.tv_logs_folded_more, lineCount - FOLDED_LINES)
+        }
+        if (hint == null) body else buildAnnotatedString {
             append(body)
             withStyle(SpanStyle(color = hintColor, fontStyle = FontStyle.Italic)) {
                 append('\n')
-                append(
-                    if (expanded) context.getString(R.string.logs_collapse)
-                    else context.getString(R.string.logs_expand_more, lineCount - FOLDED_LINES)
-                )
+                append(hint)
             }
         }
     }
@@ -897,7 +1026,10 @@ private fun LogEntryRow(log: LogEntry, scale: Float, expanded: Boolean, onToggle
         fontFamily = FontFamily.Monospace,
         fontSize = (12 * scale).sp,
         modifier = Modifier
-            .then(if (foldable) Modifier.clickable(onClick = onToggle) else Modifier)
+            .then(if (foldable && onToggle != null) Modifier.clickable(onClick = onToggle) else Modifier)
             .padding(vertical = 2.dp)
     )
 }
+
+/** What the television's log leaves free beside it for the floating buttons. */
+private val LogButtonsStrip = 88.dp
