@@ -426,6 +426,13 @@ class TailsocksFileProvider : DocumentsProvider() {
     }
 
     private fun openWebDavDocumentRead(accountId: String, path: String): ParcelFileDescriptor {
+        // A descriptor the reader can seek in, where the platform has one (API 26) and the
+        // share's server answers byte ranges; the pipe below otherwise, start to end. Only
+        // reads come here: openDocument sends every mode with a "w" in it the other way.
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            TaildriveDescriptor.open(context!!, TaildriveClient(context!!, accountId).rangeUpstream(path))?.let { return it }
+        }
+
         val pipe = ParcelFileDescriptor.createReliablePipe()
         val readFd = pipe[0]
         val writeFd = pipe[1]
@@ -909,6 +916,16 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
             throw Exception("WebDAV GET failed: HTTP $code")
         }
         return conn.inputStream
+    }
+
+    /**
+     * The file at [path] a range at a time, for a descriptor a player can seek in
+     * ([TaildriveDescriptor]): the same GET over the same SOCKS5 port as [getDownloadStream],
+     * with a `Range` header. [HttpRangeUpstream] sends it and sorts the answers.
+     */
+    fun rangeUpstream(path: String): RangeUpstream = HttpRangeUpstream {
+        val proxy = getSocksProxy() ?: throw RangeIoException("no SOCKS5 proxy")
+        getUrl(path).openConnection(proxy) as HttpURLConnection
     }
 
     fun getUploadStream(path: String): OutputStream {
