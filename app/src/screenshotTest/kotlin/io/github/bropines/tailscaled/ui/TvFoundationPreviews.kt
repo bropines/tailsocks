@@ -75,7 +75,7 @@ private fun TvSettings(section: String) = SettingsScreen(
 /** The dashboard, the remote on the status card — where it starts. */
 @PreviewTest @TvSizes @Composable
 fun TvDashboard() = AdaptiveShowcase(device = DeviceClass.TV) {
-    Focused(24.dp, 164.dp, 328.dp, 130.dp, MaterialTheme.shapes.extraLarge) {
+    Focused(24.dp, 164.dp, 328.dp, 198.dp, MaterialTheme.shapes.extraLarge) {
         MainScreen(showAccountSwitcher = remember { mutableStateOf(false) })
     }
 }
