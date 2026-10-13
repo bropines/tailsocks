@@ -73,10 +73,12 @@ object TaildropFolder {
     fun get(context: Context): ReceiveFolder? {
         val tree = GlobalSettings.getTaildropRootUri(context)?.toString()
         val path = GlobalSettings.getString(context, KEY_PATH, "")
-        // Only an install with nothing stored is asked what kind of device it is.
+        // Only an install with nothing stored is asked what kind of device it is, and only a
+        // television where its default would be: a phone has none, and the preview renderer,
+        // which Settings now reaches this through, has no storage to be asked about.
         val nothing = tree.isNullOrEmpty() && path.isEmpty()
         val device = if (nothing) DeviceProfile.deviceClass(context) else DeviceClass.HANDHELD
-        return resolve(tree, path, device, if (nothing) defaultDir() else null)
+        return resolve(tree, path, device, if (device == DeviceClass.TV) defaultDir() else null)
     }
 
     /**
