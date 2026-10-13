@@ -1,24 +1,18 @@
 package io.github.bropines.tailscaled.ui
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.BuildConfig
 import androidx.compose.ui.res.stringResource
 
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
-import android.content.ClipboardManager
-import android.content.ClipData
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -76,10 +70,20 @@ class FilesActivity : ComponentActivity() {
  * page with the history entry of that time open — in a sheet on a phone, beside the inbox on
  * a large window — if the history known when the screen is composed (a demo's) holds one.
  * [inboxOpen] starts the Taildrop inbox unfolded, for a preview; the app opens it folded.
+ * [inboxSeenAt] and [folderStateAtStart] are a preview's too: when the inbox was last looked
+ * at — on a television what came after it is listed as new — and whether the default
+ * folder can be written; the app remembers the one and finds out the other.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: Long? = null, inboxOpen: Boolean = false) {
+fun FilesScreen(
+    onBack: () -> Unit,
+    openTaildrop: Boolean = false,
+    openEntryAt: Long? = null,
+    inboxOpen: Boolean = false,
+    inboxSeenAt: Long? = null,
+    folderStateAtStart: TaildropFolder.State? = null
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // In a preview the inbox, the tailnet and the history come from LocalDemo, parsed here
@@ -95,13 +99,30 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
     val taildropDir = remember(activeAccount.id) { TaildropPaths.ensureDir(context, activeAccount.id) }
 
     var history by remember { mutableStateOf(demo?.taildropHistoryJson?.let(TaildropHistory::decode).orEmpty()) }
-    var files by remember { mutableStateOf(withReceivedTimes(demo?.taildropFilesJson?.let(::decodeTaildropFiles).orEmpty(), history)) }
-    // The default folder. With one, received files go straight there (TaildropSave) and the
-    // inbox lists them as saved; without, the inbox offers to choose one until told not to.
-    var taildropFolder by remember {
-        mutableStateOf(if (demo != null) demo.taildropFolder?.let(Uri::parse) else GlobalSettings.getTaildropRootUri(context))
+    var files by remember {
+        mutableStateOf(TaildropInbox.withReceivedTimes(demo?.taildropFilesJson?.let(TaildropInbox::decodeFiles).orEmpty(), history))
     }
+    // The default folder (TaildropFolder). With one, received files go straight there
+    // (TaildropSave) and the inbox lists them as saved; without, the inbox offers to choose
+    // one until told not to. A demo names it as it is stored: a tree URI, or a path.
+    var taildropFolder by remember {
+        mutableStateOf(
+            when {
+                demo != null -> demo.taildropFolder?.let { if (it.startsWith("/")) ReceiveFolder.Dir(File(it)) else ReceiveFolder.Tree(it) }
+                inPreview -> null
+                else -> TaildropFolder.get(context)
+            }
+        )
+    }
+    // Whether files can go there now; read with the inbox, off this thread.
+    var folderState by remember { mutableStateOf(folderStateAtStart ?: taildropFolder?.let { TaildropFolder.State.READY }) }
     var folderHintDismissed by remember { mutableStateOf(demo == null && GlobalSettings.isTaildropFolderHintDismissed(context)) }
+    // A television has no notification to say that a file came, so its inbox sets apart what
+    // arrived since it was last looked at; the moment is kept by TaildropInbox.
+    val tv = isTv
+    var inboxSeen by remember {
+        mutableStateOf(inboxSeenAt ?: if (inPreview || demo != null) Long.MAX_VALUE else TaildropInbox.seenAt(context))
+    }
     // Files arriving right now, as the service tracks them from the IPN bus (TaildropEvents).
     val liveIncoming by TaildropEvents.incoming.collectAsState()
     val incoming = demo?.taildropIncoming ?: liveIncoming
@@ -139,18 +160,12 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
         scope.launch(Dispatchers.IO) {
             // 1. Incoming files, with the history they are matched against: it says where a
             // file came from, when, and which received files the default folder took.
-            val folder = GlobalSettings.getTaildropRootUri(context)
-            val newHistory = TaildropHistory.read(context)
-            try {
-                val json = if (BuildConfig.IS_DEV) {
-                    Appctr.getTaildropFilesFromAPI()
-                } else {
-                    Appctr.getWaitingFiles(taildropDir.absolutePath)
-                }
-                val newFiles = withReceivedTimes(decodeTaildropFiles(json), newHistory)
-                withContext(Dispatchers.Main) { files = newFiles; history = newHistory; taildropFolder = folder }
-            } catch (e: Exception) {
-                android.util.Log.e("FilesActivity", "Failed to load waiting files", e)
+            val inbox = TaildropInbox.list(context, taildropDir)
+            withContext(Dispatchers.Main) {
+                inbox.files?.let { files = it }
+                history = inbox.history
+                taildropFolder = inbox.folder
+                folderState = inbox.folderState
             }
 
             // 2. Peers
@@ -167,7 +182,16 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                 android.util.Log.e("FilesActivity", "Failed to parse status JSON", e)
             }
 
-            withContext(Dispatchers.Main) { history = newHistory; taildropFolder = folder; isLoading = false; loaded = true }
+            withContext(Dispatchers.Main) { isLoading = false; loaded = true }
+        }
+    }
+
+    /** The default folder and whether it can be written, read again: either may change while another screen is in front. */
+    fun refreshFolder() {
+        scope.launch(Dispatchers.IO) {
+            val folder = TaildropFolder.get(context)
+            val state = folder?.let { TaildropFolder.state(context, it) }
+            withContext(Dispatchers.Main) { taildropFolder = folder; folderState = state }
         }
     }
 
@@ -195,18 +219,25 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
     // activity is resumed, TaildropEvents skips the "File received" notification: the
     // broadcast above already shows the file where the user is looking. Anything else
     // (paused, TailDrive, screen closed) re-arms it. A resume also re-reads the default
-    // folder, which may have been chosen in Settings meanwhile.
+    // folder, which may have been chosen in Settings meanwhile — or allowed, on the page
+    // the inbox sent the user to. Leaving the inbox is also when what it showed stops
+    // being new.
     val lifecycleOwner = LocalLifecycleOwner.current
     val taildropShown = mainPagerState.currentPage == 1
     if (!inPreview) DisposableEffect(lifecycleOwner, taildropShown) {
         var resumed = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
-        fun publish() { TaildropEvents.inboxVisible = taildropShown && resumed }
+        fun publish() {
+            val visible = taildropShown && resumed
+            if (TaildropEvents.inboxVisible && !visible) TaildropInbox.markSeen(context)
+            TaildropEvents.inboxVisible = visible
+        }
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_RESUME -> {
                     resumed = true
                     publish()
-                    taildropFolder = GlobalSettings.getTaildropRootUri(context)
+                    inboxSeen = TaildropInbox.seenAt(context)
+                    refreshFolder()
                 }
                 Lifecycle.Event.ON_PAUSE -> { resumed = false; publish() }
                 else -> {}
@@ -216,7 +247,8 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            TaildropEvents.inboxVisible = false
+            resumed = false
+            publish()
         }
     }
 
@@ -241,7 +273,8 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
     var pickFor by remember { mutableStateOf<PeerData?>(null) }
     var pickForId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+    // The system's picker, or the app's own browser where there is none (TaildropPickers).
+    val filePicker = rememberSendFilePicker { uris ->
         val target = pickFor ?: pickForId?.let { id -> pickerPeers.firstOrNull { it.id == id } }
         pickFor = null
         pickForId = null
@@ -254,34 +287,23 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
     fun pickFilesFor(peer: PeerData?) {
         pickFor = peer
         pickForId = peer?.id
-        filePicker.launch("*/*")
+        filePicker.pick(to = peer?.getDisplayName())
     }
 
     var isSavingFile by remember { mutableStateOf(false) }
-    var fileToSaveManual by remember { mutableStateOf<TaildropFile?>(null) }
-    val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
-        val file = fileToSaveManual
-        if (uri != null && file != null) {
-            scope.launch(Dispatchers.IO) {
-                if (saveFileToUri(context, file, uri)) {
-                    TaildropHistory.markSaved(context, file, savedLocationOf(context, uri) ?: file.Name)
-                    reloadHistory()
-                }
-                withContext(Dispatchers.Main) { fileToSaveManual = null }
-            }
-        }
-    }
+    val saveCopy = rememberSaveCopyPicker { reloadHistory() }
 
     /**
      * Save, for a file still in the inbox. With a default folder it goes there the way a new
      * arrival does — moved, under a free name — and its card turns into a saved one; if that
-     * fails, or without a folder, the system's Save dialog asks where, and the file stays.
+     * fails, or without a folder, the system's Save dialog asks where — the app's browser
+     * on a device without that dialog — and the file stays.
      */
     fun handleSaveRequest(file: TaildropFile) {
-        if (GlobalSettings.getTaildropRootUri(context) == null) { fileToSaveManual = file; saveLauncher.launch(file.Name); return }
+        if (TaildropFolder.get(context) == null) { saveCopy.save(file); return }
         isSavingFile = true
         scope.launch(Dispatchers.IO) {
-            val result = TaildropSave.moveToFolder(context, file)
+            val result = TaildropInbox.save(context, file)
             withContext(Dispatchers.Main) {
                 isSavingFile = false
                 when (result) {
@@ -289,29 +311,32 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                         Toast.makeText(context, context.getString(R.string.taildrop_saved_to_format, result.folder), Toast.LENGTH_SHORT).show()
                     is TaildropSave.Result.Failed -> {
                         Toast.makeText(context, context.getString(R.string.files_auto_save_failed, result.reason), Toast.LENGTH_LONG).show()
-                        fileToSaveManual = file
-                        saveLauncher.launch(file.Name)
+                        saveCopy.save(file)
                     }
-                    TaildropSave.Result.NoFolder -> { fileToSaveManual = file; saveLauncher.launch(file.Name) }
+                    TaildropSave.Result.NoFolder -> saveCopy.save(file)
                 }
                 refreshData()
             }
         }
     }
 
-    // The inbox's hint goes straight to the picker Settings uses, and the choice is the same.
-    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) {
-            GlobalSettings.setTaildropRootUri(context, uri)
-            taildropFolder = uri
-            scope.launch(Dispatchers.IO) {
-                val label = TaildropSave.folderLabel(context, uri)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, context.getString(R.string.taildrop_folder_chosen_format, label), Toast.LENGTH_SHORT).show()
-                }
+    // The inbox's hint and its folder line go straight to the chooser Settings uses, and the
+    // choice is the same.
+    val folderChooser = rememberReceiveFolderChooser { folder ->
+        taildropFolder = folder
+        scope.launch(Dispatchers.IO) {
+            val label = TaildropFolder.label(context, folder)
+            val state = TaildropFolder.state(context, folder)
+            withContext(Dispatchers.Main) {
+                folderState = state
+                Toast.makeText(context, context.getString(R.string.taildrop_folder_chosen_format, label), Toast.LENGTH_SHORT).show()
             }
         }
     }
+    // What a folder chosen by path may be missing; where the device has no page to give it on,
+    // the line says what to run from a computer instead.
+    var grantUnavailable by remember { mutableStateOf(false) }
+    val requestStorageAccess = rememberStorageAccessRequest { grantUnavailable = true }
 
     fun hideSaved(entry: TaildropHistoryEntry) {
         // Off the list now; the write follows.
@@ -324,12 +349,12 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
 
     fun deleteFile(file: TaildropFile) {
         scope.launch(Dispatchers.IO) {
-            if (Appctr.deleteTaildropFileFromAPI(file.Name)) {
-                TaildropHistory.markDeleted(context, file)
-                refreshData()
-            }
+            if (TaildropInbox.delete(context, file)) refreshData()
         }
     }
+    // With a remote, Delete is asked about first: it is the first button of a card, where the
+    // focus lands by itself after another screen, and one OK too many is a file gone.
+    var confirmDelete by remember { mutableStateOf<TaildropFile?>(null) }
 
     fun exportHistory() {
         val chooserTitle = context.getString(R.string.taildrop_history_export_chooser)
@@ -344,6 +369,13 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
         }
     }
 
+    // What leaves the app, offered where the device has somewhere for it to go: a file
+    // manager to show a folder in — the system's picker is one —, a clipboard, and an app
+    // that takes the history's export. A phone or a tablet has all three.
+    val canShowFolders = Feature.SYSTEM_FILE_PICKER.offered()
+    val canCopy = Feature.CLIPBOARD_ACTIONS.offered()
+    val canExport = if (!tv) true else if (inPreview) false else remember { TaildropHistory.hasExportTarget(context) }
+
     fun deleteEntry(entry: TaildropHistoryEntry) {
         scope.launch(Dispatchers.IO) {
             TaildropHistory.remove(context, entry)
@@ -355,6 +387,22 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
     // opens in the one beside the inbox rather than in a sheet; see TaildropPage.
     val window = rememberWindowLayout()
     val twoPane = window.listDetail
+    // With a remote, Back is the way out of an entry's pane as well; a tablet has the pane's
+    // close button under a finger, and its Back has always closed the screen.
+    if (!inPreview) BackHandler(enabled = tv && twoPane && openEntry != null) { openEntry = null }
+
+    val folder = taildropFolder
+    val folderLine = if (folder is ReceiveFolder.Dir) {
+        TaildropFolderLine(
+            label = TaildropFolder.pathLabel(folder.dir),
+            state = folderState ?: TaildropFolder.State.READY,
+            onChange = { folderChooser.choose() },
+            onAllow = requestStorageAccess,
+            grantNote = if (grantUnavailable) {
+                stringResource(R.string.file_browser_grant_unavailable_format, FileBrowse.adbGrantCommand(context.packageName))
+            } else null
+        )
+    } else null
 
     PredictiveBackContainer(
         onBack = onBack,
@@ -414,7 +462,11 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                 PullToRefreshBox(
                     isRefreshing = isLoading,
                     onRefresh = { refreshData() },
-                    modifier = Modifier.padding(padding).fillMaxSize()
+                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    // A remote does not pull — the top bar's button refreshes — and the scroll
+                    // that follows its focus down a list is taken for a pull nobody lets go
+                    // of: the arrow came out and stayed over the page.
+                    enabled = !tv
                 ) {
                     HorizontalPager(state = mainPagerState, modifier = Modifier.fillMaxSize()) { mainPage ->
                         if (mainPage == 0) {
@@ -428,15 +480,15 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                                 history = history,
                                 targets = targets,
                                 loaded = loaded,
-                                onOpenFile = { openTaildropFile(context, it) },
+                                onOpenFile = { openWaitingTaildropFile(context, it, tv) },
                                 onSaveFile = { handleSaveRequest(it) },
-                                onDeleteFile = { deleteFile(it) },
-                                onOpenSaved = { openSavedTaildropFile(context, it) },
-                                onShowSavedInFolder = { showSavedTaildropFolder(context, it) },
-                                onCopySavedFolderPath = { copySavedTaildropFolderPath(context, it) },
+                                onDeleteFile = { if (tv) confirmDelete = it else deleteFile(it) },
+                                onOpenSaved = { openSavedTaildropFile(context, it, tv) },
+                                onShowSavedInFolder = if (canShowFolders) ({ showSavedTaildropFolder(context, it) }) else null,
+                                onCopySavedFolderPath = if (canCopy) ({ copySavedTaildropFolderPath(context, it) }) else null,
                                 onHideSaved = { hideSaved(it) },
                                 showFolderHint = taildropFolder == null && !folderHintDismissed,
-                                onChooseFolder = { folderPicker.launch(null) },
+                                onChooseFolder = { folderChooser.choose() },
                                 onDismissFolderHint = {
                                     folderHintDismissed = true
                                     GlobalSettings.setTaildropFolderHintDismissed(context)
@@ -449,7 +501,9 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                                 openEntry = openEntry,
                                 onCloseEntry = { openEntry = null },
                                 onDeleteEntry = { deleteEntry(it) },
-                                inboxOpenAtStart = inboxOpen
+                                inboxOpenAtStart = inboxOpen,
+                                folderLine = folderLine,
+                                newSince = inboxSeen.takeIf { tv }
                             )
                         }
                     }
@@ -493,7 +547,7 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
                     history = history,
                     // Two-pane, the entry opens in the pane, which the sheet would cover.
                     onEntry = { openEntry = it; if (twoPane) hide() },
-                    onExport = { exportHistory() },
+                    onExport = if (canExport) ({ exportHistory() }) else null,
                     onClear = { confirmClear = true }
                 )
             }
@@ -502,6 +556,26 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
         // Over the History sheet when opened from it. Two-pane, TaildropPage draws it in a pane.
         if (!twoPane) openEntry?.let { entry ->
             TaildropEntrySheet(entry, onDismiss = { openEntry = null }, onDelete = { deleteEntry(entry) })
+        }
+
+        confirmDelete?.let { file ->
+            // Strings resolved in the parent composition — see wrapContextWithLocale().
+            val strTitle = stringResource(R.string.taildrop_delete_confirm_title_format, file.Name)
+            val strText = stringResource(R.string.taildrop_delete_confirm_text)
+            val strDelete = stringResource(R.string.action_delete)
+            val strCancel = stringResource(R.string.action_cancel)
+            AlertDialog(
+                onDismissRequest = { confirmDelete = null },
+                title = { Text(strTitle) },
+                text = { Text(strText) },
+                confirmButton = {
+                    TextButton(
+                        onClick = { confirmDelete = null; deleteFile(file) },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text(strDelete) }
+                },
+                dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text(strCancel) } }
+            )
         }
 
         if (confirmClear) {
@@ -533,73 +607,4 @@ fun FilesScreen(onBack: () -> Unit, openTaildrop: Boolean = false, openEntryAt: 
         }
         }
 }
-}
-
-/** A received file the default folder took, in a viewer — the app's grant on the folder passed on. */
-private fun openSavedTaildropFile(context: Context, entry: TaildropHistoryEntry) {
-    val uri = entry.savedUri?.let(Uri::parse) ?: return
-    try {
-        val view = TaildropSave.viewIntent(uri, entry.mime ?: mimeTypeOf(entry.savedTo ?: entry.name))
-        // The chooser carries the grant over to the app picked (Intent.createChooser).
-        context.startActivity(Intent.createChooser(view, context.getString(R.string.files_open_file_chooser)))
-    } catch (e: Exception) {
-        Toast.makeText(context, context.getString(R.string.files_error_cant_open, e.message), Toast.LENGTH_SHORT).show()
-    }
-}
-
-/**
- * The folder a saved file is in, in the system's file manager. Where nothing takes a folder,
- * the toast at least says where it is.
- */
-private fun showSavedTaildropFolder(context: Context, entry: TaildropHistoryEntry) {
-    val intent = entry.savedUri?.let { TaildropSave.folderIntent(Uri.parse(it)) }
-    try {
-        if (intent == null) throw ActivityNotFoundException()
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        val folder = entry.savedTo?.substringBeforeLast('/', "")?.ifEmpty { null } ?: entry.savedTo.orEmpty()
-        Toast.makeText(context, context.getString(R.string.taildrop_folder_unavailable_format, folder), Toast.LENGTH_LONG).show()
-    }
-}
-
-/**
- * Copies the path of the folder a saved file sits in, to paste into a file manager that
- * cannot be handed a folder; the label shown on the card when the path is not known.
- */
-private fun copySavedTaildropFolderPath(context: Context, entry: TaildropHistoryEntry) {
-    val path = entry.savedUri?.let { TaildropSave.folderPath(Uri.parse(it)) }
-        ?: entry.savedTo?.substringBeforeLast('/', "")?.ifEmpty { null }
-        ?: return
-    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(path, path))
-    Toast.makeText(context, context.getString(R.string.taildrop_folder_path_copied_format, path), Toast.LENGTH_SHORT).show()
-}
-
-/** The bridge's waiting-files JSON; an empty list for nothing or anything unreadable. */
-private fun decodeTaildropFiles(json: String?): List<TaildropFile> =
-    if (json.isNullOrBlank()) emptyList()
-    else runCatching { AppJson.decodeFromString<List<TaildropFile>>(json) }.getOrDefault(emptyList())
-
-/** Copies a received file to [destUri]; false, with a toast, when that failed. */
-private suspend fun saveFileToUri(context: Context, file: TaildropFile, destUri: Uri): Boolean =
-    try {
-        File(file.Path).inputStream().use { input ->
-            val output = context.contentResolver.openOutputStream(destUri) ?: throw java.io.IOException(destUri.toString())
-            output.use { input.copyTo(it); it.flush() }
-        }
-        true
-    } catch (e: Exception) {
-        withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.files_save_error, e.message), Toast.LENGTH_SHORT).show() }
-        false
-    }
-
-/**
- * Where a saved file went, for the history: the path under the storage root when the
- * external-storage provider holds it — it names its documents by path ("primary:Download/
- * a.jpg") — and otherwise the document's display name, all an opaque provider tells.
- */
-private fun savedLocationOf(context: Context, uri: Uri): String? {
-    val path = if (uri.authority == "com.android.externalstorage.documents") {
-        runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull()?.substringAfter(':', "")?.takeIf { it.isNotEmpty() }
-    } else null
-    return path ?: runCatching { getFileName(context, uri) }.getOrNull()
 }

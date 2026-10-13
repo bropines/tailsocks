@@ -43,13 +43,17 @@ import kotlinx.coroutines.withContext
 
 class ShareActivity : ComponentActivity() {
     companion object {
-        /** The system file picker first, then the same sheet: the launcher's "Send file" shortcut. */
+        /** A file picker first, then the same sheet: the launcher's "Send file" shortcut. */
         const val ACTION_PICK_AND_SEND = "io.github.bropines.tailscaled.action.PICK_AND_SEND"
         private const val STATE_PICKED = "picked"
+        private const val STATE_BROWSING = "browsing"
     }
 
     /** What the picker returned, kept across a recreation of the sheet. */
     private var picked: ArrayList<Uri>? = null
+
+    /** Whether the app's own browser is up in the system picker's place. */
+    private var browsing = false
 
     private val pickFiles = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isEmpty()) finish() else show(ArrayList(uris))
@@ -65,9 +69,10 @@ class ShareActivity : ComponentActivity() {
             val restored = savedInstanceState?.let { BundleCompat.getParcelableArrayList(it, STATE_PICKED, Uri::class.java) }
             when {
                 restored != null -> show(restored)
+                savedInstanceState?.getBoolean(STATE_BROWSING) == true -> browse()
                 // A recreation while the picker is open gets its answer through
                 // pickFiles; launching again would open a second picker.
-                savedInstanceState == null -> pickFiles.launch("*/*")
+                savedInstanceState == null -> pick()
             }
             return
         }
@@ -83,10 +88,38 @@ class ShareActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         picked?.let { outState.putParcelableArrayList(STATE_PICKED, it) }
+        outState.putBoolean(STATE_BROWSING, browsing)
+    }
+
+    /** The system's picker, or the app's own browser on a device that has none (core/TaildropPick.kt). */
+    private fun pick() {
+        val offered = DeviceProfile.availability(this, Feature.SYSTEM_FILE_PICKER) == Availability.OFFERED
+        if (choosePicker(offered) { pickFiles.tryLaunch("*/*") } == PickerKind.IN_APP) browse()
+    }
+
+    private fun browse() {
+        browsing = true
+        setContent {
+            TailSocksTheme {
+                // This activity's window is see-through, which the theme leaves alone: the
+                // page brings its own background and a television's safe area.
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Box(if (isTv) Modifier.padding(TvSafeArea) else Modifier) {
+                        PickFilesScreen(
+                            source = remember { RealFileSource(this@ShareActivity) },
+                            onPicked = { files -> show(ArrayList(files.map(Uri::fromFile))) },
+                            onCancel = { finish() },
+                            title = stringResource(R.string.taildrop_pick_files_title)
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun show(uris: ArrayList<Uri>) {
         picked = uris
+        browsing = false
         setContent { TailSocksTheme { ShareOverlay(fileUris = uris, onDismiss = { finish() }) } }
     }
 }
@@ -131,15 +164,20 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
     // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
+    // A television's sheet has no handle to drag — the remote would stop on it first — and
+    // ends above the edge a set may cut off.
+    val tv = isTv
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        dragHandle = if (tv) null else ({ BottomSheetDefaults.DragHandle() })
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = maxHeight)
                 .navigationBarsPadding()
+                .then(if (tv) Modifier.padding(top = 8.dp, bottom = TvSafeArea.calculateBottomPadding()) else Modifier)
         ) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

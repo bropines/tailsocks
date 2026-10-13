@@ -3,6 +3,8 @@ package io.github.bropines.tailscaled.core
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
 import io.github.bropines.tailscaled.models.TaildropDirection
@@ -165,6 +167,29 @@ object TaildropHistory {
         send.clipData = ClipData.newRawUri(csv.name, uri)
         return Intent.createChooser(send, chooserTitle).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+
+    /**
+     * Whether [exportIntent] has anywhere to go: an app that takes a CSV. This app's own
+     * share target does not count — it takes any file, to send it on over Taildrop — and
+     * neither does a placeholder, which is all a bare television answers with.
+     */
+    fun hasExportTarget(context: Context): Boolean {
+        val send = Intent(Intent.ACTION_SEND).setType("text/csv")
+        val pm = context.packageManager
+        val takers = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(send, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(send, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+        }.getOrDefault(emptyList())
+        return hasOutsideTaker(takers.map { it.activityInfo?.packageName to it.activityInfo?.name }, context.packageName)
+    }
+
+    /** The rule of [hasExportTarget] over the activities that resolved, as package and class; pure. */
+    internal fun hasOutsideTaker(takers: List<Pair<String?, String?>>, ownPackage: String): Boolean =
+        takers.any { (pkg, cls) -> pkg != null && pkg != ownPackage && !isPlaceholderActivity(pkg, cls) }
 
     private val CSV_COLUMNS = listOf(
         "time", "direction", "result", "file", "size_bytes", "mime", "sha256",

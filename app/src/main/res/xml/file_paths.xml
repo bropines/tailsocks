@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Roots for ${applicationId}.fileprovider. Only three things are ever handed to
-    another app through it, so only three directories are declared:
+    Roots for ${applicationId}.fileprovider. Only four things are ever handed to
+    another app through it, so only four directories are declared:
 
       taildrop/ - files received over Taildrop, opened in a viewer app
-                  (ui/UIComponents.kt openTaildropFile). They live in
+                  (core/TaildropInbox.kt viewIntent). They live in
                   files/taildrop/<account>, see core/TaildropPaths.kt.
+      storage/  - a received file the Taildrop folder took, where that folder is
+                  a directory chosen by its path (a television has no document
+                  picker to grant a SAF folder with), opened in a viewer app
+                  (core/TaildropSave.kt viewIntent). The folder is any the user
+                  picked on shared storage or a removable volume, so the root
+                  is /storage: public files, and of the app's own only what it
+                  keeps in its external directory — the update APK below.
       Download/ - the APK the in-app updater downloads into
                   getExternalFilesDir(DIRECTORY_DOWNLOADS) and hands to the
                   package installer (ui/MainActivity.kt launchApkInstaller).
@@ -21,6 +28,7 @@
 -->
 <paths>
     <files-path name="taildrop" path="taildrop/" />
+    <root-path name="storage" path="storage/" />
     <external-files-path name="updates" path="Download/" />
     <cache-path name="exports" path="exports/" />
 </paths>

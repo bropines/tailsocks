@@ -241,7 +241,7 @@ object TaildropProgress {
                 f.Done -> if (e != null && e.stage != Stage.DONE) {
                     e.received = maxOf(f.Received, e.size, e.received)
                     e.stage = Stage.DONE
-                    e.saving = GlobalSettings.getTaildropRootUri(context) != null
+                    e.saving = TaildropFolder.get(context) != null
                     e.endedAt = now
                     e.rate = null
                 }

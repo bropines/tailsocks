@@ -190,7 +190,9 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     val searchPinned = searchQuery.isNotEmpty()
     LaunchedEffect(searchPinned) { if (searchPinned && reveal.fraction < 1f) reveal.animateTo(1f) }
 
-    val filePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+    // The system's picker, or the app's own browser on a device without one (TaildropPickers).
+    val filePicker = rememberSendFilePicker(multiple = false) { uris ->
+        val uri: Uri? = uris.firstOrNull()
         if (uri != null && peerForFileDrop != null) { sendFileToPeer(context, uri, peerForFileDrop!!, coroutineScope) }
         peerForFileDrop = null
     }
@@ -555,7 +557,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                             peerAt = pagesAround(panePeer),
                             selfAddress = selfPeer?.tailscaleIPs?.firstOrNull(),
                             onDismiss = { selectedPeer = null },
-                            onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
+                            onSendFileClick = { peer -> peerForFileDrop = peer; filePicker.pick(to = peer.getDisplayName()) },
                             onCopyAsClick = { peer -> copyAsPeer = peer },
                             onSelectPeer = { peer -> selectedPeer = peer }
                         )
@@ -596,7 +598,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                 // exactly the arrow pointing at nothing it takes a null to avoid.
                 selfAddress = selfPeer?.tailscaleIPs?.firstOrNull(),
                 onDismiss = { selectedPeer = null },
-                onSendFileClick = { peer -> peerForFileDrop = peer; filePickerLauncher.launch("*/*") },
+                onSendFileClick = { peer -> peerForFileDrop = peer; filePicker.pick(to = peer.getDisplayName()) },
                 onCopyAsClick = { peer -> copyAsPeer = peer },
                 onSelectPeer = { peer -> selectedPeer = peer }
             )

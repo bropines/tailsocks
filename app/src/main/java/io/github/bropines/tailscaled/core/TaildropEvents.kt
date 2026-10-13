@@ -1,12 +1,17 @@
 package io.github.bropines.tailscaled.core
 
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import appctr.Appctr
 import appctr.TaildropListener
@@ -22,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import java.io.File
+import java.util.Locale
 
 /**
  * What the app does when the daemon finishes receiving a Taildrop file.
@@ -141,11 +147,62 @@ object TaildropEvents {
                 .putExtra(EXTRA_NAME, name)
                 .putExtra(EXTRA_PATH, finalPath)
         )
-        if (inboxVisible) {
+        val telling = tellingOf(DeviceProfile.deviceClass(context), appOnScreen(context), inboxVisible)
+        if (telling.onScreen) showOnScreen(context, name, senderName, saved)
+        if (!telling.notification) {
             Log.d(TAG, "Inbox on screen; skipping the notification for $name")
             return
         }
         postNotification(context, name, finalPath, senderName, saved)
+    }
+
+    /** How an arrival is told; see [tellingOf]. */
+    data class Telling(val notification: Boolean, val onScreen: Boolean)
+
+    /**
+     * The notification goes out unless the inbox is being looked at, on every device. A
+     * television has no shade to find it in, so while one of the app's screens is in front
+     * the arrival is also said on that screen, in one line that asks for nothing.
+     */
+    internal fun tellingOf(device: DeviceClass, appOnScreen: Boolean, inboxVisible: Boolean) = Telling(
+        notification = !inboxVisible,
+        onScreen = device == DeviceClass.TV && appOnScreen,
+    )
+
+    /** Whether one of the app's activities is in front: the service alone keeps the process a step below that. */
+    private fun appOnScreen(context: Context): Boolean = runCatching {
+        val state = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(state)
+        state.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+    }.getOrDefault(false)
+
+    /**
+     * The arrival in one line over whatever screen of the app is up — "a.jpg from laptop ·
+     * Saved to Download/Taildrop" — in the app's language. A toast: it takes no focus from
+     * the remote and goes away by itself.
+     */
+    private fun showOnScreen(context: Context, name: String, sender: String?, saved: TaildropSave.Result) {
+        val res = inAppLanguage(context)
+        val received = if (sender != null) res.getString(R.string.taildrop_received_from_format, name, sender) else name
+        val where = when (saved) {
+            is TaildropSave.Result.Saved -> res.getString(R.string.taildrop_saved_to_format, saved.folder)
+            is TaildropSave.Result.Failed -> res.getString(R.string.taildrop_tv_arrival_waits)
+            TaildropSave.Result.NoFolder -> null
+        }
+        val line = res.getString(R.string.taildrop_tv_arrival_format, listOfNotNull(received, where).joinToString(" · "))
+        // This is the receive thread; a toast is made on a thread with a looper.
+        Handler(Looper.getMainLooper()).post {
+            runCatching { Toast.makeText(context, line, Toast.LENGTH_LONG).show() }
+        }
+    }
+
+    /** [context] in the language picked in Settings; a service's context is in the system's. */
+    private fun inAppLanguage(context: Context): Context {
+        val lang = GlobalSettings.getString(context, "app_locale", "sys")
+        if (lang == "sys") return context
+        val config = Configuration(context.resources.configuration)
+        config.setLocale(Locale.forLanguageTag(lang))
+        return context.createConfigurationContext(config)
     }
 
     /**
@@ -211,9 +268,9 @@ object TaildropEvents {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         // The read grant travels with the tap, given in the app's name: the app holds the folder.
         val view = (saved as? TaildropSave.Result.Saved)?.let { s ->
-            TaildropSave.viewIntent(s.uri, mimeTypeOf(s.name))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                .takeIf { it.resolveActivity(context.packageManager) != null }
+            runCatching { TaildropSave.viewIntent(context, s.uri, mimeTypeOf(s.name)) }.getOrNull()
+                ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ?.takeIf { it.resolveActivity(context.packageManager) != null }
         }
         val tap = PendingIntent.getActivity(context, id, view ?: files, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val received = if (sender != null) context.getString(R.string.taildrop_received_from_format, name, sender) else name

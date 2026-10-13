@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrop_pick_files_title">Файлы для отправки</string>
+    <string name="taildrop_pick_send_to_format">Отправить на %1$s</string>
+    <plurals name="taildrop_pick_send_files">
+        <item quantity="one">Отправить %d файл</item>
+        <item quantity="few">Отправить %d файла</item>
+        <item quantity="many">Отправить %d файлов</item>
+        <item quantity="other">Отправить %d файла</item>
+    </plurals>
+
+    <string name="taildrop_pick_folder_title">Папка для полученных файлов</string>
+    <string name="taildrop_pick_folder_confirm">Сохранять полученное сюда</string>
+
+    <string name="taildrop_save_copy_title_format">Куда сохранить %1$s</string>
+    <string name="taildrop_save_copy_confirm">Сохранить сюда</string>
+
+    <string name="taildrop_folder_line_format">Полученные файлы сохраняются в %1$s</string>
+    <string name="taildrop_folder_change">Изменить</string>
+    <string name="taildrop_folder_needs_access_format">У приложения нет доступа к %1$s, поэтому полученные файлы ждут здесь. Разрешите доступ к хранилищу, и они будут сохраняться туда сами.</string>
+    <string name="taildrop_folder_unwritable_format">В %1$s не получается записать: возможно, накопитель отключён. Полученные файлы ждут здесь, пока он не вернётся или пока не выбрана другая папка.</string>
+    <string name="taildrop_folder_allow">Разрешить доступ</string>
+
+    <string name="taildrop_inbox_new">Новые</string>
+    <string name="taildrop_inbox_earlier">Раньше</string>
+
+    <string name="taildrop_tv_arrival_format">Получен файл: %1$s</string>
+    <string name="taildrop_tv_arrival_waits">ждёт во входящих Taildrop</string>
+
+    <string name="taildrop_delete_confirm_title_format">Удалить %1$s?</string>
+    <string name="taildrop_delete_confirm_text">Полученный файл будет удалён из входящих безвозвратно.</string>
+
+    <string name="taildrop_no_viewer_format">На этом устройстве нет приложения для файлов %1$s</string>
+    <string name="taildrop_no_viewer">На этом устройстве нет приложения, которое откроет этот файл</string>
+    <string name="taildrop_saved_gone_format">Файла больше нет в %1$s</string>
+</resources>

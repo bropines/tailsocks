@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.util.Log
+import androidx.core.content.FileProvider
 import appctr.Appctr
 import io.github.bropines.tailscaled.models.TaildropFile
 import java.io.File
@@ -21,9 +22,11 @@ import java.util.Locale
  * came in before the folder was chosen or could not be saved then. Without a folder the
  * file stays in the app's storage until the user saves or deletes it.
  *
- * The folder is a SAF tree the user granted once, and files go into its top level. The
- * grant can be revoked and the folder deleted behind the app's back, so every save checks,
- * and a failed one leaves the file in the inbox exactly as it was. Blocking I/O throughout.
+ * The folder ([TaildropFolder]) is a SAF tree the user granted once or, where the system
+ * has no picker to grant one with, a directory by its path; files go into its top level.
+ * A grant can be revoked, a drive pulled out and the folder deleted behind the app's back,
+ * so every save checks, and a failed one leaves the file in the inbox exactly as it was.
+ * Blocking I/O throughout.
  */
 object TaildropSave {
     private const val TAG = "TaildropSave"
@@ -32,7 +35,10 @@ object TaildropSave {
     sealed interface Result {
         /** No default folder: the file stays in the inbox. */
         data object NoFolder : Result
-        /** The copy, a document of the folder's tree; the folder in the user's words and the copy's name. */
+        /**
+         * The copy — a document of the folder's tree, or a `file:` URI in a directory — the
+         * folder in the user's words and the copy's name.
+         */
         data class Saved(val uri: Uri, val folder: String, val name: String) : Result
         /** The file stayed in the inbox; [reason], in English, is for the log and the history. */
         data class Failed(val folder: String, val reason: String) : Result
@@ -46,18 +52,30 @@ object TaildropSave {
 
     /** Moves a received file into the default folder; see [Result]. */
     fun moveToFolder(context: Context, file: TaildropFile): Result = synchronized(lock) {
-        val tree = GlobalSettings.getTaildropRootUri(context) ?: return Result.NoFolder
-        val folder = folderLabel(context, tree)
-        val copy = try {
-            if (!holdsGrant(context, tree)) throw IOException("no access to the folder any more, choose it again in Settings")
-            copyInto(context, tree, File(file.Path), file.Name)
+        val target = TaildropFolder.get(context) ?: return Result.NoFolder
+        val folder = TaildropFolder.label(context, target)
+        val copy: Uri
+        val name: String
+        try {
+            when (target) {
+                is ReceiveFolder.Tree -> {
+                    val tree = target.treeUri
+                    if (!holdsGrant(context, tree)) throw IOException("no access to the folder any more, choose it again in Settings")
+                    copy = copyInto(context, tree, File(file.Path), file.Name)
+                    name = displayName(context, copy) ?: file.Name
+                }
+                is ReceiveFolder.Dir -> {
+                    val saved = copyIntoDir(target.dir, File(file.Path), file.Name)
+                    copy = Uri.fromFile(saved)
+                    name = saved.name
+                }
+            }
         } catch (e: Exception) {
             val reason = e.message ?: e.javaClass.simpleName
             log("WARN", "Taildrop: ${file.Name} not saved to $folder ($reason), it stays in the inbox")
             TaildropHistory.markSaveFailed(context, file, reason)
             return Result.Failed(folder, reason)
         }
-        val name = displayName(context, copy) ?: file.Name
         // The same unlink the inbox's Delete makes through the bridge (os.Remove, in this
         // process). In Root Mode the file is root's, but the directory is the app's
         // (TaildropPaths.ensureDir), and the directory is what unlinking needs. Should it
@@ -69,6 +87,44 @@ object TaildropSave {
         TaildropHistory.markSaved(context, file, "$folder/$name", copy.toString())
         log("INFO", "Taildrop: ${file.Name} saved to $folder" + if (name != file.Name) " as $name" else "")
         return Result.Saved(copy, folder, name)
+    }
+
+    /**
+     * Copies a file of the inbox into [dir], a folder picked for this one file in the app's
+     * browser — the Save of a device without the system's Save dialog. The file stays in
+     * the inbox, as it does after that dialog, with a note of where the copy went.
+     */
+    fun copyToDir(context: Context, file: TaildropFile, dir: File): Result = synchronized(lock) {
+        val folder = TaildropFolder.pathLabel(dir)
+        try {
+            val saved = copyIntoDir(dir, File(file.Path), file.Name)
+            TaildropHistory.markSaved(context, file, "$folder/${saved.name}")
+            Result.Saved(Uri.fromFile(saved), folder, saved.name)
+        } catch (e: Exception) {
+            Result.Failed(folder, e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    /**
+     * Copies a file of the inbox to [document], which the system's Save dialog created for
+     * it; the file stays in the inbox. A [Result.Saved] names the copy as the history
+     * will: by its path under the storage root when the external-storage provider holds
+     * it — it names its documents by path ("primary:Download/a.jpg") — and otherwise by
+     * the document's display name, all an opaque provider tells.
+     */
+    fun copyToDocument(context: Context, file: TaildropFile, document: Uri): Result = try {
+        File(file.Path).inputStream().use { input ->
+            val output = context.contentResolver.openOutputStream(document) ?: throw IOException(document.toString())
+            output.use { input.copyTo(it); it.flush() }
+        }
+        val path = if (document.authority == EXTERNAL_STORAGE) {
+            runCatching { DocumentsContract.getDocumentId(document) }.getOrNull()?.substringAfter(':', "")?.takeIf { it.isNotEmpty() }
+        } else null
+        val where = path ?: runCatching { getFileName(context, document) }.getOrNull() ?: file.Name
+        TaildropHistory.markSaved(context, file, where)
+        Result.Saved(document, where.substringBeforeLast('/', ""), where.substringAfterLast('/'))
+    } catch (e: Exception) {
+        Result.Failed("", e.message ?: e.javaClass.simpleName)
     }
 
     /** Whether the app still holds the write grant on [tree] it took when the folder was chosen. */
@@ -96,15 +152,27 @@ object TaildropSave {
         return id.substringAfter(':', "").trim('/').takeIf { it.isNotEmpty() }
     }
 
-    /** VIEW of a saved copy, passing on the read grant the app holds through the folder. */
-    fun viewIntent(saved: Uri, mime: String?): Intent =
-        Intent(Intent.ACTION_VIEW)
-            .setDataAndType(saved, mime ?: "application/octet-stream")
+    /**
+     * VIEW of a saved copy, passing on the read grant the app holds through the folder. A
+     * copy in a directory is a path, which cannot be handed to another app: the
+     * FileProvider's "storage" root (res/xml/file_paths.xml) stands in for it, and throws
+     * IllegalArgumentException for a path that is not on shared storage.
+     */
+    fun viewIntent(context: Context, saved: Uri, mime: String?): Intent {
+        val data = pathOf(saved)?.let { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) } ?: saved
+        return Intent(Intent.ACTION_VIEW)
+            .setDataAndType(data, mime ?: "application/octet-stream")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    /** The file behind a copy saved into a directory; null for a document of a SAF tree. */
+    fun pathOf(saved: Uri): File? =
+        if (saved.scheme == ContentResolver.SCHEME_FILE) saved.path?.let(::File) else null
 
     /**
      * VIEW of the folder a saved copy sits in, for the system's file manager (DocumentsUI
-     * takes a directory document); null when [saved] is not a document of a tree.
+     * takes a directory document); null when [saved] is not a document of a tree — a copy
+     * in a directory has no document to hand over.
      */
     fun folderIntent(saved: Uri): Intent? = runCatching {
         Intent(Intent.ACTION_VIEW)
@@ -118,6 +186,7 @@ object TaildropSave {
      * only) and needs it pasted. Null for any provider but the device's own storage.
      */
     fun folderPath(saved: Uri): String? {
+        pathOf(saved)?.let { return it.parent }
         if (saved.authority != EXTERNAL_STORAGE) return null
         val id = runCatching { DocumentsContract.getTreeDocumentId(saved) }.getOrNull() ?: return null
         val volume = id.substringBefore(':', "").ifEmpty { return null }
@@ -152,6 +221,50 @@ object TaildropSave {
         }
         return copy
     }
+
+    /**
+     * Copies [source] into [dir] — made when it is missing — as [name], or as "name (1).ext"
+     * and on when that is taken. The name is claimed by creating the file: from Android 11,
+     * without access to all files, the listing holds only the app's own files, and a name
+     * another app took shows up only then.
+     */
+    internal fun copyIntoDir(dir: File, source: File, name: String): File {
+        if (!source.isFile) throw IOException("the received file is gone")
+        if (!dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) throw IOException("the folder is not there and cannot be made")
+        val taken = dir.list()?.toHashSet() ?: throw IOException("the folder cannot be read")
+        val wanted = storableName(name)
+        var claimed: File? = null
+        for (attempt in 0 until MAX_NAME_ATTEMPTS) {
+            val candidate = File(dir, freeName(wanted, taken))
+            if (candidate.createNewFile()) { claimed = candidate; break }
+            taken += candidate.name
+        }
+        val copy = claimed ?: throw IOException("no free name in the folder")
+        try {
+            val copied = source.inputStream().use { input -> copy.outputStream().use { input.copyTo(it) } }
+            if (copied != source.length()) throw IOException("copied $copied of ${source.length()} bytes")
+        } catch (e: Exception) {
+            // Half a file under the right name is worse than none.
+            copy.delete()
+            throw e
+        }
+        return copy
+    }
+
+    private const val MAX_NAME_ATTEMPTS = 100
+
+    /**
+     * [name] as shared storage and a FAT stick will take it: the characters they refuse
+     * become "_", as the system's documents provider makes them on the SAF road.
+     */
+    internal fun storableName(name: String): String {
+        val cleaned = buildString(name.length) {
+            for (c in name) append(if (c.code < 0x20 || c.code == 0x7f || c in UNSTORABLE) '_' else c)
+        }
+        return if (cleaned.isEmpty() || cleaned == "." || cleaned == "..") "_" else cleaned
+    }
+
+    private const val UNSTORABLE = "\"*/:<>?\\|"
 
     /** Names in the folder; the folder being gone or unreadable is an error, not an empty folder. */
     private fun childNames(resolver: ContentResolver, tree: Uri, folderId: String): Set<String> {

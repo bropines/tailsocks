@@ -2,10 +2,13 @@ package io.github.bropines.tailscaled.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,13 +27,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -49,9 +51,12 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedCard
@@ -71,6 +76,8 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,7 +87,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -96,8 +107,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.CompactSearchBar
+import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.IncomingPhase
 import io.github.bropines.tailscaled.core.IncomingTransfer
+import io.github.bropines.tailscaled.core.TaildropFolder
+import io.github.bropines.tailscaled.core.TaildropInbox
 import io.github.bropines.tailscaled.core.formatFileSize
 import io.github.bropines.tailscaled.core.incomingDetail
 import io.github.bropines.tailscaled.models.PeerData
@@ -106,7 +120,6 @@ import io.github.bropines.tailscaled.models.TaildropFile
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.models.TaildropRoute
 import io.github.bropines.tailscaled.models.TaildropSource
-import java.io.File
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -184,47 +197,20 @@ internal fun taildropTargets(
     return TaildropTargets(recent + rest, refused)
 }
 
-/** Saved files the inbox shows below the waiting ones, newest first. */
-private const val SAVED_ROWS = 10
-
 /**
- * The received entry a file in the inbox came with, for its sender line: by path, else by
- * name — but not one the default folder took, whose file left the inbox under that name.
+ * The receive folder's line over the inbox, for a folder that is a directory chosen in the
+ * app's own browser (a television's): where files go and the way to change that; when the
+ * folder cannot be written, why, and — while it is the storage access that is missing —
+ * the way to allow it. [grantNote] is what to do where the device has no page for that.
  */
-private fun receivedEntryOf(file: TaildropFile, history: List<TaildropHistoryEntry>): TaildropHistoryEntry? {
-    val live = history.filter { it.direction == TaildropDirection.RECEIVED && it.deletedAt == null }
-    return live.firstOrNull { it.path == file.Path } ?: live.firstOrNull { it.name == file.Name && it.savedUri == null }
-}
-
-/**
- * The inbox's files with a date each. The bridge's list carried no ModTime up to 4.7.4, so
- * every card read "1 Jan, 03:00"; where it is missing, the arrival logged in the history
- * stands in, then the file's own modification time. Reads the disk — not on the main thread.
- */
-internal fun withReceivedTimes(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropFile> =
-    files.map { f ->
-        if (f.ModTime > 0) f
-        else {
-            val millis = receivedEntryOf(f, history)?.timestamp ?: File(f.Path).lastModified()
-            if (millis > 0) f.copy(ModTime = millis / 1000) else f
-        }
-    }
-
-/**
- * Received files the default folder took, for the inbox: saved there (they have a document
- * to open), not hidden or deleted, and not still waiting in the app — a file the folder took
- * whose original could not be removed is listed once, as a waiting file.
- */
-internal fun taildropSavedEntries(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropHistoryEntry> {
-    val waiting = files.mapNotNullTo(HashSet()) { receivedEntryOf(it, history) }
-    return history.asSequence()
-        .filter {
-            it.direction == TaildropDirection.RECEIVED && it.savedUri != null &&
-                it.dismissedAt == null && it.deletedAt == null && it !in waiting
-        }
-        .take(SAVED_ROWS)
-        .toList()
-}
+@Immutable
+internal class TaildropFolderLine(
+    val label: String,
+    val state: TaildropFolder.State,
+    val onChange: () -> Unit,
+    val onAllow: () -> Unit,
+    val grantNote: String? = null
+)
 
 @Composable
 internal fun TaildropPage(
@@ -237,8 +223,10 @@ internal fun TaildropPage(
     onSaveFile: (TaildropFile) -> Unit,
     onDeleteFile: (TaildropFile) -> Unit,
     onOpenSaved: (TaildropHistoryEntry) -> Unit,
-    onShowSavedInFolder: (TaildropHistoryEntry) -> Unit,
-    onCopySavedFolderPath: (TaildropHistoryEntry) -> Unit,
+    /** Null where the device has no file manager to show a folder in: the card has no such button. */
+    onShowSavedInFolder: ((TaildropHistoryEntry) -> Unit)?,
+    /** Null where the device has no clipboard a user can reach: the long press does nothing. */
+    onCopySavedFolderPath: ((TaildropHistoryEntry) -> Unit)?,
     onHideSaved: (TaildropHistoryEntry) -> Unit,
     showFolderHint: Boolean,
     onChooseFolder: () -> Unit,
@@ -254,14 +242,21 @@ internal fun TaildropPage(
     onCloseEntry: () -> Unit = {},
     onDeleteEntry: (TaildropHistoryEntry) -> Unit = {},
     /** Whether the folded inbox starts open: a preview's way to show it; the app starts folded. */
-    inboxOpenAtStart: Boolean = false
+    inboxOpenAtStart: Boolean = false,
+    folderLine: TaildropFolderLine? = null,
+    /**
+     * Where the newest files are to stand out — a television, which has no notification to
+     * say one came: what arrived after this moment is listed first under "New", and the
+     * whole inbox by arrival, newest first. Null leaves the inbox as it always was.
+     */
+    newSince: Long? = null
 ) {
-    val saved = remember(files, history) { taildropSavedEntries(files, history) }
+    val saved = remember(files, history) { TaildropInbox.savedEntries(files, history) }
     var inboxOpen by rememberSaveable { mutableStateOf(inboxOpenAtStart) }
-    val inbox = TaildropInbox(
+    val inbox = InboxContent(
         incoming, files, history, saved, loaded, onOpenFile, onSaveFile, onDeleteFile,
         onOpenSaved, onShowSavedInFolder, onCopySavedFolderPath, onHideSaved,
-        showFolderHint, onChooseFolder, onDismissFolderHint,
+        showFolderHint, onChooseFolder, onDismissFolderHint, folderLine, newSince,
         open = inboxOpen, onToggle = { inboxOpen = !inboxOpen }
     )
     when {
@@ -270,27 +265,43 @@ internal fun TaildropPage(
         window.listDetail -> ListDetailLayout(
             window = window,
             twoPane = true,
-            listWidth = if (window.widthClass >= WindowWidthClass.LARGE) TaildropInboxPaneWidth else window.listPaneWidth,
+            // A television's window is expanded, never large, and it is read in any language.
+            listWidth = if (window.widthClass >= WindowWidthClass.LARGE || window.tv) TaildropInboxPaneWidth else window.listPaneWidth,
             modifier = modifier.fillMaxSize(),
             list = {
+                val paneState = rememberLazyListState()
+                var remoteInPane by remember { mutableStateOf(false) }
+                // A file that has just come heads the pane: the top is brought into view —
+                // unless the remote is in the pane, which is not pulled from under it.
+                val newest = inbox.cards.firstOrNull()?.takeIf { inbox.fresh > 0 }?.key
+                LaunchedEffect(newest) { if (newest != null && !remoteInPane) paneState.animateScrollToItem(0) }
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().onFocusChanged { remoteInPane = it.hasFocus }.tvFocusGroup(),
+                    state = paneState,
                     contentPadding = PaddingValues(start = window.margin, end = 16.dp, top = 8.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) { inboxPaneItems(inbox) }
             },
             detail = {
+                // On a television the entry whose details were open: when its pane closes, the
+                // remote is put back on the row it came from.
+                var lastOpened by remember { mutableStateOf<TaildropHistoryEntry?>(null) }
                 if (openEntry != null) {
+                    if (window.tv) SideEffect { lastOpened = openEntry }
                     TaildropEntrySheet(openEntry, onDismiss = onCloseEntry, onDelete = { onDeleteEntry(openEntry) })
                 } else {
                     Box(
                         Modifier
                             .fillMaxSize()
+                            .tvFocusGroup()
                             .verticalScroll(rememberScrollState())
                             // The bottom leaves the last row clear of the send button.
                             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp)
                     ) {
-                        TaildropSendAndHistory(targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry)
+                        TaildropSendAndHistory(
+                            targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry,
+                            returnFocusTo = lastOpened, onFocusReturned = { lastOpened = null }
+                        )
                     }
                 }
             }
@@ -332,12 +343,9 @@ internal fun TaildropPage(
                 // Not while something is arriving: "nothing here" would be untrue for a moment.
                 if (loaded && incoming.isEmpty()) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
             } else if (inbox.open) {
-                // Waiting first: they are the ones asking for something.
-                items(files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
-                // Keyed by position too: on the device's storage a document id is a path, so a
-                // copy saved under the name of one deleted earlier gets the same URI again.
-                itemsIndexed(saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+                items(inbox.cards, key = { it.key }) { inbox.Card(it) }
             }
+            if (folderLine != null && loaded) item(key = "inbox-folder-line") { TaildropFolderLineCard(folderLine) }
             if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
 
             item(key = "history-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null) }
@@ -350,14 +358,36 @@ internal fun TaildropPage(
     }
 }
 
-/** The inbox pane's width on a large window: wide enough for a card's three buttons in any language. */
+/**
+ * The inbox pane's width on a large window and on a television: wide enough for a card's
+ * three buttons in any language. At the 360dp an expanded window gives a list, "Скрыть",
+ * "Показать в папке" and "Открыть" do not fit a card.
+ */
 private val TaildropInboxPaneWidth = 440.dp
+
+/** One card of the inbox: a file waiting in the app, or one the folder took. [at] is when it came. */
+private sealed interface InboxCard {
+    val key: String
+    val at: Long
+
+    data class Waiting(val file: TaildropFile) : InboxCard {
+        override val key get() = "file:" + file.Path + file.Name
+        override val at get() = TaildropInbox.arrivedAt(file)
+    }
+
+    // Keyed by position too: on the device's storage a document id is a path, so a copy
+    // saved under the name of one deleted earlier gets the same URI again.
+    data class Saved(val index: Int, val entry: TaildropHistoryEntry) : InboxCard {
+        override val key get() = "saved:$index:" + entry.savedUri
+        override val at get() = entry.timestamp
+    }
+}
 
 /**
  * What the inbox lists and does, gathered once so that the phone's list, the grid and the
  * pane draw the same cards from it.
  */
-private class TaildropInbox(
+private class InboxContent(
     val incoming: List<IncomingTransfer>,
     val files: List<TaildropFile>,
     val history: List<TaildropHistoryEntry>,
@@ -367,12 +397,14 @@ private class TaildropInbox(
     val onSaveFile: (TaildropFile) -> Unit,
     val onDeleteFile: (TaildropFile) -> Unit,
     val onOpenSaved: (TaildropHistoryEntry) -> Unit,
-    val onShowSavedInFolder: (TaildropHistoryEntry) -> Unit,
-    val onCopySavedFolderPath: (TaildropHistoryEntry) -> Unit,
+    val onShowSavedInFolder: ((TaildropHistoryEntry) -> Unit)?,
+    val onCopySavedFolderPath: ((TaildropHistoryEntry) -> Unit)?,
     val onHideSaved: (TaildropHistoryEntry) -> Unit,
     val showFolderHint: Boolean,
     val onChooseFolder: () -> Unit,
     val onDismissFolderHint: () -> Unit,
+    val folderLine: TaildropFolderLine?,
+    newSince: Long?,
     /** Whether the folded inbox is open; only the list and the grid fold it. */
     val open: Boolean = true,
     val onToggle: () -> Unit = {}
@@ -381,6 +413,22 @@ private class TaildropInbox(
 
     /** What the fold hides: everything but what is arriving, which shows without asking. */
     val folded: Int get() = files.size + saved.size
+
+    /**
+     * The cards in order. Waiting first: they are the ones asking for something — or, where
+     * the newest are to stand out, all of them by arrival, newest first.
+     */
+    val cards: List<InboxCard> = (files.map(InboxCard::Waiting) + saved.mapIndexed(InboxCard::Saved))
+        .let { all -> if (newSince == null) all else all.sortedByDescending { it.at } }
+
+    /** How many of [cards], from the first, are new. */
+    val fresh: Int = if (newSince == null) 0 else cards.count { it.at > newSince }
+
+    @Composable
+    fun Card(card: InboxCard) = when (card) {
+        is InboxCard.Waiting -> WaitingCard(card.file)
+        is InboxCard.Saved -> SavedCard(card.entry)
+    }
 
     /** The inbox's heading as the fold's handle; a plain heading while there is nothing to open. */
     @Composable
@@ -392,7 +440,7 @@ private class TaildropInbox(
     /** A file waiting in the app, with who sent it and what became of a save, from the history. */
     @Composable
     fun WaitingCard(f: TaildropFile) {
-        val entry = remember(f, history) { receivedEntryOf(f, history) }
+        val entry = remember(f, history) { TaildropInbox.receivedEntryOf(f, history) }
         val note = when {
             entry?.savedTo != null -> stringResource(R.string.taildrop_saved_to_format, entry.savedTo)
             entry?.saveError != null -> stringResource(R.string.taildrop_save_failed)
@@ -408,17 +456,26 @@ private class TaildropInbox(
 
     @Composable
     fun SavedCard(e: TaildropHistoryEntry) {
-        TaildropSavedCard(e, { onOpenSaved(e) }, { onShowSavedInFolder(e) }, { onCopySavedFolderPath(e) }, { onHideSaved(e) })
+        TaildropSavedCard(
+            e,
+            onOpen = { onOpenSaved(e) },
+            onShowInFolder = onShowSavedInFolder?.let { show -> { show(e) } },
+            onCopyFolderPath = onCopySavedFolderPath?.let { copy -> { copy(e) } },
+            onHide = { onHideSaved(e) }
+        )
     }
 }
 
 /**
  * The inbox as a pane of its own. An empty one is a pane's worth of empty space, so it says
  * so in the middle of the pane rather than in one line at the top, the folder hint over it.
+ * The receive folder's line, where there is one, comes right under the heading: it is where
+ * every card below went or failed to go.
  */
-private fun LazyListScope.inboxPaneItems(inbox: TaildropInbox) {
+private fun LazyListScope.inboxPaneItems(inbox: InboxContent) {
     val hint = inbox.showFolderHint && inbox.loaded
     item(key = "inbox-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_inbox), inbox.count.takeIf { it > 0 }) }
+    if (inbox.folderLine != null && inbox.loaded) item(key = "inbox-folder-line") { TaildropFolderLineCard(inbox.folderLine) }
     if (inbox.count == 0) {
         if (hint) item(key = "inbox-folder-hint") { TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint) }
         if (inbox.loaded) item(key = "inbox-empty") {
@@ -430,25 +487,109 @@ private fun LazyListScope.inboxPaneItems(inbox: TaildropInbox) {
         }
     } else {
         items(inbox.incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
-        items(inbox.files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
-        itemsIndexed(inbox.saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+        val fresh = inbox.fresh
+        if (fresh > 0) item(key = "inbox-new") { TaildropNewLabel() }
+        items(inbox.cards.take(fresh), key = { it.key }) { inbox.Card(it) }
+        if (fresh > 0 && fresh < inbox.cards.size) item(key = "inbox-earlier") { TaildropEarlierLabel() }
+        items(inbox.cards.drop(fresh), key = { it.key }) { inbox.Card(it) }
         if (hint) item(key = "inbox-folder-hint") { TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint) }
     }
 }
 
 /** The folded inbox in the medium window's grid; the heading and the hint span its width. */
-private fun LazyStaggeredGridScope.inboxGridItems(inbox: TaildropInbox) {
+private fun LazyStaggeredGridScope.inboxGridItems(inbox: InboxContent) {
     item(key = "inbox-head", span = StaggeredGridItemSpan.FullLine) { inbox.Heading() }
+    if (inbox.folderLine != null && inbox.loaded) item(key = "inbox-folder-line", span = StaggeredGridItemSpan.FullLine) {
+        TaildropFolderLineCard(inbox.folderLine)
+    }
     if (inbox.folded == 0) {
         if (inbox.loaded && inbox.incoming.isEmpty()) item(key = "inbox-empty", span = StaggeredGridItemSpan.FullLine) {
             TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox)
         }
     } else if (inbox.open) {
-        items(inbox.files, key = { "file:" + it.Path + it.Name }) { f -> inbox.WaitingCard(f) }
-        itemsIndexed(inbox.saved, key = { i, e -> "saved:$i:" + e.savedUri }) { _, e -> inbox.SavedCard(e) }
+        val fresh = inbox.fresh
+        if (fresh > 0) item(key = "inbox-new", span = StaggeredGridItemSpan.FullLine) { TaildropNewLabel() }
+        items(inbox.cards.take(fresh), key = { it.key }) { inbox.Card(it) }
+        if (fresh > 0 && fresh < inbox.cards.size) item(key = "inbox-earlier", span = StaggeredGridItemSpan.FullLine) { TaildropEarlierLabel() }
+        items(inbox.cards.drop(fresh), key = { it.key }) { inbox.Card(it) }
     }
     if (inbox.showFolderHint && inbox.loaded) item(key = "inbox-folder-hint", span = StaggeredGridItemSpan.FullLine) {
         TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint)
+    }
+}
+
+/** Over the cards that came since the inbox was last looked at. */
+@Composable
+private fun TaildropNewLabel() {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+    ) {
+        Text(
+            stringResource(R.string.taildrop_inbox_new),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+        )
+    }
+}
+
+/** Over the rest, once there is a "New" to tell them from. */
+@Composable
+private fun TaildropEarlierLabel() {
+    Text(
+        stringResource(R.string.taildrop_inbox_earlier),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+    )
+}
+
+/** The receive folder in one line with Change — or, when files cannot go there, why and what to do. */
+@Composable
+private fun TaildropFolderLineCard(line: TaildropFolderLine) {
+    val ready = line.state == TaildropFolder.State.READY
+    val container = if (ready) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.tertiaryContainer
+    val onColor = if (ready) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onTertiaryContainer
+    Surface(shape = MaterialTheme.shapes.large, color = container, modifier = Modifier.fillMaxWidth()) {
+        if (ready) {
+            Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Folder, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    stringResource(R.string.taildrop_folder_line_format, line.label),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = onColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(vertical = 8.dp)
+                )
+                TextButton(onClick = line.onChange) { Text(stringResource(R.string.taildrop_folder_change)) }
+            }
+        } else {
+            val needsAccess = line.state == TaildropFolder.State.NEEDS_ACCESS
+            Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, null, Modifier.size(20.dp), tint = onColor)
+                    Spacer(Modifier.width(12.dp))
+                    HelpText(
+                        stringResource(
+                            if (needsAccess) R.string.taildrop_folder_needs_access_format else R.string.taildrop_folder_unwritable_format,
+                            line.label
+                        ) + line.grantNote?.let { " $it" }.orEmpty(),
+                        modifier = Modifier.weight(1f).padding(vertical = 8.dp),
+                        color = onColor
+                    )
+                }
+                Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = line.onChange) { Text(stringResource(R.string.taildrop_folder_change)) }
+                    if (needsAccess) {
+                        Button(onClick = line.onAllow, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.taildrop_folder_allow)) }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -467,7 +608,10 @@ private fun TaildropSendAndHistory(
     onSendTo: (PeerData) -> Unit,
     onAllDevices: () -> Unit,
     onAllHistory: () -> Unit,
-    onEntry: (TaildropHistoryEntry) -> Unit
+    onEntry: (TaildropHistoryEntry) -> Unit,
+    /** The entry whose pane has just closed: its row takes the remote's focus back, once ([onFocusReturned]). */
+    returnFocusTo: TaildropHistoryEntry? = null,
+    onFocusReturned: () -> Unit = {}
 ) {
     CardColumns(minColumnWidth = 320.dp, maxColumns = 2, spacing = 16.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -484,10 +628,25 @@ private fun TaildropSendAndHistory(
             if (history.isEmpty()) {
                 if (loaded) TaildropMutedLine(stringResource(R.string.files_empty_history), Icons.Default.History)
             } else {
-                TaildropHistoryGroup(history, nowMillis, onEntry, onAllHistory, rows = SEND_ROWS)
+                TaildropHistoryGroup(history, nowMillis, onEntry, onAllHistory, rows = SEND_ROWS, returnFocusTo, onFocusReturned)
             }
         }
     }
+}
+
+/**
+ * Takes the remote's focus once, as the element appears: for the row an entry's pane was
+ * opened from, when the pane closes and the list is back — without it the focus is nowhere,
+ * and the next key starts from the top of the other pane.
+ */
+@Composable
+private fun Modifier.takeFocusOnce(onTaken: () -> Unit): Modifier {
+    val requester = remember { FocusRequester() }
+    LaunchedEffect(requester) {
+        runCatching { requester.requestFocus() }
+        onTaken()
+    }
+    return focusRequester(requester)
 }
 
 /** The Send section's card: the first devices, then "All devices" when there are more. */
@@ -512,17 +671,25 @@ private fun TaildropHistoryGroup(
     nowMillis: Long,
     onEntry: (TaildropHistoryEntry) -> Unit,
     onAllHistory: () -> Unit,
-    rows: Int = HISTORY_ROWS
+    rows: Int = HISTORY_ROWS,
+    returnFocusTo: TaildropHistoryEntry? = null,
+    onFocusReturned: () -> Unit = {}
 ) {
+    val shown = history.take(rows)
     TaildropGroup {
-        history.take(rows).forEachIndexed { i, e ->
+        shown.forEachIndexed { i, e ->
             if (i > 0) TaildropRowDivider()
-            TaildropHistoryRow(e, nowMillis) { onEntry(e) }
+            TaildropHistoryRow(e, nowMillis, if (e == returnFocusTo) Modifier.takeFocusOnce(onFocusReturned) else Modifier) { onEntry(e) }
         }
         // Always there, not only past five: it is also the way to search,
         // export and clear.
         TaildropRowDivider(inset = false)
-        TaildropMoreRow(stringResource(R.string.taildrop_all_history_format, history.size), onAllHistory)
+        TaildropMoreRow(
+            stringResource(R.string.taildrop_all_history_format, history.size),
+            onAllHistory,
+            // An entry opened from the whole history, or deleted since, has no row here.
+            if (returnFocusTo != null && returnFocusTo !in shown) Modifier.takeFocusOnce(onFocusReturned) else Modifier
+        )
     }
 }
 
@@ -551,11 +718,14 @@ private fun TaildropSectionHeading(text: String, count: Int?) {
 private fun TaildropFoldHeading(text: String, count: Int, open: Boolean, onToggle: () -> Unit) {
     val state = stringResource(if (open) R.string.taildrop_fold_open else R.string.taildrop_fold_closed)
     val action = stringResource(if (open) R.string.taildrop_fold_hide else R.string.taildrop_fold_show)
+    val source = remember { MutableInteractionSource() }
     Row(
         Modifier
             .fillMaxWidth()
+            // Before the clip, which would cut the corners off the remote's ring.
+            .tvFocusRing(source, MaterialTheme.shapes.medium)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(role = Role.Button, onClickLabel = action, onClick = onToggle)
+            .clickable(source, LocalIndication.current, role = Role.Button, onClickLabel = action, onClick = onToggle)
             .semantics { stateDescription = state }
             .heightIn(min = 48.dp)
             .padding(start = 4.dp, end = 4.dp),
@@ -608,9 +778,9 @@ private fun TaildropRowDivider(inset: Boolean = true) {
 
 /** "All devices · 14": the door to the rest, last on the card. */
 @Composable
-private fun TaildropMoreRow(label: String, onClick: () -> Unit) {
+private fun TaildropMoreRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick)
             .heightIn(min = 48.dp)
@@ -674,15 +844,17 @@ internal fun TaildropIncomingCard(transfer: IncomingTransfer) {
  * A received file the default folder took: the name it was saved under, when it came and
  * from whom, and where it is now. Open and Show in folder go to the saved copy — a long
  * press on Show in folder copies the folder's path instead, for a file manager that takes
- * no folder; Hide takes the card off the inbox and leaves the file alone.
+ * no folder; Hide takes the card off the inbox and leaves the file alone. Without
+ * [onShowInFolder] — a device with no file manager to show a folder in — the button is not
+ * there; without [onCopyFolderPath] — one with no clipboard — it is a plain button.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TaildropSavedCard(
     entry: TaildropHistoryEntry,
     onOpen: () -> Unit,
-    onShowInFolder: () -> Unit,
-    onCopyFolderPath: () -> Unit,
+    onShowInFolder: (() -> Unit)?,
+    onCopyFolderPath: (() -> Unit)?,
     onHide: () -> Unit
 ) {
     val savedTo = entry.savedTo.orEmpty()
@@ -725,27 +897,31 @@ internal fun TaildropSavedCard(
             TextButton(onClick = onHide, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
                 Text(stringResource(R.string.taildrop_hide))
             }
-            // A TextButton in looks and size — the 48dp it reserves to be touched, too, or
-            // the row sets it higher than its neighbours — with a long press it cannot take.
-            Box(
-                modifier = Modifier
-                    .minimumInteractiveComponentSize()
-                    .clip(ButtonDefaults.textShape)
-                    .combinedClickable(
-                        role = Role.Button,
-                        onLongClickLabel = stringResource(R.string.taildrop_copy_folder_path),
-                        onLongClick = onCopyFolderPath,
-                        onClick = onShowInFolder
+            if (onShowInFolder != null && onCopyFolderPath == null) {
+                TextButton(onClick = onShowInFolder) { Text(stringResource(R.string.taildrop_show_in_folder)) }
+            } else if (onShowInFolder != null) {
+                // A TextButton in looks and size — the 48dp it reserves to be touched, too, or
+                // the row sets it higher than its neighbours — with a long press it cannot take.
+                Box(
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .clip(ButtonDefaults.textShape)
+                        .combinedClickable(
+                            role = Role.Button,
+                            onLongClickLabel = stringResource(R.string.taildrop_copy_folder_path),
+                            onLongClick = onCopyFolderPath,
+                            onClick = onShowInFolder
+                        )
+                        .defaultMinSize(minHeight = ButtonDefaults.MinHeight)
+                        .padding(ButtonDefaults.TextButtonContentPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        stringResource(R.string.taildrop_show_in_folder),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    .defaultMinSize(minHeight = ButtonDefaults.MinHeight)
-                    .padding(ButtonDefaults.TextButtonContentPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    stringResource(R.string.taildrop_show_in_folder),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                }
             }
             Button(onClick = onOpen, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.action_open)) }
         }
@@ -938,6 +1114,11 @@ private fun shortTime(millis: Long, nowMillis: Long, locale: Locale): String {
  * context, configuration and resources, all three, provided again inside — the sheet's own
  * window answers in the system language (see wrapContextWithLocale()). [content] gets a
  * `hide` that slides the sheet away and then calls [onDismiss].
+ *
+ * On a television the sheet has no handle — there is nothing to drag it with, and the handle
+ * was the first thing the remote stopped on; Back closes it — and it ends above the part of
+ * the screen a set may cut off, which the theme keeps clear for a screen and not for a
+ * window.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -947,13 +1128,21 @@ internal fun TaildropSheet(onDismiss: () -> Unit, content: @Composable (hide: ()
     val resources = LocalResources.current
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    val tv = isTv
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = if (tv) null else ({ BottomSheetDefaults.DragHandle() })
+    ) {
         CompositionLocalProvider(
             LocalContext provides context,
             LocalConfiguration provides configuration,
             LocalResources provides resources
         ) {
-            content { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }
+            val body: @Composable () -> Unit = {
+                content { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() } }
+            }
+            if (tv) Box(Modifier.padding(top = 16.dp, bottom = TvSafeArea.calculateBottomPadding())) { body() } else body()
         }
     }
 }
@@ -989,7 +1178,7 @@ internal fun TaildropDevicesSheetContent(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp)
         )
-        if (targets.all.size > SEND_ROWS) {
+        if (targets.all.size > SEND_ROWS && Feature.SEARCH.offered()) {
             CompactSearchBar(
                 value = query,
                 onValueChange = { query = it },
@@ -1028,12 +1217,15 @@ internal enum class TaildropHistoryFilter(val label: Int) {
     }
 }
 
-/** The whole history: a search over file and device, the four filters, export and clear. */
+/**
+ * The whole history: a search over file and device, the four filters, export and clear.
+ * Without [onExport] — a device with no app to hand the export to — there is no such button.
+ */
 @Composable
 internal fun TaildropHistorySheetContent(
     history: List<TaildropHistoryEntry>,
     onEntry: (TaildropHistoryEntry) -> Unit,
-    onExport: () -> Unit,
+    onExport: (() -> Unit)?,
     onClear: () -> Unit,
     nowMillis: Long = System.currentTimeMillis(),
     initialFilter: TaildropHistoryFilter = TaildropHistoryFilter.ALL
@@ -1058,19 +1250,23 @@ internal fun TaildropHistorySheetContent(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = onExport, enabled = history.isNotEmpty()) {
-                Icon(Icons.Default.Share, stringResource(R.string.taildrop_history_export))
+            if (onExport != null) {
+                IconButton(onClick = onExport, enabled = history.isNotEmpty()) {
+                    Icon(Icons.Default.Share, stringResource(R.string.taildrop_history_export))
+                }
             }
             IconButton(onClick = onClear, enabled = history.isNotEmpty()) {
                 Icon(Icons.Default.DeleteSweep, stringResource(R.string.taildrop_history_clear), tint = MaterialTheme.colorScheme.error.copy(alpha = if (history.isNotEmpty()) 1f else 0.38f))
             }
         }
-        CompactSearchBar(
-            value = query,
-            onValueChange = { query = it },
-            placeholderText = stringResource(R.string.taildrop_history_search),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
+        IfOffered(Feature.SEARCH) {
+            CompactSearchBar(
+                value = query,
+                onValueChange = { query = it },
+                placeholderText = stringResource(R.string.taildrop_history_search),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+        }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1228,7 +1424,7 @@ internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onClose: (() -> U
         // Selectable: a hash, an address or an error is what one comes here to copy.
         SelectionContainer {
             val groups: @Composable () -> Unit = {
-                DetailsGroup(stringResource(R.string.taildrop_details_transfer), transferRows)
+                DetailsGroup(stringResource(R.string.taildrop_details_transfer), transferRows, startsFocus = true)
                 DetailsGroup(stringResource(R.string.taildrop_details_device), deviceRows)
                 DetailsGroup(stringResource(R.string.taildrop_details_file), fileRows)
                 DetailsGroup(stringResource(R.string.taildrop_details_on_phone), phoneRows)
@@ -1251,12 +1447,30 @@ internal fun TaildropEntryDetails(entry: TaildropHistoryEntry, onClose: (() -> U
     }
 }
 
+/**
+ * A stop for the remote on something that is only read. The details are taller than a
+ * television's screen and have a button at each end; with the groups between them as stops
+ * the pane scrolls to whatever the remote is on, and nothing is acted on out of sight.
+ */
 @Composable
-private fun DetailsGroup(title: String, rows: List<DetailRow>) {
+private fun Modifier.tvReadStop(shape: Shape): Modifier {
+    if (!isTv) return this
+    val source = remember { MutableInteractionSource() }
+    return tvFocusRing(source, shape).focusable(interactionSource = source)
+}
+
+/** [startsFocus]: where the remote lands when the details open — in them, not on whatever was left behind. */
+@Composable
+private fun DetailsGroup(title: String, rows: List<DetailRow>, startsFocus: Boolean = false) {
     if (rows.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp))
-        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+        val start = if (startsFocus) Modifier.tvInitialFocus() else Modifier
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.fillMaxWidth().then(start).tvReadStop(MaterialTheme.shapes.medium)
+        ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 rows.forEach { r ->
                     Row {
