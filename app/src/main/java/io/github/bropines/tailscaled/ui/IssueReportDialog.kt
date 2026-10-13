@@ -50,6 +50,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.Diagnostics
 import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.canLaunch
+import io.github.bropines.tailscaled.core.tryStartActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URLEncoder
@@ -99,7 +100,9 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
     // no browser. A phone is offered all three, as it always was.
     val copyOffered = Feature.CLIPBOARD_ACTIONS.offered()
     val shareOffered = !isTv || context.canLaunch(shareIntent("", ""))
-    val openOffered = Feature.BROWSER.offered()
+    // Where no browser answers the new-issue button shows where the form is, with a QR code.
+    val links = rememberLinkOpener()
+    val browser = Feature.BROWSER.offered()
 
     AppAlertDialog(
         onDismissRequest = onDismiss,
@@ -163,27 +166,20 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            if (openOffered) {
-                Button(
-                    onClick = {
-                        val body = template + "\n\n```\n" + (report ?: "") + "\n```"
-                        openIssueForm(context, body)
-                        onDismiss()
-                    },
-                    enabled = report != null
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(openLabel, maxLines = 1, softWrap = false)
-                }
-            } else {
-                // Nothing to send the report with: it is for reading, and Close ends it.
-                TextButton(onClick = onDismiss) { Text(close) }
+            Button(
+                onClick = {
+                    val body = template + "\n\n```\n" + (report ?: "") + "\n```"
+                    // The form with the report in it goes to a browser; with none, the page to open elsewhere.
+                    if (browser && openIssueForm(context, body)) onDismiss() else links.show(ISSUES_NEW, openLabel)
+                },
+                enabled = report != null
+            ) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(openLabel, maxLines = 1, softWrap = false)
             }
         },
-        dismissButton = if (openOffered) {
-            { TextButton(onClick = onDismiss) { Text(close) } }
-        } else null
+        dismissButton = { TextButton(onClick = onDismiss) { Text(close) } }
     )
 }
 
@@ -209,12 +205,12 @@ private fun shareReport(context: Context, text: String) {
  * whole log is one the browser drops on the floor, and a truncated report that arrives
  * beats a complete one that does not.
  */
-private fun openIssueForm(context: Context, body: String) {
+private fun openIssueForm(context: Context, body: String): Boolean {
     val trimmed = if (body.length > BODY_LIMIT) body.take(BODY_LIMIT) + "\n… truncated, paste the rest" else body
     val url = ISSUES_NEW +
         "?labels=bug" +
         "&title=" + URLEncoder.encode("", "UTF-8") +
         "&body=" + URLEncoder.encode(trimmed, "UTF-8").replace("+", "%20")
-    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-        .onFailure { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ISSUES_NEW))) } }
+    return context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) ||
+        context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ISSUES_NEW)))
 }

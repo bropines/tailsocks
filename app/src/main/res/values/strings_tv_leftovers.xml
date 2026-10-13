@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The television's leftovers: the address of a link shown where nothing opens it, and the home
+  screen's tile for remote management.
+-->
+<resources>
+    <!-- What the large line is, over the address a television shows instead of opening it -->
+    <string name="link_address">Page address</string>
+</resources>

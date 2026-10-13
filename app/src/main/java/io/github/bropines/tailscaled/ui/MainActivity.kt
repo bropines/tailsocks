@@ -1849,6 +1849,7 @@ fun MainScreen(
         val dlgUpdateInstall = stringResource(R.string.main_update_install_cached)
         val dlgWhatsNew = stringResource(R.string.main_about_whats_new)
         val dlgGithub = stringResource(R.string.action_github)
+        val dlgIssueList = stringResource(R.string.issue_list_action)
         val dlgCreditsHeader = stringResource(R.string.main_about_credits)
         val dlgLicense = stringResource(R.string.main_license_text).trim()
         val dlgClose = stringResource(R.string.action_close)
@@ -1860,13 +1861,8 @@ fun MainScreen(
             Triple(stringResource(R.string.main_dev_core), "https://github.com/tailscale/tailscale", Icons.Default.Hub),
             Triple(stringResource(R.string.main_dev_claude), CLAUDE_URL, Icons.Default.AutoAwesome)
         )
-        val openLink: (String) -> Unit = { url ->
-            if (!context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) {
-                android.util.Log.w("MainActivity", "No handler for $url")
-            }
-        }
-        // A button that only opens a web page is not drawn where nothing opens one.
-        val hasBrowser = Feature.BROWSER.offered()
+        // A link opens in the browser; where none answers — a television — it shows its address with a QR code.
+        val links = rememberLinkOpener()
         // Lives inside this block on purpose: closing the dialog takes it down too.
         var showAboutBackdrop by remember { mutableStateOf(false) }
         var showVibeCoding by remember { mutableStateOf(false) }
@@ -1994,7 +1990,7 @@ fun MainScreen(
                                                 // release page. The old fallback downloaded
                                                 // latest/download/app-release.apk, a file no release has had.
                                                 if (downloadUrl == null) {
-                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/bropines/tailsocks/releases/latest")))
+                                                    links.open("https://github.com/bropines/tailsocks/releases/latest", dlgGithub)
                                                     return@Button
                                                 }
                                                 val targetUrl = downloadUrl
@@ -2143,13 +2139,14 @@ fun MainScreen(
                             Spacer(Modifier.width(6.dp))
                             Text(dlgWhatsNew, textAlign = TextAlign.Center)
                         }
-                        if (hasBrowser) OutlinedButton(
+                        OutlinedButton(
                             onClick = {
-                                openLink(
+                                val opened = links.open(
                                     if (latestVersion != null) "https://github.com/bropines/tailsocks/releases/latest"
-                                    else "https://github.com/bropines/tailsocks"
+                                    else "https://github.com/bropines/tailsocks",
+                                    dlgGithub
                                 )
-                                showAboutDialog = false
+                                if (opened) showAboutDialog = false
                             },
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
@@ -2175,14 +2172,14 @@ fun MainScreen(
                             Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.issue_report_action), textAlign = TextAlign.Center)
                         }
-                        if (hasBrowser) OutlinedButton(
-                            onClick = { openLink("https://github.com/bropines/tailsocks/issues") },
+                        OutlinedButton(
+                            onClick = { links.open("https://github.com/bropines/tailsocks/issues", dlgIssueList) },
                             modifier = Modifier.weight(1f).fillMaxHeight(),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.List, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.issue_list_action), textAlign = TextAlign.Center)
+                            Text(dlgIssueList, textAlign = TextAlign.Center)
                         }
                     }
 
@@ -2210,7 +2207,7 @@ fun MainScreen(
                                             .heightIn(min = 48.dp)
                                             // The first row and Claude's also answer a long press.
                                             .combinedClickable(
-                                                onClick = { openLink(url) },
+                                                onClick = { links.open(url, label) },
                                                 onLongClick = when {
                                                     index == 0 -> ({ showAboutBackdrop = true })
                                                     url == CLAUDE_URL -> ({ showVibeCoding = true })

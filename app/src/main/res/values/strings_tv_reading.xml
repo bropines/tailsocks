@@ -35,7 +35,6 @@
 
     <!-- Licences. -->
     <string name="tv_licenses_help">TailSocks is built on the open-source software listed here, each under its own license. Select a component to read its license; the arrows scroll the text.</string>
-    <string name="tv_licenses_page">Project page</string>
 
     <!-- The live state card. -->
     <string name="tv_diag_live_help">Refreshed every 2 s while this page is open; red marks what is wrong. The arrows scroll the card; Check SOCKS5 tests the port again.</string>

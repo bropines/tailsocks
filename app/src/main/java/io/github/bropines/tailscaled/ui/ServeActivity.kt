@@ -28,7 +28,6 @@ import io.github.bropines.tailscaled.models.*
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -620,6 +619,8 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     var qrRule by remember { mutableStateOf<ServeRule?>(null) }
     /** A service whose tailnet-side definition and host approval are being offered. */
     var publishFor by remember { mutableStateOf<String?>(null) }
+    /** The admin console's page, which a device with no browser shows as an address and a QR code. */
+    val links = rememberLinkOpener()
     var publishBusy by remember { mutableStateOf(false) }
     /** When the last publish succeeded; the netmap is re-read a few seconds after. */
     var publishedAt by remember { mutableStateOf(0L) }
@@ -1186,10 +1187,9 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                     }
                 } else {
                     Button(onClick = {
-                        publishFor = null
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SERVICES_CONSOLE_URL)))
-                        }
+                        val title = context.getString(R.string.serve_svc_open_console)
+                        // Opened in a browser, this dialog is done; shown as an address, it stays under it.
+                        if (links.open(SERVICES_CONSOLE_URL, title)) publishFor = null
                     }) { Text(context.getString(R.string.serve_svc_open_console)) }
                 }
             },

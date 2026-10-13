@@ -1,8 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,8 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
-import io.github.bropines.tailscaled.core.Feature
-import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.serialization.Serializable
@@ -290,18 +286,15 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
     val resources = LocalResources.current
     val includesLabel = stringResource(R.string.licenses_includes)
     val pageLabel = stringResource(R.string.licenses_open_page)
-    val pageTitle = stringResource(R.string.tv_licenses_page)
     // A television reads the text with the arrows: the text is one stop, so the page button is
-    // not inside it, and where there is no browser there is no button, only the address.
+    // not inside it. Where there is no browser the button shows the address, and a QR code.
     val tv = isTv
     // A sheet has its handle above the text; a pane — or a television's dialog — starts at its own edge.
     val top = if (LocalInPane.current || tv) 20.dp else 0.dp
     val hasPage = c.url.startsWith("http")
-    val browser = Feature.BROWSER.offered()
+    val links = rememberLinkOpener()
     val pageButton: @Composable () -> Unit = {
-        OutlinedButton(onClick = {
-            context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(c.url)))
-        }) {
+        OutlinedButton(onClick = { links.open(c.url, c.name) }) {
             Icon(Icons.AutoMirrored.Filled.OpenInNew, null)
             Spacer(Modifier.width(8.dp))
             Text(pageLabel)
@@ -314,7 +307,7 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
             LocalConfiguration provides configuration,
             LocalResources provides resources
         ) {
-            if (tv && hasPage && browser) {
+            if (tv && hasPage) {
                 Box(Modifier.padding(start = 20.dp, top = top, end = 20.dp, bottom = 4.dp)) { pageButton() }
             }
             LazyColumn(
@@ -324,7 +317,7 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
                     .navigationBarsPadding()
                     .tvReadingPane(listState),
                 contentPadding = PaddingValues(
-                    start = 20.dp, top = if (tv && hasPage && browser) 8.dp else top, end = 20.dp, bottom = 24.dp
+                    start = 20.dp, top = if (tv && hasPage) 8.dp else top, end = 20.dp, bottom = 24.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -345,19 +338,7 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
                         }
                     }
                 }
-                if (hasPage) {
-                    item {
-                        when {
-                            !tv -> pageButton()
-                            // No browser to open it in: the address, to read and type elsewhere.
-                            !browser -> Column {
-                                Text(pageTitle, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                                Text(c.url, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
-                            }
-                            else -> Unit
-                        }
-                    }
-                }
+                if (hasPage && !tv) item { pageButton() }
                 items(c.texts) { id ->
                     Surface(
                         shape = MaterialTheme.shapes.medium,
