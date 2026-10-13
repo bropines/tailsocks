@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive на телевизоре и вход в общие папки других устройств; см. values/strings_taildrive_tv.xml. -->
+<resources>
+    <string name="taildrive_enable_needs_access_tv">Нет доступа к файлам — нажмите OK, чтобы разрешить</string>
+
+    <string name="taildrive_browse_title">Общие папки других устройств</string>
+    <string name="taildrive_browse_desc">Откройте папки, которыми с этим устройством поделились другие, и запускайте файлы в плеере.</string>
+
+    <string name="taildrive_add_browse_title">Выбрать папку</string>
+    <string name="taildrive_add_browse_desc">Обзор памяти этого устройства</string>
+    <string name="taildrive_pick_title">Выберите папку для общего доступа</string>
+    <string name="taildrive_pick_confirm">Открыть доступ к этой папке</string>
+
+    <string name="taildrive_address_title">Адрес WebDAV</string>
+    <string name="taildrive_address_device_only">Открыть его могут только приложения на этом устройстве. Чтобы зайти с другого, задайте в поле «IP локального прокси» значение 0.0.0.0.</string>
+    <string name="taildrive_address_login_hidden">Прокси требует логин и пароль.</string>
+    <string name="taildrive_address_show_login">Показать логин</string>
+    <string name="taildrive_address_hide_login">Скрыть логин</string>
+    <string name="taildrive_address_qr">Отсканируйте телефоном или ноутбуком, чтобы открыть адрес там.</string>
+    <string name="taildrive_address_qr_login">В коде есть логин и пароль.</string>
+
+    <string name="taildrive_remove_title">Закрыть доступ к «%1$s»?</string>
+    <string name="taildrive_remove_body">Папка останется на этом устройстве, но другие больше не смогут её открыть.</string>
+    <string name="taildrive_remove_confirm">Закрыть доступ</string>
+</resources>

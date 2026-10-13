@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive on a television and the way into the other devices' shares (ui/TaildriveActivity.kt,
+     ui/TaildriveParts.kt). Kept apart from strings.xml; Android merges every file under values/. -->
+<resources>
+    <!-- The same line as taildrive_enable_needs_access, for a screen with a remote instead of a finger. -->
+    <string name="taildrive_enable_needs_access_tv">No access to files yet — press OK to allow</string>
+
+    <!-- The way into the other devices' shares: the row, and the icon's description. -->
+    <string name="taildrive_browse_title">Browse other devices\' shares</string>
+    <string name="taildrive_browse_desc">Open the folders other devices share with this one, and play their files.</string>
+
+    <!-- Adding a share where the system has no folder picker: the app\'s own. -->
+    <string name="taildrive_add_browse_title">Choose a Folder</string>
+    <string name="taildrive_add_browse_desc">Browse the storage of this device</string>
+    <string name="taildrive_pick_title">Choose a folder to share</string>
+    <string name="taildrive_pick_confirm">Share this folder</string>
+
+    <!-- The address card of a screen with no clipboard. -->
+    <string name="taildrive_address_title">WebDAV address</string>
+    <string name="taildrive_address_device_only">Only apps on this device can open it. To reach it from another device, set Local Proxy IP to 0.0.0.0.</string>
+    <string name="taildrive_address_login_hidden">The proxy asks for a login.</string>
+    <string name="taildrive_address_show_login">Show login</string>
+    <string name="taildrive_address_hide_login">Hide login</string>
+    <string name="taildrive_address_qr">Scan with a phone or laptop to open the address there.</string>
+    <string name="taildrive_address_qr_login">The code includes the login.</string>
+
+    <!-- Removing a share: asked on a television only. %1$s is the share\'s name. -->
+    <string name="taildrive_remove_title">Stop sharing “%1$s”?</string>
+    <string name="taildrive_remove_body">The folder stays on this device. Other devices can no longer open it.</string>
+    <string name="taildrive_remove_confirm">Stop sharing</string>
+</resources>
