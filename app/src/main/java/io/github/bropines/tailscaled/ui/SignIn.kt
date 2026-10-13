@@ -124,7 +124,8 @@ internal sealed interface NewSignInLink {
  * at that moment): the cost then is one reconnect of a node that keeps its key.
  *
  * Read from the daemon's source (StartLoginInteractiveAs, resetControlClientLocked) and the
- * bridge's Login; not yet exercised against a running daemon.
+ * bridge's Login, and seen on the Android TV emulator against Tailscale's server: the link
+ * on screen changed for another. Not tried against a server of one's own.
  */
 internal fun requestNewSignInLink(): NewSignInLink {
     val state = runCatching { Appctr.getBackendState() }.getOrDefault("")

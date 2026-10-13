@@ -1173,7 +1173,8 @@ fun MainScreen(
         ModalBottomSheet(
             onDismissRequest = { accountMenuExpanded = false; accountsEditMode = false },
             sheetState = sheetState,
-            dragHandle = sheetDragHandle()
+            dragHandle = sheetDragHandle(),
+            sheetGesturesEnabled = sheetGestures()
         ) {
             Column(
                 modifier = Modifier
@@ -2275,7 +2276,8 @@ fun MainScreen(
             // later, which reads as a jump; the list also arrives after the spinner, so the
             // height it settles at is held from the start by the minimum below.
             sheetState = rememberFullSheetState(),
-            dragHandle = sheetDragHandle()
+            dragHandle = sheetDragHandle(),
+            sheetGesturesEnabled = sheetGestures()
         ) {
             ExitNodePicker(
                 nodes = exitNodes,
@@ -2296,6 +2298,7 @@ fun MainScreen(
                 onPing = { pingExitNode(it) },
                 onRetryBest = { bestAsked++ },
                 onChoose = { id, ip -> applyExitNode(id, ip); showExitNodeSheet = false },
+                onClose = { showExitNodeSheet = false },
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 280.dp, max = maxHeight)

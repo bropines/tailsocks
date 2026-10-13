@@ -181,6 +181,7 @@ private fun ExitNodes(selectedIp: String) {
                 onPing = {},
                 onRetryBest = {},
                 onChoose = { _, _ -> },
+                onClose = {},
                 modifier = Modifier.fillMaxWidth().tvSheetInset(),
             )
         }

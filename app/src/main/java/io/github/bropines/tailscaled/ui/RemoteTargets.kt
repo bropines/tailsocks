@@ -43,6 +43,15 @@ internal fun Modifier.tvSheetInset(): Modifier =
     if (isTv) padding(bottom = TvSafeArea.calculateBottomPadding()) else this
 
 /**
+ * Whether a bottom sheet follows gestures — not on a television. There is no gesture to
+ * give it there, and a sheet that follows its list's scrolling follows the remote too:
+ * moving the focus scrolls the list, the sheet slid down with it, and its last row went
+ * off the bottom of the screen (seen on the Android TV emulator).
+ */
+@Composable
+internal fun sheetGestures(): Boolean = !isTv
+
+/**
  * A bottom sheet's drag handle — none on a television, where nothing drags, Back closes the
  * sheet, and the handle would be the first thing the remote lands on.
  */

@@ -32,6 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +71,7 @@ internal data class ExitNodePickerStrings(
     val none: String,
     val direct: String,
     val fastest: String,
+    val close: String,
     val ping: ExitNodePingStrings,
     val best: BestExitNodeStrings,
 )
@@ -82,6 +84,7 @@ internal fun exitNodePickerStrings() = ExitNodePickerStrings(
     none = stringResource(R.string.main_exit_node_none),
     direct = stringResource(R.string.main_route_traffic_directly),
     fastest = stringResource(R.string.exit_node_fastest),
+    close = stringResource(R.string.action_close),
     ping = ExitNodePingStrings(
         tapToMeasure = stringResource(R.string.peer_conn_tap_to_measure),
         pinging = stringResource(R.string.peer_pinging),
@@ -95,7 +98,8 @@ internal fun exitNodePickerStrings() = ExitNodePickerStrings(
  * The list of the exit-node sheet. [nodes] are the peers that offer an exit; [loading] is the
  * list still on its way. [selectedIp] is the node in use, empty for none. [pings] holds the
  * daemon's raw answer per address, [best] the suggestion (null while it is asked).
- * [onChoose] with two empty strings clears the exit node.
+ * [onChoose] with two empty strings clears the exit node. [onClose] is for the one state
+ * that has nothing else to press with a remote: no nodes, and none in use.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -111,6 +115,7 @@ internal fun ExitNodePicker(
     onPing: (ip: String) -> Unit,
     onRetryBest: () -> Unit,
     onChoose: (id: String, ip: String) -> Unit,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val tv = isTv
@@ -174,6 +179,13 @@ internal fun ExitNodePicker(
                         modifier = Modifier.fillMaxWidth().tvInitialFocus()
                     ) {
                         Text(strings.none)
+                    }
+                } else if (tv) {
+                    // Nothing to choose and nothing to clear. A finger taps outside; a
+                    // remote needs something in focus, and the way out is the only thing
+                    // there is to offer it.
+                    OutlinedButton(onClick = onClose, modifier = Modifier.tvInitialFocus()) {
+                        Text(strings.close)
                     }
                 }
             }
