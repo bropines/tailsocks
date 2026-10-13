@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -15,6 +16,7 @@ import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.browser.customtabs.CustomTabsService
 import androidx.browser.customtabs.CustomTabsServiceConnection
 import androidx.browser.customtabs.CustomTabsSession
 import io.github.bropines.tailscaled.R
@@ -32,6 +34,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * browser without the service, or one that does not answer in time, gets the
  * page all the same and is simply left open. With no Custom Tabs browser at
  * all, the link opens the ordinary way.
+ *
+ * Which browser is [LoginBrowser]'s to say: the default one is not always one
+ * that can show a tab.
  */
 object LoginTab {
     private const val TAG = "LoginTab"
@@ -48,7 +53,7 @@ object LoginTab {
 
     fun open(activity: Activity, url: String, @ColorInt toolbarColor: Int, dark: Boolean) {
         val uri = Uri.parse(url)
-        val browser = runCatching { CustomTabsClient.getPackageName(activity, null) }.getOrNull()
+        val browser = runCatching { LoginBrowser.on(activity) }.getOrNull()
         if (browser == null) {
             openPlain(activity, uri)
             return
@@ -132,5 +137,46 @@ object LoginTab {
     private fun unbind(context: Context) {
         connection?.let { runCatching { context.unbindService(it) } }
         connection = null
+    }
+}
+
+/**
+ * The browser the login tab opens in. Asking only the default handler of a web link, as
+ * `CustomTabsClient.getPackageName` does, is not enough on two kinds of device:
+ *  - where that handler is a bridge and no browser. Windows Subsystem for Android hands every
+ *    link to the Windows browser through [WINDOWS_BRIDGE], which also declares the Custom
+ *    Tabs service, so it passed for a browser that shows tabs and the login went outside;
+ *  - where nobody has chosen a default browser: the handler is then the system's chooser,
+ *    and the page went out the plain way past browsers that could have shown the tab.
+ */
+internal object LoginBrowser {
+    /** WSA's handler of web links: it declares the service and opens the page in Windows. */
+    const val WINDOWS_BRIDGE = "com.microsoft.windows.userapp"
+
+    private const val CHROME = "com.android.chrome"
+
+    /**
+     * The package to open the tab in, or null for the plain way: [default], the handler of a
+     * web link the device has settled on (the chooser's own package when it has not), when it
+     * is one of [tabBrowsers] — the packages that both open a web link and offer the Custom
+     * Tabs service; otherwise the first of those, Chrome ahead of the rest by name, so that
+     * the same device always gives the same answer. The bridge is never one of them.
+     */
+    fun choose(default: String?, tabBrowsers: Collection<String>): String? {
+        val real = tabBrowsers.filter { it.isNotBlank() && it != WINDOWS_BRIDGE }.toSortedSet()
+        if (default != null && default in real) return default
+        return if (CHROME in real) CHROME else real.firstOrNull()
+    }
+
+    /** [choose] over what this device reports. */
+    fun on(context: Context): String? {
+        val pm = context.packageManager
+        val link = Intent(Intent.ACTION_VIEW, Uri.parse("http://")).addCategory(Intent.CATEGORY_BROWSABLE)
+        val default = pm.resolveActivity(link, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
+        // Every handler, not only the ones the system would offer first.
+        val handlers = pm.queryIntentActivities(link, PackageManager.MATCH_ALL).mapNotNull { it.activityInfo?.packageName }.toSet()
+        val services = pm.queryIntentServices(Intent(CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION), 0)
+            .mapNotNull { it.serviceInfo?.packageName }
+        return choose(default, services.filter { it in handlers })
     }
 }
