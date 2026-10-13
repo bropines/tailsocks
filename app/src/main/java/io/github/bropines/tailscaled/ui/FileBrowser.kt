@@ -69,6 +69,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -523,7 +524,8 @@ internal fun FileBrowserContent(ui: BrowserUi, actions: BrowserActions, modifier
     val layout = rememberWindowLayout()
     val twoPanes = layout.listDetail
     val margin = layout.margin
-    // Right from any row of a wide window goes to the panel's main button, not to whichever is nearest.
+    // Right from any row of a wide window, and Down from its last, go to the panel's main button,
+    // not to whichever is nearest: that is Cancel when the last row is the checked one.
     val panelEntry = remember { FocusRequester() }
     Scaffold(
         modifier = modifier,
@@ -544,10 +546,7 @@ internal fun FileBrowserContent(ui: BrowserUi, actions: BrowserActions, modifier
             Row(Modifier.fillMaxSize().padding(padding).padding(horizontal = margin)) {
                 Column(Modifier.weight(1f)) {
                     PathLine(ui, tv = true)
-                    BrowserList(
-                        ui, actions, tv = true, sidePadding = 0.dp,
-                        modifier = Modifier.weight(1f).focusProperties { right = panelEntry }.focusRestorer()
-                    )
+                    BrowserList(ui, actions, tv = true, sidePadding = 0.dp, panel = panelEntry, modifier = Modifier.weight(1f).focusRestorer())
                 }
                 Spacer(Modifier.width(24.dp))
                 SidePanel(ui, actions, panelEntry, Modifier.width(320.dp).fillMaxHeight().padding(vertical = 8.dp))
@@ -560,6 +559,17 @@ internal fun FileBrowserContent(ui: BrowserUi, actions: BrowserActions, modifier
         }
     }
 }
+
+/**
+ * Whether the remote pressing [direction] on the row [row] goes to the side panel's main button: Right
+ * from any row, and Down from the [last] one, below which there is nothing in the list. Anywhere
+ * else the focus search is the system's: it goes by distance, and from the last row that is Cancel.
+ */
+internal fun goesToPanel(direction: FocusDirection, row: String, last: String?): Boolean =
+    direction == FocusDirection.Right || (direction == FocusDirection.Down && row == last)
+
+/** The panel's button the remote enters on: the one that answers when it can be pressed, else Cancel. */
+internal fun panelEntersOnConfirm(confirm: Confirm?): Boolean = confirm?.enabled == true
 
 /** Where one is, in words and without typing: "Internal storage › Download › Taildrop". */
 @Composable
@@ -591,8 +601,17 @@ private fun PathLine(ui: BrowserUi, tv: Boolean, modifier: Modifier = Modifier, 
 }
 
 @Composable
-private fun BrowserList(ui: BrowserUi, actions: BrowserActions, tv: Boolean, sidePadding: Dp, modifier: Modifier = Modifier) {
+private fun BrowserList(
+    ui: BrowserUi,
+    actions: BrowserActions,
+    tv: Boolean,
+    sidePadding: Dp,
+    modifier: Modifier = Modifier,
+    /** The side panel's main button, where the remote goes from a row (see [goesToPanel]); null where there is no panel. */
+    panel: FocusRequester? = null,
+) {
     val rows = itemsOf(ui)
+    val lastKey = rows.lastOrNull()?.key
     val index = rows.indexOfFirst { it.key == ui.focusKey }
 
     // The remote has no pointer to touch a row with: when a page or a folder opens, the focus is
@@ -621,7 +640,12 @@ private fun BrowserList(ui: BrowserUi, actions: BrowserActions, tv: Boolean, sid
         verticalArrangement = Arrangement.spacedBy(if (tv) 6.dp else 4.dp),
     ) {
         items(rows, key = { it.key }) { item ->
-            val target = if (item.key == ui.focusKey) Modifier.tvListStart(start) else Modifier
+            // The row's own properties, not the list's: the one that has the remote is asked where it goes.
+            val toPanel = if (panel == null) Modifier else Modifier.focusProperties {
+                if (goesToPanel(FocusDirection.Right, item.key, lastKey)) right = panel
+                if (goesToPanel(FocusDirection.Down, item.key, lastKey)) down = panel
+            }
+            val target = (if (item.key == ui.focusKey) Modifier.tvListStart(start) else Modifier).then(toPanel)
             when (item) {
                 BrowserItem.Banner -> BrowserRow(
                     icon = Icons.Filled.Lock,
@@ -932,7 +956,7 @@ private fun SidePanel(ui: BrowserUi, actions: BrowserActions, entry: FocusReques
                 HelpText(stringResource(hint), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.weight(1f))
-            val canConfirm = ui.confirm?.enabled == true
+            val canConfirm = panelEntersOnConfirm(ui.confirm)
             if (ui.confirm != null) {
                 if (ui.confirm.note != null) {
                     Text(ui.confirm.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
