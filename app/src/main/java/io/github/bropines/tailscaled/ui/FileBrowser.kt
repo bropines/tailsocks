@@ -410,7 +410,6 @@ private fun modeTitle(mode: FileBrowserMode): Int = when (mode) {
 private const val UP_KEY = "\u0000up"
 private const val BANNER_KEY = "\u0000banner"
 private const val NOTICE_KEY = "\u0000notice"
-private const val ACTION_KEY = "\u0000action"
 
 @Composable
 internal fun browserUi(
@@ -455,12 +454,12 @@ private fun focusKeyOf(mode: FileBrowserMode, location: BrowseLocation, roots: L
             (roots.firstOrNull { cameFrom != null && FileBrowse.same(it.dir, cameFrom) } ?: roots.firstOrNull())?.dir?.path
         is BrowseLocation.Dir -> when (listing) {
             null -> null
-            is Listing.Unreadable -> ACTION_KEY
+            is Listing.Unreadable -> NOTICE_KEY
             is Listing.Entries -> {
                 // In a folder chooser the files are only shown; the remote skips them.
                 val pressable = listing.entries.filter { it.isDirectory || mode is FileBrowserMode.Files }
                 when {
-                    listing.entries.isEmpty() -> ACTION_KEY
+                    listing.entries.isEmpty() -> NOTICE_KEY
                     cameFrom != null && pressable.any { it.file == cameFrom } -> cameFrom.path
                     pressable.isNotEmpty() -> pressable.first().file.path
                     else -> UP_KEY
