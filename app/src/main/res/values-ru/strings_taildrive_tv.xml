@@ -12,7 +12,6 @@
     <string name="taildrive_pick_confirm">Открыть доступ к этой папке</string>
 
     <string name="taildrive_address_title">Адрес WebDAV</string>
-    <string name="taildrive_address_device_only">Открыть его могут только приложения на этом устройстве. Чтобы зайти с другого, задайте в поле «IP локального прокси» значение 0.0.0.0.</string>
     <string name="taildrive_address_login_hidden">Прокси требует логин и пароль.</string>
     <string name="taildrive_address_show_login">Показать логин</string>
     <string name="taildrive_address_hide_login">Скрыть логин</string>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Переключатель «Доступ из локальной сети» у прокси Taildrive и всё, что с ним связано;
+     см. values/strings_taildrive_lan.xml. -->
+<resources>
+    <string name="taildrive_lan_title">Доступ из локальной сети</string>
+    <string name="taildrive_lan_off_desc">Прокси открывается только приложениям на этом устройстве. Если включить, он ответит и другим устройствам вашей сети — по логину и паролю.</string>
+    <string name="taildrive_lan_on_desc">Прокси доступен другим устройствам этой сети — по логину и паролю. Без них любой в том же Wi-Fi открыл бы все общие папки вашего tailnet, поэтому авторизация не отключается, пока доступ включён. Выключите — и она станет такой, какой была.</string>
+    <string name="taildrive_lan_on_open_desc">Прокси доступен другим устройствам этой сети, и логин у них не спрашивают.</string>
+    <string name="taildrive_lan_custom_desc">Слушает %1$s — адрес задан вручную. Выберите этот пункт, чтобы открыть доступ из локальной сети или оставить только это устройство.</string>
+    <string name="taildrive_lan_custom_badge">Вручную</string>
+
+    <string name="taildrive_lan_auth_locked">Не отключается, пока открыт доступ из локальной сети.</string>
+
+    <string name="taildrive_lan_choice_text">Прокси слушает %1$s — этот адрес задан вручную.</string>
+    <string name="taildrive_lan_choice_on_desc">Слушать все интерфейсы. Понадобятся логин и пароль.</string>
+    <string name="taildrive_lan_choice_off_title">Только это устройство</string>
+    <string name="taildrive_lan_choice_off_desc">Слушать 127.0.0.1.</string>
+
+    <string name="taildrive_lan_open_title">Доступ из сети без логина</string>
+    <string name="taildrive_lan_open_text">Прокси и раньше отвечал локальной сети без логина — так он работает и сейчас: любой в том же Wi-Fi может открыть все общие папки вашего tailnet. Включите авторизацию, чтобы это закрыть. Приложениям и устройствам, которые уже ходят через прокси, понадобятся логин и пароль, а отключить авторизацию при доступе из локальной сети будет нельзя.</string>
+    <string name="taildrive_lan_open_action">Требовать авторизацию</string>
+
+    <string name="taildrive_lan_advanced">Дополнительно</string>
+    <string name="taildrive_lan_bind_help">Адрес, на котором слушает прокси. 127.0.0.1 — только это устройство, 0.0.0.0 — все интерфейсы: их задаёт переключатель выше. Любой другой адрес используется как есть, и переключатель покажет, что он задан вручную.</string>
+
+    <string name="taildrive_address_this_device">Открывается только с этого устройства. Чтобы зайти с другого, включите «Доступ из локальной сети».</string>
+    <string name="taildrive_address_no_network">Устройство не в локальной сети. Подключите его к Wi-Fi или кабелем, чтобы прокси открылся другим.</string>
+    <string name="taildrive_address_also">Ещё по адресу %1$s</string>
+</resources>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Taildrive proxy's "Allow from the local network" switch and what comes with it
+     (core/TaildriveLan.kt, ui/TaildriveLanParts.kt, the address card of ui/TaildriveParts.kt).
+     Kept apart from strings.xml; Android merges every file under values/. -->
+<resources>
+    <!-- The switch. Named as Settings → Local proxies names its own section for the same thing. -->
+    <string name="taildrive_lan_title">Allow from the local network</string>
+    <string name="taildrive_lan_off_desc">Only apps on this device can open the proxy. Turned on, it also answers other devices on your network and asks them for a login.</string>
+    <!-- The one line that says why the login cannot be switched off; folded after its first sentence. -->
+    <string name="taildrive_lan_on_desc">Other devices on this network can open the proxy, with the login. Without one, anyone on the same Wi-Fi could open every folder shared in your tailnet, so authentication stays on while this is on. Turned off, it goes back to what you had chosen.</string>
+    <!-- On, as an install older than the switch may have it: no login. The notice under the row says the rest. -->
+    <string name="taildrive_lan_on_open_desc">Other devices on this network can open the proxy, and no login is asked of them.</string>
+    <!-- The third state: an address typed by hand under Advanced. %1$s is that address. -->
+    <string name="taildrive_lan_custom_desc">Listens on %1$s, an address set by hand. Select this to choose the local network or this device only.</string>
+    <string name="taildrive_lan_custom_badge">Custom</string>
+
+    <!-- "Require authentication" while the switch is on. -->
+    <string name="taildrive_lan_auth_locked">Stays on while access from the local network is allowed.</string>
+
+    <!-- What the switch offers at a custom address. %1$s is the address. -->
+    <string name="taildrive_lan_choice_text">The proxy listens on %1$s, an address set by hand.</string>
+    <string name="taildrive_lan_choice_on_desc">Listen on every interface. A login will be required.</string>
+    <string name="taildrive_lan_choice_off_title">This device only</string>
+    <string name="taildrive_lan_choice_off_desc">Listen on 127.0.0.1.</string>
+
+    <!-- An install that already listened on every interface with no login: said once, until it is closed. -->
+    <string name="taildrive_lan_open_title">No login on the local network</string>
+    <string name="taildrive_lan_open_text">This proxy was already set to answer the local network with no login, and it still does: anyone on the same Wi-Fi can open every folder shared in your tailnet. Requiring a login closes that. Apps and devices that use the proxy now will need the login, and it will stay required while access from the local network is on.</string>
+    <string name="taildrive_lan_open_action">Require a login</string>
+
+    <!-- The bind address, for those who need a particular one. -->
+    <string name="taildrive_lan_advanced">Advanced</string>
+    <string name="taildrive_lan_bind_help">The address the proxy listens on. 127.0.0.1 is this device only and 0.0.0.0 is every interface: the switch above sets these. Any other address is used as typed, and the switch then shows it as custom.</string>
+
+    <!-- The address card. -->
+    <string name="taildrive_address_this_device">Only apps on this device can open it. To reach it from another, turn on “Allow from the local network”.</string>
+    <string name="taildrive_address_no_network">This device is on no local network right now, so only its own apps can open the proxy. Connect it to Wi-Fi or a cable.</string>
+    <!-- %1$s is another address of this device, on another local network. -->
+    <string name="taildrive_address_also">Also at %1$s</string>
+</resources>

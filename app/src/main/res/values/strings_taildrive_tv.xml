@@ -17,7 +17,6 @@
 
     <!-- The address card of a screen with no clipboard. -->
     <string name="taildrive_address_title">WebDAV address</string>
-    <string name="taildrive_address_device_only">Only apps on this device can open it. To reach it from another device, set Local Proxy IP to 0.0.0.0.</string>
     <string name="taildrive_address_login_hidden">The proxy asks for a login.</string>
     <string name="taildrive_address_show_login">Show login</string>
     <string name="taildrive_address_hide_login">Hide login</string>

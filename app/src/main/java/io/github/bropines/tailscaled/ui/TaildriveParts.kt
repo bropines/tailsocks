@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -110,10 +111,13 @@ internal fun BrowseSharesFab(onClick: () -> Unit, modifier: Modifier = Modifier)
 }
 
 /**
- * The proxy's address for a screen with no clipboard (the Feature that hides copying): large
- * enough to read from a sofa, and as a code for a phone or laptop to scan. The login is behind
- * its own button — it is on the screen, and in the code, only once [revealLogin] says the user
- * asked. A proxy only this device can reach has no code: scanned elsewhere it would lead nowhere.
+ * The proxy's address as another device is given it: large enough to read — from a sofa, on a
+ * television — and as a code for a phone or laptop to scan. It is the card of a screen with no
+ * clipboard (the Feature that hides copying), whatever the proxy listens on, and of every screen
+ * once the proxy is let out of this device; where there is a clipboard, [onCopy] adds the button
+ * for it. The login is behind its own button — it is on the screen, and in the code, only once
+ * [revealLogin] says the user asked. A proxy only this device can reach has no code: scanned
+ * elsewhere it would lead nowhere, and the card says which of the two reasons it is.
  */
 @Composable
 internal fun DriveAddressCard(
@@ -121,10 +125,13 @@ internal fun DriveAddressCard(
     revealLogin: Boolean,
     onToggleLogin: () -> Unit,
     modifier: Modifier = Modifier,
+    onCopy: (() -> Unit)? = null,
 ) {
     val on = MaterialTheme.colorScheme.onSecondaryContainer
     val login = address.login
     val qr = address.qrText(withLogin = revealLogin)
+    // A handheld is read at arm's length, and its card is narrow: the address has to stay on one line.
+    val urlStyle = if (isTv) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
         shape = MaterialTheme.shapes.medium,
@@ -137,9 +144,24 @@ internal fun DriveAddressCard(
                 fontWeight = FontWeight.Bold,
                 color = on
             )
-            Text(address.url, style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace, color = on)
+            if (onCopy == null) {
+                Text(address.url, style = urlStyle, fontFamily = FontFamily.Monospace, color = on)
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(address.url, style = urlStyle, fontFamily = FontFamily.Monospace, color = on, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onCopy) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy), tint = on)
+                    }
+                }
+            }
+            for (other in address.alsoAt) {
+                Text(stringResource(R.string.taildrive_address_also, other), style = MaterialTheme.typography.bodyMedium, color = on)
+            }
             if (address.deviceOnly) {
-                HelpText(stringResource(R.string.taildrive_address_device_only), color = on)
+                HelpText(
+                    stringResource(if (address.noNetwork) R.string.taildrive_address_no_network else R.string.taildrive_address_this_device),
+                    color = on
+                )
             }
             if (login != null) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

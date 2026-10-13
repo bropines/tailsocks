@@ -605,21 +605,67 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             if (!tv) accessVerdict()
 
             if (isProxyEnabled) {
+                // The proxy's settings as they are stored; a preview draws the ones it was given.
+                val lanDemo = LocalDriveLanDemo.current
+                var authBeforeLan by remember { mutableStateOf(prefs.driveAuthBeforeLan()) }
+                val drive = lanDemo?.settings
+                    ?: DriveLanSettings(proxyIp, isProxyAuthEnabled, proxyUsername, proxyPassword, authBeforeLan)
+                // The one way a control changes them: what core/TaildriveLan.kt makes of the
+                // press is written in one go, and the proxy is restarted once for it. The
+                // settings are read when the press arrives, not when the control was drawn: a
+                // field commits as it leaves the screen, after the press that removed it was
+                // applied, and must not write that press's settings back.
+                val updateDrive: ((DriveLanSettings) -> DriveLanSettings) -> Unit = { change ->
+                    val now = DriveLanSettings(proxyIp, isProxyAuthEnabled, proxyUsername, proxyPassword, authBeforeLan)
+                    val next = change(now)
+                    if (next != now) {
+                        proxyIp = next.bind
+                        isProxyAuthEnabled = next.auth
+                        proxyUsername = next.user
+                        proxyPassword = next.password
+                        authBeforeLan = next.authBeforeLan
+                        prefs.storeDriveLan(next)
+                        triggerServiceSettingsUpdate(context)
+                    }
+                }
+                val lanState = drive.state
+                val lanFocus = remember { FocusRequester() }
+                var choosingLan by remember { mutableStateOf(false) }
+
+                // Who can reach the proxy: one switch over the bind address, which went under
+                // the fold further down.
+                DriveLanRow(
+                    settings = drive,
+                    onToggle = { on -> updateDrive { if (on) DriveLan.allow(it) else DriveLan.deviceOnly(it) } },
+                    onChoose = { choosingLan = true },
+                    modifier = Modifier.focusRequester(lanFocus)
+                )
+                if (choosingLan) {
+                    DriveLanChoiceDialog(
+                        host = DriveLan.host(drive.bind),
+                        onAllow = {
+                            choosingLan = false
+                            updateDrive { DriveLan.allow(it) }
+                        },
+                        onDeviceOnly = {
+                            choosingLan = false
+                            updateDrive { DriveLan.deviceOnly(it) }
+                        },
+                        onDismiss = { choosingLan = false }
+                    )
+                }
+                if (drive.openToNetwork) {
+                    DriveOpenNotice(onRequireLogin = {
+                        // The button goes with the notice: the remote moves to the switch first.
+                        if (tv) runCatching { lanFocus.requestFocus() }
+                        updateDrive { DriveLan.requireLogin(it) }
+                    })
+                }
+
                 Column(
                     modifier = Modifier.padding(vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ProxySettingField(
-                        value = proxyIp,
-                        label = stringResource(R.string.taildrive_proxy_ip),
-                        placeholder = "127.0.0.1",
-                        keyboardType = KeyboardType.Uri
-                    ) { ip ->
-                        proxyIp = ip
-                        prefs.edit().putString("taildrive_proxy_ip", ip).apply()
-                        triggerServiceSettingsUpdate(context)
-                    }
-
                     ProxySettingField(
                         value = proxyPort,
                         label = stringResource(R.string.taildrive_proxy_port),
@@ -636,34 +682,31 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                     }
                 }
 
+                // While the local network is let in the login cannot be switched off
+                // (DriveLan.setAuth refuses): the row says why it does not move. It is not
+                // drawn disabled — a disabled switch that is on reads as one that is off.
                 SettingsSwitchItem(
                     title = stringResource(R.string.taildrive_require_auth),
-                    subtitle = stringResource(R.string.taildrive_require_auth_desc),
+                    subtitle = stringResource(if (drive.loginRequired) R.string.taildrive_lan_auth_locked else R.string.taildrive_require_auth_desc),
                     icon = Icons.Default.Lock,
-                    checked = isProxyAuthEnabled
-                ) { checked ->
-                    isProxyAuthEnabled = checked
-                    prefs.edit().putBoolean("taildrive_proxy_auth_enabled", checked).apply()
-                    triggerServiceSettingsUpdate(context)
-                }
+                    checked = drive.auth
+                ) { checked -> updateDrive { DriveLan.setAuth(it, checked) } }
 
-                if (isProxyAuthEnabled) {
+                if (drive.auth) {
                     Column(
                         modifier = Modifier.padding(vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ProxySettingField(
-                            value = proxyUsername,
-                            label = stringResource(R.string.taildrive_username)
-                        ) { user ->
-                            proxyUsername = user
-                            prefs.edit().putString("taildrive_proxy_username", user).apply()
-                            triggerServiceSettingsUpdate(context)
-                        }
+                            value = drive.user,
+                            label = stringResource(R.string.taildrive_username),
+                            required = drive.loginRequired
+                        ) { user -> updateDrive { DriveLan.setUser(it, user) } }
 
                         ProxySettingField(
-                            value = proxyPassword,
+                            value = drive.password,
                             label = stringResource(R.string.taildrive_password),
+                            required = drive.loginRequired,
                             keyboardType = KeyboardType.Password,
                             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
@@ -677,51 +720,66 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                     )
                                 }
                             }
-                        ) { pass ->
-                            proxyPassword = pass
-                            prefs.edit().putString("taildrive_proxy_password", pass).apply()
-                            triggerServiceSettingsUpdate(context)
-                        }
+                        ) { pass -> updateDrive { DriveLan.setPassword(it, pass) } }
                     }
+                }
+
+                // The bind address itself, for whoever needs a particular one. The switch above
+                // writes the two values nearly everyone wants, so the field starts folded —
+                // unless it holds an address of its own, which the switch can only point to.
+                var advancedOpen by rememberSaveable { mutableStateOf(lanState == DriveLanState.CUSTOM) }
+                DriveAdvancedFold(open = advancedOpen, onToggle = { advancedOpen = !advancedOpen }) {
+                    ProxySettingField(
+                        value = DriveLan.shown(drive.bind),
+                        label = stringResource(R.string.taildrive_proxy_ip),
+                        placeholder = DriveLan.LOOPBACK,
+                        keyboardType = KeyboardType.Uri
+                    ) { ip -> updateDrive { DriveLan.bindTo(it, ip) } }
+                    HelpText(stringResource(R.string.taildrive_lan_bind_help), modifier = Modifier.padding(horizontal = 4.dp))
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (!clipboardOffered) {
-                    // A screen with no clipboard has nowhere to paste a copied address, so it shows it:
-                    // readable from across the room, and as a code. See DriveAddressCard.
-                    val lan = remember(isProxyEnabled) { if (inPreview) null else DriveAddresses.lanAddress() }
-                    val address = remember(proxyIp, proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword, lan) {
-                        DriveAddresses.of(proxyIp, proxyPort, isProxyAuthEnabled, proxyUsername, proxyPassword, lan)
-                    }
-                    DriveAddressCard(address, revealLogin = showPassword, onToggleLogin = { showPassword = !showPassword })
+                val copyUrl = { url: String ->
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("WebDAV URL", url)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
+                }
+                if (!clipboardOffered || lanState != DriveLanState.OFF) {
+                    // The address as another device is given it: this device's own on the local
+                    // network — never the wildcard the proxy is bound to — readable, and as a code.
+                    // A screen with no clipboard has nowhere to paste a copied address, so it has
+                    // this card whatever the proxy listens on. See DriveAddressCard.
+                    val lans = lanDemo?.lans ?: rememberLanAddresses()
+                    val address = remember(drive, proxyPort, lans) { DriveLan.address(drive, proxyPort, lans) }
+                    DriveAddressCard(
+                        address,
+                        revealLogin = showPassword,
+                        onToggleLogin = { showPassword = !showPassword },
+                        onCopy = if (clipboardOffered) ({ copyUrl(address.copyText) }) else null
+                    )
                 } else {
                     // Copyable URL Card. Built from the stored values, not the
                     // ones still being typed: it names what the proxy serves.
-                    val hasCredentials = isProxyAuthEnabled && proxyUsername.isNotEmpty() && proxyPassword.isNotEmpty()
-                    val formattedUrl = remember(proxyIp, proxyPort, hasCredentials, proxyUsername, proxyPassword) {
+                    val hasCredentials = drive.hasLogin
+                    val formattedUrl = remember(drive, proxyPort) {
                         if (hasCredentials) {
-                            "http://$proxyUsername:$proxyPassword@$proxyIp:$proxyPort"
+                            "http://${drive.user}:${drive.password}@${drive.bind}:$proxyPort"
                         } else {
-                            "http://$proxyIp:$proxyPort"
+                            "http://${drive.bind}:$proxyPort"
                         }
                     }
                     // The password field hides the password; printing it in the
                     // URL right under it would undo that. The copy stays whole.
                     val shownUrl = if (hasCredentials && !showPassword) {
-                        "http://$proxyUsername:••••••••@$proxyIp:$proxyPort"
+                        "http://${drive.user}:••••••••@${drive.bind}:$proxyPort"
                     } else formattedUrl
-                    val copyUrl = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        val clip = android.content.ClipData.newPlainText("WebDAV URL", formattedUrl)
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, context.getString(R.string.taildrive_copied_url), Toast.LENGTH_SHORT).show()
-                    }
 
                     // The whole card copies, as its label says; the icon stays as
                     // the visible and spoken affordance.
                     Card(
-                        onClick = copyUrl,
+                        onClick = { copyUrl(formattedUrl) },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.fillMaxWidth()
@@ -740,7 +798,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                                     color = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                             }
-                            IconButton(onClick = copyUrl) {
+                            IconButton(onClick = { copyUrl(formattedUrl) }) {
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
                                     contentDescription = stringResource(R.string.action_copy),
@@ -1048,7 +1106,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
  * the tunnel — so applying per keystroke did that ten times for one address.
  * The text is held here while it is typed and committed once: on Done, when the
  * field loses focus, or when it leaves the screen. [accept] reshapes or, with
- * null, refuses a keystroke.
+ * null, refuses a keystroke. A [required] setting cannot be left empty: an
+ * emptied field goes back to the stored value instead of being committed.
  */
 @Composable
 private fun ProxySettingField(
@@ -1058,6 +1117,7 @@ private fun ProxySettingField(
     keyboardType: KeyboardType = KeyboardType.Text,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: (@Composable () -> Unit)? = null,
+    required: Boolean = false,
     accept: (String) -> String? = { it },
     onCommit: (String) -> Unit
 ) {
@@ -1065,7 +1125,7 @@ private fun ProxySettingField(
     // keyboard comes up with the focus: the arrows then belong to the keyboard and the page cannot be
     // left. On a television the field is a row, and OK opens it.
     if (isTv) {
-        ProxySettingRow(value, label, keyboardType, visualTransformation, trailingIcon, accept, onCommit)
+        ProxySettingRow(value, label, keyboardType, visualTransformation, trailingIcon, required, accept, onCommit)
         return
     }
     // Keyed on the stored value, so a change made elsewhere — the generated
@@ -1076,7 +1136,9 @@ private fun ProxySettingField(
     val committed = remember(value) { CommittedText(value) }
     val focusManager = LocalFocusManager.current
     val commit = {
-        if (draft != committed.text) {
+        if (required && draft.isEmpty()) {
+            draft = committed.text
+        } else if (draft != committed.text) {
             committed.text = draft
             onCommit(draft)
         }
@@ -1117,6 +1179,7 @@ private fun ProxySettingRow(
     keyboardType: KeyboardType,
     visualTransformation: VisualTransformation,
     trailingIcon: (@Composable () -> Unit)?,
+    required: Boolean,
     accept: (String) -> String?,
     onCommit: (String) -> Unit
 ) {
@@ -1144,7 +1207,8 @@ private fun ProxySettingRow(
     if (editing) {
         var draft by remember { mutableStateOf(value) }
         val done = {
-            if (draft != value) onCommit(draft)
+            // An emptied field that may not be empty: closing keeps what was stored.
+            if (draft != value && !(required && draft.isEmpty())) onCommit(draft)
             editing = false
         }
         AppAlertDialog(
