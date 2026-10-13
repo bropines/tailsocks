@@ -82,6 +82,7 @@ import io.github.bropines.tailscaled.ui.ListDetailLayout
 import io.github.bropines.tailscaled.ui.PaneEmptyState
 import io.github.bropines.tailscaled.ui.PickerOption
 import io.github.bropines.tailscaled.ui.PickerSheet
+import io.github.bropines.tailscaled.ui.isTv
 import io.github.bropines.tailscaled.ui.rememberWindowLayout
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -190,6 +191,8 @@ fun AdminDashboard(
                 isRefreshing = loadableFor(state, tab)?.loading == true,
                 onRefresh = { vm?.refresh(tab, force = true) },
                 modifier = Modifier.fillMaxSize(),
+                // Not for a remote, whose held arrow would be taken for a pull.
+                enabled = !isTv,
             ) {
                 when (tab) {
                     ConsoleTab.ATTENTION -> AttentionTab(

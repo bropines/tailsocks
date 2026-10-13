@@ -897,7 +897,10 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = { loadLogsData(true) },
-            modifier = Modifier.fillMaxSize().padding(padding)
+            modifier = Modifier.fillMaxSize().padding(padding),
+            // A remote does not pull, and its held arrow is taken for one; the log reads
+            // itself again every two seconds anyway.
+            enabled = !tv
         ) {
             if (loaded && rows.isEmpty()) {
                 // In a list, so a pull still refreshes. A filter that hides everything says
