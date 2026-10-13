@@ -2,6 +2,7 @@ package io.github.bropines.tailscaled.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -465,7 +466,18 @@ private fun Busy(text: String) {
 private fun Failure(error: DriveError, actions: DriveBrowserActions) {
     when (error) {
         // The shared "daemon stopped" state starts the service itself and calls back when it answers.
-        DriveError.NotConnected -> DaemonStoppedState(onStarted = actions.onDaemonStarted)
+        DriveError.NotConnected -> {
+            // The shared state has a Start button and no way to ask for it the focus: a remote would
+            // have nothing under it until a first arrow. Entering the page puts it on the button.
+            val entry = remember { FocusRequester() }
+            if (isTv && !LocalInspectionMode.current) LaunchedEffect(Unit) {
+                withFrameNanos { }
+                runCatching { entry.requestFocus() }
+            }
+            Box(Modifier.fillMaxSize().focusRequester(entry).focusGroup()) {
+                DaemonStoppedState(onStarted = actions.onDaemonStarted)
+            }
+        }
         DriveError.ProxyOff -> State(
             icon = Icons.Default.Lan,
             title = stringResource(R.string.taildrive_browser_proxy_off),
