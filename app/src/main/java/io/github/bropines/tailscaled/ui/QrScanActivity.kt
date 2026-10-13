@@ -19,6 +19,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.camera.compose.CameraXViewfinder
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -114,6 +115,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.PredictiveBackContainer
 import io.github.bropines.tailscaled.core.QrDecoder
 import io.github.bropines.tailscaled.core.QrFrameAnalyzer
+import io.github.bropines.tailscaled.core.looksLikeSetupCode
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.ui.theme.findActivity
@@ -128,7 +130,11 @@ import java.util.concurrent.Executors
  * The QR scanner: the camera, or a picture from the gallery, and the text of
  * the first code found handed back to the screen that opened it ([ScanQrCode],
  * [rememberQrScanner]). What the text means is that screen's business
- * (ScannedCode); the scanner itself opens nothing.
+ * (ScannedCode); the scanner itself opens nothing — with one exception. The
+ * code a television draws to be sent a key (ui/TvKeySetup.kt) is answered
+ * here, by a sheet over the scanner (ui/KeySendSheet.kt), whichever screen
+ * opened it: that code is good for minutes, and it is nothing a screen waiting
+ * for a TailCat address or a web link should be handed as text.
  *
  * The camera permission is asked for as the scanner opens, never earlier, with
  * the reason on screen behind the system's dialog. Refused, the screen says
@@ -142,6 +148,9 @@ class QrScanActivity : ComponentActivity() {
     companion object {
         internal const val EXTRA_TEXT = "text"
     }
+
+    /** A key on its way to a television: kept with the activity's ViewModels, so a rotation does not lose it. */
+    private val keySend: KeySendModel by viewModels()
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -157,6 +166,7 @@ class QrScanActivity : ComponentActivity() {
         setContent {
             TailSocksTheme {
                 QrScanScreen(
+                    keySend = keySend,
                     onBack = { finish() },
                     onScanned = { text ->
                         setResult(RESULT_OK, Intent().putExtra(EXTRA_TEXT, text))
@@ -205,7 +215,7 @@ internal enum class CameraAccess {
 private val Scrim = Color.Black.copy(alpha = 0.6f)
 
 @Composable
-private fun QrScanScreen(onBack: () -> Unit, onScanned: (String) -> Unit) {
+private fun QrScanScreen(keySend: KeySendModel, onBack: () -> Unit, onScanned: (String) -> Unit) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
     val view = LocalView.current
@@ -265,11 +275,13 @@ private fun QrScanScreen(onBack: () -> Unit, onScanned: (String) -> Unit) {
 
     // One code, once: the camera may find it again in the next frame.
     var delivered by remember { mutableStateOf(false) }
+    // The sheet for a television's setup code is up: the camera rests under it.
+    val sendingKey = keySend.scanned != null
     fun deliver(text: String) {
-        if (delivered) return
+        if (delivered || sendingKey) return
         delivered = true
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        onScanned(text)
+        if (looksLikeSetupCode(text)) keySend.open(text.trim(), ownLoginServer(context)) else onScanned(text)
     }
 
     var reading by remember { mutableStateOf(false) }
@@ -320,7 +332,7 @@ private fun QrScanScreen(onBack: () -> Unit, onScanned: (String) -> Unit) {
             onGallery = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             onTorch = { on -> camera?.cameraControl?.enableTorch(on) },
             camera = {
-                key(attempt) {
+                if (!sendingKey) key(attempt) {
                     CameraFeed(
                         onCode = ::deliver,
                         onCamera = { camera = it },
@@ -331,6 +343,17 @@ private fun QrScanScreen(onBack: () -> Unit, onScanned: (String) -> Unit) {
             }
         )
     }
+    KeySendSheet(
+        model = keySend,
+        onRescan = {
+            keySend.close()
+            delivered = false
+        },
+        onClose = {
+            keySend.close()
+            onBack()
+        }
+    )
 }
 
 /** Transparent bars: the theme paints them its background, which would cover the camera. */
