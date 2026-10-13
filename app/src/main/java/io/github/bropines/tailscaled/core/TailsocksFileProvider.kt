@@ -452,9 +452,9 @@ class TailsocksFileProvider : DocumentsProvider() {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Taildrive", "Error reading file from WebDAV: ${e.message}")
+                android.util.Log.e("Taildrive", "Error reading file from WebDAV: ${e.javaClass.simpleName}")
                 try {
-                    writeFd.closeWithError(e.message ?: "Read error")
+                    writeFd.closeWithError("Read error")
                 } catch (ex: Exception) {}
             } finally {
                 try { input?.close() } catch (e: Exception) {}
