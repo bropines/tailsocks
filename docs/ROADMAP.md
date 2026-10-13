@@ -154,8 +154,9 @@ State as of 2026-10-14, at 5.0.0.
       test tailnet and on the author's phone and WSA; not yet seen:
   1. A television with ARM hardware: first start with the remote, the dashboard, a file
      picked and sent, a share opened, the focus ring on a real panel's overscan.
-  2. Sign-in by QR to completion on a television, and a key sent from a phone — once on the
-     same Wi-Fi, once with the phone on mobile data (the relay path).
+  2. Sign-in by QR to completion on a television, and a key sent from a phone over the local
+     network. The relay path is verified: the author sent a key from his phone to WSA on
+     2026-10-14, the check codes matched and the device signed in.
   3. Remote management as a **guest**: a device of another user in the same tailnet, or a
      shared-in node. Pairing from another tailnet is impossible by design.
   4. Pairing with a managed device in Root Mode (the endpoint answers there; the pairing
