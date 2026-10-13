@@ -50,6 +50,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -393,6 +394,11 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
     var confirmAll by remember { mutableStateOf(false) }
     var confirmFull by remember { mutableStateOf(false) }
     val access = remember(ui.access) { remoteAccessGroups(ui.access) }
+    // Where the remote goes from the list of paired devices once its last row is revoked: to
+    // the pairing code's button, and where that is not there or cannot be pressed, to the switch.
+    val switchStop = remember { FocusRequester() }
+    val pairStop = remember { FocusRequester() }
+    val afterRows = if (ui.enabled && (ui.state.pairing != null || ui.reach.canPair)) pairStop else switchStop
 
     // What one does: the switches and the code.
     val first: @Composable ColumnScope.() -> Unit = {
@@ -403,7 +409,7 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
             stringResource(R.string.remote_managed_switch_help),
             ui.enabled,
             actions::setEnabled,
-            Modifier.tvInitialFocus()
+            Modifier.tvInitialFocus().focusRequester(switchStop)
         )
         if (ui.notice == RemoteNotice.NO_SWITCH) NoticeLine(failed)
         // Off is not claimed before the endpoint is closed.
@@ -417,7 +423,7 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
         ReachCard(ui.reach, ui.state.port)
         if (ui.enabled) {
             // The code first: it is what one comes here for. How much a pairing gives, and to whom, is set once.
-            PairCard(ui, actions, wide = !layout.isPhone)
+            PairCard(ui, actions, wide = !layout.isPhone, first = pairStop)
             SwitchCard(
                 Icons.Default.AdminPanelSettings,
                 stringResource(R.string.remote_full_title),
@@ -436,7 +442,7 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
     val listed = ui.enabled || ui.devices.isNotEmpty()
     val hasSecond = listed || access.isNotEmpty()
     val second: @Composable ColumnScope.() -> Unit = {
-        if (listed) DevicesCard(ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true })
+        if (listed) DevicesCard(ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true }, afterRows = afterRows)
         if (access.isNotEmpty()) AccessCard(access, ui.accessOpen, ui.accessNotApplied, actions::toggleAccess)
         if (listed) LogCard(ui.log, ui.logOpen, ui.now, actions::toggleLog)
     }
@@ -694,11 +700,11 @@ private fun NoticeLine(text: String) {
 /** "Pair a device": the button, or the code with its QR, what is left of it and who guessed wrong. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PairCard(ui: RemoteManagedUi, actions: RemoteManagedActions, wide: Boolean) {
+private fun PairCard(ui: RemoteManagedUi, actions: RemoteManagedActions, wide: Boolean, first: FocusRequester) {
     val code = ui.state.pairing
     // "Show a code" gives way to "New code" and "Hide", and back when the code is hidden, used or
-    // out of time: the remote stays in the card through each of these.
-    val first = remember { FocusRequester() }
+    // out of time: the remote stays in the card through each of these. [first] is the card's
+    // first button in either state — also where the remote lands from an emptied list of devices.
     RemoteCard(stringResource(R.string.remote_pair_title), Modifier.keepsFocus(code != null, first)) {
         if (code == null) {
             Button(
@@ -839,14 +845,38 @@ internal fun RemoteRoleTag(owner: Boolean, modifier: Modifier = Modifier, text: 
 
 /** Who may manage this device, each with its Revoke button in plain sight. */
 @Composable
-private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevokeAll: () -> Unit) {
+private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevokeAll: () -> Unit, afterRows: FocusRequester) {
+    // A revoked device's row goes, and the button the remote was on with it: the next key would
+    // start from the top of the page. The remote is handed to the row that took its place, and
+    // from an emptied list to [afterRows].
+    val ids = ui.devices.map { it.nodeId }
+    val stops = remember { mutableMapOf<String, FocusRequester>() }
+    val held = remember { arrayOfNulls<String>(1) }
+    val shown = remember { arrayOf(ids) }
+    // Read while the new list is composed: the old rows, and the focus on one, are still there.
+    val heir = remember(ids) { remoteRowHeir(shown[0], ids, held[0]).also { shown[0] = ids } }
+    LaunchedEffect(ids) {
+        stops.keys.retainAll(ids.toSet())
+        val to = when (heir) {
+            RemoteRowHeir.Stay -> return@LaunchedEffect
+            is RemoteRowHeir.Row -> stops[heir.id] ?: return@LaunchedEffect
+            RemoteRowHeir.Out -> afterRows
+        }
+        // The heir is in the tree once this frame is laid out.
+        withFrameNanos { }
+        runCatching { to.requestFocus() }
+    }
+    fun Modifier.stop(id: String): Modifier = onFocusChanged {
+        if (it.hasFocus) held[0] = id else if (held[0] == id) held[0] = null
+    }
     RemoteCard(
         stringResource(R.string.remote_paired_title),
         action = if (ui.devices.isEmpty()) null else {
             {
                 TextButton(
                     onClick = onRevokeAll,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.stop(REMOTE_ROWS_ALL)
                 ) { Text(stringResource(R.string.remote_revoke_all)) }
             }
         }
@@ -859,9 +889,15 @@ private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevok
             )
         }
         ui.devices.forEach { device ->
-            // A guest paired before guests were shut out keeps its place and is refused meanwhile.
-            DeviceRow(device, ui.now, refused = !device.owner && !ui.guests, onRevoke = { onRevoke(device.nodeId) })
-            Spacer(Modifier.height(8.dp))
+            key(device.nodeId) {
+                val stop = stops.getOrPut(device.nodeId) { FocusRequester() }
+                // A guest paired before guests were shut out keeps its place and is refused meanwhile.
+                DeviceRow(
+                    device, ui.now, refused = !device.owner && !ui.guests, onRevoke = { onRevoke(device.nodeId) },
+                    revoke = Modifier.focusRequester(stop).stop(device.nodeId)
+                )
+                Spacer(Modifier.height(8.dp))
+            }
         }
         if (ui.notice == RemoteNotice.NOT_SAVED) NoticeLine(stringResource(R.string.remote_revoke_not_saved))
         else if (ui.state.unsaved) NoticeLine(stringResource(R.string.remote_unsaved))
@@ -884,8 +920,40 @@ private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevok
     }
 }
 
+/**
+ * Where the remote goes when the stop it was on is taken from a list of rows. [before] and
+ * [after] are the rows' ids as they were and as they are, [focused] the row the remote was on,
+ * [REMOTE_ROWS_ALL] for the stop above the rows that is there while there are any, null for
+ * anywhere else.
+ */
+internal sealed interface RemoteRowHeir {
+    /** The remote was on nothing that went away. */
+    data object Stay : RemoteRowHeir
+
+    /** The row that took the place of the one that went: the next one still there, else the one before it. */
+    data class Row(val id: String) : RemoteRowHeir
+
+    /** No row is left: out of the list. */
+    data object Out : RemoteRowHeir
+}
+
+/** "Revoke all", as a stop of the list: no node is called this. */
+internal const val REMOTE_ROWS_ALL = "\u0000all"
+
+internal fun remoteRowHeir(before: List<String>, after: List<String>, focused: String?): RemoteRowHeir {
+    if (focused == null) return RemoteRowHeir.Stay
+    if (focused == REMOTE_ROWS_ALL) return if (before.isNotEmpty() && after.isEmpty()) RemoteRowHeir.Out else RemoteRowHeir.Stay
+    val at = before.indexOf(focused)
+    if (at < 0 || focused in after) return RemoteRowHeir.Stay
+    val next = before.drop(at + 1).firstOrNull { it in after }
+        ?: before.take(at).lastOrNull { it in after }
+        ?: after.firstOrNull()
+    return if (next == null) RemoteRowHeir.Out else RemoteRowHeir.Row(next)
+}
+
+/** One paired device; [revoke] goes on its button, the row's one stop. */
 @Composable
-private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, onRevoke: () -> Unit) {
+private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, onRevoke: () -> Unit, revoke: Modifier = Modifier) {
     val context = LocalContext.current
     val term = if (device.left < 0) stringResource(R.string.remote_paired_until_revoked)
     else stringResource(R.string.remote_paired_expires_in, remoteDurationText(device.left))
@@ -935,7 +1003,7 @@ private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, o
                 onClick = onRevoke,
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.semantics { contentDescription = revokeLabel }
+                modifier = revoke.semantics { contentDescription = revokeLabel }
             ) { Text(stringResource(R.string.remote_revoke)) }
         }
     }
