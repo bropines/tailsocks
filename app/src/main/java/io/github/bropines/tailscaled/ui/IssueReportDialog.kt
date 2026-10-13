@@ -26,7 +26,6 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.Diagnostics
+import io.github.bropines.tailscaled.core.Feature
+import io.github.bropines.tailscaled.core.canLaunch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URLEncoder
@@ -86,9 +87,21 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
     // Read here, not inside the dialog, whose own window would answer for itself. A tall
     // tablet has the room to show more of the report before it has to be scrolled.
     val window = rememberWindowLayout()
-    val reportHeight = if (!window.isPhone && window.heightClass == WindowHeightClass.EXPANDED) 480.dp else 260.dp
+    // A television's dialog is held inside its safe area, 486dp of a 540dp screen: the
+    // report gives way, or the buttons under it are cut off.
+    val reportHeight = when {
+        isTv -> 150.dp
+        !window.isPhone && window.heightClass == WindowHeightClass.EXPANDED -> 480.dp
+        else -> 260.dp
+    }
+    val reportScroll = rememberScrollState()
+    // What a television can do with a report it shows: no clipboard, often no share target and
+    // no browser. A phone is offered all three, as it always was.
+    val copyOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    val shareOffered = !isTv || context.canLaunch(shareIntent("", ""))
+    val openOffered = Feature.BROWSER.offered()
 
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.BugReport, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text(title) },
@@ -106,17 +119,19 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
+                            // The report is a stop for the remote, whose arrows read it.
+                            .tvReadingPane(reportScroll)
                             .padding(12.dp)
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(reportScroll)
                     )
                 }
-                Row(
+                if (copyOffered || shareOffered) Row(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Half a dialog each, so the label is kept on one line and the icon
                     // small: "Копировать" broke across two lines mid-word at this width.
-                    OutlinedButton(
+                    if (copyOffered) OutlinedButton(
                         onClick = { report?.let { copyToClipboard(context, it, copied) } },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
@@ -130,7 +145,7 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
                             softWrap = false
                         )
                     }
-                    OutlinedButton(
+                    if (shareOffered) OutlinedButton(
                         onClick = { report?.let { shareReport(context, it) } },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
@@ -148,20 +163,27 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val body = template + "\n\n```\n" + (report ?: "") + "\n```"
-                    openIssueForm(context, body)
-                    onDismiss()
-                },
-                enabled = report != null
-            ) {
-                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(openLabel, maxLines = 1, softWrap = false)
+            if (openOffered) {
+                Button(
+                    onClick = {
+                        val body = template + "\n\n```\n" + (report ?: "") + "\n```"
+                        openIssueForm(context, body)
+                        onDismiss()
+                    },
+                    enabled = report != null
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(openLabel, maxLines = 1, softWrap = false)
+                }
+            } else {
+                // Nothing to send the report with: it is for reading, and Close ends it.
+                TextButton(onClick = onDismiss) { Text(close) }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(close) } }
+        dismissButton = if (openOffered) {
+            { TextButton(onClick = onDismiss) { Text(close) } }
+        } else null
     )
 }
 
@@ -171,12 +193,14 @@ private fun copyToClipboard(context: Context, text: String, confirmation: String
     Toast.makeText(context, confirmation, Toast.LENGTH_SHORT).show()
 }
 
+private fun shareIntent(subject: String, text: String): Intent = Intent(Intent.ACTION_SEND).apply {
+    type = "text/plain"
+    putExtra(Intent.EXTRA_SUBJECT, subject)
+    putExtra(Intent.EXTRA_TEXT, text)
+}
+
 private fun shareReport(context: Context, text: String) {
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "TailSocks diagnostics")
-        putExtra(Intent.EXTRA_TEXT, text)
-    }
+    val send = shareIntent("TailSocks diagnostics", text)
     runCatching { context.startActivity(Intent.createChooser(send, null)) }
 }
 
