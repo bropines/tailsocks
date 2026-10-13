@@ -20,8 +20,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,11 +38,14 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -95,6 +100,12 @@ private data class SettingsCategory(
     val cards: Int = 1,
     /** One long card whose rows split into two columns instead (see [LocalSettingsColumns]). */
     val splits: Boolean = false,
+    /**
+     * The feature the whole page is, where it is one (core/DeviceProfile.kt). A device that
+     * is offered it finds the page in the hub; one that keeps it for the advanced settings —
+     * a television — finds it on the Advanced page instead.
+     */
+    val feature: Feature? = null,
 )
 
 /** The 11 categories of the target structure, in their A..K order. */
@@ -107,10 +118,65 @@ private val settingsCategories = listOf(
     SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield, cards = 3),
     SettingsCategory("sharing", R.string.settings_cat_sharing, R.string.settings_cat_sharing_desc, Icons.Default.Share, cards = 3),
     SettingsCategory("background", R.string.settings_cat_background, R.string.settings_cat_background_desc, Icons.Default.Bolt),
-    SettingsCategory("backup", R.string.settings_cat_backup, R.string.settings_cat_backup_desc, Icons.Default.Backup),
-    SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton, cards = 2),
-    SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport, cards = 4)
+    SettingsCategory("backup", R.string.settings_cat_backup, R.string.settings_cat_backup_desc, Icons.Default.Backup, feature = Feature.BACKUP_RESTORE),
+    SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton, cards = 2, feature = Feature.AUTOMATION),
+    SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport, cards = 4, feature = Feature.DIAGNOSTICS)
 )
+
+/**
+ * The hub's last row on a device that keeps some features for its advanced settings, and
+ * the page behind it: the pages and the screens of those features. A handheld is offered
+ * everything in its usual place and has no such row.
+ */
+private val advancedCategory =
+    SettingsCategory("advanced", R.string.tv_settings_advanced, R.string.tv_settings_advanced_desc, Icons.Default.Tune, cards = 2)
+
+/**
+ * Two parts of a category that are features of their own, as pages for the Advanced page:
+ * the theme and the icon out of Appearance, and Tunnel mode with Root among its modes.
+ */
+private val themePage =
+    SettingsCategory("theme", R.string.tv_settings_theme, R.string.tv_settings_theme_desc, Icons.Default.Palette, feature = Feature.THEME_AND_ICON)
+private val rootPage =
+    SettingsCategory("root", R.string.tv_settings_root, R.string.tv_settings_root_desc, Icons.Default.Security, feature = Feature.ROOT_MODE)
+
+/** Every page Settings can show, for a page's title and layout. */
+private val settingsPages = settingsCategories + themePage + rootPage + advancedCategory
+
+/** The pages the Advanced page may list, in its order: [SettingsCategory.feature] decides which it does. */
+private val advancedPageCandidates = listOf(themePage, rootPage) + settingsCategories.filter { it.feature != null }
+
+/** A screen of its own that the Advanced page links to where its [feature] is kept for the advanced settings. */
+private class AdvancedTool(val feature: Feature, val titleRes: Int, val descRes: Int, val icon: ImageVector, val screen: Class<*>)
+
+private val advancedTools = listOf(
+    AdvancedTool(Feature.LOGS, R.string.logs_title, R.string.settings_link_logs_desc, Icons.AutoMirrored.Filled.List, LogsActivity::class.java),
+    AdvancedTool(Feature.CONSOLE, R.string.console_title, R.string.settings_link_console_desc, Icons.Default.Terminal, ConsoleActivity::class.java),
+    AdvancedTool(Feature.DNS_SCREEN, R.string.dns_title, R.string.settings_link_dns_desc, Icons.Default.Troubleshoot, DnsActivity::class.java),
+    // The screen itself; what may be changed on it is the screen's own question.
+    AdvancedTool(Feature.SERVE_EDIT, R.string.serve_title, R.string.settings_link_serve_desc, Icons.Default.Public, ServeActivity::class.java),
+)
+
+/** What the remote is sent to after Settings changes what it shows; see `focus` in [SettingsScreen]. */
+private enum class SettingsFocus { HUB, PAGE, ROW }
+
+/** A backup or a restore waiting for its file, where the app's own browser picks it. */
+private enum class BackupFile { FULL_BACKUP, FULL_RESTORE, PROFILE_EXPORT, PROFILE_IMPORT }
+
+private const val FULL_BACKUP_NAME = "tailsocks_full_backup.enc"
+
+/** [name] in [dir], or the first "name (n).ext" that is free: a backup saved by path never overwrites another. */
+private fun freeFile(dir: File, name: String): File {
+    val base = name.substringBeforeLast('.')
+    val extension = name.substringAfterLast('.', "")
+    var file = File(dir, name)
+    var n = 1
+    while (file.exists()) {
+        file = File(dir, if (extension.isEmpty()) "$base ($n)" else "$base ($n).$extension")
+        n++
+    }
+    return file
+}
 
 class SettingsActivity : ComponentActivity() {
     companion object {
@@ -279,6 +345,83 @@ fun SettingsScreen(
     val hubAnchor = remember { ScrollAnchor() }
     val sectionAnchors = remember { mutableMapOf<String, Int>() }
 
+    // What this device is offered, and where (core/DeviceProfile.kt). A handheld is offered
+    // everything in its usual place, so there every list below is the one it always was. A
+    // television keeps some of it for the Advanced page and hides what it cannot do.
+    val device = LocalDeviceClass.current
+    val capabilities = if (device == DeviceClass.HANDHELD) Capabilities.ALL else rememberCapabilities()
+    fun place(feature: Feature?): Availability =
+        if (feature == null) Availability.OFFERED else DeviceProfile.availability(feature, device, capabilities)
+    val advancedPages = remember(device, capabilities) { advancedPageCandidates.filter { place(it.feature) == Availability.ADVANCED } }
+    val advancedLinks = remember(device, capabilities) { advancedTools.filter { place(it.feature) == Availability.ADVANCED } }
+    val hubCategories = remember(device, capabilities) {
+        settingsCategories.filter { place(it.feature) == Availability.OFFERED } +
+            listOfNotNull(advancedCategory.takeIf { advancedPages.isNotEmpty() || advancedLinks.isNotEmpty() })
+    }
+    // The page a page was opened from, when that is not the hub: Back returns there.
+    fun parentOf(section: String?): String? = advancedCategory.id.takeIf { advancedPages.any { it.id == section } }
+
+    // A television's remote. It needs something in focus at every moment, and Settings swaps
+    // what is on screen under it — one page for another, a page for the file browser. So
+    // each swap says where the remote goes next: into the page that opened, or back onto the
+    // row it was opened from; and the effect below sends it there once that is on screen.
+    // Off a television nothing asks and nothing is sent.
+    val tv = isTv
+    val hubFocus = remember { FocusRequester() }
+    val pageFocus = remember { FocusRequester() }
+    val rowFocus = remember { FocusRequester() }
+    var pageHasFocus by remember { mutableStateOf(false) }
+    // The rows to come back to: the hub's, and the Advanced page's.
+    var hubRow by rememberSaveable { mutableStateOf(initialSection?.let { parentOf(it) ?: it }) }
+    var advancedRow by rememberSaveable { mutableStateOf(initialSection?.takeIf { parentOf(it) != null }) }
+    var focusAsked by remember { mutableStateOf<Pair<SettingsFocus, Int>?>(null) }
+    // The list of sections on screen, for bringing a row of it back into view.
+    val hubList = remember { arrayOfNulls<androidx.compose.foundation.lazy.LazyListState>(1) }
+    fun focus(target: SettingsFocus) {
+        if (tv) focusAsked = target to (focusAsked?.second ?: 0) + 1
+    }
+    // Before a page with the remote on it is swapped for another, the remote steps back
+    // onto the list of sections, to the row the page belongs to. A stop that is removed
+    // from under the remote leaves it nowhere, and Compose then puts it on the first stop
+    // of the screen — the top of that list, which scrolls there to show it.
+    fun stepOutOfPage() {
+        if (tv && pageHasFocus) runCatching { hubFocus.requestFocus() }
+    }
+    if (tv) {
+        LaunchedEffect(focusAsked) {
+            val target = focusAsked?.first ?: return@LaunchedEffect
+            // What was asked for is composed by now, and placed a frame later.
+            withFrameNanos { }
+            if (target == SettingsFocus.HUB) {
+                // A row scrolled out of a lazy list is not there to be asked: bring it back first.
+                val list = hubList[0]
+                val index = hubCategories.indexOfFirst { it.id == (hubRow ?: hubCategories.first().id) }
+                if (list != null && index >= 0 && list.layoutInfo.visibleItemsInfo.none { it.index == index }) {
+                    list.scrollToItem(index)
+                    withFrameNanos { }
+                }
+            }
+            val requester = when (target) {
+                SettingsFocus.HUB -> hubFocus
+                SettingsFocus.PAGE -> pageFocus
+                SettingsFocus.ROW -> rowFocus
+            }
+            // False is no failure: a group that puts the remote back on the row it left
+            // (tvFocusGroup) answers the request itself and cancels this one. Only a row
+            // that is not on screen at all — the requester has nothing to ask — falls
+            // back to the page.
+            val asked = runCatching { requester.requestFocus() }
+            if (asked.isFailure && target != SettingsFocus.PAGE) runCatching { pageFocus.requestFocus() }
+        }
+        LaunchedEffect(Unit) { focus(if (openSection == null) SettingsFocus.HUB else SettingsFocus.PAGE) }
+    }
+    fun open(section: String) {
+        if (parentOf(section) == null) hubRow = section else advancedRow = section
+        if (section != openSection) stepOutOfPage()
+        openSection = section
+        focus(SettingsFocus.PAGE)
+    }
+
     // Global Settings
     var taildropRootUri by remember { mutableStateOf(GlobalSettings.getTaildropRootUri(context)) }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
@@ -378,7 +521,10 @@ fun SettingsScreen(
         if (uri != null) { GlobalSettings.setTaildropRootUri(context, uri); taildropRootUri = uri }
     }
 
-    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    // Where a backup goes and where one comes from is a Uri either way: the system's picker
+    // hands one back, and a file picked in the app's own browser is one as well (file://),
+    // which the content resolver opens just the same. So each of the four is a function of one.
+    fun exportProfile(uri: Uri?) {
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
@@ -401,7 +547,7 @@ fun SettingsScreen(
         }
     }
 
-    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    fun importProfile(uri: Uri?) {
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
@@ -472,7 +618,7 @@ fun SettingsScreen(
         }
     }
 
-    val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+    fun writeFullBackup(uri: Uri?) {
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 val tempStatesDir = File(context.cacheDir, "temp_states_backup")
@@ -550,11 +696,32 @@ fun SettingsScreen(
         }
     }
 
-    val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    fun askRestorePassword(uri: Uri?) {
         if (uri != null) {
             pendingRestoreUri = uri
             showRestorePasswordDialog = true
         }
+    }
+
+    val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { exportProfile(it) }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { importProfile(it) }
+    val fullBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { writeFullBackup(it) }
+    val fullRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { askRestorePassword(it) }
+
+    // The system's picker where there is one. Where there is none — a television, as a
+    // rule — or it will not start, the app's own file browser takes the settings' place
+    // until the file is chosen (at the end of this function).
+    var browsingFor by rememberSaveable { mutableStateOf<BackupFile?>(null) }
+    val systemPicker = Feature.SYSTEM_FILE_PICKER.offered()
+    val profileBackupName = "tailsocks_backup_${activeAccount.name}.json"
+    fun pickBackupFile(what: BackupFile) {
+        val launched = systemPicker && when (what) {
+            BackupFile.FULL_BACKUP -> fullBackupLauncher.tryLaunch(FULL_BACKUP_NAME)
+            BackupFile.FULL_RESTORE -> fullRestoreLauncher.tryLaunch("*/*")
+            BackupFile.PROFILE_EXPORT -> backupLauncher.tryLaunch(profileBackupName)
+            BackupFile.PROFILE_IMPORT -> restoreLauncher.tryLaunch("application/json")
+        }
+        if (!launched) browsingFor = what
     }
 
     fun performRestore(uri: Uri, passwordStr: String) {
@@ -954,7 +1121,12 @@ fun SettingsScreen(
     // keeps one, now the native kernel interface. Only the rows of the selected
     // mode are composed, which is why the TUN rows no longer carry the
     // "unavailable in Root mode" notes: in Root mode they are not there at all.
-    val sectionTunnel: @Composable () -> Unit = {
+    //
+    // withRoot: whether Root is among the modes to pick. It is wherever Root Mode is
+    // offered in its usual place; a device that keeps it for the advanced settings reaches
+    // this same page with it through Advanced → Root mode. A device that runs in Root Mode
+    // sees it either way: the mode in use is never hidden.
+    val sectionTunnel: @Composable (Boolean) -> Unit = { withRoot ->
         var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
         var rootTunEnabled by remember { mutableStateOf(GlobalSettings.isRootTunEnabled(context)) }
         var serviceScriptInstalled by remember { mutableStateOf(false) }
@@ -1259,23 +1431,23 @@ fun SettingsScreen(
             }
         }
 
-        @OptIn(ExperimentalFoundationApi::class)
         @Composable
         fun ModeOption(index: Int, icon: ImageVector, title: String, desc: String, danger: Boolean = false) {
             val selected = index == selectedMode
             val accent = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             val help = remember(desc) { mutableStateOf(false) }
-            Card(
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(
-                    containerColor = if (selected) accent.copy(alpha = 0.10f)
-                                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-                ),
-                border = if (selected) BorderStroke(1.dp, accent.copy(alpha = 0.45f)) else null,
+            ExplainedRow(
+                onClick = { selectMode(index) },
+                help = help,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-                    .combinedClickable(onClick = { selectMode(index) }, onLongClick = { help.value = !help.value })
+                    .padding(bottom = 8.dp),
+                shape = MaterialTheme.shapes.large,
+                color = if (selected) accent.copy(alpha = 0.10f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                border = if (selected) BorderStroke(1.dp, accent.copy(alpha = 0.45f)) else null,
+                clipped = false,
+                onLongClick = { help.value = !help.value }
             ) {
                 Row(
                     modifier = Modifier
@@ -1301,6 +1473,8 @@ fun SettingsScreen(
                     RadioButton(
                         selected = selected,
                         onClick = { selectMode(index) },
+                        // The card picks the mode: for a remote the button is no stop of its own.
+                        modifier = Modifier.tvNoFocus(),
                         colors = RadioButtonDefaults.colors(selectedColor = accent)
                     )
                 }
@@ -1328,7 +1502,7 @@ fun SettingsScreen(
                     saveGlobalPref("tun_engine", it)
                 },
                 socks5 = socks5,
-                onOpenProxies = { openSection = "proxies" },
+                onOpenProxies = { open("proxies") },
                 ipv6 = tunIpv6Enabled,
                 onIpv6Change = {
                     tunIpv6Enabled = it
@@ -1351,13 +1525,15 @@ fun SettingsScreen(
             )
         }
 
-        ModeOption(
-            index = 2,
-            icon = Icons.Default.Security,
-            title = stringResource(R.string.settings_tunnel_mode_root),
-            desc = stringResource(R.string.settings_tunnel_mode_root_desc),
-            danger = true
-        )
+        if (withRoot || rootModeEnabled) {
+            ModeOption(
+                index = 2,
+                icon = Icons.Default.Security,
+                title = stringResource(R.string.settings_tunnel_mode_root),
+                desc = stringResource(R.string.settings_tunnel_mode_root_desc),
+                danger = true
+            )
+        }
 
         if (selectedMode == 2) {
 
@@ -1829,14 +2005,16 @@ fun SettingsScreen(
             SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
         }
 
-        SettingsCardGap()
+        if (place(Feature.DNS_SCREEN) == Availability.OFFERED) {
+            SettingsCardGap()
 
-        SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
-            SettingsClickableItem(
-                stringResource(R.string.dns_title),
-                stringResource(R.string.settings_link_dns_desc),
-                Icons.Default.Troubleshoot
-            ) { context.startActivity(Intent(context, DnsActivity::class.java)) }
+            SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
+                SettingsClickableItem(
+                    stringResource(R.string.dns_title),
+                    stringResource(R.string.settings_link_dns_desc),
+                    Icons.Default.Troubleshoot
+                ) { context.startActivity(Intent(context, DnsActivity::class.java)) }
+            }
         }
     }
 
@@ -1967,7 +2145,14 @@ fun SettingsScreen(
                 if (taildropRootUri == null) stringResource(R.string.settings_taildrop_folder_none)
                 else stringResource(R.string.settings_taildrop_folder_set_format, folderLabel ?: "…"),
                 Icons.Default.Folder
-            ) { folderPicker.launch(null) }
+            ) {
+                // TV: without a system picker this row can only say so. Choosing the folder
+                // in the app's own browser (PickFolderScreen) comes with Taildrop's storage
+                // work, which stores a plain path where this stores a tree URI.
+                if (!(systemPicker && folderPicker.tryLaunch(null))) {
+                    Toast.makeText(context, context.getString(R.string.tv_settings_no_folder_picker), Toast.LENGTH_LONG).show()
+                }
+            }
         }
 
         SettingsCardGap()
@@ -1978,12 +2163,14 @@ fun SettingsScreen(
                 stringResource(R.string.settings_link_taildrive_desc),
                 Icons.Default.FolderShared
             ) { context.startActivity(Intent(context, TaildriveActivity::class.java)) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsClickableItem(
-                stringResource(R.string.serve_title),
-                stringResource(R.string.settings_link_serve_desc),
-                Icons.Default.Public
-            ) { context.startActivity(Intent(context, ServeActivity::class.java)) }
+            if (place(Feature.SERVE_EDIT) == Availability.OFFERED) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                SettingsClickableItem(
+                    stringResource(R.string.serve_title),
+                    stringResource(R.string.settings_link_serve_desc),
+                    Icons.Default.Public
+                ) { context.startActivity(Intent(context, ServeActivity::class.java)) }
+            }
         }
 
         SettingsCardGap()
@@ -2046,14 +2233,12 @@ fun SettingsScreen(
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
                         !ServiceWatchdog.canScheduleExact(context)
                     ) {
-                        try {
-                            context.startActivity(
-                                Intent(
-                                    android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                                    android.net.Uri.parse("package:${context.packageName}")
-                                )
-                            )
-                        } catch (e: Exception) {
+                        val page = Intent(
+                            android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        )
+                        // A device without the page, or with a placeholder in its place, is told so.
+                        if (!(context.canLaunch(page) && context.tryStartActivity(page))) {
                             Toast.makeText(context, context.getString(R.string.settings_watchdog_exact_error), Toast.LENGTH_LONG).show()
                         }
                     }
@@ -2065,29 +2250,125 @@ fun SettingsScreen(
     }
 
     // H. Appearance & language
+    //
+    // The theme and the icon are a feature of their own (Feature.THEME_AND_ICON): four
+    // blocks that stand among the rest of Appearance where the device is offered them
+    // there, and on a page of their own — Advanced → Theme and icon — where it is not.
+
+    // Theme selector (Chips row)
+    val themeChips: @Composable () -> Unit = {
+        val themeOptions = listOf(
+            Triple("system", Icons.Default.Settings, stringResource(R.string.settings_theme_system)),
+            Triple("light", Icons.Default.LightMode, stringResource(R.string.settings_theme_light)),
+            Triple("dark", Icons.Default.DarkMode, stringResource(R.string.settings_theme_dark))
+        )
+        val selectedThemeIdx = themeOptions.indexOfFirst { it.first == currentTheme }.coerceAtLeast(0)
+        Column(Modifier.padding(bottom = 8.dp)) {
+            Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            SlidingSegmentedChips(
+                items = themeOptions.map { SegmentedChipItem(it.third, it.second) },
+                selectedIndex = selectedThemeIdx,
+                onOptionSelected = { idx -> onThemeChange(themeOptions[idx].first) },
+                modifier = Modifier.fillMaxWidth(),
+                height = 38.dp
+            )
+        }
+    }
+
+    // Theme preset selector (Color Circles)
+    val themePalette: @Composable () -> Unit = {
+        if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+            Spacer(Modifier.height(12.dp))
+            val presets = listOf(
+                PresetItem("default", Color(0xFF6750A4), stringResource(R.string.settings_preset_default)),
+                PresetItem("lavender", Color(0xFF704E9B), stringResource(R.string.settings_preset_lavender)),
+                PresetItem("emerald", Color(0xFF006B54), stringResource(R.string.settings_preset_emerald)),
+                PresetItem("sapphire", Color(0xFF005FAF), stringResource(R.string.settings_preset_sapphire)),
+                PresetItem("amber", Color(0xFF825500), stringResource(R.string.settings_preset_amber)),
+                PresetItem("monochrome", Color(0xFF1D2023), stringResource(R.string.settings_preset_monochrome)),
+                PresetItem("tokionight", Color(0xFF7AA2F7), stringResource(R.string.settings_preset_tokionight))
+            )
+            Column {
+                Text(stringResource(R.string.settings_palette_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    presets.forEach { item ->
+                        val isSelected = currentPreset == item.id
+                        val source = remember { MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                // A television rings the circle the remote is on, and clips Material's
+                                // own square ring to it; a handheld's chain is the one it always was.
+                                .tvFocusRing(source, CircleShape)
+                                .then(if (tv) Modifier.clip(CircleShape) else Modifier)
+                                .background(item.color, shape = CircleShape)
+                                .clickable(interactionSource = source, indication = LocalIndication.current) { onPresetChange(item.id) }
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Dynamic Colors switcher (Android 12+)
+    val dynamicColorRow: @Composable () -> Unit = {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_dynamic_color_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.settings_dynamic_color_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
+                FocusSwitch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
+            }
+        }
+    }
+
+    // AMOLED Black switcher
+    val amoledRow: @Composable () -> Unit = {
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_amoled_black_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_amoled_black_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            }
+            FocusSwitch(checked = currentAmoledMode, onCheckedChange = onAmoledModeChange)
+        }
+    }
+
     val sectionAppearance: @Composable () -> Unit = {
+        val themeHere = place(Feature.THEME_AND_ICON) == Availability.OFFERED
         // One card in two halves, cut where they come out about as tall: one column on a
         // phone, side by side where the section stands in columns — the card is the whole
         // section, and alone in a column it would leave the pane's other half empty.
         val firstHalf: @Composable () -> Unit = {
-            // Theme selector (Chips row)
-            val themeOptions = listOf(
-                Triple("system", Icons.Default.Settings, stringResource(R.string.settings_theme_system)),
-                Triple("light", Icons.Default.LightMode, stringResource(R.string.settings_theme_light)),
-                Triple("dark", Icons.Default.DarkMode, stringResource(R.string.settings_theme_dark))
-            )
-            val selectedThemeIdx = themeOptions.indexOfFirst { it.first == currentTheme }.coerceAtLeast(0)
-            Column(Modifier.padding(bottom = 8.dp)) {
-                Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                SlidingSegmentedChips(
-                    items = themeOptions.map { SegmentedChipItem(it.third, it.second) },
-                    selectedIndex = selectedThemeIdx,
-                    onOptionSelected = { idx -> onThemeChange(themeOptions[idx].first) },
-                    modifier = Modifier.fillMaxWidth(),
-                    height = 38.dp
-                )
-            }
+            if (themeHere) themeChips()
 
             // Language selector (Chips row)
             var currentLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
@@ -2097,7 +2378,7 @@ fun SettingsScreen(
                 Triple("ru", Icons.Default.Language, stringResource(R.string.settings_lang_ru))
             )
             val selectedLangIdx = languageOptions.indexOfFirst { it.first == currentLang }.coerceAtLeast(0)
-            Spacer(Modifier.height(12.dp))
+            if (themeHere) Spacer(Modifier.height(12.dp))
             Column(Modifier.padding(bottom = 8.dp)) {
                 Text(stringResource(R.string.settings_lang_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
@@ -2146,85 +2427,19 @@ fun SettingsScreen(
             }
             DeviceInterfaceSetting()
 
-            // Theme preset selector (Color Circles)
-            if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
-                Spacer(Modifier.height(12.dp))
-                val presets = listOf(
-                    PresetItem("default", Color(0xFF6750A4), stringResource(R.string.settings_preset_default)),
-                    PresetItem("lavender", Color(0xFF704E9B), stringResource(R.string.settings_preset_lavender)),
-                    PresetItem("emerald", Color(0xFF006B54), stringResource(R.string.settings_preset_emerald)),
-                    PresetItem("sapphire", Color(0xFF005FAF), stringResource(R.string.settings_preset_sapphire)),
-                    PresetItem("amber", Color(0xFF825500), stringResource(R.string.settings_preset_amber)),
-                    PresetItem("monochrome", Color(0xFF1D2023), stringResource(R.string.settings_preset_monochrome)),
-                    PresetItem("tokionight", Color(0xFF7AA2F7), stringResource(R.string.settings_preset_tokionight))
-                )
-                Column {
-                    Text(stringResource(R.string.settings_palette_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        presets.forEach { item ->
-                            val isSelected = currentPreset == item.id
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(item.color, shape = CircleShape)
-                                    .clickable { onPresetChange(item.id) }
-                                    .border(
-                                        width = if (isSelected) 3.dp else 1.dp,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            if (themeHere) {
+                themePalette()
 
-            Spacer(Modifier.height(12.dp))
-            AppIconRow()
+                Spacer(Modifier.height(12.dp))
+                AppIconRow()
+            }
         }
         val secondHalf: @Composable () -> Unit = {
             QrStyleSetting()
 
-            // Dynamic Colors switcher (Android 12+)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_dynamic_color_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.settings_dynamic_color_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                    Switch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
-                }
-            }
-
-            // AMOLED Black switcher
-            Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_amoled_black_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.settings_amoled_black_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                }
-                Switch(checked = currentAmoledMode, onCheckedChange = onAmoledModeChange)
+            if (themeHere) {
+                dynamicColorRow()
+                amoledRow()
             }
 
             Spacer(Modifier.height(12.dp))
@@ -2275,6 +2490,58 @@ fun SettingsScreen(
         }
     }
 
+    // The theme and the icon alone, where Appearance does not carry them.
+    val sectionTheme: @Composable () -> Unit = {
+        SettingsCard(title = stringResource(R.string.tv_settings_theme)) {
+            themeChips()
+            themePalette()
+            dynamicColorRow()
+            amoledRow()
+            Spacer(Modifier.height(12.dp))
+            AppIconRow()
+        }
+    }
+
+    // Advanced: what this device is not offered in its usual place and can still do — the
+    // pages that left the hub, and the screens that left the main screen. The lists come
+    // from the gate (`place`), so the page holds whatever the device keeps for it.
+    val sectionAdvanced: @Composable () -> Unit = {
+        if (advancedPages.isNotEmpty()) {
+            SettingsCard(title = stringResource(R.string.tv_settings_more)) {
+                advancedPages.forEachIndexed { index, page ->
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    // Keyed: a group that remembers the remote's row (tvFocusGroup) tells rows apart by their place in the composition.
+                    key(page.id) {
+                        SettingsClickableItem(
+                            title = stringResource(page.titleRes),
+                            subtitle = stringResource(page.descRes),
+                            icon = page.icon,
+                            // Where Back from that page puts the remote again.
+                            modifier = if (tv && page.id == advancedRow) Modifier.focusRequester(rowFocus) else Modifier,
+                            onClick = { open(page.id) }
+                        )
+                    }
+                }
+            }
+        }
+        if (advancedLinks.isNotEmpty()) {
+            if (advancedPages.isNotEmpty()) SettingsCardGap()
+            SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
+                advancedLinks.forEachIndexed { index, tool ->
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    key(tool.titleRes) {
+                        SettingsClickableItem(
+                            title = stringResource(tool.titleRes),
+                            subtitle = stringResource(tool.descRes),
+                            icon = tool.icon,
+                            onClick = { context.startActivity(Intent(context, tool.screen)) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     // I. Backup & restore
     val sectionBackup: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_backup_files)) {
@@ -2300,7 +2567,7 @@ fun SettingsScreen(
                     )
                 }
                 OutlinedButton(
-                    onClick = { fullRestoreLauncher.launch("*/*") },
+                    onClick = { pickBackupFile(BackupFile.FULL_RESTORE) },
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium
                 ) {
@@ -2324,7 +2591,7 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { backupLauncher.launch("tailsocks_backup_${activeAccount.name}.json") },
+                    onClick = { pickBackupFile(BackupFile.PROFILE_EXPORT) },
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium
                 ) {
@@ -2339,7 +2606,7 @@ fun SettingsScreen(
                     )
                 }
                 OutlinedButton(
-                    onClick = { restoreLauncher.launch("application/json") },
+                    onClick = { pickBackupFile(BackupFile.PROFILE_IMPORT) },
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium
                 ) {
@@ -2418,7 +2685,7 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
-                    OutlinedButton(
+                    if (place(Feature.CLIPBOARD_ACTIONS) == Availability.OFFERED) OutlinedButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.settings_automation_copy_token), automationSecret))
@@ -2450,14 +2717,16 @@ fun SettingsScreen(
             }
         }
 
-        SettingsCardGap()
+        if (place(Feature.ADMIN_CONSOLE) == Availability.OFFERED) {
+            SettingsCardGap()
 
-        SettingsCard(title = stringResource(R.string.settings_sect_admin_api)) {
-            SettingsClickableItem(
-                stringResource(R.string.admin_console_title),
-                adminSummary.ifBlank { stringResource(R.string.settings_link_admin_desc) },
-                Icons.Default.AdminPanelSettings
-            ) { context.startActivity(Intent(context, AdminApiActivity::class.java)) }
+            SettingsCard(title = stringResource(R.string.settings_sect_admin_api)) {
+                SettingsClickableItem(
+                    stringResource(R.string.admin_console_title),
+                    adminSummary.ifBlank { stringResource(R.string.settings_link_admin_desc) },
+                    Icons.Default.AdminPanelSettings
+                ) { context.startActivity(Intent(context, AdminApiActivity::class.java)) }
+            }
         }
     }
 
@@ -2581,18 +2850,22 @@ fun SettingsScreen(
         SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
-            SettingsClickableItem(
-                stringResource(R.string.logs_title),
-                stringResource(R.string.settings_link_logs_desc),
-                Icons.AutoMirrored.Filled.List
-            ) { context.startActivity(Intent(context, LogsActivity::class.java)) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsClickableItem(
-                stringResource(R.string.console_title),
-                stringResource(R.string.settings_link_console_desc),
-                Icons.Default.Terminal
-            ) { context.startActivity(Intent(context, ConsoleActivity::class.java)) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            if (place(Feature.LOGS) == Availability.OFFERED) {
+                SettingsClickableItem(
+                    stringResource(R.string.logs_title),
+                    stringResource(R.string.settings_link_logs_desc),
+                    Icons.AutoMirrored.Filled.List
+                ) { context.startActivity(Intent(context, LogsActivity::class.java)) }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            }
+            if (place(Feature.CONSOLE) == Availability.OFFERED) {
+                SettingsClickableItem(
+                    stringResource(R.string.console_title),
+                    stringResource(R.string.settings_link_console_desc),
+                    Icons.Default.Terminal
+                ) { context.startActivity(Intent(context, ConsoleActivity::class.java)) }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            }
             SettingsClickableItem(
                 stringResource(R.string.netcheck_title),
                 stringResource(R.string.settings_link_netcheck_desc),
@@ -2618,15 +2891,20 @@ fun SettingsScreen(
         }
     }
 
-    // Back means "up one level": out of an open section to the hub, and only from
-    // the hub out of the Activity. The toolbar arrow keeps the crossfade below;
+    // Back means "up one level": out of an open section to the hub — from a page the
+    // Advanced page opened, to that page first — and only from the hub out of the
+    // Activity. The toolbar arrow keeps the crossfade below;
     // the gesture draws its own transition and sets [poppedByGesture] so the
     // crossfade stands down instead of replaying a pop the finger already showed.
     var poppedByGesture by remember { mutableStateOf(false) }
-    val popSection: () -> Unit = { openSection = null }
+    val popSection: () -> Unit = {
+        val parent = parentOf(openSection)
+        openSection = parent
+        focus(if (parent == null) SettingsFocus.HUB else SettingsFocus.ROW)
+    }
     val popSectionByGesture: () -> Unit = {
         poppedByGesture = true
-        openSection = null
+        popSection()
     }
     // Armed for exactly one transition. The reset runs after the composition that
     // consumed it, and transitionSpec is only consulted when the target changes,
@@ -2641,9 +2919,11 @@ fun SettingsScreen(
     // backable: whether a section shows the arrow that returns to the hub. Beside
     // the hub, as the right pane of the wide layout, there is nothing to return
     // to — the hub is already on screen — so the arrow would be a lie.
+    // live: whether this rendering is the one in use, not one fading out or lying
+    // under a back gesture. Only that one is where a television's remote is sent.
     val window = rememberWindowLayout()
-    val settingsSurface: @Composable (String?, Boolean) -> Unit = { section, backable ->
-        val openCategory = settingsCategories.firstOrNull { it.id == section }
+    val settingsSurface: @Composable (String?, Boolean, Boolean) -> Unit = { section, backable, live ->
+        val openCategory = settingsPages.firstOrNull { it.id == section }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
@@ -2668,19 +2948,24 @@ fun SettingsScreen(
                         }
                 }
                 ReadableWidth {
+                // The row the remote starts on and comes back to: the one last opened.
+                val returnRow = hubRow ?: hubCategories.first().id
+                if (tv && live) SideEffect { hubList[0] = hubState }
                 LazyColumn(
                     state = hubState,
                     modifier = Modifier
                         .padding(padding)
-                        .fillMaxSize(),
+                        .fillMaxSize()
+                        .tvFocusGroup(),
                     contentPadding = PaddingValues(16.dp)
                 ) {
-                    items(settingsCategories, key = { it.id }) { category ->
+                    items(hubCategories, key = { it.id }) { category ->
                         SettingsClickableItem(
                             title = stringResource(category.titleRes),
                             subtitle = stringResource(category.descRes),
                             icon = category.icon,
-                            onClick = { openSection = category.id }
+                            modifier = if (tv && live && category.id == returnRow) Modifier.focusRequester(hubFocus) else Modifier,
+                            onClick = { open(category.id) }
                         )
                     }
                     item { Spacer(Modifier.height(32.dp)) }
@@ -2697,18 +2982,31 @@ fun SettingsScreen(
                 val sectionBody: @Composable () -> Unit = {
                     when (section) {
                         "account" -> sectionAccount()
-                        "tunnel" -> sectionTunnel()
+                        "tunnel" -> sectionTunnel(place(Feature.ROOT_MODE) == Availability.OFFERED)
+                        rootPage.id -> sectionTunnel(true)
                         "proxies" -> sectionProxies()
                         "dns" -> sectionDns()
                         "bypass" -> sectionBypass()
                         "sharing" -> sectionSharing()
                         "background" -> sectionBackground()
                         "appearance" -> sectionAppearance()
+                        themePage.id -> sectionTheme()
                         "backup" -> sectionBackup()
                         "automation" -> sectionAutomation()
                         "diagnostics" -> sectionDiagnostics()
+                        advancedCategory.id -> sectionAdvanced()
                     }
                 }
+                // For a television's remote the page is one group: somewhere it can be
+                // sent into as a whole, that remembers the row it left, and that scrolls
+                // to its head and its tail, which have no row of their own to stop on.
+                val remote = if (tv && live) {
+                    Modifier
+                        .focusRequester(pageFocus)
+                        .onFocusChanged { pageHasFocus = it.hasFocus }
+                        .tvScrollPastStops(sectionScroll)
+                        .tvFocusGroup()
+                } else Modifier
                 // A phone's page, and any page a tablet has no columns for.
                 val oneColumn: @Composable () -> Unit = {
                     ReadableWidth {
@@ -2716,6 +3014,7 @@ fun SettingsScreen(
                         modifier = Modifier
                             .padding(padding)
                             .fillMaxSize()
+                            .then(remote)
                             .verticalScroll(sectionScroll)
                             .padding(16.dp)
                     ) {
@@ -2739,6 +3038,7 @@ fun SettingsScreen(
                                 modifier = Modifier
                                     .padding(padding)
                                     .fillMaxSize()
+                                    .then(remote)
                                     .verticalScroll(sectionScroll)
                                     .padding(horizontal = window.margin, vertical = 16.dp)
                             ) {
@@ -2774,12 +3074,61 @@ fun SettingsScreen(
     // whatever its width, with the hinge itself as the divider. The width is the
     // content's, not the window's size class: a phone on its side (some 890dp) is
     // two panes here, and always has been.
+    //
+    // While a backup's file is being chosen in the app's own browser, the browser is the
+    // screen: it takes the Back key for itself, and gives the settings back as it closes.
+    val browsing = browsingFor
+    if (browsing != null) {
+        val source = remember { RealFileSource(context) }
+        val downloads = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) }
+        val close = { browsingFor = null; focus(SettingsFocus.PAGE) }
+        when (browsing) {
+            BackupFile.FULL_BACKUP, BackupFile.PROFILE_EXPORT -> PickFolderScreen(
+                source = source,
+                onPicked = { dir ->
+                    close()
+                    if (browsing == BackupFile.FULL_BACKUP) writeFullBackup(Uri.fromFile(freeFile(dir, FULL_BACKUP_NAME)))
+                    else exportProfile(Uri.fromFile(freeFile(dir, profileBackupName)))
+                },
+                onCancel = close,
+                start = downloads,
+                writable = true,
+                title = stringResource(R.string.tv_settings_backup_save_title),
+                confirmLabel = stringResource(R.string.tv_settings_backup_save_here)
+            )
+            BackupFile.FULL_RESTORE, BackupFile.PROFILE_IMPORT -> PickFilesScreen(
+                source = source,
+                onPicked = { files ->
+                    close()
+                    val uri = Uri.fromFile(files.first())
+                    if (browsing == BackupFile.FULL_RESTORE) askRestorePassword(uri) else importProfile(uri)
+                },
+                onCancel = close,
+                start = downloads,
+                multiple = false,
+                title = stringResource(R.string.tv_settings_backup_pick_title)
+            )
+        }
+    } else
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
     if (maxWidth >= 840.dp || window.fold is Fold.Vertical) {
-        val shown = openSection ?: settingsCategories.first().id
+        val shown = openSection ?: hubCategories.first().id
+        // On a television Back leaves a page before it leaves Settings: from a page of
+        // the Advanced page to that page, from any other to its row in the list, the
+        // page staying where it is — and from the list, as everywhere, out.
+        BackHandler(enabled = tv && pageHasFocus) {
+            val parent = parentOf(openSection)
+            if (parent != null) {
+                stepOutOfPage()
+                openSection = parent
+                focus(SettingsFocus.ROW)
+            } else {
+                focus(SettingsFocus.HUB)
+            }
+        }
         ListDetailLayout(
-            list = { settingsSurface(null, true) },
-            detail = { settingsSurface(shown, false) },
+            list = { settingsSurface(null, true, true) },
+            detail = { settingsSurface(shown, false, true) },
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
             window = window,
             twoPane = true,
@@ -2823,10 +3172,10 @@ fun SettingsScreen(
             // only: it is a second live copy of every category row, and a screen reader
             // reaches the hub through the one that lands.
             previousContent = {
-                Box(Modifier.fillMaxSize().clearAndSetSemantics { }) { settingsSurface(null, true) }
+                Box(Modifier.fillMaxSize().clearAndSetSemantics { }) { settingsSurface(parentOf(section), true, false) }
             }
         ) {
-            settingsSurface(section, true)
+            settingsSurface(section, true, section == openSection)
         }
     }
     }
@@ -2880,7 +3229,7 @@ fun SettingsScreen(
                         if (tempPassword.isNotBlank()) {
                             backupPassword = tempPassword
                             showBackupPasswordDialog = false
-                            fullBackupLauncher.launch("tailsocks_full_backup.enc")
+                            pickBackupFile(BackupFile.FULL_BACKUP)
                         } else {
                             Toast.makeText(context, context.getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
                         }

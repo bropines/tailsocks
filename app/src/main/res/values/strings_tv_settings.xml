@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings where a device is not offered everything in its usual place (core/DeviceProfile.kt):
+  the Advanced page a television's settings end with, saving and reading backups through the
+  app's own file browser, and Tailnet Lock on a device that cannot sign.
+-->
+<resources>
+    <!-- Settings → Advanced: the hub's last row, and the page behind it. -->
+    <string name="tv_settings_advanced">Advanced</string>
+    <string name="tv_settings_advanced_desc">Theme, Root mode, backups, diagnostics, logs, console, DNS, Serve</string>
+    <string name="tv_settings_more">More settings</string>
+    <string name="tv_settings_theme">Theme and icon</string>
+    <string name="tv_settings_theme_desc">Light or dark, the colour palette, the app\'s icon</string>
+    <string name="tv_settings_root">Root mode</string>
+    <string name="tv_settings_root_desc">For a rooted device: the daemon runs through su and the VPN slot stays free</string>
+
+    <!-- Backups without the system\'s file picker. -->
+    <string name="tv_settings_backup_save_title">Where to save the backup</string>
+    <string name="tv_settings_backup_save_here">Save here</string>
+    <string name="tv_settings_backup_pick_title">Choose the backup file</string>
+    <string name="tv_settings_no_folder_picker">This device has no system picker to choose a folder with</string>
+
+    <!-- Tailnet Lock on a device that cannot confirm a signature. -->
+    <string name="tka_waiting_other_device">A signature is confirmed with the screen lock, and a TV has none. Sign these nodes from a phone or a computer that holds a trusted key.</string>
+    <string name="tka_key_help_show">This device\'s own key in Tailnet Lock. Press OK to show it as a code for a phone\'s camera.</string>
+    <string name="tka_sign_me_help_show">Run it on a device with a trusted key to let this device in. Press OK to show it as a code for a phone\'s camera.</string>
+</resources>
