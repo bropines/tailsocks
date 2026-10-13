@@ -4,24 +4,26 @@ import io.github.bropines.tailscaled.R
 
 import io.github.bropines.tailscaled.core.*
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
@@ -36,9 +39,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ActivityCompat
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import io.github.bropines.tailscaled.ui.theme.findActivity
+import kotlinx.coroutines.delay
 
 /**
  * Optional permissions: the ones the app works without, but works better with.
@@ -92,9 +101,6 @@ object OptionalPermissions {
     }
 }
 
-/** What the system can tell us about one optional permission. */
-private enum class PermState { GRANTED, DENIED, UNKNOWN, NOT_APPLICABLE }
-
 /**
  * Where a row goes on the screen: what is missing first — the reason to open
  * the screen at all — then what nobody can vouch for, then what is settled.
@@ -105,6 +111,65 @@ private val PermState.urgency: Int
         PermState.UNKNOWN -> 1
         PermState.GRANTED, PermState.NOT_APPLICABLE -> 2
     }
+
+/**
+ * The rows of this screen, in the order they are declared in. Access to files and the VPN
+ * consent are asked for where they are needed and are not rows here; a paired device's
+ * request ([PermissionAsk]) may still be about the first of them.
+ */
+private val RowPermissions = listOf(
+    AppPermission.AUTOSTART,
+    AppPermission.ALARMS,
+    AppPermission.BATTERY,
+    AppPermission.NOTIFICATIONS,
+    AppPermission.INSTALL,
+)
+
+/** How a permission reads on this screen, in its row and on the card of a request for it. */
+private class PermLook(@param:StringRes val title: Int, @param:StringRes val reason: Int, val icon: ImageVector)
+
+/** Null for the VPN consent, which this screen never shows. */
+private fun lookOf(permission: AppPermission): PermLook? {
+    val title = RemotePromptRules.title(permission) ?: return null
+    return when (permission) {
+        AppPermission.AUTOSTART -> PermLook(title, R.string.perm_autostart_reason, Icons.Default.PowerSettingsNew)
+        AppPermission.ALARMS -> PermLook(title, R.string.perm_alarms_reason, Icons.Default.Alarm)
+        AppPermission.BATTERY -> PermLook(title, R.string.perm_battery_reason, Icons.Default.BatteryAlert)
+        AppPermission.NOTIFICATIONS -> PermLook(title, R.string.perm_notifications_reason, Icons.Default.Notifications)
+        AppPermission.INSTALL -> PermLook(title, R.string.perm_install_reason, Icons.Default.SystemUpdate)
+        AppPermission.STORAGE -> PermLook(title, R.string.remote_prompt_storage_reason, Icons.Default.Folder)
+        AppPermission.VPN -> null
+    }
+}
+
+/** What the system says of a permission, in words: for TalkBack, and where a glyph cannot carry it. */
+@Composable
+private fun stateLabel(state: PermState): String = stringResource(
+    when (state) {
+        PermState.GRANTED -> R.string.perm_state_granted
+        PermState.DENIED -> R.string.perm_state_denied
+        PermState.UNKNOWN -> R.string.perm_state_unknown
+        PermState.NOT_APPLICABLE -> R.string.perm_state_na
+    }
+)
+
+/**
+ * A paired device's request for a permission (core/RemoteDevicePrompts.kt) as this screen
+ * shows it: one card above the rows, and Android's own page or dialog opened by itself, once
+ * for each [serial] — the activity numbers the requests it is handed, and a rotation hands it
+ * none. Nothing is granted by it: the person at the device answers the system, or does not.
+ * [demo] is a render's, which has no system to ask.
+ */
+data class PermissionAsk(
+    val permission: AppPermission,
+    /** The asking device's name, as the bridge gives it. */
+    val from: String,
+    val serial: Int = 1,
+    val demo: Demo? = null,
+) {
+    /** What a preview draws: the permission's [state], and a device with no page to give it on. */
+    data class Demo(val state: PermState, val noPage: Boolean = false)
+}
 
 /** One row: what it is, why it helps, what the system says, where to change it. */
 private class PermEntry(
@@ -225,23 +290,85 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
 }
 
 class PermissionsActivity : ComponentActivity() {
+    /** The request this screen was opened with, when it was opened with one. */
+    private var ask by mutableStateOf<PermissionAsk?>(null)
+
+    /** How many requests this screen has been handed: each has its page opened once. */
+    private var askSerial = 0
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Recreated — a rotation, a change of language — it shows the request it showed, as
+        // the same one: the page is not opened a second time.
+        askSerial = savedInstanceState?.getInt(STATE_ASK_SERIAL) ?: 0
+        takeAsk(intent, arrived = savedInstanceState == null)
         setContent {
             TailSocksTheme {
-                PermissionsScreen(onBack = { finish() })
+                PermissionsScreen(onBack = { finish() }, ask = ask)
             }
+        }
+    }
+
+    /** A request that finds the screen already up (askIntent is single-top). */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        takeAsk(intent, arrived = true)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(STATE_ASK_SERIAL, askSerial)
+    }
+
+    private fun takeAsk(intent: Intent?, arrived: Boolean) {
+        val request = askOf(intent)
+        if (request != null && arrived) {
+            askSerial++
+            // Shown now, whichever way it came: it is not to be opened again on the next resume.
+            RemoteDevicePrompts.opened(this, request.first)
+        }
+        ask = request?.let { (permission, from) -> PermissionAsk(permission, from, askSerial) }
+    }
+
+    companion object {
+        private const val EXTRA_ASK_PERMISSION = "ask_permission"
+        private const val EXTRA_ASK_FROM = "ask_from"
+        private const val STATE_ASK_SERIAL = "ask_serial"
+
+        /**
+         * This screen with the request of the paired device [from] for [permission] on it:
+         * for [RemoteDevicePrompts], which starts it from the service's side or leaves it
+         * behind a notification. One screen at most, on top of the app's task. The activity
+         * is not exported, so no other app can put a request here.
+         */
+        fun askIntent(context: Context, permission: AppPermission, from: String): Intent =
+            Intent(context, PermissionsActivity::class.java)
+                .putExtra(EXTRA_ASK_PERMISSION, permission.id)
+                .putExtra(EXTRA_ASK_FROM, from)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+        /**
+         * The request an intent carries. None for the VPN consent, which is never asked from
+         * afar, and none for a task brought back from Recents: its intent is the one of a
+         * request made who knows when, and a page jumping out then would be a surprise.
+         */
+        private fun askOf(intent: Intent?): Pair<AppPermission, String>? {
+            if (intent == null || intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
+            val permission = AppPermission.of(intent.getStringExtra(EXTRA_ASK_PERMISSION)) ?: return null
+            if (RemotePromptRules.title(permission) == null) return null
+            return permission to intent.getStringExtra(EXTRA_ASK_FROM).orEmpty()
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PermissionsScreen(onBack: () -> Unit) {
+fun PermissionsScreen(onBack: () -> Unit, ask: PermissionAsk? = null) {
     val context = LocalContext.current
 
     // Every one of these screens is a system screen, so the only moment the
@@ -259,87 +386,37 @@ fun PermissionsScreen(onBack: () -> Unit) {
     // Each of these asks a system service, and the preview renderer has none
     // of them (see MainScreen): there every row shows as unknown.
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    fun probe(read: () -> PermState) = if (inPreview) PermState.UNKNOWN else read()
-    val alarmsState = remember(refreshTick) { probe { exactAlarmsState(context) } }
-    val batteryState = remember(refreshTick) { probe { batteryOptimisationState(context) } }
-    val notificationsState = remember(refreshTick) { probe { notificationsState(context) } }
-    val installState = remember(refreshTick) { probe { installUnknownAppsState(context) } }
 
     // Declared in a fixed order and shown by urgency: a row granted on the system
     // screen drops to the end on the way back, and what is left to do stays on top.
     // The sort is stable, so rows with the same answer keep this order.
     val batteryPrompt = Feature.BATTERY_OPTIMISATION_PROMPT.offered()
-    val entries = listOfNotNull(
-        PermEntry(
-            id = "autostart",
-            title = stringResource(R.string.perm_autostart_title),
-            reason = stringResource(R.string.perm_autostart_reason),
-            icon = Icons.Default.PowerSettingsNew,
-            // The OEM screens expose no API at all, so claiming either answer
-            // would be a guess; say so instead.
-            state = PermState.UNKNOWN
-        ) { openAutostartSettings(context) },
-        PermEntry(
-            id = "alarms",
-            title = stringResource(R.string.perm_alarms_title),
-            reason = stringResource(R.string.perm_alarms_reason),
-            icon = Icons.Default.Alarm,
-            state = alarmsState
-        ) {
-            openFirst(
-                context,
-                Intent(
-                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                    Uri.parse("package:${context.packageName}")
-                ),
-                appDetails(context)
-            )
-        },
-        PermEntry(
-            id = "battery",
-            title = stringResource(R.string.perm_battery_title),
-            reason = stringResource(R.string.perm_battery_reason),
-            icon = Icons.Default.BatteryAlert,
-            state = batteryState
-        ) {
-            openFirst(
-                context,
-                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
-                appDetails(context)
-            )
-        }.takeIf { batteryPrompt },
-        PermEntry(
-            id = "notifications",
-            title = stringResource(R.string.perm_notifications_title),
-            reason = stringResource(R.string.perm_notifications_reason),
-            icon = Icons.Default.Notifications,
-            state = notificationsState
-        ) {
-            openFirst(
-                context,
-                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
-                appDetails(context)
-            )
-        },
-        PermEntry(
-            id = "install",
-            title = stringResource(R.string.perm_install_title),
-            reason = stringResource(R.string.perm_install_reason),
-            icon = Icons.Default.SystemUpdate,
-            state = installState
-        ) {
-            openFirst(
-                context,
-                Intent(
-                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${context.packageName}")
-                ),
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
-                appDetails(context)
-            )
+    val rows = remember(batteryPrompt) {
+        RowPermissions.filter { it != AppPermission.BATTERY || batteryPrompt }.mapNotNull { p -> lookOf(p)?.let { p to it } }
+    }
+    val entries = rows.map { (permission, look) ->
+        key(permission) {
+            PermEntry(
+                id = permission.id,
+                title = stringResource(look.title),
+                reason = stringResource(look.reason),
+                icon = look.icon,
+                // What the system says, in the one meaning of "granted" the app has
+                // (core/AppPermissions.kt). An autostart list has no API at all: unknown.
+                state = remember(refreshTick) {
+                    if (inPreview) PermState.UNKNOWN else AppPermissions.state(context, permission)
+                }
+            ) { openPermission(context, permission) }
         }
-    ).sortedBy { it.state.urgency }
+    }.sortedBy { it.state.urgency }
+
+    // A paired device's request stands above everything: it is why the screen is up. The
+    // remote starts on its button while it has one.
+    val askUi = ask?.let { rememberAskUi(it, refreshTick) }
+    val asked: @Composable () -> Unit = {
+        askUi?.let { PermissionAskCard(it, Modifier.padding(top = 12.dp)) }
+    }
+    val rowsStart = askUi?.offersOpen != true
 
     val window = rememberWindowLayout()
     val intro: @Composable () -> Unit = {
@@ -361,10 +438,11 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
+            asked()
             intro()
 
             entries.forEachIndexed { index, entry ->
-                key(entry.id) { PermissionRow(entry, first = index == 0) }
+                key(entry.id) { PermissionRow(entry, first = index == 0 && rowsStart) }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -399,10 +477,11 @@ fun PermissionsScreen(onBack: () -> Unit) {
                         .padding(horizontal = window.margin)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    asked()
                     intro()
                     CardColumns(minColumnWidth = PermissionColumnWidth) {
                         entries.forEachIndexed { index, entry ->
-                            key(entry.id) { PermissionRow(entry, spaced = false, first = index == 0) }
+                            key(entry.id) { PermissionRow(entry, spaced = false, first = index == 0 && rowsStart) }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -435,14 +514,7 @@ private fun PermissionRow(
     first: Boolean = false
 ) {
     val state = entry.state
-    val stateLabel = stringResource(
-        when (state) {
-            PermState.GRANTED -> R.string.perm_state_granted
-            PermState.DENIED -> R.string.perm_state_denied
-            PermState.UNKNOWN -> R.string.perm_state_unknown
-            PermState.NOT_APPLICABLE -> R.string.perm_state_na
-        }
-    )
+    val stateLabel = stateLabel(state)
     // The reason is the one line in view. An answer the glyph cannot explain on
     // its own goes on the next line, which folds away with the rest.
     val explanation = when (state) {
@@ -451,7 +523,7 @@ private fun PermissionRow(
         else -> entry.reason
     }
     val openLabel = stringResource(R.string.perm_open)
-    val needsAction = state == PermState.DENIED || state == PermState.UNKNOWN
+    val needsAction = state.needsAction
     // Nothing to open where the permission does not exist on this Android.
     val canOpen = state != PermState.NOT_APPLICABLE
     val help = remember(explanation) { mutableStateOf(false) }
@@ -497,49 +569,196 @@ private fun PermStateIcon(state: PermState, description: String) {
     Icon(glyph, contentDescription = description, tint = tint, modifier = Modifier.size(24.dp))
 }
 
-/** Before Android 12 an exact alarm needs no permission at all. */
-private fun exactAlarmsState(context: Context): PermState = when {
-    Build.VERSION.SDK_INT < Build.VERSION_CODES.S -> PermState.NOT_APPLICABLE
-    ServiceWatchdog.canScheduleExact(context) -> PermState.GRANTED
-    else -> PermState.DENIED
-}
-
-private fun batteryOptimisationState(context: Context): PermState {
-    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return PermState.UNKNOWN
-    return try {
-        if (pm.isIgnoringBatteryOptimizations(context.packageName)) PermState.GRANTED else PermState.DENIED
-    } catch (e: Exception) {
-        PermState.UNKNOWN
-    }
-}
-
-private fun notificationsState(context: Context): PermState =
-    if (NotificationManagerCompat.from(context).areNotificationsEnabled()) PermState.GRANTED else PermState.DENIED
-
-/** Before Android 8 "unknown sources" is one device-wide switch, not an app permission. */
-private fun installUnknownAppsState(context: Context): PermState = when {
-    Build.VERSION.SDK_INT < Build.VERSION_CODES.O -> PermState.NOT_APPLICABLE
-    context.packageManager.canRequestPackageInstalls() -> PermState.GRANTED
-    else -> PermState.DENIED
-}
-
-private fun appDetails(context: Context): Intent =
-    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
-
 /**
- * Starts the first intent the device accepts. Skins drop and rename these screens
- * freely, so every row falls back to the app info page and, failing that, says so
- * instead of doing nothing. A television answers some of them with a placeholder that
- * opens and shows nothing (core/SafeLaunch.kt): that one is passed over like a missing page.
+ * Opens the system's screen for a row. Skins drop and rename these screens freely, so every
+ * row falls back to the app info page ([AppPermissions.pages]) and, failing that, says so
+ * instead of doing nothing. A television answers some of them with a placeholder that opens
+ * and shows nothing (core/SafeLaunch.kt): that one is passed over like a missing page.
  */
-private fun openFirst(context: Context, vararg intents: Intent) {
-    if (intents.none { !context.landsOnPlaceholder(it) && context.tryStartActivity(it) }) {
+private fun openPermission(context: Context, permission: AppPermission) {
+    // A vendor's list, with a fallback and a line of its own.
+    if (permission == AppPermission.AUTOSTART) return openAutostartSettings(context)
+    if (!openPage(context, permission)) {
         Toast.makeText(context, context.getString(R.string.perm_open_failed), Toast.LENGTH_LONG).show()
     }
 }
 
-/** Whether what answers [intent] is a placeholder. A page that resolves to nothing is not: the launch itself tells. */
-private fun Context.landsOnPlaceholder(intent: Intent): Boolean {
-    val activity = runCatching { packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) }.getOrNull()?.activityInfo
-    return isPlaceholderActivity(activity?.packageName, activity?.name)
+/**
+ * The first page of [permission] the device really has; false when it has none. Started
+ * from the activity, in its own task, so that Back leads here again.
+ */
+private fun openPage(context: Context, permission: AppPermission): Boolean =
+    AppPermissions.open(context.findActivity() ?: context, permission)
+
+// ─── A paired device's request ───────────────────────────────────────────────────────────────
+
+/** A request as its card draws it: what the system says now, and what there is to press. */
+private class AskUi(
+    val ask: PermissionAsk,
+    val look: PermLook,
+    val state: PermState,
+    /** The device has neither a dialog nor a page for it: found out by trying, or a render's. */
+    val noPage: Boolean,
+    val open: () -> Unit,
+) {
+    /** Something is left to do, and there is somewhere to do it. */
+    val offersOpen: Boolean get() = state.needsAction && !noPage
+}
+
+/**
+ * The card of [ask]: its state, read again whenever [refreshTick] moves — the screen is back
+ * in front — and the page opened by itself, once for each request. [PermissionAsk.serial]
+ * outlives a rotation, and so does the note of which one was opened. Null for a permission
+ * this screen has no words for.
+ */
+@Composable
+private fun rememberAskUi(ask: PermissionAsk, refreshTick: Int): AskUi? {
+    val look = remember(ask.permission) { lookOf(ask.permission) } ?: return null
+    val context = LocalContext.current
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val state = remember(refreshTick, ask) {
+        ask.demo?.state ?: if (inPreview) PermState.UNKNOWN else AppPermissions.state(context, ask.permission)
+    }
+    var pageMissing by rememberSaveable(ask.serial) { mutableStateOf(false) }
+    val open = rememberPermissionRequest(ask.permission) { pageMissing = true }
+    var opened by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(ask.serial) {
+        if (ask.demo != null || inPreview || opened == ask.serial) return@LaunchedEffect
+        opened = ask.serial
+        if (state.needsAction) open()
+    }
+    return AskUi(ask, look, state, noPage = ask.demo?.noPage ?: pageMissing, open = open)
+}
+
+/**
+ * How [permission] is asked for: with Android's own dialog where it has one
+ * ([AppPermissions.asksInDialog]) — and, once that was refused for good and the system shows
+ * nothing, on the page that gives it back — otherwise on the system's page. [onNoPage] when
+ * the device has none of them.
+ */
+@Composable
+private fun rememberPermissionRequest(permission: AppPermission, onNoPage: () -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val noPage by rememberUpdatedState(onNoPage)
+    val page = { if (!openPage(context, permission)) noPage() }
+    val storage = rememberStorageAccessRequest(onUnavailable = { noPage() })
+    val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val activity = context.findActivity()
+        if (!granted && (activity == null || !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.POST_NOTIFICATIONS))) {
+            page()
+        }
+    }
+    return {
+        when {
+            permission == AppPermission.AUTOSTART -> openAutostartSettings(context)
+            !AppPermissions.asksInDialog(permission) -> page()
+            permission == AppPermission.STORAGE -> storage()
+            else -> if (!notifications.tryLaunch(Manifest.permission.POST_NOTIFICATIONS)) page()
+        }
+    }
+}
+
+/** How long the remote rests on the card's button before the explanation unfolds: an [ExplainedRow]'s own measure. */
+private const val AskHelpRevealMillis = 700L
+
+/** True once the remote has rested on the target of [source] for [AskHelpRevealMillis]; false again as it leaves. */
+@Composable
+private fun rememberRested(source: InteractionSource): Boolean {
+    val focused by source.collectIsFocusedAsState()
+    var rested by remember { mutableStateOf(false) }
+    LaunchedEffect(focused) {
+        if (focused) delay(AskHelpRevealMillis)
+        rested = focused
+    }
+    return rested
+}
+
+/**
+ * Who asks for what, above the rows: the permission's one-line reason, folded, what the
+ * system says of it, and "Open" while it is missing — the same page the request opened by
+ * itself, for whoever went back from it. Given, the card says so and asks nothing. On a
+ * device with no page for it the card says that instead, with the line that grants access
+ * to files from a computer, as the Taildrive page does.
+ *
+ * With a remote the button is the card's one stop and where the remote starts; the
+ * explanation unfolds while it rests there, as a row's does.
+ */
+@Composable
+private fun PermissionAskCard(ui: AskUi, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val state = ui.state
+    val stateLabel = stateLabel(state)
+    val from = ui.ask.from.ifBlank { stringResource(R.string.remote_prompt_someone) }
+    val reason = stringResource(ui.look.reason)
+    val explanation = when (state) {
+        PermState.UNKNOWN -> reason + "\n" + stringResource(R.string.perm_unknown_note)
+        PermState.NOT_APPLICABLE -> reason + "\n" + stateLabel
+        else -> reason
+    } + "\n" + stringResource(R.string.remote_prompt_card_note)
+    val tv = isTv
+    val button = remember { MutableInteractionSource() }
+    val rested = rememberRested(button)
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(ui.look.icon, contentDescription = null, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    stringResource(R.string.remote_prompt_card_title, from, stringResource(ui.look.title)),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(12.dp))
+                PermStateIcon(state, stateLabel)
+            }
+            Spacer(Modifier.height(6.dp))
+            if (state == PermState.GRANTED) {
+                Text(stringResource(R.string.remote_prompt_card_granted), style = MaterialTheme.typography.bodyMedium)
+            } else {
+                // Under the button's watch on a television; with no button the text is a stop
+                // of its own there, as an explanation with no row around it is.
+                val unfoldedByButton = tv && ui.offersOpen
+                CompositionLocalProvider(LocalRowHelpRevealed provides if (unfoldedByButton) rested else null) {
+                    HelpText(explanation, color = LocalContentColor.current, inClickableRow = unfoldedByButton)
+                }
+            }
+            if (ui.noPage && state != PermState.GRANTED) {
+                Spacer(Modifier.height(8.dp))
+                val command = storageGrantCommand(Build.VERSION.SDK_INT, context.packageName)
+                val line = if (ui.ask.permission == AppPermission.STORAGE) {
+                    stringResource(R.string.file_browser_grant_unavailable_format, command)
+                } else {
+                    stringResource(R.string.remote_prompt_card_no_page)
+                }
+                Text(
+                    buildAnnotatedString {
+                        append(line)
+                        val at = line.indexOf(command)
+                        if (at >= 0) addStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold), at, at + command.length)
+                    },
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (ui.offersOpen) {
+                Spacer(Modifier.height(12.dp))
+                // Marked as leaving the app: it lands on a screen of the system's.
+                Button(onClick = ui.open, interactionSource = button, modifier = Modifier.tvInitialFocus()) {
+                    Text(stringResource(R.string.perm_open))
+                    Icon(
+                        Icons.AutoMirrored.Filled.OpenInNew,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(16.dp)
+                    )
+                }
+            }
+        }
+    }
 }

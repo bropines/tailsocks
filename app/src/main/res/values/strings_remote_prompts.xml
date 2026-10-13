@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: what the managed device puts on its own screen when a paired device asks or changes something -->
+    <string name="remote_prompt_channel">Requests from paired devices</string>
+    <string name="remote_prompt_someone">A paired device</string>
+
+    <!-- A request for a permission: the notification, the line on the screen, the card of the Permissions screen -->
+    <string name="remote_prompt_ask_title">%1$s asks for a permission</string>
+    <string name="remote_prompt_ask_text">%1$s. Open to answer.</string>
+    <string name="remote_prompt_ask_toast">%1$s asks for a permission: %2$s. Open TailSocks to answer.</string>
+    <string name="remote_prompt_card_title">%1$s asks for: %2$s</string>
+    <string name="remote_prompt_card_note">Nothing is allowed from afar: only someone at this device can do it.</string>
+    <string name="remote_prompt_card_granted">Allowed. Nothing more is needed here.</string>
+    <string name="remote_prompt_card_no_page">This device has no settings page for it.</string>
+    <string name="remote_prompt_perm_all_files">Access to all files</string>
+    <string name="remote_prompt_perm_storage">Storage</string>
+    <string name="remote_prompt_storage_reason">For saving received files to any folder and sharing folders of this device.</string>
+
+    <!-- "Say whose hands you are in" -->
+    <string name="remote_prompt_identify">Managed from %1$s</string>
+
+    <!-- A change made from afar, in one line: the device, what it did, the bridge's own detail -->
+    <string name="remote_prompt_op_reverted">Change undone</string>
+    <string name="remote_prompt_op_share_added">Shared folder added</string>
+    <string name="remote_prompt_op_share_removed">Shared folder removed</string>
+    <string name="remote_prompt_op_file_sent">File sent</string>
+</resources>

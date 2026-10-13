@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: what the managed device puts on its own screen when a paired device asks or changes something -->
+    <string name="remote_prompt_channel">Запросы сопряжённых устройств</string>
+    <string name="remote_prompt_someone">Сопряжённое устройство</string>
+
+    <!-- A request for a permission: the notification, the line on the screen, the card of the Permissions screen -->
+    <string name="remote_prompt_ask_title">%1$s просит разрешение</string>
+    <string name="remote_prompt_ask_text">%1$s. Откройте, чтобы ответить.</string>
+    <string name="remote_prompt_ask_toast">%1$s просит разрешение: %2$s. Откройте TailSocks, чтобы ответить.</string>
+    <string name="remote_prompt_card_title">%1$s просит: %2$s</string>
+    <string name="remote_prompt_card_note">Удалённо разрешение не выдать — это делает только тот, кто рядом с устройством.</string>
+    <string name="remote_prompt_card_granted">Разрешено. Больше здесь ничего не нужно.</string>
+    <string name="remote_prompt_card_no_page">На этом устройстве для этого нет страницы настроек.</string>
+    <string name="remote_prompt_perm_all_files">Доступ ко всем файлам</string>
+    <string name="remote_prompt_perm_storage">Хранилище</string>
+    <string name="remote_prompt_storage_reason">Чтобы сохранять полученные файлы в любую папку и делиться папками этого устройства.</string>
+
+    <!-- "Say whose hands you are in" -->
+    <string name="remote_prompt_identify">Управляется с устройства %1$s</string>
+
+    <!-- A change made from afar, in one line: the device, what it did, the bridge's own detail -->
+    <string name="remote_prompt_op_reverted">Изменение отменено</string>
+    <string name="remote_prompt_op_share_added">Добавлена общая папка</string>
+    <string name="remote_prompt_op_share_removed">Убрана общая папка</string>
+    <string name="remote_prompt_op_file_sent">Файл отправлен</string>
+</resources>
