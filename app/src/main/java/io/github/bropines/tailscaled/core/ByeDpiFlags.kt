@@ -3,7 +3,7 @@ package io.github.bropines.tailscaled.core
 /**
  * Allow-list for user-supplied ByeDPI flags.
  *
- * The flags string is handed to byedpi's real `main()` inside the app
+ * The flags string is handed to byedpi's real option parser inside the app
  * process, and its option table is much wider than DPI tuning: `--pidfile`
  * and `--cache-file` create/truncate/delete files the app can write,
  * `--hosts`/`--ipset`/`--fake-data <file>` read any file the app can read,

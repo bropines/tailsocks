@@ -9,6 +9,10 @@ object ByeDpiProxy {
     private var isRunning = false
     private var proxyThread: Thread? = null
 
+    /** Names the latest run to the native side, which tells a stop meant for
+     *  this run from one meant for another. Only grows; guarded by the monitor. */
+    private var runId = 0L
+
     init {
         try {
             System.loadLibrary("byedpi")
@@ -18,11 +22,9 @@ object ByeDpiProxy {
     }
 
     @JvmStatic
-    private external fun jniStartProxy(args: Array<String>): Int
+    private external fun jniStartProxy(args: Array<String>, runId: Long): Int
     @JvmStatic
-    private external fun jniStopProxy(): Int
-    @JvmStatic
-    private external fun jniForceClose(): Int
+    private external fun jniStopProxy(runId: Long): Int
     @JvmStatic
     private external fun jniSetLogPath(path: String?): Unit
 
@@ -40,12 +42,12 @@ object ByeDpiProxy {
     @Synchronized
     fun start(customFlags: String, context: android.content.Context): Pair<String, Int>? {
         if (isRunning) return null
-        // A previous run may still be tearing down natively. Wait for its thread
-        // so the new proxy does not overlap it. Without this, a flags change
-        // (stop + 200ms + start) saw isRunning still set and silently returned
-        // null, leaving DPI bypass off with no error.
-        proxyThread?.let { if (it.isAlive) it.join(1500) }
         isRunning = true
+        val id = ++runId
+        // A previous run may still be leaving its loop, and the native core
+        // keeps its state in globals: the new run waits for that thread, on its
+        // own thread, instead of overlapping it. The address is known already.
+        val previous = proxyThread
 
         // Generate random localhost IP in 127.0.0.0/8 subnet (excluding 127.0.0.1 for security)
         val ip = "127.${(2..254).random()}.${(2..254).random()}.${(2..254).random()}"
@@ -86,28 +88,42 @@ object ByeDpiProxy {
         }
 
         val logFile = java.io.File(context.cacheDir, "byedpi_temp.log")
-        try {
-            jniSetLogPath(logFile.absolutePath)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to set log path", e)
-        }
-
         val address = Pair(ip, port)
         activeAddress = address
 
         val t = Thread {
+            if (previous != null && previous.isAlive) {
+                previous.join(2000)
+                if (previous.isAlive) {
+                    appctr.Appctr.logAndroid("WARN", "CORE", "DPI Bypass (ByeDPI): the previous instance is still stopping, waiting for it")
+                    previous.join()
+                }
+            }
+            // The log file belongs to one run at a time: the previous one wrote
+            // to it until it returned.
+            try {
+                jniSetLogPath(logFile.absolutePath)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to set log path", e)
+            }
             Log.d(TAG, "Starting ByeDPI on $ip:$port with args: $baseArgs")
             appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) starting on $ip:$port...")
             
             startLogReader(logFile)
             
-            val code = jniStartProxy(baseArgs.toTypedArray())
+            // Returns at once if stop() got in first.
+            val code = jniStartProxy(baseArgs.toTypedArray(), id)
             Log.d(TAG, "ByeDPI stopped with code $code")
             appctr.Appctr.logAndroid("INFO", "CORE", "DPI Bypass (ByeDPI) stopped with code $code")
             
             stopLogReader()
-            activeAddress = null
-            isRunning = false
+            synchronized(this@ByeDpiProxy) {
+                // A later run has its own state by now; it is not ours to clear.
+                if (runId == id) {
+                    activeAddress = null
+                    isRunning = false
+                }
+            }
         }
         proxyThread = t
         t.start()
@@ -123,10 +139,10 @@ object ByeDpiProxy {
         isRunning = false
         activeAddress = null
         stopLogReader()
-        Thread {
-            jniStopProxy()
-            jniForceClose()
-        }.start()
+        // A request and nothing more: the loop notices it, closes its own
+        // sockets and returns on its own thread. The call does not block, and
+        // the request holds for a run that has not reached the native side yet.
+        jniStopProxy(runId)
     }
 
     private fun startLogReader(file: java.io.File) {
