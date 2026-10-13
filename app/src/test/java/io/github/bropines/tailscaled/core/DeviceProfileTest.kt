@@ -111,11 +111,29 @@ class DeviceProfileTest {
             Feature.SERVE_EDIT, Feature.CONSOLE, Feature.LOGS, Feature.DNS_SCREEN,
             Feature.ROOT_MODE, Feature.BACKUP_RESTORE, Feature.THEME_AND_ICON,
             Feature.LIVE_STATE_ON_HOME,
+            Feature.AUTOMATION, Feature.DIAGNOSTICS,
         )
         for (feature in advanced) {
             val answer = DeviceProfile.availability(feature, DeviceClass.TV, Capabilities.NONE)
             assertEquals(feature.name, Availability.ADVANCED, answer)
             assertTrue(answer.reachable)
+        }
+    }
+
+    /** Settings → Advanced is built from this: nothing a television keeps may fall between the hub and that page. */
+    @Test
+    fun whatATelevisionIsNotOfferedIsEitherAdvancedOrHidden() {
+        for (feature in Feature.entries) {
+            for (caps in everyCapability) {
+                val answer = DeviceProfile.availability(feature, DeviceClass.TV, caps)
+                assertEquals("$feature with $caps", answer != Availability.HIDDEN, answer.reachable)
+            }
+        }
+        // What moved off a television's main screen can still be reached, whatever is installed.
+        for (feature in listOf(Feature.CONSOLE, Feature.LOGS, Feature.DNS_SCREEN, Feature.SERVE_EDIT)) {
+            for (caps in everyCapability) {
+                assertEquals("$feature with $caps", Availability.ADVANCED, DeviceProfile.availability(feature, DeviceClass.TV, caps))
+            }
         }
     }
 

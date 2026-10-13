@@ -56,6 +56,10 @@ enum class Feature {
     BACKUP_RESTORE,
     /** Theme, palette and launcher icon. */
     THEME_AND_ICON,
+    /** The settings of external automation: the switch and the token other apps command this one with. */
+    AUTOMATION,
+    /** The diagnostics and developer settings: the state now, detailed logs, extra daemon arguments. */
+    DIAGNOSTICS,
     /** Search fields and what reveals them. */
     SEARCH,
     /** Copy and paste. */
@@ -199,7 +203,9 @@ object DeviceProfile {
             Feature.ROOT_MODE,
             Feature.BACKUP_RESTORE,
             Feature.THEME_AND_ICON,
-            Feature.LIVE_STATE_ON_HOME -> Availability.ADVANCED
+            Feature.LIVE_STATE_ON_HOME,
+            Feature.AUTOMATION,
+            Feature.DIAGNOSTICS -> Availability.ADVANCED
 
             Feature.SYSTEM_FILE_PICKER -> if (caps.documents) Availability.OFFERED else Availability.HIDDEN
             Feature.BROWSER -> if (caps.browser) Availability.OFFERED else Availability.HIDDEN
