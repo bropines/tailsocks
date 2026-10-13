@@ -320,6 +320,8 @@ private const val GUARD_RETRY_MS = 3_000L
 private const val SILENT_AFTER = 2
 /** After the deadline: how many times the device is asked before the page's own slower reading takes over. */
 private const val AWAY_TRIES = 10
+/** How long "applied" is still worth telling a page that opens. */
+private const val APPLIED_NEWS_MS = 10_000L
 
 /** What a page is told about its device's provisional change. */
 internal interface GuardListener {
@@ -347,13 +349,20 @@ internal class GuardKeeper(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val states = HashMap<String, GuardState>()
+    private val settledAt = HashMap<String, Long>()
     private val listeners = HashMap<String, GuardListener>()
 
     fun state(peerId: String): GuardState? = states[peerId]
 
-    /** A page for [peerId] is open: it hears of the change from now on, and is told where it stands. */
+    /**
+     * A page for [peerId] is open: it hears of the change from now on, and is told where it
+     * stands. "Applied" is news for a moment only: a page opened later is not told it again.
+     * A change that was put back is told whenever the page is next opened — nobody saw it.
+     */
     fun attach(peerId: String, listener: GuardListener) {
         listeners[peerId] = listener
+        val state = states[peerId]
+        if (state?.phase == GuardPhase.APPLIED && now() - (settledAt[peerId] ?: 0L) > APPLIED_NEWS_MS) states.remove(peerId)
         listener.onGuard(states[peerId])
     }
 
@@ -445,6 +454,7 @@ internal class GuardKeeper(
     }
 
     private suspend fun settle(peer: String, phase: GuardPhase?) {
+        settledAt[peer] = now()
         publish(peer, phase?.let { states[peer]?.copy(phase = it) })
         listeners[peer]?.onSettled()
     }
@@ -601,6 +611,8 @@ internal class RemoteManageController(
         val status = io { client.status() }
         if (status is ManagedResult.Failed) return fail(status)
         update { it.withStatus((status as ManagedResult.Ok).value) }
+        // It answers: a change it undid in silence can be said undone now.
+        guards.heardAgain(client.peerId)
         val settings = io { client.settings() }
         if (settings is ManagedResult.Failed) return fail(settings)
         val files = io { client.files() }

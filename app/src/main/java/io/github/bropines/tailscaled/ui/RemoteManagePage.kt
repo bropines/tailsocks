@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -170,6 +171,8 @@ private fun Narrow(layout: WindowLayout, content: @Composable ColumnScope.() -> 
             Modifier
                 .widthIn(max = 480.dp)
                 .fillMaxWidth()
+                // The page's window draws under the keyboard: the form stays reachable above it.
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = layout.margin, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

@@ -475,6 +475,34 @@ class RemoteManageControllerTest {
         val again = controller()
         runBlocking { again.start() }
         assertEquals(GuardPhase.APPLIED, (again.ui as RemoteManageUi.Managing).guard?.phase)
+        // "Applied" is news for a moment: a page opened a minute later is not told it again.
+        again.stop()
+        clock += 60_000
+        val later = controller()
+        runBlocking { later.start() }
+        assertNull((later.ui as RemoteManageUi.Managing).guard)
+    }
+
+    @Test
+    fun aChangeUndoneWhileNobodyLookedIsToldToThePageThatOpensNext() {
+        open()
+        during = { waited ->
+            if (waited == 5_000L) {
+                controller.stop()
+                device.reachable = false
+            }
+        }
+        controller.pickExitNode(AMS)
+        // The keeper gave up asking; the device put the old value back by itself.
+        device.reachable = true
+        clock += 600_000
+        val later = controller()
+        runBlocking { later.start() }
+        // It answered the page's first question, so what it did is said at once, with the value it has now.
+        val seen = later.ui as RemoteManageUi.Managing
+        assertEquals(GuardPhase.REVERTED, seen.guard?.phase)
+        assertEquals(FRA, seen.exitNode?.id)
+        assertTrue(seen.usable)
     }
 
     @Test

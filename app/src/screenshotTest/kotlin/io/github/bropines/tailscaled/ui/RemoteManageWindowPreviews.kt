@@ -17,14 +17,20 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.FakeManagedDevice
 import io.github.bropines.tailscaled.core.ManagedFetch
+import io.github.bropines.tailscaled.core.ManagedPaths
+import io.github.bropines.tailscaled.core.ManagedRefusal
+import io.github.bropines.tailscaled.core.ManagedResult
 import io.github.bropines.tailscaled.core.ManagedShown
+import io.github.bropines.tailscaled.core.ManagedStorageList
 import io.github.bropines.tailscaled.core.RemoteContract
+import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemotePairFailure
 import io.github.bropines.tailscaled.core.RemotePaths
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.File
 
 // What the managing page opens over itself, pairing, and the ways in. A window cannot be rendered
 // over a page, so each is drawn by what it holds. The fixtures are RemoteManagePreviews.kt's.
@@ -73,6 +79,49 @@ fun ManageLogTv() = AdaptiveShowcase(null, device = DeviceClass.TV) {
 @PreviewTest @ManagePhone @Composable
 fun ManageReport() = AdaptiveShowcase(null) {
     DiagContent("living-room-tv", RemoteDiagState(log = false, loading = false, text = RemoteContract.report().text.trimEnd()), RemoteManageActions.None, logHooks)
+}
+
+/**
+ * The device's storage as the app's browser shows it: the contract's roots and folders, asked
+ * of the fake device through the same source the page uses.
+ */
+private fun storage(): RemoteFileSource {
+    val device = ManageDemo.device(full = true) { putFolder("/storage/emulated/0/Movies", 7) }
+    return RemoteFileSource(
+        list = { path, offset ->
+            val body = buildJsonObject { put("path", path); if (offset > 0) put("offset", offset) }.toString()
+            val answer = device.post("nKq7Xw2CNTRL", device.token, ManagedPaths.STORAGE_LIST, body)
+            RemoteJson.decode<ManagedStorageList>(answer.body)?.takeIf { answer.status == 200 }?.let { ManagedResult.Ok(it) }
+                ?: ManagedResult.Failed(ManagedRefusal.NOT_FOUND)
+        },
+        onFailure = {},
+        // As a person who walked down to a folder has it: the folders on the way were listed.
+    ).also { it.roots(); it.list(File("/storage/emulated/0")) }
+}
+
+/** The places the device's storage starts from: its own, named here, and a stick named as the device names it. */
+@PreviewTest @ManagePhone @Composable
+fun ManageStorageRoots() = AdaptiveShowcase(null) {
+    PickFilesScreen(source = storage(), onPicked = {}, onCancel = {}, multiple = false, title = stringResource(R.string.rmanage_browse_title, "living-room-tv"))
+}
+
+/** A folder there, for a file to be sent to this device. */
+@PreviewTest @ManagePhone @Composable
+fun ManageStorageFolder() = AdaptiveShowcase(null) {
+    PickFilesScreen(
+        source = storage(), onPicked = {}, onCancel = {}, multiple = false, start = File("/storage/emulated/0/Movies"),
+        title = stringResource(R.string.rmanage_browse_title, "living-room-tv"),
+    )
+}
+
+/** The same browser choosing a folder to share, on a television. */
+@PreviewTest @ManageTv @Composable
+fun ManageStorageShareTv() = AdaptiveShowcase(null, device = DeviceClass.TV) {
+    PickFolderScreen(
+        source = storage(), onPicked = {}, onCancel = {}, start = File("/storage/emulated/0/Download"),
+        title = stringResource(R.string.rmanage_share_pick_title, "living-room-tv"),
+        confirmLabel = stringResource(R.string.rmanage_share_pick_confirm),
+    )
 }
 
 // ─── Pairing ─────────────────────────────────────────────────────────────────────────────────

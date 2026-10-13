@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -313,6 +314,12 @@ internal fun ManageSwitch(
             onCheckedChange = if (moves) onChange else null,
             modifier = Modifier.tvNoFocus(),
             enabled = moves,
+            // A switch that cannot be moved must still say which way it stands: Material's
+            // disabled "on" is nearly the colour of "off" on a dark ground.
+            colors = SwitchDefaults.colors(
+                disabledCheckedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+                disabledCheckedThumbColor = MaterialTheme.colorScheme.surface,
+            ),
         )
     }
 }

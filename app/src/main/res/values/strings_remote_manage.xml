@@ -199,7 +199,7 @@
     <string name="rmanage_routes_bad">That is not a list of subnets.</string>
     <string name="rmanage_routes_full">Offering subnets needs Full control, which is switched on at the device. From here they can only be withdrawn.</string>
     <string name="rmanage_routes_clear">Withdraw</string>
-    <string name="rmanage_first_build">TailSocks on %1$s is an early build of remote management. Files it can be sent, permissions and the rest appear here once it is updated there.</string>
+    <string name="rmanage_first_build">TailSocks on %1$s is an early build of remote management. Permissions, shared folders and the rest appear here once it is updated there.</string>
     <string name="rmanage_sum_device">TailSocks %1$s</string>
     <string name="rmanage_sum_device_android">TailSocks %1$s · Android %2$s</string>
 

@@ -288,7 +288,6 @@ private fun Switches(keys: List<String>, ui: RemoteManageUi.Managing, actions: R
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ConnectionGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions) {
     val access = ui.access
@@ -748,23 +747,22 @@ private fun DiagnosticsGroup(ui: RemoteManageUi.Managing, actions: RemoteManageA
     val log = ui.access.gate(ManagedOp.DIAG_LOG)
     val report = ui.access.gate(ManagedOp.DIAG_REPORT)
     // The two take the same class and level: one reason covers both.
+    // The whole group waits for one thing: said once, above the rows it holds back.
+    DeniedNote(if (log.denial != null) log else report, ui.name, Modifier.padding(bottom = 4.dp))
     ManageOpenRow(
         icon = Icons.Default.Subject,
         title = stringResource(R.string.rmanage_diag_log),
         help = stringResource(R.string.rmanage_diag_log_help),
-        reason = log.denial?.let { denialRow(it) },
-        enabled = ui.usable,
+        enabled = ui.usable && log.open,
         onClick = { actions.openDiag(log = true) }
     )
     ManageOpenRow(
         icon = Icons.Default.Article,
         title = stringResource(R.string.rmanage_diag_report),
         help = stringResource(R.string.rmanage_diag_report_help),
-        reason = report.denial?.let { denialRow(it) },
-        enabled = ui.usable,
+        enabled = ui.usable && report.open,
         onClick = { actions.openDiag(log = false) }
     )
-    FullControlNote(log.denial == ManagedDenial.NEEDS_FULL || report.denial == ManagedDenial.NEEDS_FULL, ui.name)
 }
 
 /** Whether a switch of [keys] waits for Full control: its row says so in two words, the card once in full. */

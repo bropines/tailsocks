@@ -14,7 +14,7 @@
     <string name="rmanage_deny_owner">Это может только владелец.</string>
     <string name="rmanage_deny_full_short">Нужен полный доступ</string>
     <string name="rmanage_deny_owner_short">Только владельцу</string>
-    <string name="rmanage_guest_note">Гость может смотреть, выбирать выходной узел и находить устройство. Остальное — только владельцу.</string>
+    <string name="rmanage_guest_note">Гость может смотреть и выбирать выходной узел. Остальное — только владельцу.</string>
 
     <string name="rmanage_android">Android %1$s</string>
     <plurals name="rmanage_warnings">
@@ -27,7 +27,7 @@
     <string name="rmanage_level_full">Полный доступ</string>
     <string name="rmanage_until_revoked">пока не отзовут</string>
     <string name="rmanage_left">осталось %1$s</string>
-    <string name="rmanage_identify">Найти</string>
+    <string name="rmanage_identify">Определить</string>
     <string name="rmanage_identify_help">На экране того устройства на несколько секунд появится, кто им управляет. Удобно, когда телевизоров два.</string>
     <string name="rmanage_identify_shown">Сейчас это на экране %1$s.</string>
     <string name="rmanage_identify_notified">TailSocks там не на экране, поэтому %1$s показал уведомление.</string>
@@ -49,7 +49,7 @@
     <string name="rmanage_group_connection">Подключение</string>
     <string name="rmanage_sum_no_exit">Без выходного узла</string>
     <string name="rmanage_sum_exit">Через %1$s</string>
-    <string name="rmanage_exit_suggested">Советует</string>
+    <string name="rmanage_exit_suggested">Рекомендован</string>
     <string name="rmanage_setting_accept_dns_help">Имена tailnet и его настройки DNS.</string>
     <string name="rmanage_setting_accept_routes_help">Доступ к подсетям, которые раздают другие устройства tailnet.</string>
     <string name="rmanage_setting_lan_help">Локальная сеть остаётся доступной, пока включён выходной узел.</string>
@@ -77,18 +77,18 @@
     <string name="rmanage_cannot_send">С этого устройства на %1$s отправить нельзя: %2$s</string>
     <string name="rmanage_receive_ready">Принятые файлы сохраняются в %1$s.</string>
     <string name="rmanage_receive_ready_free">Принятые файлы сохраняются в %1$s. Свободно %2$s.</string>
-    <string name="rmanage_receive_needs_access">Папке %1$s нужен доступ к памяти устройства. Пока его нет, принятые файлы ждут внутри TailSocks.</string>
+    <string name="rmanage_receive_needs_access">Папке %1$s нужен доступ к хранилищу на устройстве. Пока его нет, принятые файлы ждут внутри TailSocks.</string>
     <string name="rmanage_receive_unavailable">В папку %1$s записать нельзя. Принятые файлы ждут внутри TailSocks.</string>
     <string name="rmanage_receive_inbox">Принятые файлы остаются внутри TailSocks на устройстве.</string>
     <string name="rmanage_receive_reset">Вернуть папку по умолчанию</string>
-    <string name="rmanage_ask_storage">Попросить доступ к памяти</string>
+    <string name="rmanage_ask_storage">Попросить доступ к хранилищу</string>
     <string name="rmanage_files_waiting">Ждут внутри TailSocks</string>
     <string name="rmanage_files_saved">Сохранены в папку</string>
     <string name="rmanage_files_saved_help">Последние файлы, которые попали в папку приёма. Ими распоряжаются на самом устройстве.</string>
     <string name="rmanage_save_received">Переложить в папку</string>
-    <string name="rmanage_browse">Просмотреть память</string>
+    <string name="rmanage_browse">Просмотреть хранилище</string>
     <string name="rmanage_browse_help">Пройтись по папкам устройства и попросить его прислать файл сюда.</string>
-    <string name="rmanage_browse_title">Память %1$s</string>
+    <string name="rmanage_browse_title">Хранилище %1$s</string>
     <string name="rmanage_fetch_confirm">Прислать сюда</string>
     <string name="rmanage_fetch_title">Прислать %1$s на это устройство?</string>
     <string name="rmanage_fetch_text">%1$s. %2$s отправит его своим Taildrop, и он придёт сюда как обычный принятый файл.</string>
@@ -124,7 +124,7 @@
     </plurals>
     <string name="rmanage_sum_shares_off">Taildrive выключен</string>
     <string name="rmanage_share_add">Открыть папку</string>
-    <string name="rmanage_share_add_help">Выберите папку в памяти устройства и дайте ей название.</string>
+    <string name="rmanage_share_add_help">Выберите папку в хранилище устройства и дайте ей название.</string>
     <string name="rmanage_share_pick_title">Какую папку открыть на %1$s</string>
     <string name="rmanage_share_pick_confirm">Открыть эту папку</string>
     <string name="rmanage_share_name_title">Название общей папки</string>
@@ -142,7 +142,7 @@
 
     <string name="rmanage_group_permissions">Разрешения</string>
     <string name="rmanage_permissions_help">Что есть у TailSocks на устройстве. Запрос ничего не выдаёт сам: он лишь открывает системную страницу перед тем, кто рядом с устройством.</string>
-    <string name="rmanage_perm_storage">Доступ к памяти</string>
+    <string name="rmanage_perm_storage">Доступ к хранилищу</string>
     <string name="rmanage_perm_notifications">Уведомления</string>
     <string name="rmanage_perm_battery">Работа без ограничений батареи</string>
     <string name="rmanage_perm_vpn">Согласие на VPN</string>
@@ -200,7 +200,7 @@
     <string name="rmanage_routes_bad">Это не список подсетей.</string>
     <string name="rmanage_routes_full">Чтобы раздавать подсети, нужен полный доступ — он включается на самом устройстве. Отсюда их можно только отозвать.</string>
     <string name="rmanage_routes_clear">Отозвать</string>
-    <string name="rmanage_first_build">На %1$s ранняя сборка удалённого управления. Отправка файлов с подсказками, разрешения и остальное появятся здесь, когда TailSocks там обновят.</string>
+    <string name="rmanage_first_build">На %1$s ранняя сборка удалённого управления. Разрешения, общие папки и остальное появятся здесь, когда TailSocks там обновят.</string>
     <string name="rmanage_sum_device">TailSocks %1$s</string>
     <string name="rmanage_sum_device_android">TailSocks %1$s · Android %2$s</string>
 
@@ -226,7 +226,7 @@
     <string name="rmanage_fact_class">Это устройство</string>
     <string name="rmanage_class_help">Владелец — устройство того же аккаунта, что и управляемое. Любое другое устройство — гость.</string>
     <string name="rmanage_fact_level">Уровень</string>
-    <string name="rmanage_level_help">Полный доступ добавляет память устройства, открытие папок и диагностику. Включается он на самом устройстве и никогда — удалённо.</string>
+    <string name="rmanage_level_help">Полный доступ добавляет хранилище устройства, открытие папок и диагностику. Включается он на самом устройстве и никогда — удалённо.</string>
     <string name="rmanage_fact_valid">Действует</string>
     <string name="rmanage_full_off">Выключить полный доступ</string>
     <string name="rmanage_full_off_title">Выключить полный доступ на %1$s?</string>
