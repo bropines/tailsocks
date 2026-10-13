@@ -7,6 +7,7 @@ package appctr
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -174,6 +175,70 @@ func TestRemoteLevels(t *testing.T) {
 	r.want(set("full_control", "true"), 403, "forbidden")
 	if st := r.m.state(); st.Rev == 0 {
 		t.Error("the state did not move")
+	}
+}
+
+// A manager of the first build knows three switches and two facts. It draws
+// whatever else it is sent under the bare key, with a switch that works — so
+// it is not sent more; this build's own client says that it knows more.
+func TestRemoteOlderManager(t *testing.T) {
+	r := newRemoteRig(t)
+	owner := r.pair(rtPhone)
+	keys := func(a rtReply) string {
+		t.Helper()
+		if a.status != 200 {
+			t.Fatalf("settings: %d %s", a.status, a.raw)
+		}
+		var out []string
+		for _, raw := range a.obj["settings"].([]any) {
+			out = append(out, raw.(map[string]any)["key"].(string))
+		}
+		return strings.Join(out, ",")
+	}
+	old := r.send(rtPhone, "GET", "/v1/settings", owner, nil, func(q *http.Request) { q.Header.Del(remoteClientHeader) })
+	if got := keys(old); got != "accept_dns,accept_routes,exit_node_lan_access,device_class,app_version" {
+		t.Errorf("an older manager is shown %s", got)
+	}
+	// And in the first build's words: no mark it would not know what to do with.
+	for _, word := range []string{"guard", "only", "needs"} {
+		if strings.Contains(old.raw, `"`+word+`"`) {
+			t.Errorf("an older manager is sent %q: %s", word, old.raw)
+		}
+	}
+	// What it does know works as it did: a change that is not guarded, an
+	// exit node, the reconnect — none of them waiting for a confirmation it
+	// would never send.
+	plain := func(q *http.Request) { q.Header.Del(remoteClientHeader) }
+	for _, rq := range []struct {
+		path string
+		body any
+	}{
+		{"/v1/settings", map[string]string{"key": "accept_routes", "value": "true"}},
+		{"/v1/exit-node", map[string]string{"id": rtExitA.id}},
+		{"/v1/actions", map[string]string{"action": "reconnect"}},
+	} {
+		if a := r.send(rtPhone, "POST", rq.path, owner, rq.body, plain); a.status != 200 || a.raw != "{}\n" {
+			t.Errorf("%s from an older manager: %d %q", rq.path, a.status, a.raw)
+		}
+	}
+	r.clock.advance(5 * time.Minute)
+	r.m.guardTick()
+	if r.app.value("accept_routes") != "true" || r.app.value(RemoteKeyExitNode) != rtExitA.id || len(r.reverted()) != 0 {
+		t.Errorf("an older manager's change was put back: %+v", r.reverted())
+	}
+	// Its status is the first build's with more in it, which it does not read.
+	if a := r.send(rtPhone, "GET", "/v1/status", owner, nil, plain); a.status != 200 || a.obj["running"] != true || a.obj["you"].(map[string]any)["class"] != "owner" {
+		t.Errorf("status for an older manager: %d %s", a.status, a.raw)
+	}
+
+	// This build's client says what it is, and is shown everything.
+	if got := keys(r.call(rtPhone, "GET", "/v1/settings", owner, nil)); !strings.Contains(got, "tun_mode") || !strings.Contains(got, "full_control") {
+		t.Errorf("this build's manager is shown %s", got)
+	}
+	phone := newRtPhoneSide(t, r, rtPhone)
+	a := phone.env.do(rtSelf.id, "GET", "/v1/settings", owner, "", remoteRequestTimeout)
+	if a.Status != 200 || !strings.Contains(a.Body, `"tun_mode"`) || !strings.Contains(a.Body, `"guard":"always"`) {
+		t.Errorf("through the real client: %d %s", a.Status, a.Body)
 	}
 }
 

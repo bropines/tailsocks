@@ -44,6 +44,27 @@ type remoteRequest struct {
 	class remoteClass
 	left  int64
 	body  []byte
+	// modern: the caller's bridge knows more than the first build's API
+	// (remoteClientHeader). What an older one would show without
+	// understanding — a setting by its bare key, with a switch that works —
+	// is kept from it.
+	modern bool
+}
+
+// remoteClientHeader is what the managing side's bridge sends with every
+// request since the API grew: the number says how much of it the caller
+// knows. The first build sends none.
+const (
+	remoteClientHeader  = "X-Tailsocks-Remote"
+	remoteClientVersion = "2"
+)
+
+// remoteFirstSettings is what /v1/settings listed in the first build. A caller
+// that does not say it knows more is shown these and no others: it would draw
+// every other switch under its raw key and let it be turned.
+var remoteFirstSettings = map[string]bool{
+	"accept_dns": true, "accept_routes": true, "exit_node_lan_access": true,
+	remoteKeyDeviceClass: true, remoteKeyAppVersion: true,
 }
 
 // remoteRoute is one entry of the API. op names the right the caller needs
@@ -171,7 +192,7 @@ func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rq := &remoteRequest{caller: caller, self: self, left: -1}
+	rq := &remoteRequest{caller: caller, self: self, left: -1, modern: r.Header.Get(remoteClientHeader) != ""}
 	if route.op != "" {
 		class, left, ok := m.authorize(caller, self, remoteBearer(r))
 		if !ok {
@@ -882,7 +903,14 @@ func (m *remoteManager) handleSettings(rq *remoteRequest) (int, any) {
 	full := m.fullControl()
 	out := []remoteSettingView{}
 	for _, s := range remoteSettings {
+		if !rq.modern && !remoteFirstSettings[s.key] {
+			continue
+		}
 		v := remoteSettingViewOf(s, mayWrite, full)
+		if !rq.modern {
+			// As the first build said them: none of the newer marks.
+			v.Guard = ""
+		}
 		if !s.writable {
 			v.Value = m.fact(s.key)
 		} else {

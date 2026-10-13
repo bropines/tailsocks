@@ -242,6 +242,8 @@ func (e *remoteClientEnv) do(peerID, method, path, token, body string, timeout t
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	// This bridge knows the grown API: the peer may show it all of it.
+	req.Header.Set(remoteClientHeader, remoteClientVersion)
 	resp, err := client.Do(req)
 	if err != nil {
 		return remoteFailure(err)

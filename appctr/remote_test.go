@@ -722,6 +722,8 @@ func (r *remoteRig) try(n *rtNode, method, path, token string, body any, tune fu
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	// As this build's own client sends it; a test of an older manager takes it off.
+	req.Header.Set(remoteClientHeader, remoteClientVersion)
 	if tune != nil {
 		tune(req)
 	}
