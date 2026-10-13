@@ -1,0 +1,484 @@
+--- /dev/null	2026-10-12 10:19:24.352827300 +0300
++++ tailscale_src/cmd/tailscaled/android_remote.go	2026-10-13 17:11:45.569761316 +0300
+@@ -0,0 +1,148 @@
++//go:build !ts_omit_netstack
++
++package main
++
++// TailSocks remote management: the app's bridge serves an endpoint on
++// 127.0.0.1:remoteManagementPort and learns who is calling from LocalAPI whois
++// of the loopback socket netstack forwarded the peer's connection through —
++// the proxy map (appctr/remote.go, remote_auth.go). In userspace-networking
++// netstack terminates every connection to the node's own addresses, so that
++// works. With a real TUN — the VpnService device of --tun=android-vpn, or
++// tailscale0 in Root Mode — those addresses are the host stack's, and nothing
++// there answers on this port.
++//
++// So netstack keeps this one port in those modes too, the way it keeps the
++// peerAPI's, and the connection takes the same road as in
++// userspace-networking: forwarded to localhost, the peer in the proxy map.
++// The listener is not moved to the tailnet address instead: a host socket
++// knows a caller only by a source address, and on Android the app is outside
++// its own VPN, so its answers would not be routed back into the tunnel.
++//
++// The port is kept only while remote management is switched on. The switch is
++// a file the app keeps beside the daemon's socket, so it is followed without a
++// restart, and while it is off the port is the host's, as it always was.
++
++import (
++	"encoding/json"
++	"net/http"
++	"os"
++	"path/filepath"
++	"sync/atomic"
++	"time"
++
++	"tailscale.com/ipn/localapi"
++	"tailscale.com/types/logger"
++	"tailscale.com/wgengine/netstack"
++)
++
++const (
++	// remoteManagementPort must equal RemotePort in appctr/remote.go.
++	remoteManagementPort = 28115
++
++	// remoteSwitchDir and remoteSwitchName place the switch relative to the
++	// socket's directory, the app's files/: RemoteManage.kt writes it.
++	remoteSwitchDir  = "remote"
++	remoteSwitchName = "managed.on"
++
++	// remoteSwitchTTL is how long the datapath trusts its last look at the
++	// switch: a look is a stat, and this runs for every packet to the port.
++	remoteSwitchTTL = time.Second
++)
++
++// remoteForwarder decides whether netstack keeps the remote-management port.
++type remoteForwarder struct {
++	logf       logger.Logf
++	switchFile string
++	// everyPort: netstack takes every port of the node's own addresses anyway.
++	everyPort bool
++
++	on     atomic.Bool
++	readAt atomic.Int64 // UnixNano of the last look at the switch; 0 before the first
++}
++
++// remoteForward is the forwarder of the running netstack, for the LocalAPI.
++var remoteForward atomic.Pointer[remoteForwarder]
++
++func init() {
++	localapi.Register("remote-management-port", serveRemoteManagementPort)
++}
++
++// forwardRemoteManagement makes ns keep the remote-management port of the
++// node's own addresses where it otherwise leaves them to the host. Called by
++// newNetstack once ProcessLocalIPs is set, before Start.
++func forwardRemoteManagement(logf logger.Logf, ns *netstack.Impl) {
++	f := newRemoteForwarder(logf, args.socketpath, ns.ProcessLocalIPs)
++	if f == nil {
++		return
++	}
++	ns.ProcessLocalTCPPort = f.keeps
++	remoteForward.Store(f)
++}
++
++// newRemoteForwarder returns nil when there is no socket path to find the
++// switch by; the port is then never kept.
++func newRemoteForwarder(logf logger.Logf, socketPath string, everyPort bool) *remoteForwarder {
++	if socketPath == "" {
++		return nil
++	}
++	return &remoteForwarder{
++		logf:       logf,
++		switchFile: filepath.Join(filepath.Dir(socketPath), remoteSwitchDir, remoteSwitchName),
++		everyPort:  everyPort,
++	}
++}
++
++// keeps is netstack.Impl.ProcessLocalTCPPort.
++func (f *remoteForwarder) keeps(port uint16) bool {
++	if port != remoteManagementPort {
++		return false
++	}
++	if at := f.readAt.Load(); at != 0 && time.Now().UnixNano()-at < int64(remoteSwitchTTL) {
++		return f.on.Load()
++	}
++	return f.look()
++}
++
++// look reads the switch and remembers it for the datapath.
++func (f *remoteForwarder) look() bool {
++	fi, err := os.Stat(f.switchFile)
++	on := err == nil && fi.Mode().IsRegular()
++	f.readAt.Store(time.Now().UnixNano())
++	if f.on.Swap(on) != on && !f.everyPort {
++		if on {
++			f.logf("remote management: on; netstack keeps TCP port %d of this node's addresses", remoteManagementPort)
++		} else {
++			f.logf("remote management: off; TCP port %d is the host's again", remoteManagementPort)
++		}
++	}
++	return on
++}
++
++// forwarded reports whether a peer's connection to the port is forwarded to
++// localhost as of now: the switch is read afresh, so the datapath agrees with
++// the answer from the moment it is given.
++func (f *remoteForwarder) forwarded() bool {
++	on := f.look()
++	return f.everyPort || on
++}
++
++// serveRemoteManagementPort answers GET /localapi/v0/remote-management-port
++// with {"Port":28115,"Forwarded":true}: whether a peer's connection to that
++// port of this node reaches the app's loopback listener in the daemon's
++// current mode. The bridge asks rather than infer it from the mode, so a
++// daemon that does not keep the port is never taken for one that does.
++func serveRemoteManagementPort(h *localapi.Handler, w http.ResponseWriter, r *http.Request) {
++	if !h.PermitRead {
++		http.Error(w, "remote-management-port access denied", http.StatusForbidden)
++		return
++	}
++	res := struct {
++		Port      int
++		Forwarded bool
++	}{Port: remoteManagementPort}
++	if f := remoteForward.Load(); f != nil {
++		res.Forwarded = f.forwarded()
++	}
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(res)
++}
+--- /dev/null	2026-10-12 10:19:24.352827300 +0300
++++ tailscale_src/cmd/tailscaled/android_remote_test.go	2026-10-13 17:12:50.241744239 +0300
+@@ -0,0 +1,167 @@
++//go:build !ts_omit_netstack
++
++package main
++
++import (
++	"encoding/json"
++	"net/http"
++	"net/http/httptest"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"tailscale.com/ipn/localapi"
++)
++
++// remoteSwitchFor lays out an app's files/ directory in a temporary place and
++// returns the daemon's socket path in it and a func that flips the switch.
++func remoteSwitchFor(t *testing.T) (socket string, flip func(on bool)) {
++	t.Helper()
++	files := t.TempDir()
++	file := filepath.Join(files, remoteSwitchDir, remoteSwitchName)
++	return filepath.Join(files, "tailscaled.sock"), func(on bool) {
++		t.Helper()
++		if !on {
++			if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
++				t.Fatal(err)
++			}
++			return
++		}
++		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
++			t.Fatal(err)
++		}
++		if err := os.WriteFile(file, nil, 0o600); err != nil {
++			t.Fatal(err)
++		}
++	}
++}
++
++// expire makes the datapath's next question a fresh look at the switch, as
++// remoteSwitchTTL passing would.
++func (f *remoteForwarder) expire() { f.readAt.Store(0) }
++
++func TestRemoteForwarderFollowsTheSwitch(t *testing.T) {
++	socket, flip := remoteSwitchFor(t)
++	f := newRemoteForwarder(t.Logf, socket, false)
++
++	if f.keeps(remoteManagementPort) {
++		t.Error("the port is kept though the switch was never on")
++	}
++	if f.forwarded() {
++		t.Error("forwarded though the switch was never on")
++	}
++
++	flip(true)
++	// The datapath does not look again within remoteSwitchTTL...
++	if f.keeps(remoteManagementPort) {
++		t.Error("the datapath looked at the switch again before its time")
++	}
++	// ...but whoever asks the LocalAPI gets the truth, and the datapath has it
++	// from that moment.
++	if !f.forwarded() {
++		t.Error("not forwarded with the switch on")
++	}
++	if !f.keeps(remoteManagementPort) {
++		t.Error("the port is not kept with the switch on")
++	}
++	for _, port := range []uint16{0, 22, 80, 1055, remoteManagementPort - 1, remoteManagementPort + 1, 65535} {
++		if f.keeps(port) {
++			t.Errorf("port %d is kept; only %d may be", port, remoteManagementPort)
++		}
++	}
++
++	flip(false)
++	f.expire()
++	if f.keeps(remoteManagementPort) {
++		t.Error("the port is still kept after the switch went off")
++	}
++	if f.forwarded() {
++		t.Error("still forwarded after the switch went off")
++	}
++
++	// The datapath finds the switch on its own once its last look is old.
++	flip(true)
++	f.expire()
++	if !f.keeps(remoteManagementPort) {
++		t.Error("the datapath did not find the switch on")
++	}
++}
++
++// Only a regular file is the switch: the app tests it with File.isFile.
++func TestRemoteForwarderWantsAFile(t *testing.T) {
++	socket, _ := remoteSwitchFor(t)
++	f := newRemoteForwarder(t.Logf, socket, false)
++	if err := os.MkdirAll(f.switchFile, 0o700); err != nil {
++		t.Fatal(err)
++	}
++	if f.forwarded() || f.keeps(remoteManagementPort) {
++		t.Error("a directory was taken for the switch")
++	}
++}
++
++// In userspace-networking netstack has every port of the node's addresses, so
++// the port is forwarded whatever the switch says — as it was before the port
++// was kept anywhere.
++func TestRemoteForwarderEveryPort(t *testing.T) {
++	socket, _ := remoteSwitchFor(t)
++	f := newRemoteForwarder(t.Logf, socket, true)
++	if !f.forwarded() {
++		t.Error("not forwarded though netstack takes every port")
++	}
++	if f.keeps(remoteManagementPort) {
++		t.Error("the port is kept by the switch though the switch is off")
++	}
++}
++
++func TestRemoteForwarderNeedsASocketPath(t *testing.T) {
++	if f := newRemoteForwarder(t.Logf, "", false); f != nil {
++		t.Errorf("a forwarder with no socket path: %+v", f)
++	}
++}
++
++func TestServeRemoteManagementPort(t *testing.T) {
++	ask := func(h *localapi.Handler) (int, string) {
++		rec := httptest.NewRecorder()
++		serveRemoteManagementPort(h, rec, httptest.NewRequest("GET", "/localapi/v0/remote-management-port", nil))
++		return rec.Code, rec.Body.String()
++	}
++	type answer struct {
++		Port      int
++		Forwarded bool
++	}
++	want := func(t *testing.T, body string, forwarded bool) {
++		t.Helper()
++		var a answer
++		if err := json.Unmarshal([]byte(body), &a); err != nil {
++			t.Fatalf("%q: %v", body, err)
++		}
++		if a.Port != remoteManagementPort || a.Forwarded != forwarded {
++			t.Errorf("answer %+v, want port %d forwarded %v", a, remoteManagementPort, forwarded)
++		}
++	}
++	old := remoteForward.Load()
++	t.Cleanup(func() { remoteForward.Store(old) })
++
++	if code, _ := ask(&localapi.Handler{}); code != http.StatusForbidden {
++		t.Errorf("without read access: %d", code)
++	}
++
++	// No netstack: nothing is forwarded.
++	remoteForward.Store(nil)
++	code, body := ask(&localapi.Handler{PermitRead: true})
++	if code != http.StatusOK {
++		t.Fatalf("status %d: %s", code, body)
++	}
++	want(t, body, false)
++
++	socket, flip := remoteSwitchFor(t)
++	remoteForward.Store(newRemoteForwarder(t.Logf, socket, false))
++	_, body = ask(&localapi.Handler{PermitRead: true})
++	want(t, body, false)
++	flip(true)
++	_, body = ask(&localapi.Handler{PermitRead: true})
++	want(t, body, true)
++	flip(false)
++	_, body = ask(&localapi.Handler{PermitRead: true})
++	want(t, body, false)
++}
+--- /dev/null	2026-10-12 10:19:24.352827300 +0300
++++ tailscale_src/wgengine/netstack/local_tcp_port_test.go	2026-10-13 17:15:03.862552775 +0300
+@@ -0,0 +1,160 @@
++package netstack
++
++// TailSocks: Impl.ProcessLocalTCPPort — one TCP port of the node's own
++// addresses stays netstack's when the rest belong to the host (a real TUN).
++
++import (
++	"net"
++	"net/netip"
++	"testing"
++	"time"
++
++	"tailscale.com/net/packet"
++	"tailscale.com/tailcfg"
++	"tailscale.com/types/ipproto"
++	"tailscale.com/types/netmap"
++	"tailscale.com/wgengine/filter"
++)
++
++func TestProcessLocalTCPPort(t *testing.T) {
++	const kept = 28115
++	keep := func(port uint16) bool { return port == kept }
++	peer4 := netip.MustParseAddr("100.101.102.103")
++	peer6 := netip.MustParseAddr("fd7a:115c:a1e0:ab12:4843:cd96:6265:6667")
++	self4 := netip.MustParseAddr("100.101.102.104")
++	self6 := netip.MustParseAddr("fd7a:115c:a1e0:ab12:4843:cd96:6265:6668")
++	subnet := netip.MustParseAddr("192.0.2.1")
++
++	tests := []struct {
++		name     string
++		hook     func(uint16) bool
++		localIPs bool
++		pkt      packet.Parsed
++		want     bool
++	}{
++		{
++			name: "syn-to-the-kept-port",
++			hook: keep,
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept), TCPFlags: packet.TCPSyn},
++			want: true,
++		},
++		{
++			// Every packet of the flow, not only the one that opens it:
++			// nothing else in this mode would claim the rest.
++			name: "ack-to-the-kept-port",
++			hook: keep,
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept), TCPFlags: packet.TCPAck},
++			want: true,
++		},
++		{
++			name: "ipv6",
++			hook: keep,
++			pkt:  packet.Parsed{IPVersion: 6, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer6, 1234), Dst: netip.AddrPortFrom(self6, kept), TCPFlags: packet.TCPSyn},
++			want: true,
++		},
++		{
++			name: "another-port-is-the-hosts",
++			hook: keep,
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept+1), TCPFlags: packet.TCPSyn},
++		},
++		{
++			name: "udp-is-the-hosts",
++			hook: keep,
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.UDP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept)},
++		},
++		{
++			name: "not-this-nodes-address",
++			hook: keep,
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(subnet, kept), TCPFlags: packet.TCPSyn},
++		},
++		{
++			name: "hook-says-no",
++			hook: func(uint16) bool { return false },
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept), TCPFlags: packet.TCPSyn},
++		},
++		{
++			name: "no-hook",
++			pkt:  packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept), TCPFlags: packet.TCPSyn},
++		},
++		{
++			// With ProcessLocalIPs netstack has the port already and the hook
++			// is not what decides.
++			name:     "local-ips-need-no-hook",
++			localIPs: true,
++			hook:     func(uint16) bool { t.Error("the hook was asked though netstack takes every port"); return false },
++			pkt:      packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(peer4, 1234), Dst: netip.AddrPortFrom(self4, kept), TCPFlags: packet.TCPSyn},
++			want:     true,
++		},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			impl := makeNetstack(t, func(impl *Impl) {
++				impl.ProcessLocalIPs = tt.localIPs
++				impl.ProcessSubnets = false
++				impl.ProcessLocalTCPPort = tt.hook
++				impl.atomicIsLocalIPFunc.Store(looksLikeATailscaleSelfAddress)
++			})
++			if got := impl.shouldProcessInbound(&tt.pkt, nil); got != tt.want {
++				t.Errorf("shouldProcessInbound = %v, want %v", got, tt.want)
++			}
++		})
++	}
++}
++
++// A connection to the kept port takes the default forwarding path although
++// ProcessLocalIPs is off: netstack dials the same port on localhost and
++// registers the peer for that socket in the proxy map, which is all LocalAPI
++// whois has to go on. A port that is not kept is left to the host untouched.
++func TestProcessLocalTCPPortForwards(t *testing.T) {
++	ln, err := net.Listen("tcp4", "127.0.0.1:0")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer ln.Close()
++	kept := ln.Addr().(*net.TCPAddr).AddrPort().Port()
++
++	impl := makeNetstack(t, func(impl *Impl) {
++		impl.ProcessLocalIPs = false
++		impl.ProcessSubnets = false
++		impl.ProcessLocalTCPPort = func(port uint16) bool { return port == kept }
++	})
++
++	peer := netip.MustParseAddr("100.101.102.103")
++	self := netip.MustParseAddr("100.101.102.104")
++	// The node's address reaches netstack the way it does in the daemon,
++	// from the network map.
++	impl.UpdateNetstackIPs(&netmap.NetworkMap{
++		SelfNode: (&tailcfg.Node{Addresses: []netip.Prefix{netip.PrefixFrom(self, 32)}}).View(),
++	})
++
++	var parsed packet.Parsed
++	parsed.Decode(tcp4syn(t, peer, self, 1234, kept+1))
++	if resp, _ := impl.injectInbound(&parsed, impl.tundev, nil); resp != filter.Accept {
++		t.Errorf("a port that is not kept: got %v, want filter.Accept (the host's)", resp)
++	}
++
++	parsed.Decode(tcp4syn(t, peer, self, 1234, kept))
++	if resp, _ := impl.injectInbound(&parsed, impl.tundev, nil); resp != filter.DropSilently {
++		t.Fatalf("the kept port: got %v, want filter.DropSilently (netstack's)", resp)
++	}
++
++	accepted := make(chan net.Conn, 1)
++	go func() {
++		c, err := ln.Accept()
++		if err != nil {
++			return
++		}
++		accepted <- c
++	}()
++	select {
++	case c := <-accepted:
++		defer c.Close()
++		from := c.RemoteAddr().(*net.TCPAddr).AddrPort()
++		from = netip.AddrPortFrom(from.Addr().Unmap(), from.Port())
++		if got, ok := impl.pm.WhoIsIPPort("tcp", from); !ok || got != peer {
++			t.Errorf("proxy map for %v: got %v, %v; want %v", from, got, ok, peer)
++		}
++	case <-time.After(10 * time.Second):
++		t.Fatal("netstack did not forward the connection to localhost")
++	}
++}

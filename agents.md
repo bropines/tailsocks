@@ -61,7 +61,7 @@ When Go code, bridge JNI bindings, or Tailscale patches are modified:
 cd appctr
 bash build.sh
 ```
-*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `21-netmon-wake-pollers`), and cross-compiles one native `libtailscale.so` (daemon and CLI, `ts_include_cli`) for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `22-android-remote-port`), and cross-compiles one native `libtailscale.so` (daemon and CLI, `ts_include_cli`) for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
 *   **Patch Management**: If code in `appctr/tailscale_src/` is modified, recreate the atomic patch files before committing:
     ```bash
     ./appctr/patches/recreate_patches.sh
@@ -91,7 +91,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   * [`core/`](app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI JNI, account storage, tasker receiver.
   * [`ui/`](app/src/main/java/io/github/bropines/tailscaled/ui/) — Jetpack Compose dashboards, settings, serve UI, and dialogs.
 * [`appctr/`](appctr/) — Go Gomobile bridge and core engine.
-  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `21-*.patch`).
+  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `22-*.patch`).
   * [`tailscale_src/`](appctr/tailscale_src/) — Active patched Tailscale source copy (git-ignored).
   * [`orig/`](appctr/orig/) — Original clean Tailscale sources (git-ignored).
 

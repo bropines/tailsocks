@@ -152,6 +152,20 @@ diff -u orig/net/socks5/socks5.go tailscale_src/net/socks5/socks5.go > patches/2
 # network moves.
 diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches/21-netmon-wake-pollers.patch || true
 
+# 22-android-remote-port.patch (creates cmd/tailscaled/android_remote.go and two tests)
+# Remote management on a real TUN (--tun=android-vpn, Root Mode's tailscale0):
+# while the app's switch file exists, netstack keeps TCP port 28115 of the
+# node's own addresses and forwards it to the bridge's loopback listener with
+# the peer in the proxy map, as userspace-networking does for every port; a
+# LocalAPI path tells the bridge whether it does. The option this sets,
+# netstack.Impl.ProcessLocalTCPPort, travels in 09 and the one call from
+# newNetstack in 19 (whole-file diffs).
+{
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_remote.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_remote_test.go || true
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/local_tcp_port_test.go || true
+} > patches/22-android-remote-port.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.
