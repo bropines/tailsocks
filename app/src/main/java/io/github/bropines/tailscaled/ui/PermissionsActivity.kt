@@ -385,7 +385,9 @@ fun PermissionsScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        if (!window.multiColumn) {
+        // One column on a television as well: a row's note unfolds while the remote is on
+        // it, and columns balanced by height would trade rows as it moved.
+        if (!window.multiColumn || window.tv) {
             oneColumn(padding)
             return@Scaffold
         }

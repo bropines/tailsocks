@@ -148,6 +148,10 @@ internal fun TvSignIn(
     val scope = rememberCoroutineScope()
     val currentUrl by rememberUpdatedState(url)
     var renewing by remember { mutableStateOf(false) }
+    // The link the request in flight is replacing. The new one arrives on the daemon's
+    // bus, seconds before the bridge's call returns: the screen stops saying "getting a
+    // code" when the code changes, not when the call does.
+    var renewingFrom by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     // A link is seconds away on an open network. Half a minute without one is a server that
     // does not answer; the daemon itself keeps trying for two.
@@ -165,12 +169,13 @@ internal fun TvSignIn(
         account = account,
         url = url,
         slow = slow,
-        renewing = renewing,
+        renewing = renewing && url == renewingFrom,
         error = error,
         onNewCode = {
             // One request at a time; the button stays a stop for the remote meanwhile.
             if (!renewing) {
                 renewing = true
+                renewingFrom = url
                 error = null
                 scope.launch {
                     val before = currentUrl
