@@ -112,6 +112,10 @@ object AccountManager {
         // Clean up avatar
         val avatarFile = java.io.File(context.filesDir, "avatars/$id.png")
         if (avatarFile.exists()) avatarFile.delete()
+
+        // The tokens of the devices this profile managed (RemoteManage): node ids mean
+        // nothing outside its tailnet. The devices keep their side until it is revoked there.
+        RemoteManage.tokens(context).removeProfile(id)
     }
 
     fun renameAccount(context: Context, id: String, newName: String) {

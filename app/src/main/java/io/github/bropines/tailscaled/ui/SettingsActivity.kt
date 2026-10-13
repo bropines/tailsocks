@@ -124,12 +124,21 @@ private val settingsCategories = listOf(
 )
 
 /**
- * The hub's last row on a device that keeps some features for its advanced settings, and
- * the page behind it: the pages and the screens of those features. A handheld is offered
- * everything in its usual place and has no such row.
+ * The hub's last row and the page behind it. On a device that keeps some features for its
+ * advanced settings — a television — the page lists the pages and the screens of those
+ * features, and under them what is still an experiment. A handheld is offered everything
+ * else in its usual place, so there the experiments are the whole page
+ * ([experimentalCategory]).
  */
 private val advancedCategory =
     SettingsCategory("advanced", R.string.tv_settings_advanced, R.string.tv_settings_advanced_desc, Icons.Default.Tune, cards = 2)
+
+/** [advancedCategory] on a handheld: the same row and page, said for the one card they hold there. */
+private val experimentalCategory =
+    advancedCategory.copy(descRes = R.string.settings_advanced_experimental_desc, cards = 1)
+
+/** The Advanced page's row for remote management, as the row the remote comes back to. */
+private const val REMOTE_ROW = "remote"
 
 /**
  * Two parts of a category that are features of their own, as pages for the Advanced page:
@@ -159,6 +168,21 @@ private val advancedTools = listOf(
 
 /** What the remote is sent to after Settings changes what it shows; see `focus` in [SettingsScreen]. */
 private enum class SettingsFocus { HUB, PAGE, ROW }
+
+/**
+ * The page [section] names, as a device has it: [hub] are the pages its list shows and
+ * [advanced] the ones its Advanced page does. A link (ui/DeepLinks.kt) or a caller may name
+ * any page Settings knows. A device that keeps the theme inside Appearance and Root among
+ * the tunnel modes — a handheld — opens those for their names; a name it has no page for
+ * opens the list.
+ */
+internal fun settingsLanding(section: String?, hub: List<String>, advanced: List<String>): String? = when (section) {
+    null -> null
+    in hub, in advanced -> section
+    themePage.id -> "appearance".takeIf { it in hub }
+    rootPage.id -> "tunnel".takeIf { it in hub }
+    else -> null
+}
 
 /** A backup or a restore waiting for its file, where the app's own browser picks it. */
 private enum class BackupFile { FULL_BACKUP, FULL_RESTORE, PROFILE_EXPORT, PROFILE_IMPORT }
@@ -333,11 +357,6 @@ fun SettingsScreen(
     val activeAccount = remember { AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     
-    // Two-level navigation: null == the category hub, otherwise the id of the
-    // open section (see settingsCategories). rememberSaveable, because the App
-    // Language row calls recreate() and a plain remember would drop the user
-    // back to the hub mid-edit.
-    var openSection by rememberSaveable { mutableStateOf(initialSection) }
     // Scroll positions of the two levels, kept outside the surfaces that draw them —
     // see ScrollAnchor. Without this the hub the finger uncovers during a back gesture is
     // a fresh LazyColumn at the top, and so is the one the pop lands on: a category low in
@@ -354,12 +373,25 @@ fun SettingsScreen(
         if (feature == null) Availability.OFFERED else DeviceProfile.availability(feature, device, capabilities)
     val advancedPages = remember(device, capabilities) { advancedPageCandidates.filter { place(it.feature) == Availability.ADVANCED } }
     val advancedLinks = remember(device, capabilities) { advancedTools.filter { place(it.feature) == Availability.ADVANCED } }
+    // The last row: what the device keeps aside and, on every device, what is an experiment.
+    val advanced = if (advancedPages.isEmpty() && advancedLinks.isEmpty()) experimentalCategory else advancedCategory
     val hubCategories = remember(device, capabilities) {
-        settingsCategories.filter { place(it.feature) == Availability.OFFERED } +
-            listOfNotNull(advancedCategory.takeIf { advancedPages.isNotEmpty() || advancedLinks.isNotEmpty() })
+        settingsCategories.filter { place(it.feature) == Availability.OFFERED } + advanced
     }
     // The page a page was opened from, when that is not the hub: Back returns there.
     fun parentOf(section: String?): String? = advancedCategory.id.takeIf { advancedPages.any { it.id == section } }
+
+    // Two-level navigation: null == the category hub, otherwise the id of the
+    // open section (see settingsCategories). rememberSaveable, because the App
+    // Language row calls recreate() and a plain remember would drop the user
+    // back to the hub mid-edit. It starts on the page that was asked for, as this
+    // device has it (settingsLanding).
+    val landing = remember(initialSection, hubCategories, advancedPages) {
+        settingsLanding(initialSection, hubCategories.map { it.id }, advancedPages.map { it.id })
+    }
+    var openSection by rememberSaveable { mutableStateOf(landing) }
+    // The remote management page (RemoteManagedScreen), which takes the whole screen while open.
+    var remoteOpen by rememberSaveable { mutableStateOf(false) }
 
     // A television's remote. It needs something in focus at every moment, and Settings swaps
     // what is on screen under it — one page for another, a page for the file browser. So
@@ -372,8 +404,8 @@ fun SettingsScreen(
     val rowFocus = remember { FocusRequester() }
     var pageHasFocus by remember { mutableStateOf(false) }
     // The rows to come back to: the hub's, and the Advanced page's.
-    var hubRow by rememberSaveable { mutableStateOf(initialSection?.let { parentOf(it) ?: it }) }
-    var advancedRow by rememberSaveable { mutableStateOf(initialSection?.takeIf { parentOf(it) != null }) }
+    var hubRow by rememberSaveable { mutableStateOf(landing?.let { parentOf(it) ?: it }) }
+    var advancedRow by rememberSaveable { mutableStateOf(landing?.takeIf { parentOf(it) != null }) }
     var focusAsked by remember { mutableStateOf<Pair<SettingsFocus, Int>?>(null) }
     // The list of sections on screen, for bringing a row of it back into view.
     val hubList = remember { arrayOfNulls<androidx.compose.foundation.lazy.LazyListState>(1) }
@@ -2555,6 +2587,21 @@ fun SettingsScreen(
                 }
             }
         }
+        // On every device: what is still an experiment. Off until a person turns it on.
+        if (advancedPages.isNotEmpty() || advancedLinks.isNotEmpty()) SettingsCardGap()
+        SettingsCard(title = stringResource(R.string.remote_experimental)) {
+            SettingsClickableItem(
+                title = stringResource(R.string.remote_title),
+                subtitle = stringResource(R.string.settings_remote_entry_desc),
+                icon = Icons.Default.SettingsRemote,
+                modifier = if (tv && advancedRow == REMOTE_ROW) Modifier.focusRequester(rowFocus) else Modifier,
+                onClick = {
+                    advancedRow = REMOTE_ROW
+                    stepOutOfPage()
+                    remoteOpen = true
+                }
+            )
+        }
     }
 
     // I. Backup & restore
@@ -2938,7 +2985,7 @@ fun SettingsScreen(
     // under a back gesture. Only that one is where a television's remote is sent.
     val window = rememberWindowLayout()
     val settingsSurface: @Composable (String?, Boolean, Boolean) -> Unit = { section, backable, live ->
-        val openCategory = settingsPages.firstOrNull { it.id == section }
+        val openCategory = if (section == advanced.id) advanced else settingsPages.firstOrNull { it.id == section }
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
@@ -3093,7 +3140,10 @@ fun SettingsScreen(
     // While a backup's file is being chosen in the app's own browser, the browser is the
     // screen: it takes the Back key for itself, and gives the settings back as it closes.
     val browsing = browsingFor
-    if (browsing != null) {
+    if (remoteOpen) {
+        // A page of its own, with its own Back: it hands the settings back as it closes.
+        RemoteManagedScreen(onBack = { remoteOpen = false; focus(SettingsFocus.ROW) })
+    } else if (browsing != null) {
         val source = remember { RealFileSource(context) }
         val downloads = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) }
         val close = { browsingFor = null; focus(SettingsFocus.PAGE) }

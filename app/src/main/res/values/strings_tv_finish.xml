@@ -7,6 +7,12 @@
 <resources>
     <!-- The button under a field a television opened in a dialog: what is typed is already applied. -->
     <string name="tv_field_done">Done</string>
+
+    <!-- Settings → Advanced on a device that keeps every other page in its usual place. -->
+    <string name="settings_advanced_experimental_desc">Experimental: remote management</string>
+    <!-- The row that opens the remote management page; its card is titled "Experimental". -->
+    <string name="settings_remote_entry_desc">Let another device with TailSocks on your tailnet manage this one, once it is paired with a code this device shows</string>
+
     <!-- "Add account" where signing in is a code for another device, not a browser tab. -->
     <string name="tv_add_account_authkey_hint">With a key the device registers itself on the first start; leave it empty to sign in with a code for a phone.</string>
 </resources>

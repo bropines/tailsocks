@@ -2,6 +2,7 @@ package io.github.bropines.tailscaled.core
 
 import io.github.bropines.tailscaled.admin.profile.SoftwareSecretBox
 import io.github.bropines.tailscaled.admin.secure.MemoryKeyValueStore
+import io.github.bropines.tailscaled.admin.secure.SecretBox
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -458,6 +459,22 @@ class RemoteManageTest {
         val sealed = RemoteTokenStore(FileKeyValueStore(file), box)
         assertTrue(sealed.put("default", "nKq7", record))
         assertEquals(record, RemoteTokenStore(FileKeyValueStore(file), box).get("default", "nKq7"))
+    }
+
+    @Test
+    fun aDeviceThatNeverPairedSpendsNoKeyAndNoDiskOnLooking() {
+        // What a peer's details and a deleted account do on a device that never used remote
+        // management: look for a file that is not there. No key is asked for, nothing is written.
+        val dir = File(tmp.root, "never")
+        val untouched = object : SecretBox {
+            override fun seal(plaintext: String, aad: String): String = throw AssertionError("a key was used to seal")
+            override fun open(blob: String, aad: String): String = throw AssertionError("a key was used to open")
+        }
+        val never = RemoteTokenStore(FileKeyValueStore(File(dir, "tokens.sealed")), untouched)
+        assertNull(never.get("default", "nKq7"))
+        assertFalse(never.has("default", "nKq7"))
+        never.removeProfile("default")
+        assertFalse(dir.exists())
     }
 
     // ─── A managing session ──────────────────────────────────────────────────────────────────

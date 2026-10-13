@@ -1305,6 +1305,11 @@ fun PeerDetailsModal(
         else (travelled * PEER_SWIPE_RESISTANCE).coerceIn(-maxOverscrollPx, maxOverscrollPx)
     }
 
+    // Managing the peer's own TailSocks (ui/RemoteManageScreen.kt, experimental): whether the
+    // peer offers it is asked here, outside the sheet, and its button draws nothing until the
+    // answer is yes. Never of this device, and of an offline peer only what is on disk.
+    val manage = rememberRemoteManage(peer, page.isSelf)
+
     // Once per answer, not once per recomposition: incomingStep is read in composition and
     // the settle flips it several times per page turn, and this parses JSON and matches a
     // regex.
@@ -1533,6 +1538,7 @@ fun PeerDetailsModal(
                 expanded = expandedGroups,
                 // Nothing has been copied off a page nobody has landed on either.
                 copied = null,
+                manage = null,
                 onPing = {},
                 onToggleGroup = onToggleGroup,
                 onSendFileClick = { onSendFileClick(incoming.peer) },
@@ -1560,6 +1566,7 @@ fun PeerDetailsModal(
             selfAddress = selfAddress,
             expanded = expandedGroups,
             copied = copiedDetail,
+            manage = manage,
             onToggleGroup = onToggleGroup,
             onPing = {
                 pingResult = PING_IN_FLIGHT
@@ -1628,6 +1635,8 @@ private fun PeerDetailsPage(
     expanded: Set<PeerDetailGroup>,
     /** The row whose value was just put on the clipboard, while its acknowledgement shows. */
     copied: PeerDetailId?,
+    /** "Manage this device", for the page on screen; null on the one arriving beside it. */
+    manage: RemoteManageEntryState?,
     onPing: () -> Unit,
     onToggleGroup: (PeerDetailGroup) -> Unit,
     onSendFileClick: () -> Unit,
@@ -1831,18 +1840,24 @@ private fun PeerDetailsPage(
             }
         }
         val actionsArea = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)
-        // Stacked once half the sheet no longer holds one word of a label: side by side,
-        // a 2× font broke «Отправить» and «Копировать» in the middle.
-        if (copyAsButton != null && LocalDensity.current.fontScale > PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE) {
-            Column(actionsArea, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                sendButton(Modifier.fillMaxWidth())
-                copyAsButton(Modifier.fillMaxWidth())
+        Column(Modifier.fillMaxWidth()) {
+            // Stacked once half the sheet no longer holds one word of a label: side by side,
+            // a 2× font broke «Отправить» and «Копировать» in the middle.
+            if (copyAsButton != null && LocalDensity.current.fontScale > PEER_ACTIONS_SIDE_BY_SIDE_MAX_FONT_SCALE) {
+                Column(actionsArea, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sendButton(Modifier.fillMaxWidth())
+                    copyAsButton(Modifier.fillMaxWidth())
+                }
+            } else {
+                // Intrinsic height, so the two stand equally tall when one label wraps.
+                Row(actionsArea.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    sendButton(Modifier.weight(1f).fillMaxHeight())
+                    copyAsButton?.invoke(Modifier.weight(1f).fillMaxHeight())
+                }
             }
-        } else {
-            // Intrinsic height, so the two stand equally tall when one label wraps.
-            Row(actionsArea.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                sendButton(Modifier.weight(1f).fillMaxHeight())
-                copyAsButton?.invoke(Modifier.weight(1f).fillMaxHeight())
+            // A row of its own under them, and no row at all for a peer that does not offer it.
+            if (manage != null) {
+                RemoteManageButton(manage, Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 10.dp))
             }
         }
     }

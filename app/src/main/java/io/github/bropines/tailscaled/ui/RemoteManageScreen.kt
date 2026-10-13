@@ -156,6 +156,20 @@ private const val PROBE_AFTER_MS = 350L
 private fun PeerData.mayBeTailSocks(): Boolean = os.isNullOrEmpty() || os.lowercase() in setOf("android", "linux")
 
 /**
+ * Whether [peer]'s details look into remote management at all: never this device's own, and
+ * never a peer without an id the bridge would take. Then only what this device keeps is read.
+ */
+internal fun remoteManageConcerns(peer: PeerData?, isSelf: Boolean): Boolean =
+    !isSelf && RemoteJson.isNodeId(peer?.id.orEmpty())
+
+/**
+ * Whether [peer] is asked over the network: only one that is online — an offline peer would
+ * cost the whole wait and answer nothing — and could be a TailSocks by the OS it reports.
+ */
+internal fun remoteManageAsks(peer: PeerData?, isSelf: Boolean): Boolean =
+    remoteManageConcerns(peer, isSelf) && peer?.online == true && peer.mayBeTailSocks()
+
+/**
  * Asks [peer] whether it offers remote management — one small request when the details open,
  * only of a peer that is online and could be a TailSocks — and holds the sheet the button
  * opens. A device this one is already paired with is offered whatever it answers, so that it
@@ -172,9 +186,8 @@ fun rememberRemoteManage(peer: PeerData?, isSelf: Boolean = false): RemoteManage
     val entry = remember(id, label) { RemoteManageEntryState(label) }
     var codeOnShow by remember(id) { mutableStateOf(true) }
 
-    if (live && !isSelf && RemoteJson.isNodeId(id)) {
-        // An offline peer would cost the whole wait and answer nothing.
-        val ask = online && peer?.mayBeTailSocks() == true
+    if (live && remoteManageConcerns(peer, isSelf)) {
+        val ask = remoteManageAsks(peer, isSelf)
         LaunchedEffect(id, ask) {
             delay(PROBE_AFTER_MS)
             val (known, probe) = withContext(Dispatchers.IO) {

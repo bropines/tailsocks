@@ -672,9 +672,18 @@ fun MainScreen(
     }
     // The QR scanner, from the top bar and tailsocks://scan: an app link opens
     // as if tapped, a TailCat address in a new connection's editor; any other
-    // text is only shown, in a sheet.
+    // text is only shown, in a sheet. A pairing code off another device's Remote
+    // management screen (ui/RemoteManagedScreen.kt) opens the sheet that pairs
+    // with that device, the code filled in — pairing stays the person's press.
     var scannedText by remember { mutableStateOf<String?>(null) }
-    val scanQr = rememberQrScanner { text -> scannedText = openScanned(context, text) }
+    var scannedPairing by remember { mutableStateOf<RemoteQr?>(null) }
+    val scanQr = rememberQrScanner { text ->
+        scope.launch {
+            // The bridge reads it, off the main thread like every call of its kind.
+            val pairing = withContext(Dispatchers.Default) { remotePairingQr(text) }
+            if (pairing != null) scannedPairing = pairing else scannedText = openScanned(context, text)
+        }
+    }
     val canScan = Feature.QR_SCANNER.availability().reachable
     LaunchedEffect(scanRequest.value) {
         if (scanRequest.value) {
@@ -1785,6 +1794,10 @@ fun MainScreen(
     }
 
     scannedText?.let { ScanResultSheet(text = it, onDismiss = { scannedText = null }) }
+    // The device that showed the code is in front of the person who scanned it: taken for online.
+    scannedPairing?.let { qr ->
+        RemoteManageSheet(peerId = qr.nodeId, name = qr.name, online = true, onDismiss = { scannedPairing = null }, code = qr.code)
+    }
 
     if (confirmStop) {
         // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
