@@ -446,6 +446,49 @@ class TaildriveBrowseTest {
         assertEquals(DriveResult.Err(DriveError.Unreachable), TaildriveBrowse { throw WebDavHttpException("PROPFIND", 502, "") }.list(shareLocation))
     }
 
+    // --- The first request after a device's daemon restarted ------------------------------------------
+
+    /** The testnet's `drive.sh` retries it: a 502 from our own daemon for a connection that died with the peer's. */
+    @Test
+    fun aStaleGatewayAtADeviceIsAskedAgainOnceAndNobodyHearsOfIt() {
+        var calls = 0
+        val browse = TaildriveBrowse(retryDelayMs = 0) { path ->
+            calls++
+            if (calls == 1) throw WebDavHttpException("PROPFIND", 502, "") else listOf(dir(path), file("$path/a.mkv"))
+        }
+        val result = browse.list(shareLocation) as DriveResult.Ok
+        assertEquals(listOf("a.mkv"), result.value.entries.map { it.name })
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun aGatewayThatStaysBadIsToldAfterTheSecondAsk() {
+        var calls = 0
+        val browse = TaildriveBrowse(retryDelayMs = 0) { calls++; throw WebDavHttpException("PROPFIND", 502, "") }
+        assertEquals(DriveResult.Err(DriveError.Unreachable), browse.list(shareLocation))
+        assertEquals(2, calls)
+    }
+
+    @Test
+    fun onlyAGatewayIsAskedAgain() {
+        for (code in listOf(403, 404, 500, 504)) {
+            var calls = 0
+            TaildriveBrowse(retryDelayMs = 0) { calls++; throw WebDavHttpException("PROPFIND", code, "") }.list(shareLocation)
+            assertEquals("HTTP $code", 1, calls)
+        }
+        var closed = 0
+        TaildriveBrowse(retryDelayMs = 0) { closed++; throw java.io.IOException("unexpected end of stream") }.list(shareLocation)
+        assertEquals(1, closed)
+    }
+
+    @Test
+    fun aGatewayAboveTheDevicesIsNotAStalePeer() {
+        // Nothing was forwarded at the root or in the tailnet: our own daemon failing is not a peer's old connection.
+        var calls = 0
+        TaildriveBrowse(retryDelayMs = 0) { calls++; throw WebDavHttpException("PROPFIND", 502, "") }.list(DriveLocation.ROOT)
+        assertEquals(1, calls)
+    }
+
     // --- What stops a listing -----------------------------------------------------------------------
 
     private val allowed = TaildriveAccess.Verdict.ALLOWED

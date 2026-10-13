@@ -698,39 +698,71 @@ fun interface DriveLister {
  * The shares of the tailnet as a tree to walk. Every call is blocking — call it off the main
  * thread — and none throws: a failure is a [DriveResult.Err].
  */
-class TaildriveBrowse(private val lister: DriveLister) {
+class TaildriveBrowse(private val retryDelayMs: Long = RETRY_DELAY_MS, private val lister: DriveLister) {
 
     /**
      * What is in [location]. The root is special: Taildrive has one tailnet there, and a page of
      * "devices" is what was meant, so a root that holds exactly one folder is entered and the
      * listing of that folder is returned, with [DriveListing.location] saying so. Entries
      * starting with a dot (`.DS_Store`, `._name`) are left out unless [showHidden].
+     *
+     * A "bad gateway" from a device or below is asked again once, quietly: the first request
+     * after the other device's daemon restarted goes to a connection that died with it, and
+     * the next one is the one that works.
      */
     fun list(location: DriveLocation, showHidden: Boolean = false): DriveResult<DriveListing> {
-        // Where the request that failed went: the root, then the tailnet that was entered for the user.
-        var here = location
-        return try {
-            var entries = fetch(here, showHidden)
-            if (here.isRoot) {
-                val only = entries.singleOrNull()
-                if (only != null && only.isFolder) {
-                    here = here.child(only.name)
-                    entries = fetch(here, showHidden)
+        var retried = false
+        while (true) {
+            // Where the request that failed went: the root, then the tailnet that was entered for the user.
+            var here = location
+            try {
+                var entries = fetch(here, showHidden)
+                if (here.isRoot) {
+                    val only = entries.singleOrNull()
+                    if (only != null && only.isFolder) {
+                        here = here.child(only.name)
+                        entries = fetch(here, showHidden)
+                    }
                 }
+                return DriveResult.Ok(DriveListing(here, entries))
+            } catch (e: Exception) {
+                if (!retried && isStale(e, here.depth) && pause()) {
+                    retried = true
+                    Log.i(TAG, "listing at depth ${here.depth} got a stale gateway, asking again")
+                    continue
+                }
+                val error = DriveError.from(e, here.depth)
+                // The class and the status, never the message: it may name an address.
+                Log.w(TAG, "listing at depth ${here.depth} failed: ${e.javaClass.simpleName} -> $error")
+                return DriveResult.Err(error)
             }
-            DriveResult.Ok(DriveListing(here, entries))
-        } catch (e: Exception) {
-            val error = DriveError.from(e, here.depth)
-            // The class and the status, never the message: it may name an address.
-            Log.w(TAG, "listing at depth ${here.depth} failed: ${e.javaClass.simpleName} -> $error")
-            DriveResult.Err(error)
         }
+    }
+
+    /** Waits for the retry; false when the thread was interrupted, which is the end of asking. */
+    private fun pause(): Boolean = try {
+        Thread.sleep(retryDelayMs)
+        true
+    } catch (_: InterruptedException) {
+        Thread.currentThread().interrupt()
+        false
     }
 
     private fun fetch(location: DriveLocation, showHidden: Boolean): List<DriveEntry> =
         entriesOf(location, lister.list(location.davPath), showHidden)
 
     companion object {
+        /** How long the quiet second ask waits: the other device's daemon needs a moment to be a peer again. */
+        const val RETRY_DELAY_MS = 1_200L
+
+        /**
+         * Whether [e], from a request at [depth], is what a device's restarted daemon gives the
+         * first request after it: our own daemon's reverse proxy answering 502 or 503 for a connection that
+         * died. Above the device level nothing was forwarded, so there is no such thing.
+         */
+        internal fun isStale(e: Exception, depth: Int): Boolean =
+            e is WebDavHttpException && (e.code == 502 || e.code == 503) && depth >= DriveError.DEVICE_DEPTH
+
         /** Browsing as the profile [accountId]'s daemon sees the tailnet. */
         fun forAccount(context: Context, accountId: String): TaildriveBrowse {
             val client = TaildriveClient(context.applicationContext, accountId)
