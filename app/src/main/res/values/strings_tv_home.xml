@@ -37,4 +37,8 @@
 
     <!-- Onboarding on a television: the login step -->
     <string name="tv_onboarding_login_desc">Signing in takes a phone: once the service starts, this screen shows a code for its camera. An auth key is the other way, and can wait.</string>
+
+    <!-- Sign-in after a key the server did not accept; %1$s is the daemon's own reason. -->
+    <string name="tv_signin_key_refused">The auth key was not accepted.</string>
+    <string name="tv_signin_key_refused_reason">The auth key was not accepted: %1$s</string>
 </resources>

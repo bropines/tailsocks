@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AccountManager
+import io.github.bropines.tailscaled.models.HealthWarning
+import io.github.bropines.tailscaled.models.parseHealthWarnings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -76,6 +78,50 @@ internal fun signInLinkText(url: String): String = url.substringAfter("://")
 /** The server a login link signs in to, or null for a link that names none. */
 internal fun signInServer(url: String?): String? =
     url?.let { runCatching { java.net.URI(it).host }.getOrNull() }?.takeIf { it.isNotEmpty() }
+
+/**
+ * A key the server did not accept, as the daemon says it: [reason] is its own words for it. The
+ * daemon reports no such thing in a field of its own; it is the health warning "You are logged
+ * out. The last login error was: …", which is there while the key is stored and the node is not in.
+ */
+internal data class KeyRefusal(val reason: String)
+
+/** The part of the daemon's logged-out warning that names the error. */
+private const val LOGIN_ERROR_WAS = "The last login error was:"
+
+/**
+ * Whether the node is signed out because of the key it was given: [hasKey] is that one is
+ * stored for the account, and [warnings] the daemon's own. Null without a key — a sign-in
+ * that was never tried with one has no refusal to report — and while the daemon has
+ * named no error.
+ */
+internal fun keyRefusal(warnings: List<HealthWarning>, hasKey: Boolean): KeyRefusal? {
+    if (!hasKey) return null
+    val text = warnings.firstOrNull { LOGIN_ERROR_WAS in it.text }?.text ?: return null
+    val reason = text.substringAfter(LOGIN_ERROR_WAS).lineSequence().firstOrNull().orEmpty().trim().trimEnd('.').trim()
+    return KeyRefusal(reason)
+}
+
+/** The refusal of the account's stored key, read from the daemon as long as this is in the composition. */
+@Composable
+private fun rememberKeyRefusal(): KeyRefusal? {
+    val context = LocalContext.current
+    var refusal by remember { mutableStateOf<KeyRefusal?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            refusal = withContext(Dispatchers.IO) {
+                val account = AccountManager.getActiveAccount(context)
+                val hasKey = context.getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE)
+                    .getString("authkey", "").orEmpty().isNotBlank()
+                keyRefusal(parseHealthWarnings(runCatching { Appctr.getHealthWarningsJSON() }.getOrNull()), hasKey)
+            }
+            delay(KEY_REFUSAL_POLL_MS)
+        }
+    }
+    return refusal
+}
+
+private const val KEY_REFUSAL_POLL_MS = 2_000L
 
 /** What the device is called where the link is opened: the name it registers under. */
 private fun signInDeviceName(context: Context): String {
@@ -165,12 +211,20 @@ internal fun TvSignIn(
     }
     val failed = stringResource(R.string.tv_signin_new_code_failed)
     val notReady = stringResource(R.string.tv_signin_not_ready)
+    // A key that was typed in, or sent from a phone, and that the server did not take: the code
+    // below is then the way in, and this says why it is the screen the start ended on.
+    val refusal = rememberKeyRefusal()
+    val keyNotice = refusal?.let {
+        if (it.reason.isEmpty()) stringResource(R.string.tv_signin_key_refused)
+        else stringResource(R.string.tv_signin_key_refused_reason, it.reason)
+    }
     TvSignInScreen(
         account = account,
         url = url,
         slow = slow,
         renewing = renewing && url == renewingFrom,
         error = error,
+        keyNotice = keyNotice,
         onNewCode = {
             // One request at a time; the button stays a stop for the remote meanwhile.
             if (!renewing) {
@@ -224,6 +278,7 @@ internal fun TvSignInScreen(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     extraAction: @Composable () -> Unit = {},
+    keyNotice: String? = null,
 ) {
     BackHandler(onBack = onClose)
     val code: @Composable (Modifier) -> Unit = { size ->
@@ -250,6 +305,17 @@ internal fun TvSignInScreen(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        // The key that was tried first and not taken, ahead of the way in that is left.
+        if (keyNotice != null) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                keyNotice,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         Spacer(Modifier.height(16.dp))
         Text(stringResource(R.string.tv_signin_step), style = MaterialTheme.typography.bodyLarge)
         if (url != null) {

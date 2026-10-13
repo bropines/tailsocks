@@ -37,4 +37,7 @@
 
     <!-- Onboarding on a television: the login step -->
     <string name="tv_onboarding_login_desc">Для входа нужен телефон: когда служба запустится, на этом экране появится код для его камеры. Войти можно и ключом — это подождёт.</string>
+
+    <string name="tv_signin_key_refused">Ключ доступа не принят.</string>
+    <string name="tv_signin_key_refused_reason">Ключ доступа не принят: %1$s</string>
 </resources>
