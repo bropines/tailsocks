@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Signing a television in with a key a phone sends it. tvkey_*: the television's screen; keysend_*: the phone's sheet, opened by scanning the television's code. -->
+
+    <!-- Television: the way in, on the sign-in screen -->
+    <string name="tvkey_entry">Use a key from a phone</string>
+
+    <!-- Television: the code -->
+    <string name="tvkey_title">Key from a phone</string>
+    <string name="tvkey_scan_line">Scan this code with TailSocks on your phone</string>
+    <string name="tvkey_scan_help">The scanner is in the top bar of the app\'s main screen. The phone and the TV must be on the same Wi-Fi or wired network; a VPN on the phone can get in the way. The phone asks for an auth key and sends it here encrypted. Nothing is used until you confirm it on this screen.</string>
+    <string name="tvkey_this_tv">On the phone this TV appears as %1$s · %2$s</string>
+    <string name="tvkey_waiting">Waiting for the phone · %1$s left</string>
+    <plurals name="tvkey_refused">
+        <item quantity="one">%d request that was not a key was turned away</item>
+        <item quantity="other">%d requests that were not a key were turned away</item>
+    </plurals>
+
+    <!-- Television: a key arrived -->
+    <string name="tvkey_offer_title">A key has arrived. Use it?</string>
+    <string name="tvkey_offer_from">From</string>
+    <string name="tvkey_offer_key">Key</string>
+    <string name="tvkey_offer_server">Server</string>
+    <string name="tvkey_offer_named" translatable="false">%1$s · %2$s</string>
+    <string name="tvkey_kind_tailscale_auth">Tailscale auth key</string>
+    <string name="tvkey_kind_tailscale_client">Tailscale OAuth client secret</string>
+    <string name="tvkey_kind_headscale_auth">Headscale pre-auth key</string>
+    <string name="tvkey_kind_other">A key of a kind this app does not know</string>
+    <string name="tvkey_server_same">Stays as it is: %1$s</string>
+    <string name="tvkey_server_new">Not the server this TV uses now</string>
+    <string name="tvkey_server_default" translatable="false">Tailscale</string>
+    <string name="tvkey_check_label">Check code</string>
+    <string name="tvkey_check_help">Confirm only if your phone shows the same code. If it shows another, or you sent nothing, reject.</string>
+    <string name="tvkey_offer_time">Waiting for your answer · %1$s left</string>
+    <string name="tvkey_reject">Reject</string>
+
+    <!-- Television: after the answer -->
+    <string name="tvkey_signing_in">Signing in with the key…</string>
+    <string name="tvkey_signed_in">Signed in</string>
+    <string name="tvkey_new_code">New code</string>
+
+    <!-- Television: why there is no code and no key; one sentence each -->
+    <string name="tvkey_stop_no_network">This TV is not on a local network: connect it to Wi-Fi or a cable.</string>
+    <string name="tvkey_stop_cannot_listen">The TV could not start listening for the phone on its network.</string>
+    <string name="tvkey_stop_too_many">Too many requests that were not a key came in, so the code was withdrawn.</string>
+    <string name="tvkey_stop_network_changed">The TV\'s network changed, and the code no longer leads to it.</string>
+    <string name="tvkey_stop_service">TailSocks was stopped or restarted, and the code ended with it.</string>
+    <string name="tvkey_stop_expired">The code ran out before a phone sent a key.</string>
+    <string name="tvkey_stop_not_answered">Nobody answered in time, so the key was discarded.</string>
+    <string name="tvkey_stop_rejected">The key was rejected; nothing on this TV changed.</string>
+    <string name="tvkey_stop_key_gone">The key was not taken in time and is gone: send it again from the phone.</string>
+    <string name="tvkey_stop_not_signed_in">The key did not sign this TV in: it may be used up, expired or from another server. It was removed, and the TV is as it was before.</string>
+    <string name="tvkey_stop_unknown">Something went wrong with the code.</string>
+
+    <!-- Phone: the form -->
+    <string name="keysend_title">Send a key to this TV</string>
+    <string name="keysend_target">To TV %1$s · %2$s</string>
+    <string name="keysend_target_help">The TV shows the same name and address beside its code. If they differ, the code you scanned is not that TV\'s: do not send.</string>
+    <string name="keysend_key_label">Auth key</string>
+    <string name="keysend_key_help">An auth key from your tailnet\'s admin console (Settings → Keys), or a Headscale pre-auth key. A one-time, pre-approved key is the safest: this TV uses it up. It goes straight to the TV over the local network, encrypted, and is neither shown again nor kept on this phone.</string>
+    <string name="keysend_paste">Paste</string>
+    <string name="keysend_paste_empty">The clipboard has no text</string>
+    <string name="keysend_key_summary" translatable="false">%1$s · %2$s</string>
+    <plurals name="keysend_key_chars">
+        <item quantity="one">%d character</item>
+        <item quantity="other">%d characters</item>
+    </plurals>
+    <string name="keysend_key_bad">An auth key has no spaces: only Latin letters, digits and punctuation.</string>
+    <string name="keysend_key_long">Too long for an auth key.</string>
+    <string name="keysend_key_api">This is an API access token. A TV needs an auth key.</string>
+    <string name="keysend_key_unknown">Does not look like a Tailscale or Headscale key. It will be sent as it is.</string>
+    <string name="keysend_server_label">Login server (optional)</string>
+    <string name="keysend_server_help">Only for a key from a server of your own, such as Headscale. Left empty, the TV\'s server stays as it is.</string>
+    <string name="keysend_server_bad">A server address looks like https://example.com</string>
+
+    <!-- Phone: sent -->
+    <string name="keysend_sending">Sending the key to the TV…</string>
+    <string name="keysend_compare">Make sure the TV shows the same code, then confirm there.</string>
+    <string name="keysend_compare_help">If the TV shows another code, a key from someone else got there first: reject it on the TV. Never confirm on the TV a code you do not see here.</string>
+    <string name="keysend_sent_to">Sent to %1$s</string>
+    <string name="keysend_stop_waiting">Stop waiting</string>
+    <string name="keysend_done">Done</string>
+    <string name="keysend_rescan">Scan the new code</string>
+    <string name="keysend_edit">Back to the key</string>
+    <string name="keysend_network_hint">The phone and the TV must be on the same Wi-Fi or wired network. A VPN on this phone can get in the way, and guest networks often keep devices apart.</string>
+
+    <!-- Phone: how it ended; a title and one or two sentences -->
+    <string name="keysend_end_confirmed_title">Confirmed on the TV</string>
+    <string name="keysend_end_confirmed_text">The TV took the key and is signing in.</string>
+    <string name="keysend_end_rejected_title">Rejected on the TV</string>
+    <string name="keysend_end_rejected_text">The key was not used.</string>
+    <string name="keysend_end_expired_title">No answer on the TV</string>
+    <string name="keysend_end_expired_text">Nobody confirmed in time, and the TV discarded the key.</string>
+    <string name="keysend_end_cancelled_title">The TV closed its code</string>
+    <string name="keysend_end_cancelled_text">The screen with the code went away before anyone answered, and the TV discarded the key.</string>
+    <string name="keysend_end_lost_title">Connection lost</string>
+    <string name="keysend_end_lost_text">The key reached the TV, but its answer did not come back. The TV\'s screen shows how it ended.</string>
+    <string name="keysend_end_taken_title">The TV already holds a key</string>
+    <string name="keysend_end_taken_text">Another device sent one first, so yours was not taken. If that was not you, reject the key on the TV.</string>
+    <string name="keysend_end_unsupported_title">The TV cannot use this</string>
+    <string name="keysend_end_unsupported_text">Its TailSocks is another version. Update the app on both devices.</string>
+    <string name="keysend_end_closed_title">The code no longer works</string>
+    <string name="keysend_end_closed_text">The TV is there but no longer listens: the code was used, ran out or was closed.</string>
+    <string name="keysend_end_unreachable_title">Could not reach the TV</string>
+    <string name="keysend_end_wrong_network_title">Another network</string>
+    <string name="keysend_end_wrong_network_text">This phone is on none of the TV\'s networks.</string>
+    <string name="keysend_end_no_answer_title">The TV did not answer</string>
+    <string name="keysend_end_no_answer_text">The key went out and nothing came back. If the TV asks about a key now, reject it there, then try again.</string>
+    <string name="keysend_end_invalid_code_title">The code is damaged</string>
+    <string name="keysend_end_invalid_code_text">It is shaped like a TV\'s setup code but cannot be read. Scan it again.</string>
+    <string name="keysend_end_newer_code_title">A code from a newer TailSocks</string>
+    <string name="keysend_end_newer_code_text">Update the app on this phone to send a key to that TV.</string>
+    <string name="keysend_end_invalid_key_title">The key cannot be sent</string>
+    <string name="keysend_end_invalid_server_title">The server address cannot be sent</string>
+    <string name="keysend_end_busy_title">Still sending</string>
+    <string name="keysend_end_busy_text">An earlier key is still on its way. Try again in a moment.</string>
+    <string name="keysend_end_unknown_title">Something went wrong</string>
+    <string name="keysend_end_unknown_text">The TV\'s screen shows whether a key arrived.</string>
+</resources>
