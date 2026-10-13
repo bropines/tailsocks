@@ -7,8 +7,10 @@ import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import android.database.Cursor
 import android.database.MatrixCursor
+import android.graphics.Point
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
@@ -100,7 +102,8 @@ class TailsocksFileProvider : DocumentsProvider() {
 
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
         val file = getFileForDocId(docId)
-        
+        if (!file.exists()) throw FileNotFoundException("no such document")
+
         val displayName = when {
             docId == "root" -> "TailSocks"
             docId.startsWith("account:") -> {
@@ -144,42 +147,29 @@ class TailsocksFileProvider : DocumentsProvider() {
             return result
         }
         
-        if (documentId.startsWith("drive_path:")) {
-            val parts = documentId.substring("drive_path:".length).split(":", limit = 2)
-            if (parts.size == 2) {
-                val accId = parts[0]
-                val path = parts[1]
-                
-                val client = TaildriveClient(context, accId)
-                try {
-                    val list = client.list(path)
-                    if (list.isNotEmpty()) {
-                        val file = list[0]
-                        val isDir = file.isDirectory
-                        var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
-                        if (isDir) {
-                            flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
-                        }
-                        
-                        result.newRow().apply {
-                            add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
-                            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, file.getDisplayName())
-                            add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
-                            add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(file.getDisplayName()))
-                            add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
-                            add(DocumentsContract.Document.COLUMN_FLAGS, flags)
-                        }
-                    }
-                } catch (e: Exception) {
-                    result.newRow().apply {
-                        add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
-                        add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, path.substringAfterLast("/"))
-                        add(DocumentsContract.Document.COLUMN_SIZE, 0)
-                        add(DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.MIME_TYPE_DIR)
-                        add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, 0)
-                        add(DocumentsContract.Document.COLUMN_FLAGS, 0)
-                    }
-                }
+        if (documentId.startsWith(DriveDocId.PREFIX)) {
+            val id = DriveDocId.parse(documentId) ?: throw FileNotFoundException("Invalid drive document ID")
+            // On a thread of ours: this one carries the caller's StrictMode policy, and a caller on its
+            // main thread — a player asking for the name and size of the file it is about to play — has
+            // none of the network (see ProviderWorker).
+            val client = TaildriveClient(context, id.accountId)
+            val document = try {
+                ProviderWorker.run { DriveDocuments.resolve(id, client::list, this::getMimeTypeForName) }
+            } catch (e: FileNotFoundException) {
+                throw e
+            } catch (e: Exception) {
+                // Only the class: a message may carry an address.
+                android.util.Log.w("Taildrive", "document query: ${e.javaClass.simpleName}")
+                throw FileNotFoundException("Taildrive is not available")
+            }
+            if (document.size == null) android.util.Log.i("Taildrive", "document answered from its name: the request did not")
+            result.newRow().apply {
+                add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
+                add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, document.name)
+                add(DocumentsContract.Document.COLUMN_SIZE, document.size)
+                add(DocumentsContract.Document.COLUMN_MIME_TYPE, document.mime)
+                add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, document.modified)
+                add(DocumentsContract.Document.COLUMN_FLAGS, document.flags)
             }
         }
         return result
@@ -188,7 +178,13 @@ class TailsocksFileProvider : DocumentsProvider() {
     override fun queryChildDocuments(parentDocumentId: String?, projection: Array<out String>?, sortOrder: String?): Cursor {
         val parentId = parentDocumentId ?: "root"
         if (parentId.startsWith("drive_root") || parentId.startsWith("drive_account:") || parentId.startsWith("drive_path:")) {
-            return queryWebDavChildDocuments(parentId, projection)
+            // Off the binder thread, which carries the caller's StrictMode policy (see ProviderWorker).
+            return try {
+                ProviderWorker.run { queryWebDavChildDocuments(parentId, projection) }
+            } catch (e: Exception) {
+                android.util.Log.w("Taildrive", "listing: ${e.javaClass.simpleName}")
+                MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
+            }
         }
 
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
@@ -403,41 +399,42 @@ class TailsocksFileProvider : DocumentsProvider() {
 
     override fun openDocument(documentId: String?, mode: String?, signal: CancellationSignal?): ParcelFileDescriptor {
         val docId = documentId ?: throw FileNotFoundException("Document ID is null")
-        if (docId.startsWith("drive_path:")) {
-            val parts = docId.substring("drive_path:".length).split(":", limit = 2)
-            if (parts.size == 2) {
-                val accId = parts[0]
-                val path = parts[1]
-                return if (mode?.contains("w") == true) {
-                    openWebDavDocumentWrite(accId, path)
-                } else {
-                    openWebDavDocumentRead(accId, path)
-                }
+        if (docId.startsWith(DriveDocId.PREFIX)) {
+            val id = DriveDocId.parse(docId) ?: throw FileNotFoundException("Invalid drive document ID")
+            return if (OpenModes.writes(mode)) {
+                openWebDavDocumentWrite(id.accountId, id.path)
+            } else {
+                openWebDavDocumentRead(id.accountId, id.path)
             }
-            throw FileNotFoundException("Invalid drive document ID")
         }
 
         val file = getFileForDocId(docId)
         if (file.isDirectory) {
             throw FileNotFoundException("Directory cannot be opened as a file")
         }
-        val accessMode = ParcelFileDescriptor.parseMode(mode)
-        return ParcelFileDescriptor.open(file, accessMode)
+        // parseMode throws IllegalArgumentException for a mode it does not know, and a null one a
+        // NullPointerException: both would cross the binder as they are.
+        val standardMode = mode ?: "r"
+        if (!OpenModes.isStandard(standardMode)) throw FileNotFoundException("Unsupported mode")
+        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(standardMode))
     }
 
     private fun openWebDavDocumentRead(accountId: String, path: String): ParcelFileDescriptor {
+        val context = context ?: throw FileNotFoundException("Context is null")
+        // With the daemon off there is no tailnet to read from: say so now, not in the first read of a descriptor.
+        if (!ProxyState.isActualRunning(context)) throw FileNotFoundException("Taildrive is not running")
+        val client = TaildriveClient(context, accountId)
         // A descriptor the reader can seek in, where the platform has one (API 26) and the
         // share's server answers byte ranges; the pipe below otherwise, start to end. Only
         // reads come here: openDocument sends every mode with a "w" in it the other way.
         if (android.os.Build.VERSION.SDK_INT >= 26) {
-            TaildriveDescriptor.open(context!!, TaildriveClient(context!!, accountId).rangeUpstream(path))?.let { return it }
+            TaildriveDescriptor.open(context, client.rangeUpstream(path))?.let { return it }
         }
 
         val pipe = ParcelFileDescriptor.createReliablePipe()
         val readFd = pipe[0]
         val writeFd = pipe[1]
-        
-        val client = TaildriveClient(context!!, accountId)
+
         val scope = CoroutineScope(Dispatchers.IO)
         
         scope.launch {
@@ -509,7 +506,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                 val path = parts[1]
                 val client = TaildriveClient(context!!, accId)
                 try {
-                    client.delete(path)
+                    ProviderWorker.run { client.delete(path) }
                 } catch (e: Exception) {
                     throw FileNotFoundException("Failed to delete WebDAV document (${e.javaClass.simpleName})")
                 }
@@ -554,10 +551,12 @@ class TailsocksFileProvider : DocumentsProvider() {
             val client = TaildriveClient(context!!, accId)
             
             try {
-                if (DocumentsContract.Document.MIME_TYPE_DIR == mimeType) {
-                    client.createFolder(childPath)
-                } else {
-                    client.createEmptyFile(childPath)
+                ProviderWorker.run {
+                    if (DocumentsContract.Document.MIME_TYPE_DIR == mimeType) {
+                        client.createFolder(childPath)
+                    } else {
+                        client.createEmptyFile(childPath)
+                    }
                 }
                 return "drive_path:$accId:$childPath"
             } catch (e: Exception) {
@@ -583,7 +582,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                 
                 val client = TaildriveClient(context!!, accId)
                 try {
-                    client.move(oldPath, newPath)
+                    ProviderWorker.run { client.move(oldPath, newPath) }
                     return "drive_path:$accId:$newPath"
                 } catch (e: Exception) {
                     throw FileNotFoundException("Failed to rename WebDAV document (${e.javaClass.simpleName})")
@@ -614,7 +613,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                 
                 val client = TaildriveClient(context!!, accId)
                 try {
-                    client.move(oldPath, newPath)
+                    ProviderWorker.run { client.move(oldPath, newPath) }
                     return "drive_path:$accId:$newPath"
                 } catch (e: Exception) {
                     throw FileNotFoundException("Failed to move WebDAV document (${e.javaClass.simpleName})")
@@ -650,6 +649,30 @@ class TailsocksFileProvider : DocumentsProvider() {
             }
         }
         throw FileNotFoundException("Document ID not found: $docId")
+    }
+
+    // What this provider does not do. The framework's defaults for these throw
+    // UnsupportedOperationException, which crosses the binder as it is, and any client with a grant
+    // may call them whatever a document's flags say — a file manager asking for a thumbnail of every
+    // row, a player for the metadata of the file it opens. Each gets the answer a missing file gets,
+    // or an empty one.
+
+    override fun openDocumentThumbnail(documentId: String?, sizeHint: Point?, signal: CancellationSignal?): AssetFileDescriptor? =
+        throw FileNotFoundException("No thumbnails")
+
+    override fun getDocumentMetadata(documentId: String): Bundle? = null
+
+    override fun queryRecentDocuments(rootId: String?, projection: Array<out String>?): Cursor =
+        MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
+
+    override fun querySearchDocuments(rootId: String?, query: String?, projection: Array<out String>?): Cursor =
+        MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
+
+    override fun copyDocument(sourceDocumentId: String?, targetParentDocumentId: String?): String =
+        throw FileNotFoundException("Copy not supported")
+
+    override fun removeDocument(documentId: String?, parentDocumentId: String?) {
+        throw FileNotFoundException("Remove not supported")
     }
 
     override fun isChildDocument(parentDocumentId: String?, documentId: String?): Boolean {
