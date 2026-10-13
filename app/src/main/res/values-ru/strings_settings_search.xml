@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings search: the field, the lines above a list of results -->
+    <string name="search_settings_hint">Поиск по настройкам</string>
+    <string name="search_recent">Недавно найденное</string>
+    <string name="search_suggested">Часто нужное</string>
+    <string name="search_none">По запросу «%1$s» ничего не найдено</string>
+    <string name="search_closest">Точного совпадения нет. Ближайшее:</string>
+    <string name="search_read_as">Показаны результаты для «%1$s»</string>
+
+    <!-- Why a found setting is not on its page right now. One line each; the result then opens the row that brings it. -->
+    <string name="search_need_tun">Появляется в режиме VPN (TUN)</string>
+    <string name="search_need_tun_hev">Появляется с движком hev-socks5-tunnel</string>
+    <string name="search_need_tun_or_root">Появляется в режимах VPN (TUN) и Root</string>
+    <string name="search_need_root">Появляется в режиме Root</string>
+    <string name="search_need_root_tun">Появляется в режиме Root с нативным TUN</string>
+    <string name="search_need_http_proxy">Появляется, когда включён HTTP-прокси</string>
+    <string name="search_need_auto_reconnect">Появляется, когда включено автопереподключение</string>
+    <string name="search_need_web_ui">Появляется, когда включён веб-интерфейс</string>
+    <string name="search_need_automation">Появляется, когда разрешена внешняя автоматизация</string>
+    <string name="search_need_relay">Появляется, когда включён ретранслятор</string>
+    <string name="search_need_static_colors">Доступна, пока динамические цвета выключены</string>
+
+    <!-- One line of what a setting does, for the rows that say it nowhere on their page -->
+    <string name="search_sum_theme">Светлая, тёмная или как в системе</string>
+    <string name="search_sum_language">Как в системе, английский или русский</string>
+    <string name="search_sum_palette">Акцентный цвет интерфейса</string>
+    <string name="search_sum_login_server">Свой сервер координации вместо сервера Tailscale</string>
+    <string name="search_sum_auth_key">Вход по заранее выпущенному ключу, без браузера</string>
+    <string name="search_sum_device_name">Имя этого устройства в тейлнете</string>
+    <string name="search_sum_exit_node">Пускать весь интернет-трафик через другое устройство тейлнета</string>
+    <string name="search_sum_logout">Выйти из профиля и забыть ключ его узла</string>
+    <string name="search_sum_tun_engine">Что ведёт туннель: сам tailscaled или hev-socks5-tunnel</string>
+    <string name="search_sum_tun_uses_socks">Локальный прокси, в который движок hev отдаёт все пакеты</string>
+    <string name="search_sum_tun_excluded_apps">Приложения, которые идут в обход туннеля</string>
+    <string name="search_sum_socks5_address">Адрес и порт, на которых слушает SOCKS5-прокси</string>
+    <string name="search_sum_socks5_username">Логин для SOCKS5-прокси; задаётся вместе с паролем</string>
+    <string name="search_sum_socks5_password">Пароль для SOCKS5-прокси; задаётся вместе с логином</string>
+    <string name="search_sum_sagernet_link">Ссылка socks5:// на этот прокси для SagerNet, NekoBox и им подобных</string>
+    <string name="search_sum_dns_proxy_address">Адрес и порт локального DNS, который отвечает на имена тейлнета</string>
+    <string name="search_sum_dns_fallbacks">Серверы, которые спрашивают, когда DNS тейлнета не отвечает</string>
+    <string name="search_sum_doh_fallback">Сервер DNS-over-HTTPS — последняя попытка</string>
+    <string name="search_sum_control_proxy">Ходить к серверу координации через свой прокси</string>
+    <string name="search_sum_byedpi_flags">Параметры десинхронизации, с которыми запускается ByeByeDPI</string>
+    <string name="search_sum_taildrop_folder">Куда сохраняются файлы, полученные по Taildrop</string>
+    <string name="search_sum_web_ui_address">Адрес и порт, на которых слушает веб-интерфейс</string>
+    <string name="search_sum_auto_reconnect_attempts">Сколько раз перезапускать демон, прежде чем сдаться</string>
+    <string name="search_sum_backup_full">Все аккаунты и все настройки в одном файле под паролем</string>
+    <string name="search_sum_restore_full">Заменить все аккаунты и настройки теми, что в полном бэкапе</string>
+    <string name="search_sum_profile_export">Настройки открытого профиля в файле JSON</string>
+    <string name="search_sum_profile_import">Загрузить настройки профиля из файла JSON</string>
+    <string name="search_sum_automation_token">Секрет, который другие приложения передают с каждой командой</string>
+    <string name="search_sum_live_state">Что прямо сейчас делают демон, прокси и туннель</string>
+    <string name="search_sum_root_daemon_info">Пути к сокету и журналу, состояние демона, проверка маршрутизации</string>
+</resources>

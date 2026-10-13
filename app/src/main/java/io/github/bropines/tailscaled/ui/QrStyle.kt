@@ -219,7 +219,7 @@ internal fun QrStyleSetting() {
         style = next
         GlobalSettings.setQrStyle(context, next)
     }
-    Column(Modifier.fillMaxWidth()) {
+    Column(Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.qr_style_title), outset = 6.dp)) {
         Text(stringResource(R.string.qr_style_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
         HelpText(stringResource(R.string.qr_style_note))
         Spacer(Modifier.height(8.dp))

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings search: the field, the lines above a list of results -->
+    <string name="search_settings_hint">Search settings</string>
+    <string name="search_recent">Recently found</string>
+    <string name="search_suggested">Often needed</string>
+    <string name="search_none">Nothing found for “%1$s”</string>
+    <string name="search_closest">No exact match. The closest:</string>
+    <string name="search_read_as">Showing results for “%1$s”</string>
+
+    <!-- Why a found setting is not on its page right now. One line each; the result then opens the row that brings it. -->
+    <string name="search_need_tun">Shown in VPN (TUN) mode</string>
+    <string name="search_need_tun_hev">Shown with the hev-socks5-tunnel engine</string>
+    <string name="search_need_tun_or_root">Shown in VPN (TUN) and Root modes</string>
+    <string name="search_need_root">Shown in Root mode</string>
+    <string name="search_need_root_tun">Shown in Root mode with the native TUN on</string>
+    <string name="search_need_http_proxy">Shown once the HTTP proxy is on</string>
+    <string name="search_need_auto_reconnect">Shown once auto-reconnect is on</string>
+    <string name="search_need_web_ui">Shown once the web interface is on</string>
+    <string name="search_need_automation">Shown once external automation is allowed</string>
+    <string name="search_need_relay">Shown once the peer relay is on</string>
+    <string name="search_need_static_colors">Shown while dynamic colours are off</string>
+
+    <!-- One line of what a setting does, for the rows that say it nowhere on their page -->
+    <string name="search_sum_theme">Light, dark, or the same as the system</string>
+    <string name="search_sum_language">The system\'s language, English or Russian</string>
+    <string name="search_sum_palette">The accent colour of the interface</string>
+    <string name="search_sum_login_server">Your own coordination server instead of Tailscale\'s</string>
+    <string name="search_sum_auth_key">Sign in with a pre-authentication key, without a browser</string>
+    <string name="search_sum_device_name">The name this device has in the tailnet</string>
+    <string name="search_sum_exit_node">Send all internet traffic through another device of the tailnet</string>
+    <string name="search_sum_logout">Sign this profile out and forget its node key</string>
+    <string name="search_sum_tun_engine">What runs the tunnel: tailscaled itself or hev-socks5-tunnel</string>
+    <string name="search_sum_tun_uses_socks">The local proxy the hev engine forwards every packet into</string>
+    <string name="search_sum_tun_excluded_apps">Apps that stay outside the tunnel</string>
+    <string name="search_sum_socks5_address">The address and port the SOCKS5 proxy listens on</string>
+    <string name="search_sum_socks5_username">A login for the SOCKS5 proxy; set it together with a password</string>
+    <string name="search_sum_socks5_password">A password for the SOCKS5 proxy; set it together with a username</string>
+    <string name="search_sum_sagernet_link">A socks5:// link to this proxy for SagerNet, NekoBox and the like</string>
+    <string name="search_sum_dns_proxy_address">The address and port of the local DNS that answers tailnet names</string>
+    <string name="search_sum_dns_fallbacks">Servers asked when the tailnet\'s DNS does not answer</string>
+    <string name="search_sum_doh_fallback">A DNS-over-HTTPS server, tried last</string>
+    <string name="search_sum_control_proxy">Reach the coordination server through a proxy of your own</string>
+    <string name="search_sum_byedpi_flags">The desync options ByeByeDPI is started with</string>
+    <string name="search_sum_taildrop_folder">Where files received over Taildrop are saved</string>
+    <string name="search_sum_web_ui_address">The address and port the web interface listens on</string>
+    <string name="search_sum_auto_reconnect_attempts">How many times the daemon is restarted before giving up</string>
+    <string name="search_sum_backup_full">Every account and every setting in one password-protected file</string>
+    <string name="search_sum_restore_full">Replace every account and setting with those of a full backup</string>
+    <string name="search_sum_profile_export">The open profile\'s settings as a JSON file</string>
+    <string name="search_sum_profile_import">Load a profile\'s settings from a JSON file</string>
+    <string name="search_sum_automation_token">The secret other apps must send with every command</string>
+    <string name="search_sum_live_state">What the daemon, the proxies and the tunnel are doing right now</string>
+    <string name="search_sum_root_daemon_info">Socket and log paths, the daemon\'s status, a routing check</string>
+</resources>

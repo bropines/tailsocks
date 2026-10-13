@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Settings search: the words people type to find a setting (see the note for translators
+        in values/strings_settings_search_keywords.xml). The Russian list is searched whatever
+        the language of the interface, and so is the English one.
+    -->
+
+    <!-- The little words of a question: «как поменять порт» is «порт». -->
+    <string name="search_stop_words">как, где, что, чем, зачем, почему, можно, нужно, надо, хочу, мне, я, в, во, на, и, или, для, не, с, со, по, из, от, до, это, этот, эта, эту, ли, же, бы, включить, включать, выключить, отключить, поменять, изменить, сменить, менять, настроить, настройка, настройки, сделать, поставить, убрать, найти, выбрать, задать, использовать, опция, параметр</string>
+
+    <!-- The sections -->
+    <string name="search_kw_appearance">внешний вид, вид, дизайн, стиль, интерфейс, кастомизация, персонализация</string>
+    <string name="search_kw_account">профиль, вход, логин, учётная запись, учётка, узел, настройки аккаунта</string>
+    <string name="search_kw_tunnel">впн, vpn, тун, режим работы, режим подключения, как подключиться, как идёт трафик, весь трафик, все приложения, системный впн</string>
+    <string name="search_kw_proxies">сокс, socks5, http-прокси, локальный прокси, локалхост, 127.0.0.1, некобокс, nekobox, v2ray, sing-box, прокси для приложений</string>
+    <string name="search_kw_dns">днс, резолвер, имена, разрешение имён, домены, сервер имён, сплит днс, 100.100.100.100</string>
+    <string name="search_kw_bypass">блокировки, блокировка, цензура, ркн, роскомнадзор, обход, тспу, не подключается, не входит, не работает, заблокирован, антиблокировка, белые списки, замедление</string>
+    <string name="search_kw_sharing">файлы, отправка файлов, приём файлов, публикация, опубликовать сервис, шаринг, расшарить</string>
+    <string name="search_kw_background">фон, фоновая работа, убивает в фоне, не отваливаться, отваливается</string>
+    <string name="search_kw_backup">бэкап, бекап, резервная копия, сохранить настройки, перенос на новый телефон, перенести, архив</string>
+    <string name="search_kw_automation">интент, скрипт, внешнее управление, api, автоматика</string>
+    <string name="search_kw_diagnostics">отладка, дебаг, баг, проблема, не работает, для разработчика</string>
+    <string name="search_kw_advanced">экспериментальное, бета, ещё, дополнительные</string>
+
+    <!-- Appearance & language -->
+    <string name="search_kw_theme">тёмная тема, светлая тема, ночной режим, тёмный режим, системная тема, тема, день, ночь</string>
+    <string name="search_kw_language">язык, локаль, перевод, русский, английский, сменить язык, english, language</string>
+    <string name="search_kw_ui_scale">размер шрифта, размер текста, шрифт, крупнее, мельче, крупный текст, увеличить, уменьшить, зум</string>
+    <string name="search_kw_interface">режим тв, телевизор, андроид тв, android tv, планшет, пульт, интерфейс для телевизора, тип устройства</string>
+    <string name="search_kw_palette">цвет, цвета, акцент, пресет, изумруд, лаванда, сапфир, янтарь, монохром, tokyo night, цвет темы</string>
+    <string name="search_kw_app_icon">иконка, значок, ярлык, лого, сменить иконку, значок на рабочем столе</string>
+    <string name="search_kw_qr_style">qr, куар, кьюар, qr-код, стиль кода, точки, скруглённые, квадраты</string>
+    <string name="search_kw_dynamic_color">material you, monet, цвета обоев, системные цвета, динамическая тема</string>
+    <string name="search_kw_amoled">амолед, oled, чёрная тема, чёрный фон, чисто чёрный</string>
+    <string name="search_kw_show_changelog">что нового, список изменений, чейнджлог, changelog, новости обновления</string>
+    <string name="search_kw_connection_summary">главный экран, карточка статуса, дашборд, узлы в сети, компактный</string>
+    <string name="search_kw_update_check">обновления, обновление, новая версия, автообновление, github</string>
+
+    <!-- Account & connection -->
+    <string name="search_kw_login_server">headscale, хедскейл, сервер, сервер координации, свой сервер, селфхост, адрес сервера, url входа, ionscale</string>
+    <string name="search_kw_auth_key">ключ, authkey, preauth, tskey, токен, вход по ключу, без браузера</string>
+    <string name="search_kw_device_name">имя, хостнейм, hostname, переименовать, название устройства, имя узла</string>
+    <string name="search_kw_exit_node">выходной узел, exit node, экзит нода, выходная нода, сервер vpn, страна, сменить ip, скрыть ip, весь интернет через узел, mullvad</string>
+    <string name="search_kw_exit_node_lan">локалка, lan, принтер, nas, роутер, chromecast, локальные устройства при выходном узле</string>
+    <string name="search_kw_accept_routes">маршруты, подсети, accept routes, сабнеты, сабнет роутер, доступ к сети за узлом</string>
+    <string name="search_kw_advertise_exit_node">раздать интернет, advertise exit node, телефон как vpn-сервер, стать экзит нодой, быть выходной нодой</string>
+    <string name="search_kw_honest_hostinfo">ос, android, linux, модель устройства, hostinfo, маскировка, притворяться linux, настоящая система, в консоли показывает linux</string>
+    <string name="search_kw_shields_up">shields up, фаервол, файрвол, входящие, щит, приватность</string>
+    <string name="search_kw_posture">posture, проверка устройства, серийный номер, проверки организации, соответствие</string>
+    <string name="search_kw_tailnet_lock">блокировка тейлнета, tka, подпись узла, ключ подписи, доверенные ключи, ключ узла</string>
+    <string name="search_kw_advertise_routes">анонс маршрутов, сабнет роутер, подсеть, расшарить локальную сеть, cidr, 192.168, advertise routes</string>
+    <string name="search_kw_advertise_tags">теги, тег, acl, tag:, advertise tags, контроль доступа</string>
+    <string name="search_kw_relay">ретранслятор, реле, релей, relay, udp-реле, пересылка трафика</string>
+    <string name="search_kw_relay_port">порт реле, порт, проброс порта, постоянный порт</string>
+    <string name="search_kw_app_connector">коннектор, connector, saas, маршрутизация доменов</string>
+    <string name="search_kw_logout">выход, логаут, разлогиниться, сброс, сбросить, удалить аккаунт, перелогиниться, забыть ключ</string>
+
+    <!-- Tunnel mode -->
+    <string name="search_kw_mode_proxy">режим прокси, сокс, без vpn, без впн, без разрешения vpn, userspace, вместе с другим vpn, adguard</string>
+    <string name="search_kw_mode_vpn">впн, тун, режим vpn, весь трафик, все приложения, системный vpn, vpnservice, kill switch, постоянный vpn, всегда включён, блокировать без vpn, ключик</string>
+    <string name="search_kw_mode_root">рут, su, magisk, магиск, kernelsu, apatch, суперпользователь, tailscale0, интерфейс ядра</string>
+    <string name="search_kw_tun_engine">движок, нативный, hev, hev-socks5-tunnel, tun2socks, совместимость</string>
+    <string name="search_kw_tun_uses_socks">прокси для hev, socks5 для tun, порт сокс для туннеля</string>
+    <string name="search_kw_tun_ipv6">ipv6, айпи в6, утечка ipv6, маршрут ipv6</string>
+    <string name="search_kw_tun_address">адрес tun, шлюз, 10.0.0.1, ip туннеля</string>
+    <string name="search_kw_tun_excluded_cidrs">исключить ip, обход подсетей, раздельное туннелирование, cidr, исключения сети, локалка мимо туннеля</string>
+    <string name="search_kw_tun_excluded_apps">раздельное туннелирование, по приложениям, приложения в обход, исключения, приложения мимо vpn, банковские приложения, белый список</string>
+    <string name="search_kw_root_tun">нативный tun, tailscale0, интерфейс ядра, linux tun</string>
+    <string name="search_kw_root_service">скрипт загрузки, service.d, служба magisk, kernelsu, запуск при загрузке, системная служба, переустановить скрипт</string>
+    <string name="search_kw_root_cli">cli, команда tailscale, termux, командная строка, терминал</string>
+    <string name="search_kw_root_vpn_bypass">другой vpn, совместная работа, fwmark, конфликт vpn</string>
+    <string name="search_kw_root_take_device">перехватить, маршрут по умолчанию, приоритет над vpn, принудительно</string>
+    <string name="search_kw_root_kill_daemon">убить демон, остановить демон, sigterm, процесс tailscaled</string>
+
+    <!-- Local proxies -->
+    <string name="search_kw_socks5_address">порт, порт сокс, адрес прослушивания, 127.0.0.1, 48115, сменить порт, адрес прокси</string>
+    <string name="search_kw_socks5_username">логин, пользователь, авторизация прокси, учётные данные</string>
+    <string name="search_kw_socks5_password">авторизация прокси, секрет, пасс</string>
+    <string name="search_kw_sagernet_link">nekobox, некобокс, ссылка на прокси, скопировать ссылку, socks5 url, v2rayng, импорт прокси</string>
+    <string name="search_kw_http_enable">https-прокси, прокси для браузера, прокси wi-fi</string>
+    <string name="search_kw_http_address">порт http, 8080, порт, адрес прослушивания</string>
+    <string name="search_kw_lan_access">локалка, lan, вай-фай, wi-fi, точка доступа, раздать прокси, 0.0.0.0, другие устройства, прокси для телевизора</string>
+
+    <!-- DNS -->
+    <string name="search_kw_magicdns">меджик днс, accept dns, имена тейлнета, короткие имена, ts.net</string>
+    <string name="search_kw_dns_proxy_address">порт dns, 1053, локальный dns, днс прокси, приватный dns, upstream для adguard</string>
+    <string name="search_kw_root_dns_redirect">dns всего устройства, перенаправление dns, iptables, magicdns для всех приложений</string>
+    <string name="search_kw_dns_fallbacks">запасной днс, 8.8.8.8, 1.1.1.1, upstream, google dns, cloudflare</string>
+    <string name="search_kw_doh_fallback">doh, dns over https, dns через https, защищённый dns, шифрованный dns</string>
+    <string name="search_kw_dns_screen">состояние dns, резолверы, проверка имени, nslookup, dig, записи dns, домены поиска</string>
+
+    <!-- Censorship bypass -->
+    <string name="search_kw_control_proxy">прокси для входа, внешний прокси, прокси для tailscale, не входит, сервер координации заблокирован, пресеты, импорт ссылки, хост, порт, логин, пароль</string>
+    <string name="search_kw_byedpi">byedpi, dpi, дпи, десинхронизация, goodbyedpi, zapret, запрет, антидпи, sni, ркн, тспу</string>
+    <string name="search_kw_byedpi_flags">аргументы, стратегия, параметры десинхронизации, split, fake, disorder</string>
+    <string name="search_kw_byedpi_ipv6">только ipv4, v6, сбой рукопожатия, byedpi без ipv6</string>
+    <string name="search_kw_control_port">порт 80, только https, tls, канал управления, http заблокирован, фаервол</string>
+    <string name="search_kw_netmap_cache">офлайн-запуск, кэш netmap, запуск без сервера, сервер недоступен, работа без сервера</string>
+    <string name="search_kw_netmap_cache_clear">удалить кэш, сбросить карту сети, стереть кэш</string>
+
+    <!-- Sharing & access -->
+    <string name="search_kw_taildrop_folder">тейлдроп, папка загрузок, полученные файлы, куда сохраняются файлы, загрузки, папка приёма</string>
+    <string name="search_kw_taildrive">тейлдрайв, расшарить папку, webdav, сетевой диск, обмен файлами</string>
+    <string name="search_kw_serve">фуннел, опубликовать, открыть порт, обратный прокси, https-сертификат, публичный адрес, веб-сервер, ngrok</string>
+    <string name="search_kw_web_ui">web ui, веб-морда, управление из браузера, 8080</string>
+    <string name="search_kw_web_ui_address">порт веб-интерфейса, 127.0.0.1:8080, порт</string>
+
+    <!-- Background & permissions -->
+    <string name="search_kw_permissions">оптимизация батареи, батарея, уведомления, доступ ко всем файлам, будильники, без ограничений, фоновые ограничения, энергосбережение</string>
+    <string name="search_kw_autostart">автостарт, запуск при включении, после перезагрузки, автозагрузка</string>
+    <string name="search_kw_auto_reconnect">переподключение, реконнект, обрыв связи, перезапуск демона, отваливается, восстановление связи</string>
+    <string name="search_kw_auto_reconnect_attempts">попытки, число попыток, повторы, лимит перезапусков</string>
+    <string name="search_kw_watchdog">вотчдог, сторож, оживить службу, убитая служба, перезапуск службы, будильник, убивает в фоне, xiaomi, miui</string>
+    <string name="search_kw_keep_awake">батарея, wake lock, вейклок, не засыпать, глубокий сон, doze, расход батареи, при выключенном экране, спящий режим</string>
+
+    <!-- Backup & restore -->
+    <string name="search_kw_backup_full">бекап, резервная копия, сохранить всё, все аккаунты, архив, пароль</string>
+    <string name="search_kw_restore_full">восстановление, импорт бэкапа, вернуть настройки, новый телефон</string>
+    <string name="search_kw_profile_export">экспорт, json, сохранить профиль, экспорт настроек, выгрузить</string>
+    <string name="search_kw_profile_import">импорт, json, загрузить профиль, импорт настроек</string>
+
+    <!-- Automation & API -->
+    <string name="search_kw_automation_enable">tasker, таскер, macrodroid, broadcast, интент, adb, внешнее управление, скрипты</string>
+    <string name="search_kw_automation_token">токен, секрет, ключ, пароль автоматизации, сгенерировать токен, скопировать токен</string>
+    <string name="search_kw_admin_console">админка, консоль администратора, api-ключ, oauth, управление устройствами, acl, токен доступа</string>
+
+    <!-- Diagnostics & developer -->
+    <string name="search_kw_live_state">статус, здоровье, состояние подключения, что не так, проверка socks5, состояние демона</string>
+    <string name="search_kw_detailed_logs">verbose, отладочные логи, уровень логов, больше логов</string>
+    <string name="search_kw_extra_args">флаги, tailscale up, параметры запуска, свои флаги, доп аргументы</string>
+    <string name="search_kw_root_daemon_info">путь к сокету, файл журнала, путь скрипта, состояние демона, проверить маршрутизацию, ip rule, iptables, пути</string>
+    <string name="search_kw_logs">лог, журнал, logcat, выгрузить логи, отправить логи, ошибки</string>
+    <string name="search_kw_console">терминал, команда, cli, tailscale status, tailscale ping, командная строка</string>
+    <string name="search_kw_netcheck">netcheck, derp, задержка, пинг, тип nat, udp, регион реле, связность</string>
+    <string name="search_kw_show_onboarding">онбординг, приветствие, обучение, мастер настройки, первый запуск, знакомство</string>
+
+    <!-- Advanced -->
+    <string name="search_kw_remote_management">управление с другого устройства, сопряжение, управлять телевизором с телефона, пульт</string>
+</resources>

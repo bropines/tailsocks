@@ -45,7 +45,7 @@ fun DeviceInterfaceSetting(modifier: Modifier = Modifier) {
         DeviceOverride.HANDHELD to stringResource(R.string.tv_interface_handheld),
         DeviceOverride.TV to stringResource(R.string.tv_interface_tv),
     )
-    Column(modifier.padding(top = 12.dp, bottom = 8.dp)) {
+    Column(modifier.padding(top = 12.dp, bottom = 8.dp).settingAnchor(stringResource(R.string.tv_interface_title), outset = 6.dp)) {
         Text(
             stringResource(R.string.tv_interface_title),
             style = MaterialTheme.typography.bodyMedium,

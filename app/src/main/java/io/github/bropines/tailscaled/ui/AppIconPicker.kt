@@ -73,7 +73,7 @@ internal fun AppIconRow() {
     var current by remember { mutableStateOf(AppIcons.current(context)) }
     var open by rememberSaveable { mutableStateOf(false) }
     val help = remember { mutableStateOf(false) }
-    ExplainedRow(onClick = { open = true }, help = help, modifier = Modifier.padding(vertical = 4.dp)) {
+    ExplainedRow(onClick = { open = true }, help = help, modifier = Modifier.padding(vertical = 4.dp).settingAnchor(stringResource(R.string.icon_title))) {
         ListItem(
             supportingContent = { HelpText(stringResource(R.string.icon_note), expanded = help, inClickableRow = true) },
             leadingContent = { AppIconImage(current, 40.dp) },

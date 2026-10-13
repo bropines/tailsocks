@@ -368,7 +368,7 @@ fun SettingsClickableItem(
     ExplainedRow(
         onClick = { if (enabled) onClick() },
         help = help,
-        modifier = modifier.padding(vertical = 4.dp),
+        modifier = modifier.padding(vertical = 4.dp).settingAnchor(title),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f)
     ) {
         ListItem(
@@ -490,7 +490,7 @@ fun SettingsSwitchItem(
     ExplainedRow(
         onClick = { if (enabled) onCheckedChange(!checked) },
         help = help,
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier.padding(vertical = 4.dp).settingAnchor(title),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.1f)
     ) {
         ListItem(
@@ -538,7 +538,7 @@ fun SettingsEditItem(
     ExplainedRow(
         onClick = { if (enabled) showDialog = true },
         help = help,
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier.padding(vertical = 4.dp).settingAnchor(title),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (enabled) 0.3f else 0.15f),
         onLongClick = {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -693,7 +693,7 @@ fun SettingsExitNodeItem(
         },
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier.padding(vertical = 4.dp).settingAnchor(title)
     ) {
         ListItem(
             supportingContent = { Text(if (currentIp.isEmpty()) "None" else currentIp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -943,6 +943,7 @@ fun CopyablePathItem(
                 } else Modifier
             )
             .padding(vertical = 2.dp)
+            .settingAnchor(label, outset = 6.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

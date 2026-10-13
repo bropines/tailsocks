@@ -206,6 +206,12 @@ class SettingsActivity : ComponentActivity() {
     companion object {
         /** Open on this section instead of the list, e.g. "bypass" from a health banner. */
         const val EXTRA_OPEN_SECTION = "open_section"
+
+        /** With it or alone: open on this row of a page, an entry of ui/SettingsCatalog.kt by its id. */
+        const val EXTRA_OPEN_ROW = "open_row"
+
+        /** Start with this typed into the search of the settings. */
+        const val EXTRA_SEARCH = "search"
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -230,6 +236,8 @@ class SettingsActivity : ComponentActivity() {
                 SettingsScreen(
                     onBack = { finish() },
                     initialSection = intent?.getStringExtra(EXTRA_OPEN_SECTION),
+                    initialRow = intent?.getStringExtra(EXTRA_OPEN_ROW),
+                    initialSearch = intent?.getStringExtra(EXTRA_SEARCH),
                     currentTheme = appTheme,
                     onThemeChange = { 
                         appTheme = it
@@ -350,7 +358,9 @@ fun SettingsScreen(
     onDynamicColorChange: (Boolean) -> Unit,
     currentAmoledMode: Boolean,
     onAmoledModeChange: (Boolean) -> Unit,
-    initialSection: String? = null
+    initialSection: String? = null,
+    initialRow: String? = null,
+    initialSearch: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -453,6 +463,9 @@ fun SettingsScreen(
         openSection = section
         focus(SettingsFocus.PAGE)
     }
+    // The search of the settings (SettingsSearch.kt): its field stands over the list of sections, and
+    // a result opens a page through open(), on its row.
+    val search = rememberSettingsSearch(initialRow, initialSearch) { open(it) }
 
     // Global Settings
     // Where received Taildrop files go (core/TaildropFolder.kt): a folder of the system's
@@ -1134,7 +1147,7 @@ fun SettingsScreen(
         SettingsCard(title = stringResource(R.string.settings_sect_adv_profile)) {
             OutlinedButton(
                 onClick = { showResetDialog = true },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_logout_reset_title)),
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
@@ -1474,7 +1487,8 @@ fun SettingsScreen(
                 help = help,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 8.dp)
+                    .settingAnchor(title, shape = MaterialTheme.shapes.large),
                 shape = MaterialTheme.shapes.large,
                 color = if (selected) accent.copy(alpha = 0.10f)
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
@@ -1838,7 +1852,7 @@ fun SettingsScreen(
             if (!copies) {
                 // Nothing to copy with.
             } else if (!lanAccessEnabled) {
-                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium) {
+                OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_sagernet_copy)), shape = MaterialTheme.shapes.medium) {
                     Icon(Icons.Default.Share, null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.settings_sagernet_copy))
@@ -1852,7 +1866,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_sagernet_copy)), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_sagernet_copy_local), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
@@ -2319,7 +2333,7 @@ fun SettingsScreen(
             Triple("dark", Icons.Default.DarkMode, stringResource(R.string.settings_theme_dark))
         )
         val selectedThemeIdx = themeOptions.indexOfFirst { it.first == currentTheme }.coerceAtLeast(0)
-        Column(Modifier.padding(bottom = 8.dp)) {
+        Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_theme_title), outset = 6.dp)) {
             Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             SlidingSegmentedChips(
@@ -2345,7 +2359,7 @@ fun SettingsScreen(
                 PresetItem("monochrome", Color(0xFF1D2023), stringResource(R.string.settings_preset_monochrome)),
                 PresetItem("tokionight", Color(0xFF7AA2F7), stringResource(R.string.settings_preset_tokionight))
             )
-            Column {
+            Column(Modifier.settingAnchor(stringResource(R.string.settings_palette_title), outset = 6.dp)) {
                 Text(stringResource(R.string.settings_palette_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(
@@ -2391,7 +2405,7 @@ fun SettingsScreen(
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             Spacer(Modifier.height(12.dp))
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_dynamic_color_title), outset = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -2407,7 +2421,7 @@ fun SettingsScreen(
     val amoledRow: @Composable () -> Unit = {
         Spacer(Modifier.height(12.dp))
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_amoled_black_title), outset = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
@@ -2435,7 +2449,7 @@ fun SettingsScreen(
             )
             val selectedLangIdx = languageOptions.indexOfFirst { it.first == currentLang }.coerceAtLeast(0)
             if (themeHere) Spacer(Modifier.height(12.dp))
-            Column(Modifier.padding(bottom = 8.dp)) {
+            Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_lang_title), outset = 6.dp)) {
                 Text(stringResource(R.string.settings_lang_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 SlidingSegmentedChips(
@@ -2462,7 +2476,7 @@ fun SettingsScreen(
             // wrapContextWithLocale(); the screen is recreated to take it.
             var currentScale by remember { mutableStateOf(GlobalSettings.getUiScale(context)) }
             Spacer(Modifier.height(12.dp))
-            Column(Modifier.padding(bottom = 8.dp)) {
+            Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_ui_scale_title), outset = 6.dp)) {
                 Text(stringResource(R.string.settings_ui_scale_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HelpText(stringResource(R.string.settings_ui_scale_desc))
                 Spacer(Modifier.height(8.dp))
@@ -2624,7 +2638,7 @@ fun SettingsScreen(
             ) {
                 Button(
                     onClick = { showBackupPasswordDialog = true },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).settingAnchor(stringResource(R.string.settings_backup_full_title)),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Archive, null, modifier = Modifier.size(18.dp))
@@ -2639,7 +2653,7 @@ fun SettingsScreen(
                 }
                 OutlinedButton(
                     onClick = { pickBackupFile(BackupFile.FULL_RESTORE) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).settingAnchor(stringResource(R.string.settings_restore_full_title)),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.SettingsBackupRestore, null, modifier = Modifier.size(18.dp))
@@ -2663,7 +2677,7 @@ fun SettingsScreen(
             ) {
                 Button(
                     onClick = { pickBackupFile(BackupFile.PROFILE_EXPORT) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).settingAnchor(stringResource(R.string.settings_profile_export_title)),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Backup, null, modifier = Modifier.size(18.dp))
@@ -2678,7 +2692,7 @@ fun SettingsScreen(
                 }
                 OutlinedButton(
                     onClick = { pickBackupFile(BackupFile.PROFILE_IMPORT) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).settingAnchor(stringResource(R.string.settings_profile_import_title)),
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.SettingsBackupRestore, null, modifier = Modifier.size(18.dp))
@@ -2719,6 +2733,7 @@ fun SettingsScreen(
                          automationSecret = it
                          GlobalSettings.setAutomationSecret(context, it)
                      },
+                     modifier = Modifier.settingAnchor(stringResource(R.string.settings_automation_token_label)),
                      label = stringResource(R.string.settings_automation_token_label),
                      placeholder = stringResource(R.string.settings_automation_token_placeholder),
                      leadingIcon = { Icon(Icons.Default.Key, null) },
@@ -2810,7 +2825,7 @@ fun SettingsScreen(
 
         // First, because it is what this page is opened for when something is wrong:
         // the state right now, before the switches that might explain it.
-        LiveDiagnosticsCard()
+        LiveDiagnosticsCard(Modifier.settingAnchor(stringResource(R.string.diag_live_title)))
         SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_flags_logs)) {
@@ -2998,14 +3013,18 @@ fun SettingsScreen(
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
+                SettingsSearchBar(search, shown = section == null, live = live) {
                 AppTopBar(
                     title = if (openCategory != null) stringResource(openCategory.titleRes) else stringResource(R.string.settings_title),
                     onBack = if (section == null || backable) {
                         { if (section != null) popSection() else onBack() }
                     } else null
                 )
+                }
             }
         ) { padding ->
+            // While the search is in use its results stand where the list of sections does.
+            if (section == null && search.active) SettingsSearchResults(search, Modifier.padding(padding)) else
             if (section == null) {
                 val hubState = rememberLazyListState(hubAnchor.index, hubAnchor.offset)
                 // Every hub instance starts where the last one was left and writes back
@@ -3051,6 +3070,8 @@ fun SettingsScreen(
                     snapshotFlow { sectionScroll.value }.collect { sectionAnchors[section] = it }
                 }
                 val sectionBody: @Composable () -> Unit = {
+                    // The row a search result was opened on is found by the rows of this page (settingAnchor).
+                    SettingsRowTarget(search, section, live) {
                     when (section) {
                         "account" -> sectionAccount()
                         "tunnel" -> sectionTunnel(place(Feature.ROOT_MODE) == Availability.OFFERED)
@@ -3066,6 +3087,7 @@ fun SettingsScreen(
                         "automation" -> sectionAutomation()
                         "diagnostics" -> sectionDiagnostics()
                         advancedCategory.id -> sectionAdvanced()
+                    }
                     }
                 }
                 // For a television's remote the page is one group: somewhere it can be
