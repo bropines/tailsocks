@@ -645,6 +645,16 @@ private fun SegmentedChipLabel(item: SegmentedChipItem, isSelected: Boolean, con
     }
 }
 
+/**
+ * The ring of a chip the remote is on. The chips draw no ripple — the sliding
+ * pill is their only state — so without it a television would show nothing of
+ * where the remote is, and the chip is picked with OK, not by moving onto it.
+ * Set in by the pill's own margin, so that it follows the pill's outline.
+ */
+@Composable
+private fun Modifier.tvChipFocusRing(source: MutableInteractionSource): Modifier =
+    if (isTv) padding(2.dp).tvFocusRing(source, MaterialTheme.shapes.medium) else this
+
 @JvmName("SlidingSegmentedChipsOptions")
 @Composable
 fun SlidingSegmentedChips(
@@ -725,13 +735,15 @@ fun SlidingSegmentedChips(
                     label = "chipContentColor"
                 )
 
+                val source = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        .tvChipFocusRing(source)
                         .selectable(
                             selected = isSelected,
-                            interactionSource = remember { MutableInteractionSource() },
+                            interactionSource = source,
                             indication = null,
                             role = androidx.compose.ui.semantics.Role.Tab
                         ) {
@@ -812,14 +824,16 @@ fun ScrollableSlidingSegmentedChips(
                 label = "chipContentColor"
             )
 
+            val source = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
+                    .tvFocusRing(source, MaterialTheme.shapes.medium)
                     .clip(MaterialTheme.shapes.medium)
                     .background(bgColor)
                     .selectable(
                         selected = isSelected,
-                        interactionSource = remember { MutableInteractionSource() },
+                        interactionSource = source,
                         indication = null,
                         role = androidx.compose.ui.semantics.Role.Tab
                     ) {
