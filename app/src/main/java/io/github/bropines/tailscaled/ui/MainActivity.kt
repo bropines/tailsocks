@@ -2849,15 +2849,23 @@ fun LoggedOutCard(
 
             // The same link for another device: a friend's phone signed in by the tailnet's
             // owner, who is somewhere else. Not where the code has a screen of its own.
+            // A button of the row above, and tonal: "Sign in" stays the one filled in the accent.
             if (onShowCode == null && loginUrl != null) {
-                TextButton(
+                FilledTonalButton(
                     onClick = { showLink = true },
-                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                    shape = MaterialTheme.shapes.medium,
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Icon(Icons.Default.QrCode2, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.signin_other_device), fontSize = 11.sp, maxLines = 1, softWrap = false)
+                    Text(
+                        text = stringResource(R.string.signin_other_device),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
 

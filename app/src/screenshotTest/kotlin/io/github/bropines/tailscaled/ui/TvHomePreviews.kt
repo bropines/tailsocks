@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.core.AppJson
@@ -111,10 +112,10 @@ fun TvSignInOnPhone() = Tv {
 // The signed-out card: a phone's, with the new action, and a television's, with the code's button.
 
 @Composable
-private fun SignedOutCard(code: Boolean, url: String? = TAILSCALE_LINK) {
+private fun SignedOutCard(code: Boolean, url: String? = TAILSCALE_LINK, width: Dp = 360.dp) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.padding(24.dp), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.width(360.dp)) {
+            Column(Modifier.width(width)) {
                 LoggedOutCard(loginUrl = url, onConfigureProxy = {}, onStop = {}, onShowCode = if (code) ({}) else null)
             }
         }
@@ -129,6 +130,10 @@ fun PhoneSignedOutCard() = AdaptiveShowcase { SignedOutCard(code = false) }
 @Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
 @Composable
 fun PhoneSignedOutCardNoLink() = AdaptiveShowcase { SignedOutCard(code = false, url = null) }
+
+/** As narrow as the card gets: the status column of a phone on its side and of a tablet's dashboard. */
+@PreviewTest @PhoneBothLanguages @Composable
+fun PhoneSignedOutCardNarrow() = AdaptiveShowcase { SignedOutCard(code = false, width = 280.dp) }
 
 @PreviewTest @TvBothLanguages @Composable
 fun TvSignedOutCard() = Tv { SignedOutCard(code = true, url = null) }
