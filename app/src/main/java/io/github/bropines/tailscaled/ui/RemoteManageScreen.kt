@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -45,10 +47,12 @@ import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.BridgeRemotePeerApi
 import io.github.bropines.tailscaled.core.Feature
+import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.RemoteClient
 import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemoteManage
 import io.github.bropines.tailscaled.core.RemoteQr
+import io.github.bropines.tailscaled.core.TailscaledService
 import io.github.bropines.tailscaled.core.sendTaildropFiles
 import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.models.PeerData
@@ -213,21 +217,49 @@ private const val APPLIED_SHOWN_MS = 4_000L
  */
 private val background = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-/** The peer as this device's own daemon sees it now; null when the daemon cannot say. */
-private fun localPeer(peerId: String): PeerData? = runCatching {
-    if (!Appctr.isRunning()) return null
+/**
+ * The peer as this device's own daemon has it now, with nobody asked over the network: what
+ * the page shows of it before the device answers ([ManagePeer]), and the peer itself for a
+ * file to be sent to — null when the daemon cannot say or does not hold it.
+ *
+ * Only a daemon that is Running has a network map to read: one that is starting or waits for
+ * a sign-in lists no peers, and a peer missing from that would be taken for one that left.
+ */
+private fun localView(peerId: String): Pair<ManagePeer, PeerData?> = runCatching {
+    if (!Appctr.isRunning()) return ManagePeer(stopped = true) to null
+    if (Appctr.getBackendState() != "Running") return ManagePeer() to null
     val json = Appctr.getStatusFromAPI()
-    if (json.isBlank() || json.startsWith("Error")) return null
+    if (json.isBlank() || json.startsWith("Error")) return ManagePeer() to null
     val status = AppJson.decodeFromString<StatusResponse>(json)
-    status.peers?.values?.firstOrNull { it.id == peerId }?.withTaildropOwnership(status.self?.userID)
-}.getOrNull()
+    val peers = status.peers ?: return ManagePeer() to null
+    val peer = peers.values.firstOrNull { it.id == peerId } ?: return ManagePeer(RemotePresence.GONE) to null
+    ManagePeer(
+        presence = if (peer.online == true) RemotePresence.ONLINE else RemotePresence.OFFLINE,
+        lastSeen = parseRfc3339Millis(peer.lastSeen) ?: 0,
+        address = peer.tailscaleIPs?.firstOrNull().orEmpty(),
+    ) to peer.withTaildropOwnership(status.self?.userID)
+}.getOrDefault(ManagePeer() to null)
+
+/** Starts this device's own TailSocks the way the main screen's switch does; false when it could not be asked to. */
+private fun startOwnTailSocks(context: Context): Boolean {
+    // The same refusal the main screen makes: the service would start with nowhere to listen.
+    if (GlobalSettings.getString(context, "socks5", "127.0.0.1:48115").isBlank()) {
+        Toast.makeText(context, context.getString(R.string.main_error_socks5_empty), Toast.LENGTH_LONG).show()
+        return false
+    }
+    return runCatching {
+        ContextCompat.startForegroundService(context, Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" })
+    }.isSuccess
+}
 
 /**
  * The page that pairs with a device and manages it, in a window of its own over the screen
- * that opened it. [peerId] is the peer's StableNodeID; [online] what this device's network map
- * said of it when the page was asked for. [code] fills the pairing code in — a scanned one —
- * and pairing stays the person's press. Back closes it. Call it in the screen's own
- * composition, not inside a sheet.
+ * that opened it. [peerId] is the peer's StableNodeID. [online]: the caller takes the device
+ * for there — its own list said so, or a code was just scanned off its screen. The page reads
+ * this device's network map itself the moment it opens; what [online] decides is only that a
+ * device taken for there is asked before the page calls it offline on the map's word. [code]
+ * fills the pairing code in — a scanned one — and pairing stays the person's press. Back
+ * closes it. Call it in the screen's own composition, not inside a sheet.
  */
 @Composable
 fun RemoteManagePage(
@@ -257,9 +289,8 @@ private fun RemoteManageHost(
     val app = context.applicationContext
     val scope = rememberCoroutineScope()
     val close by rememberUpdatedState(onClose)
-    // This device's own daemon on the peer: whether it is there, and whether a file may go to it.
+    // The peer as this device's own daemon has it: for a file that is sent to it from here.
     var peer by remember(peerId) { mutableStateOf<PeerData?>(null) }
-    val isOnline by rememberUpdatedState(peer?.online ?: online)
 
     val client = remember(peerId) {
         RemoteClient(BridgeRemotePeerApi, RemoteManage.tokens(app), AccountManager.getActiveAccount(app).id, peerId)
@@ -269,13 +300,16 @@ private fun RemoteManageHost(
             client = client,
             scope = scope,
             guards = RemoteGuards.keeper,
-            peerOnline = { isOnline },
+            local = { localView(peerId).first },
             onClose = { close() },
             name = name,
             tv = tv,
             codeOnShow = codeOnShow,
             code = code,
             appVersion = BuildConfig.VERSION_NAME,
+            present = online,
+            memory = RemoteMemory.memory,
+            startOwn = { startOwnTailSocks(app) },
         )
     }
     DisposableEffect(controller) { onDispose { controller.stop() } }
@@ -286,13 +320,16 @@ private fun RemoteManageHost(
         controller.start()
         // The device is asked only while the page is on screen.
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // The start has just looked, and so has the round before a pause: the first round only reads the peer.
+            var looked = true
             while (true) {
-                val seen = withContext(Dispatchers.IO) { localPeer(peerId) }
-                if (seen != null) peer = seen
+                val (seen, data) = withContext(Dispatchers.IO) { localView(peerId) }
+                if (data != null) peer = data
                 controller.sendVerdict((peer?.let { taildropStatusOf(it, reasons) } as? TaildropStatus.Blocked)?.reason)
+                if (!looked) controller.tick(seen)
+                looked = false
                 val managing = controller.ui as? RemoteManageUi.Managing
                 delay(if (managing?.watching(System.currentTimeMillis()) == true) WATCH_EVERY_MS else STATUS_EVERY_MS)
-                controller.tick()
             }
         }
     }

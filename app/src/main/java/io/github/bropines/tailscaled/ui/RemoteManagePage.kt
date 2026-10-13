@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
@@ -32,9 +33,13 @@ import androidx.compose.material.icons.filled.TabletAndroid
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -54,9 +59,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -149,7 +160,8 @@ internal fun RemoteManageContent(
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (ui) {
-                is RemoteManageUi.Pairing -> Narrow(layout) { PairingBody(ui, actions, hooks.scan) }
+                is RemoteManageUi.Opening -> Narrow(layout) { AskingNote(ui.name) }
+                is RemoteManageUi.Pairing -> Pairing(ui, actions, hooks.scan, layout)
                 is RemoteManageUi.Forgotten -> Narrow(layout) {
                     Text(stringResource(R.string.remote_forget_local, ui.name), style = MaterialTheme.typography.bodyMedium)
                     Button(onClick = actions::close, shape = MaterialTheme.shapes.medium, modifier = Modifier.tvInitialFocus()) {
@@ -158,8 +170,25 @@ internal fun RemoteManageContent(
                 }
                 is RemoteManageUi.Managing -> Managing(ui, actions, hooks, layout, opened)
             }
+            if (ui.asking) AskingLine(ui.name, Modifier.align(Alignment.TopCenter))
         }
     }
+}
+
+/**
+ * The device is being asked: a thin line under the bar, over the page and not in its place.
+ * What the page already has to show stays where it is, and nothing moves when the line goes.
+ */
+@Composable
+private fun AskingLine(name: String, modifier: Modifier = Modifier) {
+    val label = stringResource(R.string.remote_loading, name)
+    LinearProgressIndicator(
+        modifier = modifier.fillMaxWidth().height(3.dp).semantics { contentDescription = label },
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+        trackColor = Color.Transparent,
+        strokeCap = StrokeCap.Butt,
+        gapSize = 0.dp,
+    )
 }
 
 /** A short form in the middle of the page: the pairing code, the last word after forgetting. */
@@ -218,26 +247,26 @@ private fun Managing(
     val identify = startHere && status != null && ui.access.gate(ManagedOp.IDENTIFY).offered
     val first = groups.firstOrNull().takeIf { startHere && !identify }
     val focusOf: @Composable (ManageGroup) -> Modifier = { if (it == first) Modifier.tvInitialFocus() else Modifier }
+    // The pairing is gone there, and here with it: nothing of the device is this device's to show.
+    val unpaired = ui.problem == ManageProblem.REVOKED || ui.problem == ManageProblem.EXPIRED
 
     Column(Modifier.fillMaxSize()) {
-        Banners(ui, actions, layout)
+        Banners(ui, actions, layout, onForget = { asked = ManageAsk.Forget })
         when {
-            status == null -> Narrow(layout) {
-                if (ui.loading) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(stringResource(R.string.remote_loading, ui.name), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                // Never reached: all that is left, besides trying again, is to forget it.
-                if (ui.problem != null && ui.problem != ManageProblem.REVOKED && ui.problem != ManageProblem.EXPIRED) ForgetButton(ui) { asked = ManageAsk.Forget }
+            unpaired -> Unit
+            // Nothing of the device to show — it has not answered yet, or never will: what this
+            // device knows by itself, and the one thing that needs no answer.
+            status == null || groups.isEmpty() -> Narrow(layout) {
+                PeerHeader(ui.name, ui.tv, ui.peer, tags = pairingTags(ui))
+                if (ui.loading && ui.problem == null) AskingNote(ui.name)
+                // Forgetting needs no answer, so it is there from the start. For a device that left
+                // the tailnet it is all there is, and the banner offers it: here is only why.
+                if (ui.problem == ManageProblem.NO_PEER) HelpText(stringResource(R.string.rmanage_one_tailnet))
+                else ForgetButton(ui) { asked = ManageAsk.Forget }
             }
-            // The pairing is gone there, and here with it. A device that left the tailnet still has its pairing here.
-            groups.isEmpty() -> if (ui.problem == ManageProblem.NO_PEER) Narrow(layout) { ForgetButton(ui) { asked = ManageAsk.Forget } }
             // What the device last said stays readable while it cannot be asked, dimmed: it is not news.
             layout.listDetail -> Row(
-                Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.problem?.stale == true) 0.5f else 1f),
+                Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.old) 0.5f else 1f),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // The device and how it is connected on one side, everything it holds on the other.
@@ -249,7 +278,7 @@ private fun Managing(
                 PageColumn(Modifier.weight(1f)) { right.forEach { card(it, focusOf(it)) } }
             }
             else -> ReadableWidth {
-                PageColumn(Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.problem?.stale == true) 0.5f else 1f)) {
+                PageColumn(Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.old) 0.5f else 1f)) {
                     DeviceHeader(ui, status, actions, start = identify)
                     groups.forEach { card(it, focusOf(it)) }
                 }
@@ -279,10 +308,32 @@ private fun PageColumn(modifier: Modifier, content: @Composable ColumnScope.() -
 // ─── What is wrong, and what is being confirmed ──────────────────────────────────────────────
 
 @Composable
-private fun Banners(ui: RemoteManageUi.Managing, actions: RemoteManageActions, layout: WindowLayout) {
+private fun Banners(ui: RemoteManageUi.Managing, actions: RemoteManageActions, layout: WindowLayout, onForget: () -> Unit) {
     val problem = ui.problem
     val guard = ui.guard
     if (problem == null && guard == null) return
+    BannerColumn(layout) {
+        // While a change's own banner says the device is silent, "offline" beside it says the same twice.
+        val guardSpeaks = guard?.phase == GuardPhase.SILENT || guard?.phase == GuardPhase.REVERTED_AWAY
+        val action = ui.problemAction
+        if (problem != null && action != null && !(guardSpeaks && problem.stale)) {
+            ProblemBanner(
+                text = problemText(problem, ui.name, ui.problemDetail, ui.peer, ui.now, starting = ui.starting),
+                action = action,
+                // Asked again, or started: the button waits with the page, and keeps the remote.
+                waiting = ui.loading || ui.starting || ui.busy,
+                layout = layout,
+                // Forgetting is asked about first, like anywhere else on the page.
+                onAction = { if (action == ManageProblemAction.FORGET) onForget() else actions.resolve(action) },
+            )
+        }
+        if (guard != null) GuardBanner(ui, guard, actions)
+    }
+}
+
+/** Where the banners stand: pinned under the bar, as wide as the page's own column. */
+@Composable
+private fun BannerColumn(layout: WindowLayout, content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
         Column(
             Modifier
@@ -290,26 +341,32 @@ private fun Banners(ui: RemoteManageUi.Managing, actions: RemoteManageActions, l
                 .fillMaxWidth()
                 .padding(horizontal = layout.margin)
                 .padding(top = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // While a change's own banner says the device is silent, "offline" beside it says the same twice.
-            val guardSpeaks = guard?.phase == GuardPhase.SILENT || guard?.phase == GuardPhase.REVERTED_AWAY
-            if (problem != null && !(guardSpeaks && problem.stale)) {
-                val action = problem.action(loaded = ui.status != null)
-                Banner(
-                    text = problemText(problem, ui.name, ui.problemDetail),
-                    warm = true,
-                    icon = Icons.Default.Warning,
-                    action = problemActionText(action),
-                    onAction = { actions.resolve(action) },
-                )
-            }
-            if (guard != null) GuardBanner(ui, guard, actions)
-        }
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            content = content
+        )
     }
 }
 
-/** One sentence, and at most one thing to do about it. [warm] for what needs a person, calm for what is under way. */
+/** What is in the way, and the one thing to do about it. [waiting]: that thing is being done. */
+@Composable
+private fun ProblemBanner(text: String, action: ManageProblemAction, waiting: Boolean, layout: WindowLayout, onAction: () -> Unit) {
+    Banner(
+        text = text,
+        warm = true,
+        icon = Icons.Default.Warning,
+        action = problemActionText(action),
+        actionWaiting = waiting,
+        wide = layout.listDetail,
+        onAction = onAction,
+    )
+}
+
+/**
+ * One sentence, and at most one thing to do about it. [warm] for what needs a person, calm for
+ * what is under way. [actionWaiting]: the thing is being done — the button stands still, and
+ * on a television stays a stop for the remote, which would otherwise be dropped with it.
+ * [wide]: the banner spans a tablet or a television, where a long button has room beside it.
+ */
 @Composable
 private fun Banner(
     text: String,
@@ -317,6 +374,8 @@ private fun Banner(
     icon: ImageVector? = null,
     working: Boolean = false,
     action: String? = null,
+    actionWaiting: Boolean = false,
+    wide: Boolean = false,
     onAction: () -> Unit = {},
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -327,8 +386,14 @@ private fun Banner(
         modifier = Modifier.fillMaxWidth()
     ) {
         // A short sentence has its button beside it; a long one would be squeezed into a
-        // column of five lines by it, so there the button stands under the text.
-        val beside = action != null && text.length <= BANNER_BESIDE_MAX
+        // column of five lines by it, so there the button stands under the text. On a phone a
+        // button of three words squeezes even a short sentence, and stands under it too.
+        val beside = action != null && text.length <= BANNER_BESIDE_MAX && (wide || action.length <= BANNER_ACTION_BESIDE_MAX)
+        // ManageButton's manners: a button that waits looks disabled and does not answer, and on a
+        // television it is still where the remote stands.
+        val deaf = isTv && actionWaiting
+        val colors = ButtonDefaults.buttonColors().let { if (deaf) it.copy(containerColor = it.disabledContainerColor, contentColor = it.disabledContentColor) else it }
+        val press = { if (!actionWaiting) onAction() }
         Column(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
@@ -337,12 +402,14 @@ private fun Banner(
                 Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 if (action != null && beside) {
                     Spacer(Modifier.width(8.dp))
-                    Button(onClick = onAction, shape = MaterialTheme.shapes.medium, modifier = Modifier.tvInitialFocus()) { Text(action) }
+                    Button(onClick = press, enabled = !actionWaiting || deaf, colors = colors, shape = MaterialTheme.shapes.medium, modifier = Modifier.tvInitialFocus()) { Text(action) }
                 }
             }
             if (action != null && !beside) {
                 Button(
-                    onClick = onAction,
+                    onClick = press,
+                    enabled = !actionWaiting || deaf,
+                    colors = colors,
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.align(Alignment.End).padding(top = 8.dp).tvInitialFocus()
                 ) { Text(action) }
@@ -353,6 +420,8 @@ private fun Banner(
 
 /** The longest sentence, in characters, that keeps its button beside it. */
 private const val BANNER_BESIDE_MAX = 90
+/** The longest button, in characters, that stands beside a sentence on a phone: "Pair again" does, "Start TailSocks" does not. */
+private const val BANNER_ACTION_BESIDE_MAX = 14
 
 private fun clockTime(millis: Long): String = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(millis))
 
@@ -381,11 +450,28 @@ private fun GuardBanner(ui: RemoteManageUi.Managing, guard: GuardState, actions:
     }
 }
 
+/**
+ * A problem's one sentence. [peer] and [now] add since when a device has been offline;
+ * [paired] tells a device that left the tailnet from one that was never seen in it.
+ */
 @Composable
-internal fun problemText(problem: ManageProblem, name: String, detail: String): String = when (problem) {
-    ManageProblem.NOT_CONNECTED -> stringResource(R.string.remote_problem_not_connected)
-    ManageProblem.NO_PEER -> stringResource(R.string.remote_problem_no_peer, name)
-    ManageProblem.OFFLINE -> stringResource(R.string.remote_problem_offline, name)
+internal fun problemText(
+    problem: ManageProblem,
+    name: String,
+    detail: String,
+    peer: ManagePeer? = null,
+    now: Long = 0,
+    paired: Boolean = true,
+    starting: Boolean = false,
+): String = when (problem) {
+    ManageProblem.NOT_CONNECTED ->
+        stringResource(if (starting) R.string.rmanage_starting_own else R.string.remote_problem_not_connected)
+    ManageProblem.NO_PEER -> stringResource(if (paired) R.string.rmanage_problem_left else R.string.remote_problem_no_peer, name)
+    ManageProblem.OFFLINE -> {
+        val seen = peer?.lastSeen ?: 0
+        if (seen > 0 && now > 0) stringResource(R.string.rmanage_problem_offline_since, name, agoText(LocalContext.current, seen, now))
+        else stringResource(R.string.remote_problem_offline, name)
+    }
     ManageProblem.NOT_ACCEPTING -> stringResource(R.string.remote_problem_not_accepting, name)
     ManageProblem.REVOKED -> stringResource(R.string.remote_problem_revoked, name)
     ManageProblem.EXPIRED -> stringResource(R.string.remote_problem_expired, name)
@@ -409,6 +495,8 @@ private fun problemActionText(action: ManageProblemAction): String = stringResou
         ManageProblemAction.PAIR_AGAIN -> R.string.remote_action_pair_again
         ManageProblemAction.DISMISS -> R.string.remote_action_ok
         ManageProblemAction.CLOSE -> R.string.action_close
+        ManageProblemAction.START -> R.string.rmanage_start_own
+        ManageProblemAction.FORGET -> R.string.remote_forget
     }
 )
 
@@ -491,22 +579,18 @@ private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, act
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    // Under what the device says of itself, what the tailnet says of it now.
+                    peerLine(ui.peer)?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = ink.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                // On the header's own colour: a tag in a container colour of its own would fight it.
-                val tag: @Composable (String) -> Unit = { text ->
-                    Surface(shape = MaterialTheme.shapes.small, color = ink.copy(alpha = 0.14f), contentColor = ink) {
-                        Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-                    }
-                }
-                tag(
-                    if (ui.owner) stringResource(R.string.remote_role_owner)
-                    else if (ui.left < 0) stringResource(R.string.remote_role_guest)
-                    else stringResource(R.string.remote_guest_left, remoteDurationText(ui.left))
-                )
-                if (access.levelKnown) tag(levelText(access.level))
+                HeaderTag(roleTag(ui), ink)
+                if (access.levelKnown) HeaderTag(levelText(access.level), ink)
+                // Why the page is dimmed: it shows what the device said then.
+                if (ui.old && ui.heardAt > 0) HeaderTag(stringResource(R.string.rmanage_heard, agoText(LocalContext.current, ui.heardAt, ui.now)), ink)
             }
 
             val identify = access.gate(ManagedOp.IDENTIFY)
@@ -537,7 +621,163 @@ private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, act
     }
 }
 
+/** A tag on a header's own colour: one in a container colour of its own would fight it. */
+@Composable
+private fun HeaderTag(text: String, ink: Color) {
+    Surface(shape = MaterialTheme.shapes.small, color = ink.copy(alpha = 0.14f), contentColor = ink) {
+        Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+    }
+}
+
+/** What this device is to the managed one: an owner, or a guest and for how long. */
+@Composable
+private fun roleTag(ui: RemoteManageUi.Managing): String =
+    if (ui.owner) stringResource(R.string.remote_role_owner)
+    else if (ui.left < 0) stringResource(R.string.remote_role_guest)
+    else stringResource(R.string.remote_guest_left, remoteDurationText(ui.left))
+
+/** A day in the app's own language, with its year when that is not this one. */
+@Composable
+internal fun dayText(millis: Long, now: Long): String {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(millis, now, locale) {
+        val sameYear = SimpleDateFormat("yyyy", locale).let { it.format(Date(millis)) == it.format(Date(now)) }
+        SimpleDateFormat(if (sameYear) "d MMM" else "d MMM yyyy", locale).format(Date(millis))
+    }
+}
+
+/** Who this device is to the managed one by the pairing it keeps: the class, and since when. */
+@Composable
+private fun pairingTags(ui: RemoteManageUi.Managing): List<String> = listOfNotNull(
+    roleTag(ui),
+    if (ui.pairedAt > 0) stringResource(R.string.rmanage_paired_since, dayText(ui.pairedAt, ui.now)) else null,
+)
+
+@Composable
+private fun presenceText(presence: RemotePresence): String? = when (presence) {
+    RemotePresence.ONLINE -> stringResource(R.string.rmanage_device_online)
+    RemotePresence.OFFLINE -> stringResource(R.string.rmanage_device_offline)
+    RemotePresence.GONE -> stringResource(R.string.rmanage_device_gone)
+    RemotePresence.UNKNOWN -> null
+}
+
+/**
+ * What this device's own network map says of the peer, in one short line under what the device
+ * says of itself: whether it is there, and its address. Since when it is not is the banner's to
+ * say. Null when the map was not read or cannot say.
+ */
+@Composable
+private fun peerLine(peer: ManagePeer?): String? {
+    val presence = presenceText(peer?.presence ?: return null) ?: return null
+    return listOfNotNull(presence, peer.address.takeIf { it.isNotEmpty() }).joinToString(" · ")
+}
+
+/**
+ * The device before it has said anything to this page, or when it never will: what this
+ * device knows by itself. Whether the tailnet holds it and at what address — and in [tags] who
+ * this device is to it by the stored pairing. Nobody was asked for any of it. Since when a
+ * device has been offline is the banner's to say.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PeerHeader(name: String, tv: Boolean, peer: ManagePeer?, tags: List<String> = emptyList()) {
+    val scheme = MaterialTheme.colorScheme
+    val ink = scheme.onSurfaceVariant
+    val presence = peer?.presence ?: RemotePresence.UNKNOWN
+    Surface(shape = MaterialTheme.shapes.extraLarge, color = scheme.surfaceContainerHigh, contentColor = ink, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(52.dp).clip(CircleShape), contentAlignment = Alignment.Center) {
+                    Surface(color = ink.copy(alpha = 0.12f), modifier = Modifier.matchParentSize()) {}
+                    Icon(deviceGlyph("", tv), null, modifier = Modifier.size(28.dp))
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val mark = when (presence) {
+                            RemotePresence.ONLINE -> Icons.Default.Wifi
+                            RemotePresence.OFFLINE -> Icons.Default.WifiOff
+                            RemotePresence.GONE -> Icons.Default.LinkOff
+                            RemotePresence.UNKNOWN -> null
+                        }
+                        if (mark != null) {
+                            Icon(mark, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        // Where the map cannot say, the device is at least named.
+                        Text(
+                            presenceText(presence) ?: name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    val address = peer?.address.orEmpty()
+                    if (address.isNotEmpty()) {
+                        Text(
+                            address,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = ink.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            if (tags.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    tags.forEach { HeaderTag(it, ink) }
+                }
+            }
+        }
+    }
+}
+
+/** Said under the header while the first answer is on its way; the line under the bar is what moves. */
+@Composable
+private fun AskingNote(name: String) {
+    Text(stringResource(R.string.remote_loading, name), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
 // ─── Pairing ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Not paired. The code's field is there only for a device that has just said it takes a
+ * pairing. Until it has, and when it cannot, the page shows what this device knows of it by
+ * itself, and a banner says what is in the way: an error under the field is about the code.
+ */
+@Composable
+private fun Pairing(ui: RemoteManageUi.Pairing, actions: RemoteManageActions, onScan: (() -> Unit)?, layout: WindowLayout) {
+    val problem = ui.problem
+    val action = ui.problemAction
+    Column(Modifier.fillMaxSize()) {
+        if (problem != null && action != null) {
+            BannerColumn(layout) {
+                ProblemBanner(
+                    text = problemText(problem, ui.name, "", ui.peer, ui.now, paired = false, starting = ui.starting),
+                    action = action,
+                    waiting = ui.checking || ui.starting,
+                    layout = layout,
+                    onAction = { actions.resolve(action) },
+                )
+            }
+        }
+        Narrow(layout) {
+            if (ui.form) {
+                PairingBody(ui, actions, onScan)
+            } else {
+                // Where the tailnet has the device. Of one it does not hold, and when this device
+                // cannot say, there is nothing to add to the banner.
+                val held = ui.peer?.presence == RemotePresence.ONLINE || ui.peer?.presence == RemotePresence.OFFLINE
+                if (held) PeerHeader(ui.name, ui.tv, ui.peer)
+                if (problem == null) AskingNote(ui.name)
+                if (problem == ManageProblem.NO_PEER) HelpText(stringResource(R.string.rmanage_one_tailnet))
+            }
+        }
+    }
+}
 
 @Composable
 private fun PairingBody(ui: RemoteManageUi.Pairing, actions: RemoteManageActions, onScan: (() -> Unit)?) {
@@ -555,7 +795,7 @@ private fun PairingBody(ui: RemoteManageUi.Pairing, actions: RemoteManageActions
             onValueChange = actions::setCode,
             label = stringResource(R.string.remote_pair_code_label),
             modifier = Modifier.fillMaxWidth().tvInitialFocus(),
-            supportingText = ui.error?.let { pairErrorText(it, ui.name) },
+            supportingText = ui.error?.let { pairErrorText(it) },
             isError = ui.error != null,
             keyboardOptions = keyboard,
         )
@@ -567,7 +807,7 @@ private fun PairingBody(ui: RemoteManageUi.Pairing, actions: RemoteManageActions
             singleLine = true,
             enabled = !ui.busy,
             isError = ui.error != null,
-            supportingText = ui.error?.let { error -> { Text(pairErrorText(error, ui.name)) } },
+            supportingText = ui.error?.let { error -> { Text(pairErrorText(error)) } },
             textStyle = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 6.sp),
             keyboardOptions = keyboard,
             keyboardActions = KeyboardActions(onDone = { actions.pair() }),
@@ -606,8 +846,9 @@ private fun PairingBody(ui: RemoteManageUi.Pairing, actions: RemoteManageActions
     }
 }
 
+/** Why the code did not pair. A device that cannot be reached is not said here: it takes the form away. */
 @Composable
-private fun pairErrorText(error: RemotePairError, name: String): String = when (error.failure) {
+private fun pairErrorText(error: RemotePairError): String = when (error.failure) {
     RemotePairFailure.WRONG -> error.attemptsLeft?.let { pluralStringResource(R.plurals.remote_pair_err_wrong, it, it) }
         ?: stringResource(R.string.remote_pair_err_wrong_plain)
     RemotePairFailure.LOCKED -> stringResource(R.string.remote_pair_err_locked)
@@ -616,14 +857,11 @@ private fun pairErrorText(error: RemotePairError, name: String): String = when (
     RemotePairFailure.NOT_ALLOWED -> stringResource(R.string.remote_pair_err_not_allowed)
     RemotePairFailure.FULL -> stringResource(R.string.remote_pair_err_full)
     RemotePairFailure.SLOW_DOWN -> stringResource(R.string.remote_pair_err_slow)
-    RemotePairFailure.NOT_CONNECTED -> stringResource(R.string.remote_problem_not_connected)
-    RemotePairFailure.NO_PEER -> stringResource(R.string.remote_problem_no_peer, name)
-    RemotePairFailure.UNREACHABLE ->
-        stringResource(if (error.online) R.string.remote_problem_not_accepting else R.string.remote_problem_offline, name)
     RemotePairFailure.NOT_STORED -> stringResource(R.string.remote_pair_err_not_stored)
     RemotePairFailure.OTHER_DEVICE -> stringResource(R.string.remote_pair_err_other_device, error.other)
     RemotePairFailure.NOT_A_CODE -> stringResource(R.string.remote_pair_err_not_code)
-    RemotePairFailure.FAILED -> stringResource(R.string.remote_pair_err_other)
+    RemotePairFailure.NOT_CONNECTED, RemotePairFailure.NO_PEER, RemotePairFailure.UNREACHABLE, RemotePairFailure.FAILED ->
+        stringResource(R.string.remote_pair_err_other)
 }
 
 /** The parent's language for a window opened from the page: it would otherwise answer in the system's. */

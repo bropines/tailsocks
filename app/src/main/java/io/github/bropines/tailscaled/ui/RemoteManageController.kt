@@ -25,6 +25,8 @@ import io.github.bropines.tailscaled.core.RemoteClient
 import io.github.bropines.tailscaled.core.RemoteFile
 import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemotePairFailure
+import io.github.bropines.tailscaled.core.RemotePairingRecord
+import io.github.bropines.tailscaled.core.RemoteProbe
 import io.github.bropines.tailscaled.core.cidrList
 import io.github.bropines.tailscaled.core.clearOnly
 import io.github.bropines.tailscaled.core.failure
@@ -34,8 +36,11 @@ import io.github.bropines.tailscaled.core.setting
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 
 /*
@@ -43,19 +48,49 @@ import kotlinx.coroutines.withContext
  * Android in here: the device is a RemoteClient, time and waiting are handed in, so the whole
  * of it runs in a plain test against the contract's fake device.
  *
- * Three rules the page keeps, and this file is where they are kept:
+ * Four rules the page keeps, and this file is where they are kept:
  *   - a device is offered only what it announces (ManagedAccess), and is never sent a field
  *     it did not announce;
  *   - nothing is claimed that the device did not say. After an answer that leaves the outcome
  *     open the device is read again, and the page shows what it says now;
  *   - a change that could cut the channel is confirmed without asking the person anything
- *     (GuardKeeper), and when it cannot be, the page says what the device will do by itself.
+ *     (GuardKeeper), and when it cannot be, the page says what the device will do by itself;
+ *   - the page is there before the device answers. What this device knows by itself — its own
+ *     network map (ManagePeer), the stored pairing, what the device said last (ManageMemory) —
+ *     is shown at once and decides what is asked at all: a pairing code is asked for only of
+ *     a device that has just said it takes one.
  */
 
 // ─── What the page draws ─────────────────────────────────────────────────────────────────────
 
 /** The one thing offered next to a problem. */
-enum class ManageProblemAction { RETRY, PAIR_AGAIN, DISMISS, CLOSE }
+enum class ManageProblemAction {
+    RETRY,
+    PAIR_AGAIN,
+    DISMISS,
+    CLOSE,
+    /** Starts this device's own TailSocks: nothing can be asked without it. */
+    START,
+    /** Forgets the pairing: all that is left to do with a device that left the tailnet. */
+    FORGET,
+}
+
+/**
+ * What this device's own daemon says of the peer: its network map, with nobody asked over the
+ * network. It is there the moment the page opens, and it comes before any request — a device
+ * the map does not hold, or holds as offline, is not asked whether it is there.
+ */
+@Immutable
+data class ManagePeer(
+    /** [RemotePresence.UNKNOWN]: this device's own TailSocks is not connected, so it cannot say. */
+    val presence: RemotePresence = RemotePresence.UNKNOWN,
+    /** This device's clock, milliseconds, of when the tailnet last saw the peer; 0 when it does not say. */
+    val lastSeen: Long = 0,
+    /** The peer's tailnet address. */
+    val address: String = "",
+    /** Not connected because this device's TailSocks is stopped — it can be started from the page. */
+    val stopped: Boolean = false,
+)
 
 /** What went wrong while managing a device: one sentence and one action each. */
 enum class ManageProblem {
@@ -97,6 +132,18 @@ enum class ManageProblem {
     }
 
     companion object {
+        /**
+         * What is in the way before anything is sent, by this device's own network map; null
+         * when the device may be asked. One the map holds as offline is not asked either —
+         * unless a person [asked] for it: the map can be a moment behind.
+         */
+        fun local(peer: ManagePeer, asked: Boolean = false): ManageProblem? = when (peer.presence) {
+            RemotePresence.UNKNOWN -> NOT_CONNECTED
+            RemotePresence.GONE -> NO_PEER
+            RemotePresence.OFFLINE -> if (asked) null else OFFLINE
+            RemotePresence.ONLINE -> null
+        }
+
         /**
          * [peerOnline] is what this device's own network map says of the peer. No answer from
          * one that is online means the port is closed to us — nobody is merely away.
@@ -143,15 +190,17 @@ enum class GuardPhase {
 @Immutable
 data class GuardState(val id: String, val key: String, val phase: GuardPhase, val revertsAt: Long)
 
-/** Why pairing did not happen, with what the sentence needs. */
+/**
+ * Why the code did not pair, with what the sentence needs. It stands under the code's field
+ * and is only ever about the code and the pairing; a device that cannot be reached is a
+ * [ManageProblem], which takes the form away.
+ */
 @Immutable
 data class RemotePairError(
     val failure: RemotePairFailure,
     val attemptsLeft: Int? = null,
     /** The name in a code that belongs to another device. */
     val other: String = "",
-    /** Whether the device is in this device's network map as online, for "no answer". */
-    val online: Boolean = false,
 )
 
 /** A file on its way from this device to the managed one, or how the last send ended. */
@@ -174,11 +223,65 @@ data class RemoteDiagState(
     val scrubbed: Int = 0,
 )
 
+/**
+ * What a device said when it was last heard, kept so that its page has something to show
+ * before it answers again — and while it does not.
+ */
+@Immutable
+internal data class ManageSnapshot(
+    val status: ManagedStatus,
+    val app: ManagedApp?,
+    val settings: List<ManagedSetting>,
+    val files: List<RemoteFile>?,
+    /** This device's clock, milliseconds, of when the status was heard. */
+    val at: Long,
+)
+
+/**
+ * The last thing each managed device said, by [RemoteClient.key]. In memory and nowhere else:
+ * it lives as long as the app's process, and a device that is forgotten, or that refuses the
+ * pairing, is dropped from it at once.
+ */
+internal class ManageMemory {
+    private val last = HashMap<String, ManageSnapshot>()
+
+    @Synchronized operator fun get(key: String): ManageSnapshot? = last[key]
+    @Synchronized fun keep(key: String, snapshot: ManageSnapshot) { last[key] = snapshot }
+    @Synchronized fun forget(key: String) { last.remove(key) }
+}
+
+/** The memory of the app: whatever page opens next finds what the last one heard. */
+internal object RemoteMemory {
+    val memory = ManageMemory()
+}
+
 sealed interface RemoteManageUi {
     val name: String
     val tv: Boolean
 
-    /** Not paired: the six digits are asked for. */
+    /** What this device's own network map says of the peer; null until it was looked at. */
+    val peer: ManagePeer? get() = null
+
+    /** The device is being asked for what the page shows: a calm line under the bar, and the page stays the page. */
+    val asking: Boolean get() = false
+
+    /** This device's own TailSocks is being started from the page. */
+    val starting: Boolean get() = false
+
+    /**
+     * Just opened: whether this device holds a pairing for the peer is being read off its own
+     * store. A moment, and nothing is claimed in it — neither a pairing nor the lack of one.
+     */
+    @Immutable
+    data class Opening(override val name: String, override val tv: Boolean = false) : RemoteManageUi {
+        override val asking: Boolean get() = true
+    }
+
+    /**
+     * Not paired. The six digits are asked for only of a device that has just said it takes
+     * a pairing: while it is being asked ([checking]) there is no form, and when it cannot
+     * be reached ([problem]) the page says why instead.
+     */
     @Immutable
     data class Pairing(
         override val name: String,
@@ -188,7 +291,29 @@ sealed interface RemoteManageUi {
         /** The device said a code is on show; false when it said none is. */
         val codeOnShow: Boolean = true,
         val error: RemotePairError? = null,
-    ) : RemoteManageUi
+        override val peer: ManagePeer? = null,
+        /** The device is being asked whether it takes a pairing at all. */
+        val checking: Boolean = false,
+        /** Why no code is asked for: this device is not connected, or that one cannot be reached. */
+        val problem: ManageProblem? = null,
+        override val starting: Boolean = false,
+        /** This device's clock, milliseconds: what "last seen" is measured against. */
+        val now: Long = 0,
+    ) : RemoteManageUi {
+        override val asking: Boolean get() = checking
+
+        /** The code's field is offered. */
+        val form: Boolean get() = !checking && problem == null
+
+        /** Nothing here to forget: a device that is not in the tailnet leaves only the way out. */
+        val problemAction: ManageProblemAction?
+            get() = when (problem) {
+                null -> null
+                ManageProblem.NO_PEER -> ManageProblemAction.CLOSE
+                ManageProblem.NOT_CONNECTED -> if (peer?.stopped == true) ManageProblemAction.START else ManageProblemAction.RETRY
+                else -> ManageProblemAction.RETRY
+            }
+    }
 
     /** Paired: the device as it last answered. */
     @Immutable
@@ -199,6 +324,7 @@ sealed interface RemoteManageUi {
         val owner: Boolean = false,
         /** Seconds the pairing has left; -1 for until revoked. */
         val left: Long = -1,
+        /** What the device said last: now, or to an earlier page ([remembered]). */
         val status: ManagedStatus? = null,
         /** The app's last report: kept while a later status comes without one. */
         val app: ManagedApp? = null,
@@ -230,13 +356,39 @@ sealed interface RemoteManageUi {
         val now: Long = 0,
         /** This device's own app version, to notice an older one there. */
         val appVersion: String = "",
+        override val peer: ManagePeer? = null,
+        /** This device's clock, milliseconds, of when [status] was heard; 0 when that is not known. */
+        val heardAt: Long = 0,
+        /** [status] and the rest are what the device said to an earlier page: shown until it answers this one. */
+        val remembered: Boolean = false,
+        /** This device's clock, milliseconds, of when it was paired; 0 when the pairing does not say. */
+        val pairedAt: Long = 0,
+        override val starting: Boolean = false,
     ) : RemoteManageUi {
+        override val asking: Boolean get() = loading
+
         val access: ManagedAccess get() = status?.let(::ManagedAccess) ?: ManagedAccess.NONE
 
-        /** The controls answer: the device can be asked, and nothing is in flight. */
+        /** The controls answer: the device can be asked, it is its own word the page shows, and nothing is in flight. */
         val usable: Boolean
-            get() = status != null && !busy && !loading && !reconnecting &&
+            get() = status != null && !remembered && !busy && !loading && !reconnecting &&
                 problem?.stale != true && problem?.final != true && guard?.phase?.active != true
+
+        /** What the page shows of the device is not news: it said so a while ago, and cannot be asked or has not answered yet. */
+        val old: Boolean get() = status != null && (remembered || problem?.stale == true)
+
+        /**
+         * The one thing to do about [problem]. A device that left the tailnet can only be
+         * forgotten; this device's own TailSocks, when it is stopped, can be started from here.
+         */
+        val problemAction: ManageProblemAction?
+            get() = when (problem) {
+                null -> null
+                ManageProblem.NO_PEER -> ManageProblemAction.FORGET
+                ManageProblem.NOT_CONNECTED -> if (peer?.stopped == true) ManageProblemAction.START else ManageProblemAction.RETRY
+                // What an earlier page heard is not this one's reading: its first problem is retried, not waved away.
+                else -> problem.action(loaded = status != null && !remembered)
+            }
 
         /** Something is expected to change there soon: the status is read every few seconds. */
         fun watching(now: Long): Boolean =
@@ -483,36 +635,59 @@ private const val RELAYS_WAIT_MS = 4_000L
 /** How long the status is read often after a page was put in front of someone there, and after a file was sent. */
 internal const val WATCH_SHOWN_MS = 120_000L
 internal const val WATCH_SENT_MS = 20_000L
+/** After this device's own TailSocks was started from the page: how often it is looked at, and how many times. */
+private const val START_EVERY_MS = 1_000L
+private const val START_TRIES = 45
 
 /**
  * The page's state and everything that changes it. Requests run on [scope], off the main
  * thread ([io]); what they bring back is one new [ui]. [pause] and [now] are the waiting and
  * the clock, so a test can run a minute of a guarded change in no time.
+ *
+ * [local] is this device's own daemon on the peer — blocking, and nothing leaves the device
+ * for it. [present]: whoever opened the page has reason to take the device for there — its own
+ * list said so, or a code was just scanned off its screen — so the page does not call it
+ * offline on the network map's word before it has asked. [memory] keeps what each device said
+ * last. [startOwn] starts this device's own TailSocks and says whether it could be asked to;
+ * null where the page cannot.
  */
 @Stable
 internal class RemoteManageController(
     private val client: RemoteClient,
     private val scope: CoroutineScope,
     private val guards: GuardKeeper,
-    private val peerOnline: () -> Boolean,
+    private val local: () -> ManagePeer,
     private val onClose: () -> Unit,
     private val name: String,
     private val tv: Boolean = false,
     private val codeOnShow: Boolean = true,
     code: String = "",
     private val appVersion: String = "",
+    private val present: Boolean = false,
+    private val memory: ManageMemory = ManageMemory(),
+    private val startOwn: (() -> Boolean)? = null,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val pause: suspend (Long) -> Unit = { delay(it) },
     private val now: () -> Long = System::currentTimeMillis,
 ) : RemoteManageActions, GuardListener {
 
-    var ui by mutableStateOf<RemoteManageUi>(RemoteManageUi.Managing(name, tv, loading = true, now = now(), appVersion = appVersion))
+    var ui by mutableStateOf<RemoteManageUi>(RemoteManageUi.Opening(name, tv))
         private set
 
     private val scanned = code.filter { it in '0'..'9' }.take(RemoteJson.CODE_LENGTH)
 
+    /** Counts the readings of the device: an answer that arrives for an earlier one is not this one's to show. */
+    private var reading = 0
+
+    /** Everything the page shows was read from the device by this page: only then is it worth keeping. */
+    private var whole = false
+
     private val managing: RemoteManageUi.Managing? get() = ui as? RemoteManageUi.Managing
-    private fun pairing(code: String = "") = RemoteManageUi.Pairing(name, tv, code = code, codeOnShow = codeOnShow)
+    private val pairing: RemoteManageUi.Pairing? get() = ui as? RemoteManageUi.Pairing
+
+    /** The page of a device this one holds no pairing for: nothing is offered until the device was asked. */
+    private fun unpaired(code: String = "") =
+        RemoteManageUi.Pairing(name, tv, code = code, codeOnShow = codeOnShow, peer = ui.peer, checking = true)
 
     private suspend fun <T> io(block: () -> T): T = withContext(io) { block() }
 
@@ -520,24 +695,59 @@ internal class RemoteManageController(
         managing?.let { ui = change(it) }
     }
 
-    /** Paired already, or the digits are asked for. */
+    private inline fun updatePairing(change: (RemoteManageUi.Pairing) -> RemoteManageUi.Pairing) {
+        pairing?.let { ui = change(it) }
+    }
+
+    /** What this device's own daemon says of the peer now — [seen], when the page's owner has just looked. */
+    private suspend fun look(seen: ManagePeer? = null): ManagePeer {
+        val peer = seen ?: io(local)
+        update { it.copy(peer = peer, now = now()) }
+        updatePairing { it.copy(peer = peer, now = now()) }
+        return peer
+    }
+
+    private val online: Boolean get() = ui.peer?.presence == RemotePresence.ONLINE
+
+    /** Paired already, or the device is asked whether it can be paired with. */
     suspend fun start() {
         val record = io { client.pairing() }
+        whole = false
         if (record == null) {
-            ui = pairing(scanned)
+            ui = unpaired(scanned)
+            check(asked = present)
             return
         }
-        // The name stays the one this device knows the peer by: it is what was pressed.
-        ui = RemoteManageUi.Managing(
+        ui = paired(record)
+        guards.attach(client.peerId, this)
+        if (open(asked = present)) resumeGuard()
+    }
+
+    /**
+     * The page of a device this one is paired with, before the device is asked anything: who
+     * this device is to it by the stored pairing, and what it said last, if this app heard it.
+     */
+    private fun paired(record: RemotePairingRecord): RemoteManageUi.Managing {
+        val kept = memory[client.key]
+        val time = now()
+        return RemoteManageUi.Managing(
+            // The name stays the one this device knows the peer by: it is what was pressed.
             name = name.ifEmpty { record.name },
             tv = tv || record.tv,
             owner = record.owner,
+            left = if (!record.owner && record.expiresAt > 0) ((record.expiresAt - time) / 1000).coerceAtLeast(0) else -1,
+            status = kept?.status,
+            app = kept?.app,
+            settings = kept?.settings.orEmpty(),
+            files = kept?.files,
             loading = true,
-            now = now(),
+            now = time,
             appVersion = appVersion,
+            peer = ui.peer,
+            heardAt = kept?.at ?: 0,
+            remembered = kept != null,
+            pairedAt = record.pairedAt,
         )
-        guards.attach(client.peerId, this)
-        if (load()) resumeGuard()
     }
 
     /** The page is gone. A change still being confirmed stays with the keeper. */
@@ -560,24 +770,31 @@ internal class RemoteManageController(
         read()
     }
 
-    /** The periodic look at the status; quiet unless the device went away or came back. */
-    suspend fun tick() {
+    /**
+     * The periodic look at the device; quiet unless it went away or came back. [seen] is what
+     * the page's owner has just read off this device's own daemon.
+     */
+    suspend fun tick(seen: ManagePeer? = null) {
+        if (pairing != null) return recheck(seen)
+        val before = managing ?: return
+        if (before.busy || before.loading || before.reconnecting || before.starting) return
+        if (before.problem == ManageProblem.REVOKED || before.problem == ManageProblem.EXPIRED) return
+        val peer = look(seen)
         val m = managing ?: return
-        if (m.busy || m.loading || m.reconnecting || m.problem?.final == true) return
-        if (m.status == null) {
-            // Never reached yet, and away: asked again at the page's own pace until it is there.
-            if (m.problem?.stale == true && read()) update { it.copy(problem = null, problemDetail = "") }
-            return
-        }
         // While a change is being confirmed the keeper does the talking.
-        if (m.guard?.phase == GuardPhase.CHECKING || m.guard?.phase == GuardPhase.SILENT) return
-        val away = m.problem?.stale == true
+        if (m.status != null && (m.guard?.phase == GuardPhase.CHECKING || m.guard?.phase == GuardPhase.SILENT)) return
+        val away = m.problem?.stale == true || m.problem == ManageProblem.NO_PEER
+        if (away) return knock(peer)
+        // Never read by this page, under a problem no waiting mends: it stays until a person retries.
+        if (m.status == null || m.remembered) return
+        // This device went down, or the peer left the tailnet: said at once, with nothing to send.
+        ManageProblem.local(peer, asked = true)?.let { said(it); return }
         when (val status = io { client.status() }) {
             is ManagedResult.Ok -> {
-                update { it.withStatus(status.value) }
+                heard(status.value)
                 guards.heardAgain(client.peerId)
-                // Back after being away: everything it showed is old.
-                if (away || m.guard?.phase == GuardPhase.REVERTED_AWAY) load()
+                // What it undid while it was away makes everything it showed old.
+                if (m.guard?.phase == GuardPhase.REVERTED_AWAY) load()
                 else if (now() < m.watchUntil) readFiles()
             }
             // A poll nobody asked for raises no banner over a passing refusal.
@@ -585,9 +802,30 @@ internal class RemoteManageController(
         }
     }
 
+    /**
+     * A device that cannot be asked is looked for again at the page's own pace: by this
+     * device's network map first, then with the small question, which costs four seconds at
+     * most where the status would cost twelve. Back, everything it showed is old, and is read.
+     */
+    private suspend fun knock(peer: ManagePeer) {
+        val run = reading
+        val inTheWay = ManageProblem.local(peer, asked = true)
+        if (inTheWay != null) {
+            if (inTheWay != managing?.problem) said(inTheWay)
+            return
+        }
+        val reach = io { client.reach() }
+        if (run != reading || managing?.busy != false) return
+        when (reach) {
+            is ManagedResult.Ok -> load()
+            is ManagedResult.Failed -> ManageProblem.of(reach.refusal, online).let { if (it != managing?.problem) said(it) }
+        }
+    }
+
     private fun RemoteManageUi.Managing.withStatus(status: ManagedStatus): RemoteManageUi.Managing {
         val report = status.app ?: app
         val granted = report?.permissions.orEmpty().filter { it.state == ManagedPermission.GRANTED }.map { it.id }.toSet()
+        val time = now()
         return copy(
             status = status,
             app = report,
@@ -596,68 +834,162 @@ internal class RemoteManageController(
             owner = status.you.owner,
             left = status.you.left,
             asked = asked - granted,
-            now = now(),
+            now = time,
+            heardAt = time,
+            remembered = false,
         )
     }
 
-    /** Reads everything the page shows. Stops at the first thing that fails, and says it. */
-    private suspend fun load(): Boolean {
-        update { it.copy(loading = true, problem = null, problemDetail = "") }
-        return read()
+    /** The device's own word, just now: the page shows it as news, and it is kept for the page that opens next. */
+    private fun heard(status: ManagedStatus) {
+        update { it.withStatus(status) }
+        keep()
     }
 
-    /** [load] without touching the banner: for reading back after something happened. */
-    private suspend fun read(): Boolean {
-        val status = io { client.status() }
+    /** What the page shows goes into the memory — once all of it is this page's own reading. */
+    private fun keep() {
+        val m = managing ?: return
+        val status = m.status ?: return
+        if (whole && !m.remembered) memory.keep(client.key, ManageSnapshot(status, m.app, m.settings, m.files, m.heardAt))
+    }
+
+    /**
+     * Reads the device the page shows, from the start. What this device knows by itself comes
+     * first and may be all there is: with its own TailSocks down or the peer gone from the
+     * tailnet, nothing is sent and the page says so at once. A peer the network map holds as
+     * offline is said to be offline at once too — and asked the small question all the same,
+     * unless a person [asked] already: the map can be a moment behind.
+     *
+     * A device that may answer is asked for its status beside that small question, which
+     * gives up three times sooner (RemoteClient.reach): one that does not answer is known in
+     * four seconds, not twelve.
+     */
+    private suspend fun open(seen: ManagePeer? = null, asked: Boolean = false): Boolean {
+        val run = ++reading
+        update { it.copy(loading = true, problem = null, problemDetail = "", starting = false) }
+        val peer = look(seen)
+        val inTheWay = ManageProblem.local(peer, asked)
+        if (inTheWay == ManageProblem.OFFLINE) {
+            update { it.copy(problem = inTheWay) }
+            val reach = io { client.reach() }
+            if (run != reading) return false
+            if (reach is ManagedResult.Failed) return fail(reach)
+            update { it.copy(problem = null) }
+            return filled(run, io { client.status() })
+        }
+        if (inTheWay != null) return said(inTheWay)
+
+        val status = scope.async { io { client.status() } }
+        val reach = scope.async { io { client.reach() } }
+        val silent = select<ManagedResult.Failed?> {
+            // The status has its own say, whatever the small question brought.
+            status.onAwait { null }
+            reach.onAwait { it.failed }
+        }
+        if (run != reading) return false
+        if (silent != null && !status.isCompleted) {
+            fail(silent)
+            scope.launch { late(run, status.await()) }
+            return false
+        }
+        return filled(run, status.await())
+    }
+
+    /** [open] for a person who asked: the device is asked whatever this device's network map says of it. */
+    private suspend fun load(): Boolean = open(asked = true)
+
+    /** Everything the page shows, read again without touching the banner: for reading back after something happened. */
+    private suspend fun read(): Boolean = filled(reading, io { client.status() })
+
+    /**
+     * The status is in, or the reason there is none. Then the settings and the files are asked
+     * for side by side, and each fills its part of the page as it comes.
+     */
+    private suspend fun filled(run: Int, status: ManagedResult<ManagedStatus>): Boolean {
+        if (run != reading) return false
         if (status is ManagedResult.Failed) return fail(status)
-        update { it.withStatus((status as ManagedResult.Ok).value) }
+        heard((status as ManagedResult.Ok).value)
         // It answers: a change it undid in silence can be said undone now.
         guards.heardAgain(client.peerId)
-        val settings = io { client.settings() }
-        if (settings is ManagedResult.Failed) return fail(settings)
-        val files = io { client.files() }
-        if (files is ManagedResult.Failed) return fail(files)
-        update {
-            it.copy(
-                settings = (settings as ManagedResult.Ok).value.settings,
-                files = (files as ManagedResult.Ok).value.files,
-                loading = false,
-            )
+        val failed = coroutineScope {
+            val settings = async {
+                io { client.settings() }.also { if (it is ManagedResult.Ok && run == reading) update { m -> m.copy(settings = it.value.settings) } }
+            }
+            val files = async {
+                io { client.files() }.also { if (it is ManagedResult.Ok && run == reading) update { m -> m.copy(files = it.value.files) } }
+            }
+            settings.await().failed ?: files.await().failed
         }
+        if (run != reading) return false
+        if (failed != null) return fail(failed)
+        whole = true
+        update { it.copy(loading = false) }
+        keep()
         return true
+    }
+
+    /**
+     * The status of a device that did not answer the small question in its four seconds, and
+     * answers after all: the page takes its word — the status, or a refusal that is one.
+     */
+    private suspend fun late(run: Int, status: ManagedResult<ManagedStatus>) {
+        val m = managing ?: return
+        if (run != reading || m.busy || m.loading) return
+        when (status) {
+            is ManagedResult.Ok -> {
+                update { it.copy(loading = true, problem = null, problemDetail = "") }
+                if (filled(run, status)) resumeGuard()
+            }
+            is ManagedResult.Failed -> if (!status.refusal.away) fail(status)
+        }
     }
 
     private suspend fun readStatus() {
         when (val status = io { client.status() }) {
-            is ManagedResult.Ok -> update { it.withStatus(status.value) }
+            is ManagedResult.Ok -> heard(status.value)
             is ManagedResult.Failed -> fail(status)
         }
     }
 
     private suspend fun readSettings() {
         when (val settings = io { client.settings() }) {
-            is ManagedResult.Ok -> update { it.copy(settings = settings.value.settings) }
+            is ManagedResult.Ok -> {
+                update { it.copy(settings = settings.value.settings) }
+                keep()
+            }
             is ManagedResult.Failed -> fail(settings)
         }
     }
 
     private suspend fun readFiles() {
         when (val files = io { client.files() }) {
-            is ManagedResult.Ok -> update { it.copy(files = files.value.files) }
+            is ManagedResult.Ok -> {
+                update { it.copy(files = files.value.files) }
+                keep()
+            }
             is ManagedResult.Failed -> fail(files)
         }
     }
 
     private fun fail(failed: ManagedResult.Failed): Boolean {
+        val problem = ManageProblem.of(failed.refusal, online)
+        // The pairing is over there: what the device said under it is not this device's to show any more.
+        if (problem == ManageProblem.REVOKED || problem == ManageProblem.EXPIRED) memory.forget(client.key)
+        return said(problem, failed.message)
+    }
+
+    /** The page says [problem], and whatever was in flight is over. */
+    private fun said(problem: ManageProblem, detail: String = ""): Boolean {
         update {
             it.copy(
-                problem = ManageProblem.of(failed.refusal, peerOnline()),
-                problemDetail = failed.message,
+                problem = problem,
+                problemDetail = detail,
                 loading = false,
                 busy = false,
                 picking = false,
                 reconnecting = false,
                 identifying = false,
+                starting = false,
                 diag = null,
             )
         }
@@ -726,35 +1058,91 @@ internal class RemoteManageController(
     /** A failure that happened in a window of the page's — the storage browser — and is the page's to say. */
     suspend fun failedOutside(failed: ManagedResult.Failed) = failedChange(failed)
 
-    override fun setCode(text: String) {
-        val p = ui as? RemoteManageUi.Pairing ?: return
-        ui = p.copy(code = text.filter { it in '0'..'9' }.take(RemoteJson.CODE_LENGTH), error = null)
+    // ─── Pairing ─────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Before the digits are asked for: whether the device can be paired with at all. This
+     * device's own network map answers first and may be all it takes; then the small question
+     * (RemoteClient.reach), whose answer also says whether a code is on show there. Like
+     * [open], a peer held as offline is said to be so at once and asked all the same.
+     */
+    private suspend fun check(seen: ManagePeer? = null, asked: Boolean = false) {
+        val run = ++reading
+        updatePairing { it.copy(checking = true, problem = null, starting = false) }
+        val peer = look(seen)
+        val inTheWay = ManageProblem.local(peer, asked)
+        if (inTheWay != null && inTheWay != ManageProblem.OFFLINE) {
+            updatePairing { it.copy(checking = false, problem = inTheWay) }
+            return
+        }
+        if (inTheWay != null) updatePairing { it.copy(problem = inTheWay) }
+        val reach = io { client.reach() }
+        if (run == reading) updatePairing { it.answered(reach) }
     }
 
+    /** The form, for a device that says it takes a pairing; otherwise why there is none. */
+    private fun RemoteManageUi.Pairing.answered(reach: ManagedResult<RemoteProbe>): RemoteManageUi.Pairing = when (reach) {
+        is ManagedResult.Ok -> copy(checking = false, problem = null, codeOnShow = reach.value.pairing, tv = tv || reach.value.tv)
+        is ManagedResult.Failed -> copy(checking = false, problem = ManageProblem.of(reach.refusal, peer?.presence == RemotePresence.ONLINE))
+    }
+
+    /** The pairing page's own periodic look: a device that could not be reached is asked again, and the form comes when it answers. */
+    private suspend fun recheck(seen: ManagePeer?) {
+        val before = pairing ?: return
+        if (before.busy || before.checking || before.starting) return
+        val peer = look(seen)
+        if (before.problem == null) return
+        val run = reading
+        val inTheWay = ManageProblem.local(peer, asked = true)
+        if (inTheWay != null) {
+            updatePairing { if (it.problem == inTheWay) it else it.copy(problem = inTheWay) }
+            return
+        }
+        val reach = io { client.reach() }
+        if (run == reading) updatePairing { if (it.busy || it.checking) it else it.answered(reach) }
+    }
+
+    override fun setCode(text: String) =
+        updatePairing { it.copy(code = text.filter { c -> c in '0'..'9' }.take(RemoteJson.CODE_LENGTH), error = null) }
+
     override fun pair() {
-        val p = ui as? RemoteManageUi.Pairing ?: return
-        if (p.busy || !RemoteJson.isCode(p.code)) return
+        val p = pairing ?: return
+        if (p.busy || !p.form || !RemoteJson.isCode(p.code)) return
         ui = p.copy(busy = true, error = null)
         scope.launch {
-            val answer = io { client.pair(p.code, tv) }
+            val answer = io { client.pair(p.code, p.tv) }
             if (answer.ok) {
                 start()
-            } else {
-                ui = p.copy(busy = false, error = RemotePairError(answer.failure(), answer.attemptsLeft, online = peerOnline()))
+                return@launch
             }
+            val failure = answer.failure()
+            val unreached = when (failure) {
+                RemotePairFailure.NOT_CONNECTED -> ManagedRefusal.NOT_CONNECTED
+                RemotePairFailure.NO_PEER -> ManagedRefusal.NO_PEER
+                RemotePairFailure.UNREACHABLE -> ManagedRefusal.UNREACHABLE
+                else -> null
+            }
+            if (unreached == null) {
+                updatePairing { it.copy(busy = false, error = RemotePairError(failure, answer.attemptsLeft)) }
+                return@launch
+            }
+            // Not about the code: the form goes, and the page says what is in the way.
+            val peer = look()
+            val problem = ManageProblem.local(peer, asked = true) ?: ManageProblem.of(unreached, peer.presence == RemotePresence.ONLINE)
+            updatePairing { it.copy(busy = false, error = null, problem = problem) }
         }
     }
 
     /** A code read by the scanner: this device's own is typed in and sent, anything else is said. */
     fun scanned(text: String) {
-        val p = ui as? RemoteManageUi.Pairing ?: return
+        if (pairing == null) return
         scope.launch {
             val qr = io { client.parseQr(text) }
             when {
-                qr == null -> ui = p.copy(error = RemotePairError(RemotePairFailure.NOT_A_CODE))
-                qr.nodeId != client.peerId -> ui = p.copy(error = RemotePairError(RemotePairFailure.OTHER_DEVICE, other = qr.name))
+                qr == null -> updatePairing { it.copy(error = RemotePairError(RemotePairFailure.NOT_A_CODE)) }
+                qr.nodeId != client.peerId -> updatePairing { it.copy(error = RemotePairError(RemotePairFailure.OTHER_DEVICE, other = qr.name)) }
                 else -> {
-                    ui = p.copy(code = qr.code, error = null)
+                    updatePairing { it.copy(code = qr.code, error = null) }
                     pair()
                 }
             }
@@ -763,16 +1151,58 @@ internal class RemoteManageController(
 
     override fun resolve(action: ManageProblemAction) {
         when (action) {
-            ManageProblemAction.RETRY -> scope.launch { load() }
-            ManageProblemAction.PAIR_AGAIN -> ui = pairing()
+            ManageProblemAction.RETRY -> retry()
+            ManageProblemAction.PAIR_AGAIN -> {
+                // The pairing is gone there. Whether a new one can be made is asked first, like any other.
+                ui = unpaired()
+                scope.launch { check(asked = true) }
+            }
             ManageProblemAction.DISMISS -> update { it.copy(problem = null, problemDetail = "") }
             ManageProblemAction.CLOSE -> onClose()
+            ManageProblemAction.START -> startOwnTailSocks()
+            ManageProblemAction.FORGET -> forget()
+        }
+    }
+
+    /** Asks again, whatever this device's network map says of the peer: a person wants to know. */
+    private fun retry() {
+        when (val now = ui) {
+            is RemoteManageUi.Managing -> if (!now.loading && !now.busy && !now.starting) scope.launch { load() }
+            is RemoteManageUi.Pairing -> if (!now.checking && !now.busy && !now.starting) scope.launch { check(asked = true) }
+            is RemoteManageUi.Opening, is RemoteManageUi.Forgotten -> Unit
+        }
+    }
+
+    /**
+     * Starts this device's own TailSocks and looks until it is connected — a start takes a few
+     * seconds — then reads the device as a page that has just opened would. Up or not, the page
+     * says what it finds.
+     */
+    private fun startOwnTailSocks() {
+        val start = startOwn ?: return
+        if (ui.starting || !start()) return
+        update { it.copy(starting = true) }
+        updatePairing { it.copy(starting = true) }
+        scope.launch {
+            var peer = ManagePeer()
+            for (attempt in 0 until START_TRIES) {
+                pause(START_EVERY_MS)
+                // Closed, or a look of the page's own has already found it up.
+                if (!ui.starting) return@launch
+                peer = io(local)
+                if (peer.presence != RemotePresence.UNKNOWN) break
+            }
+            if (managing != null) {
+                if (open(peer)) resumeGuard()
+            } else {
+                check(peer)
+            }
         }
     }
 
     override fun refresh() {
         val m = managing ?: return
-        if (m.busy || m.loading || m.reconnecting || m.problem?.final == true || m.guard?.phase?.active == true) return
+        if (m.busy || m.loading || m.reconnecting || m.starting || m.problem?.final == true || m.guard?.phase?.active == true) return
         scope.launch { load() }
     }
 
@@ -847,7 +1277,7 @@ internal class RemoteManageController(
         }
         update { it.copy(reconnecting = false) }
         when (val result = last) {
-            is ManagedResult.Ok -> update { it.withStatus(result.value) }
+            is ManagedResult.Ok -> heard(result.value)
             is ManagedResult.Failed -> fail(result)
         }
     }
@@ -962,11 +1392,29 @@ internal class RemoteManageController(
         if (state.sent.isNotEmpty()) scope.launch { tick() }
     }
 
+    /**
+     * Forgetting is this device's to decide, and a local thing to do: a device the page already
+     * knows to be out of reach is forgotten at once, and told afterwards in case it can be
+     * after all, with nobody waiting for its answer. One that may answer is asked first.
+     */
     override fun forget() {
         val m = managing ?: return
+        if (m.busy) return
+        // Whatever of it is still on its way is no longer this page's.
+        reading++
         ui = m.copy(busy = true)
+        val away = m.problem?.stale == true || m.problem == ManageProblem.NO_PEER
         scope.launch {
-            when (io { client.unpair() }) {
+            if (away) {
+                val record = io { client.forgetHere() }
+                memory.forget(client.key)
+                ui = RemoteManageUi.Forgotten(m.name, m.tv)
+                if (record != null) io { client.tellForgotten(record) }
+                return@launch
+            }
+            val told = io { client.unpair() }
+            memory.forget(client.key)
+            when (told) {
                 is ManagedResult.Ok -> onClose()
                 // The token is gone from here either way; the other side was not told.
                 is ManagedResult.Failed -> ui = RemoteManageUi.Forgotten(m.name, m.tv)

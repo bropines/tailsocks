@@ -812,6 +812,8 @@ private fun PairingGroup(ui: RemoteManageUi.Managing, ask: (ManageAsk) -> Unit) 
         HelpText(stringResource(R.string.rmanage_level_help))
     }
     ManageFact(stringResource(R.string.rmanage_fact_valid), validText(ui))
+    // Since when, by this device's own note of it; a pairing made before that was noted has none.
+    if (ui.pairedAt > 0) ManageFact(stringResource(R.string.rmanage_fact_paired), dayText(ui.pairedAt, ui.now))
 
     // Full control can be given up from afar, never taken.
     val full = ui.settings.setting(ManagedKeys.FULL_CONTROL, ManagedSetting.BOOL)
