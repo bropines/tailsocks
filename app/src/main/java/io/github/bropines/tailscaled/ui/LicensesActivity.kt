@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -290,11 +291,11 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
     val includesLabel = stringResource(R.string.licenses_includes)
     val pageLabel = stringResource(R.string.licenses_open_page)
     val pageTitle = stringResource(R.string.tv_licenses_page)
-    // A sheet has its handle above the text; a pane starts at its own edge.
-    val top = if (LocalInPane.current) 20.dp else 0.dp
     // A television reads the text with the arrows: the text is one stop, so the page button is
     // not inside it, and where there is no browser there is no button, only the address.
     val tv = isTv
+    // A sheet has its handle above the text; a pane — or a television's dialog — starts at its own edge.
+    val top = if (LocalInPane.current || tv) 20.dp else 0.dp
     val hasPage = c.url.startsWith("http")
     val browser = Feature.BROWSER.offered()
     val pageButton: @Composable () -> Unit = {
@@ -307,7 +308,7 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
         }
     }
     val listState = rememberLazyListState()
-    SheetOrPane(onDismiss = onDismiss) {
+    val sheet: @Composable ColumnScope.() -> Unit = {
         CompositionLocalProvider(
             LocalContext provides context,
             LocalConfiguration provides configuration,
@@ -380,4 +381,7 @@ private fun LicenseSheet(c: LicenseComponent, texts: Map<String, String>, onDism
             }
         }
     }
+    // Over a single-pane screen a television takes a dialog it can reach, not a sheet.
+    if (tv && !LocalInPane.current) TvSheetDialog(onDismiss) { Column { sheet() } }
+    else SheetOrPane(onDismiss = onDismiss, content = sheet)
 }

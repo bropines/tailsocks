@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +55,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.bropines.tailscaled.R
 import kotlinx.coroutines.launch
 
@@ -189,6 +193,24 @@ fun TvQueryField(
                 { TextButton(onClick = { typed = TextFieldValue(""); onValueChange("") }) { Text(clearLabel) } }
             } else null
         )
+    }
+}
+
+/**
+ * A television's stand-in for a bottom sheet over a single-pane screen: a dialog the width of
+ * the screen, inside its safe area, which takes the remote's keys and which Back closes. A
+ * sheet is a window the remote did not reach on the Android TV emulator — the focus stayed on
+ * the screen behind it — and a window of this kind did. Where a screen has room for panes the
+ * details are a pane and this is not used.
+ */
+@Composable
+fun TvSheetDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.padding(TvSafeArea).fillMaxSize()
+        ) { content() }
     }
 }
 

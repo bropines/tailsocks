@@ -1218,6 +1218,10 @@ fun PeerDetailsModal(
     // Where there is no clipboard (a television) a value is shown instead of copied, large
     // and with a code where it is an address or a link: the row or lead that was chosen.
     val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    // A sheet over the list on a television is a dialog that takes the remote (TvSheetDialog),
+    // drawn as the pane is: the whole window, the cards in columns as far as it is wide.
+    val tvDialog = isTv && !inPane
+    val asPane = inPane || tvDialog
     var shownDetail by remember(peer.id) { mutableStateOf<PeerDetail?>(null) }
     val shownStrings = rememberShownValueStrings()
 
@@ -1569,17 +1573,13 @@ fun PeerDetailsModal(
             columns = cardColumns,
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (inPane) Modifier.fillMaxHeight() else Modifier)
+                .then(if (asPane) Modifier.fillMaxHeight() else Modifier)
                 .graphicsLayer { peerPageTransform(swipeOffset) }
         )
     }
 
-    SheetOrPane(
-        onDismiss = onDismiss,
-        inPane = inPane,
-        sheetState = sheetState
-    ) {
-        if (inPane) {
+    val body: @Composable () -> Unit = {
+        if (asPane) {
             // A sheet is a column of cards on any window; a pane beside the list may be as
             // wide as a phone is tall, and there the cards stand in two columns.
             BoxWithConstraints(Modifier.fillMaxSize().then(turns)) {
@@ -1588,6 +1588,15 @@ fun PeerDetailsModal(
         } else {
             Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).then(turns)) { pages(1) }
         }
+    }
+    if (tvDialog) {
+        TvSheetDialog(onDismiss) { body() }
+    } else {
+        SheetOrPane(
+            onDismiss = onDismiss,
+            inPane = inPane,
+            sheetState = sheetState
+        ) { body() }
     }
 
     shownDetail?.let { row ->
