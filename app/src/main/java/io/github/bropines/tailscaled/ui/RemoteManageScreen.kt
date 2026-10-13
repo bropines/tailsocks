@@ -901,7 +901,9 @@ private fun ManagedState(ui: RemoteManageUi.Managing, status: RemoteStatus, acti
             else -> stringResource(R.string.remote_exit_offline, node.name.ifEmpty { node.id })
         }
         ValueRow(stringResource(R.string.remote_exit_node), value, enabled = ui.usable, onClick = actions::openExitNodes)
-        ui.settings.filter { it.kind == "bool" }.forEach { setting ->
+        // Only the switches this sheet has a name for: a newer device lists
+        // more, and a raw key is not something to flip.
+        ui.settings.filter { it.kind == "bool" && it.key in sheetSwitches }.forEach { setting ->
             SwitchRow(
                 title = settingTitle(setting.key),
                 note = if (setting.error.isNotEmpty()) stringResource(R.string.remote_setting_unknown) else null,
@@ -942,6 +944,8 @@ private fun ManagedState(ui: RemoteManageUi.Managing, status: RemoteStatus, acti
 
     ui.files?.let { FilesBlock(ui, it, actions) }
 }
+
+private val sheetSwitches = setOf(RemoteKeys.ACCEPT_DNS, RemoteKeys.ACCEPT_ROUTES, RemoteKeys.EXIT_NODE_LAN)
 
 @Composable
 private fun settingTitle(key: String): String = when (key) {
