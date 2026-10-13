@@ -178,13 +178,15 @@ internal fun Modifier.tvHelpFocusRing(source: InteractionSource): Modifier {
     return drawBehind {
         if (!focused) return@drawBehind
         val line = 2.dp.toPx()
-        // From the text outwards: the contrast line, then the edge line. No gap: the
-        // lines of a text keep their own distance, and what stands above it is close.
+        // Room at the sides only: above and below, the lines of a text keep their own
+        // distance, and what stands over it is close.
+        val side = 4.dp.toPx()
+        // From the text outwards: the contrast line, then the edge line.
         for ((color, distance) in listOf(contrast to line / 2, edge to line * 1.5f)) {
             drawRoundRect(
                 color = color,
-                topLeft = Offset(-distance, -distance),
-                size = Size(size.width + distance * 2, size.height + distance * 2),
+                topLeft = Offset(-distance - side, -distance),
+                size = Size(size.width + (distance + side) * 2, size.height + distance * 2),
                 cornerRadius = CornerRadius(8.dp.toPx()),
                 style = Stroke(line)
             )
