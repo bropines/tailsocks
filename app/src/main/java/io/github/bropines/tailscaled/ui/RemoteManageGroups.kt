@@ -46,15 +46,14 @@ import androidx.compose.material.icons.filled.VpnLock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -382,10 +381,11 @@ private fun FilesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions
         ui.sendBlocked != null -> stringResource(R.string.rmanage_cannot_send, ui.name, ui.sendBlocked)
         else -> null
     }
+    val removal = rememberRemovalFocus(ui.files.orEmpty().map { it.name })
     ManageButton(
         stringResource(R.string.rmanage_send),
         onClick = { hooks.sendFile?.invoke() },
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().focusRequester(removal.heir),
         icon = Icons.AutoMirrored.Filled.Send,
         enabled = blocked == null && send?.progress == null && ui.problem?.stale != true && ui.problem?.final != true && status != null,
         primary = true,
@@ -463,9 +463,12 @@ private fun FilesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions
         waiting.take(FILES_SHOWN).forEach { file ->
             FileRow(file.name, sizeText(file.size) + " · " + fileDate(file.modTime), focusStop = !delete.open) {
                 if (delete.open) {
-                    IconButton(onClick = { ask(ManageAsk.DeleteFile(file.name)) }, enabled = ui.usable) {
-                        Icon(Icons.Default.Delete, stringResource(R.string.remote_file_delete, file.name))
-                    }
+                    ManageIconButton(
+                        Icons.Default.Delete,
+                        stringResource(R.string.remote_file_delete, file.name),
+                        onClick = { removal.asked = file.name; ask(ManageAsk.DeleteFile(file.name)) },
+                        enabled = ui.usable,
+                    )
                 }
             }
         }
@@ -515,6 +518,7 @@ private fun SharesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageAction
 
     val folders = ui.app?.folders
     val remove = access.gate(ManagedOp.SHARES_REMOVE)
+    val removal = rememberRemovalFocus(folders.orEmpty().map { it.name })
     when {
         // A guest is told how many, never which.
         folders == null -> {
@@ -543,9 +547,12 @@ private fun SharesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageAction
                     Text(folder.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.MiddleEllipsis)
                 }
                 if (remove.open) {
-                    IconButton(onClick = { ask(ManageAsk.RemoveShare(folder.name)) }, enabled = ui.usable) {
-                        Icon(Icons.Default.Delete, stringResource(R.string.rmanage_share_remove, folder.name))
-                    }
+                    ManageIconButton(
+                        Icons.Default.Delete,
+                        stringResource(R.string.rmanage_share_remove, folder.name),
+                        onClick = { removal.asked = folder.name; ask(ManageAsk.RemoveShare(folder.name)) },
+                        enabled = ui.usable,
+                    )
                 }
             }
         }
@@ -559,7 +566,8 @@ private fun SharesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageAction
             help = stringResource(R.string.rmanage_share_add_help),
             reason = add.denial?.let { denialRow(it) },
             enabled = ui.usable,
-            onClick = { ask(ManageAsk.BrowseFolder) }
+            onClick = { ask(ManageAsk.BrowseFolder) },
+            modifier = Modifier.focusRequester(removal.heir),
         )
     }
     // Said once for the card: where the thing its rows wait for is switched on.
@@ -619,12 +627,13 @@ private fun PermissionsGroup(ui: RemoteManageUi.Managing, actions: RemoteManageA
             // The device's own flag decides whether it can be asked; this caller's class is in it.
             if (permission.ask && gate.open) {
                 val label = stringResource(R.string.rmanage_perm_ask_named, title)
-                OutlinedButton(
+                ManageButton(
+                    stringResource(R.string.rmanage_perm_ask),
                     onClick = { actions.askPermission(permission.id) },
                     enabled = ui.usable,
-                    shape = MaterialTheme.shapes.medium,
+                    outlined = true,
                     modifier = Modifier.padding(start = 32.dp, top = 4.dp).semantics { contentDescription = label }
-                ) { Text(stringResource(R.string.rmanage_perm_ask)) }
+                )
             } else if (permission.id == "vpn" && permission.state == ManagedPermission.MISSING) {
                 Text(
                     stringResource(R.string.rmanage_perm_vpn_note),
@@ -811,9 +820,10 @@ private fun PairingGroup(ui: RemoteManageUi.Managing, ask: (ManageAsk) -> Unit) 
     if (canDrop) {
         ManageButton(stringResource(R.string.rmanage_full_off), onClick = { ask(ManageAsk.FullControlOff) }, enabled = ui.usable)
     }
+    // Like ManageButton: on a television it keeps the remote while the page is busy, and does not answer.
     TextButton(
-        onClick = { ask(ManageAsk.Forget) },
-        enabled = !ui.busy,
+        onClick = { if (!ui.busy) ask(ManageAsk.Forget) },
+        enabled = !ui.busy || isTv,
         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
     ) { Text(stringResource(R.string.remote_forget)) }
 }

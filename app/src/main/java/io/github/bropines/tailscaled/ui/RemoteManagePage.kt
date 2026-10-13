@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -36,10 +35,8 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -64,7 +61,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,9 +136,12 @@ internal fun RemoteManageContent(
                 onBack = actions::close,
                 actions = {
                     if (ui is RemoteManageUi.Managing && ui.status != null && ui.problem?.final != true) {
-                        IconButton(onClick = actions::refresh, enabled = !ui.busy && !ui.loading && ui.guard?.phase?.active != true) {
-                            Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh))
-                        }
+                        ManageIconButton(
+                            Icons.Default.Refresh,
+                            stringResource(R.string.action_refresh),
+                            onClick = actions::refresh,
+                            enabled = !ui.busy && !ui.loading && ui.guard?.phase?.active != true,
+                        )
                     }
                 }
             )
@@ -211,8 +210,13 @@ private fun Managing(
             headerModifier = place,
         ) { GroupBody(group, ui, actions, hooks) { asked = it } }
     }
-    // A television must have something in focus: the first group's header, unless a banner's button took it.
-    val first = groups.firstOrNull()
+    // A television must have something in focus: the page's first action — Identify, where the
+    // device offers it, else the first group's header. A banner that comes with the page has a
+    // button that takes the focus instead: two that ask at once would leave it to chance.
+    val bannerButton = ui.problem != null || ui.guard?.phase == GuardPhase.REVERTED || ui.guard?.phase == GuardPhase.UNCLEAR
+    val startHere = remember(status != null) { !bannerButton }
+    val identify = startHere && status != null && ui.access.gate(ManagedOp.IDENTIFY).offered
+    val first = groups.firstOrNull().takeIf { startHere && !identify }
     val focusOf: @Composable (ManageGroup) -> Modifier = { if (it == first) Modifier.tvInitialFocus() else Modifier }
 
     Column(Modifier.fillMaxSize()) {
@@ -239,14 +243,14 @@ private fun Managing(
                 // The device and how it is connected on one side, everything it holds on the other.
                 val (left, right) = groups.partition { it == ManageGroup.CONNECTION }
                 PageColumn(Modifier.weight(1f)) {
-                    DeviceHeader(ui, status, actions)
+                    DeviceHeader(ui, status, actions, start = identify)
                     left.forEach { card(it, focusOf(it)) }
                 }
                 PageColumn(Modifier.weight(1f)) { right.forEach { card(it, focusOf(it)) } }
             }
             else -> ReadableWidth {
                 PageColumn(Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.problem?.stale == true) 0.5f else 1f)) {
-                    DeviceHeader(ui, status, actions)
+                    DeviceHeader(ui, status, actions, start = identify)
                     groups.forEach { card(it, focusOf(it)) }
                 }
             }
@@ -258,9 +262,7 @@ private fun Managing(
 
 @Composable
 private fun ForgetButton(ui: RemoteManageUi.Managing, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, enabled = !ui.busy, shape = MaterialTheme.shapes.medium) {
-        Text(stringResource(R.string.remote_forget))
-    }
+    ManageButton(stringResource(R.string.remote_forget), onClick = onClick, enabled = !ui.busy, outlined = true)
 }
 
 /** A column of cards that scrolls, and that a remote can read to its end past rows it cannot stop on. */
@@ -425,7 +427,7 @@ internal fun deviceGlyph(deviceClass: String, tv: Boolean): ImageVector = when {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, actions: RemoteManageActions) {
+private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, actions: RemoteManageActions, start: Boolean = false) {
     val scheme = MaterialTheme.colorScheme
     val warnings = status.health.size
     val troubled = !status.running && status.backendState in setOf("NeedsLogin", "NeedsMachineAuth") || status.running && warnings > 0
@@ -517,6 +519,8 @@ private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, act
                         icon = Icons.Default.Visibility,
                         enabled = ui.usable && identify.open && !ui.identifying,
                         working = ui.identifying,
+                        // Where the remote starts on the page.
+                        modifier = if (start) Modifier.tvInitialFocus() else Modifier,
                     )
                     Spacer(Modifier.width(12.dp))
                     val told = when (ui.identified) {
@@ -572,29 +576,25 @@ private fun PairingBody(ui: RemoteManageUi.Pairing, actions: RemoteManageActions
         )
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(
+        // The button keeps the remote while the device is asked (ManageButton): the page that
+        // follows takes the focus from it, not from nowhere.
+        ManageButton(
+            stringResource(R.string.remote_pair_action),
             onClick = actions::pair,
             enabled = !ui.busy && RemoteJson.isCode(ui.code),
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.weight(1f).heightIn(min = 46.dp)
-        ) {
-            if (ui.busy) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(8.dp))
-            }
-            Text(stringResource(R.string.remote_pair_action))
-        }
+            primary = true,
+            working = ui.busy,
+            modifier = Modifier.weight(1f),
+        )
         if (onScan != null) {
-            OutlinedButton(
+            ManageButton(
+                stringResource(R.string.remote_pair_scan),
                 onClick = onScan,
                 enabled = !ui.busy,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.weight(1f).heightIn(min = 46.dp)
-            ) {
-                Icon(Icons.Default.QrCodeScanner, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.remote_pair_scan), textAlign = TextAlign.Center)
-            }
+                outlined = true,
+                icon = Icons.Default.QrCodeScanner,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
     if (!ui.codeOnShow) {

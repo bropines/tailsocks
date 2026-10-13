@@ -12,9 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -30,6 +35,7 @@ import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /*
@@ -107,13 +113,18 @@ fun RemoteDevices(modifier: Modifier = Modifier) {
     val context = LocalContext.current.applicationContext
     var devices by remember { mutableStateOf(emptyList<RemoteDeviceRow>()) }
     var opened by remember { mutableStateOf<RemoteDeviceRow?>(null) }
+    // The row whose page was open last: on a television the remote comes back to it.
+    var lastOpened by remember { mutableStateOf<String?>(null) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val tv = isTv
+    val focus = LocalFocusManager.current
+    val window = LocalWindowInfo.current
     // Read again when a page closes: a device may have been forgotten in it.
     LaunchedEffect(lifecycle, opened == null) {
         if (opened != null) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (true) {
-                devices = withContext(Dispatchers.IO) {
+                val fresh = withContext(Dispatchers.IO) {
                     runCatching {
                         val tokens = RemoteManage.tokens(context)
                         val profile = AccountManager.getActiveAccount(context).id
@@ -121,12 +132,23 @@ fun RemoteDevices(modifier: Modifier = Modifier) {
                         if (tokens.peers(profile).isEmpty()) emptyList() else pairedDevices(tokens, profile, localPeers())
                     }.getOrDefault(emptyList())
                 }
+                // A device forgotten in its page takes its row away, and on a television the
+                // remote stands on that row: the focus would go with it, to wherever Compose
+                // finds a place. It steps to the row above first, once this window has it again.
+                val gone = lastOpened?.takeIf { id -> tv && devices.any { it.nodeId == id } && fresh.none { it.nodeId == id } }
+                lastOpened = null
+                if (gone != null) {
+                    snapshotFlow { window.isWindowFocused }.first { it }
+                    withFrameNanos { }
+                    focus.moveFocus(FocusDirection.Up)
+                }
+                devices = fresh
                 if (devices.isEmpty()) return@repeatOnLifecycle
                 delay(DEVICES_EVERY_MS)
             }
         }
     }
-    RemoteDeviceRows(devices, modifier) { opened = it }
+    RemoteDeviceRows(devices, modifier) { opened = it; lastOpened = it.nodeId }
     opened?.let { device ->
         RemoteManagePage(
             peerId = device.nodeId,

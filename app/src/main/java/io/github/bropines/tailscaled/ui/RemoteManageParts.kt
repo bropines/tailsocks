@@ -26,20 +26,34 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -128,8 +142,15 @@ internal fun ManageCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            AnimatedVisibility(visible = open) {
-                Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), content = content)
+            // The gap keeps a button that comes first clear of the ring a remote draws round the header.
+            val body = Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 16.dp)
+            // A television opens the group at once. While it unfolded, Down from the header went
+            // by what was on screen that instant — the next group's header, which the unfolding
+            // rows then pushed out of sight with the focus on it.
+            if (isTv) {
+                if (open) Column(body, content = content)
+            } else {
+                AnimatedVisibility(visible = open) { Column(body, content = content) }
             }
         }
     }
@@ -371,7 +392,15 @@ internal fun ManageFact(label: String, value: String, modifier: Modifier = Modif
     }
 }
 
-/** A button of the page: [primary] for the one thing a group is opened for, tonal for the rest. */
+/**
+ * A button of the page: [primary] for the one thing a group is opened for, [outlined] for a
+ * quiet one, tonal for the rest.
+ *
+ * On a television a button that is not [enabled] stays a stop for the remote: it looks
+ * disabled and does not answer, like a row of the page. One that went out while its own
+ * action ran would drop the focus the person had just put on it, and a dropped focus lands
+ * wherever Compose finds a place for it — the top of the page, a screen away.
+ */
 @Composable
 internal fun ManageButton(
     text: String,
@@ -380,6 +409,7 @@ internal fun ManageButton(
     icon: ImageVector? = null,
     enabled: Boolean = true,
     primary: Boolean = false,
+    outlined: Boolean = false,
     working: Boolean = false,
 ) {
     val content: @Composable () -> Unit = {
@@ -394,8 +424,66 @@ internal fun ManageButton(
     }
     val shape = MaterialTheme.shapes.medium
     val size = modifier.heightIn(min = 46.dp)
-    if (primary) Button(onClick = onClick, enabled = enabled, shape = shape, modifier = size) { content() }
-    else FilledTonalButton(onClick = onClick, enabled = enabled, shape = shape, modifier = size) { content() }
+    val deaf = isTv && !enabled
+    val press = { if (enabled) onClick() }
+    val colors: @Composable (ButtonColors) -> ButtonColors = { if (deaf) it.copy(containerColor = it.disabledContainerColor, contentColor = it.disabledContentColor) else it }
+    when {
+        primary -> Button(onClick = press, enabled = enabled || deaf, shape = shape, colors = colors(ButtonDefaults.buttonColors()), modifier = size) { content() }
+        outlined -> OutlinedButton(onClick = press, enabled = enabled || deaf, shape = shape, colors = colors(ButtonDefaults.outlinedButtonColors()), modifier = size) { content() }
+        else -> FilledTonalButton(onClick = press, enabled = enabled || deaf, shape = shape, colors = colors(ButtonDefaults.filledTonalButtonColors()), modifier = size) { content() }
+    }
+}
+
+/** An icon that is a button, with [ManageButton]'s manners on a television. [label] is what a screen reader says. */
+@Composable
+internal fun ManageIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val deaf = isTv && !enabled
+    IconButton(onClick = { if (enabled) onClick() }, modifier = modifier, enabled = enabled || deaf) {
+        if (deaf) Icon(icon, label, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)) else Icon(icon, label)
+    }
+}
+
+/**
+ * Where the remote goes when the thing it stood on is taken away by its own press: the bin
+ * beside a file that is now deleted, beside a folder no longer shared. The button that asked
+ * says which row it means with [asked]; the stop that inherits the focus carries [heir].
+ * Without this the focus is dropped with the row, and lands at the top of the page.
+ */
+@Stable
+internal class RemovalFocus {
+    val heir = FocusRequester()
+    var asked: String? = null
+}
+
+/** [keys] are the rows as they are now: when the one that was asked about is gone, the heir takes the focus. */
+@Composable
+internal fun rememberRemovalFocus(keys: List<String>): RemovalFocus {
+    val focus = remember { RemovalFocus() }
+    if (isTv) {
+        LaunchedEffect(keys) {
+            val gone = focus.asked ?: return@LaunchedEffect
+            if (gone !in keys) {
+                focus.asked = null
+                runCatching { focus.heir.requestFocus() }
+            }
+        }
+    }
+    return focus
+}
+
+/**
+ * For a field in a dialog of the page, on a television: Down leaves it for the buttons under
+ * it, whatever sent the key. Compose moves the focus out of a field by itself only for a
+ * physical D-pad; from a keyboard, or a key a test injects, the field would keep the focus
+ * and the buttons could not be reached.
+ */
+@Composable
+internal fun Modifier.tvDownLeavesField(): Modifier {
+    if (!isTv) return this
+    val focus = LocalFocusManager.current
+    return onPreviewKeyEvent { event ->
+        event.key == Key.DirectionDown && (event.type != KeyEventType.KeyDown || focus.moveFocus(FocusDirection.Down))
+    }
 }
 
 /** Space between two blocks of one group. */

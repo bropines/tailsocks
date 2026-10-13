@@ -67,7 +67,6 @@ import io.github.bropines.tailscaled.core.ManagedExitNode
 import io.github.bropines.tailscaled.core.ManagedKeys
 import io.github.bropines.tailscaled.core.ManagedPermission
 import io.github.bropines.tailscaled.core.ManagedSetting
-import io.github.bropines.tailscaled.core.cidrList
 import io.github.bropines.tailscaled.core.clearOnly
 import io.github.bropines.tailscaled.core.isShareName
 import io.github.bropines.tailscaled.core.setting
@@ -339,7 +338,7 @@ private fun RoutesDialog(ui: RemoteManageUi.Managing, actions: RemoteManageActio
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { submit() }),
                         shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.fillMaxWidth().tvInitialFocus()
+                        modifier = Modifier.fillMaxWidth().tvInitialFocus().tvDownLeavesField()
                     )
                 }
             }
@@ -381,7 +380,7 @@ private fun ShareNameDialog(folder: File, onShare: (String) -> Unit, onClose: ()
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                     shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth().tvInitialFocus()
+                    modifier = Modifier.fillMaxWidth().tvInitialFocus().tvDownLeavesField()
                 )
             }
         },
