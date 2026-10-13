@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.SettingsRemote
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -369,7 +368,7 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
     }
 
     if (confirmAll) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { confirmAll = false },
             title = { Text(confirmTitle) },
             text = { Text(confirmText) },

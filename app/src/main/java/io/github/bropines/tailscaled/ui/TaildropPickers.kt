@@ -73,7 +73,7 @@ private fun PickerWindow(onDismiss: () -> Unit, content: @Composable () -> Unit)
     ) {
         parent.Provide {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Box(if (isTv) Modifier.padding(TvSafeArea) else Modifier) { content() }
+                Box(if (isTv) Modifier.padding(LocalTvSafeArea.current) else Modifier) { content() }
             }
         }
     }

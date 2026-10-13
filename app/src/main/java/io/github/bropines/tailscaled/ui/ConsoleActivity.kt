@@ -702,7 +702,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         val strConsoleNewPresetLabel = stringResource(R.string.console_new_preset_label)
         val strActionSave = stringResource(R.string.action_save)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showAddPresetDialog = false },
             title = { Text(strConsoleNewPresetTitle) },
             text = {
@@ -758,7 +758,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         val strInsert = stringResource(R.string.console_preset_insert)
         val strDelete = stringResource(R.string.action_delete)
         val strCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { presetMenuFor = null },
             title = { Text(strTitle) },
             text = { Text(preset, fontFamily = FontFamily.Monospace) },
@@ -798,7 +798,7 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
             executeCmd(currentCommand)
         }
         LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editingCommand = false },
             title = { Text(strTitle) },
             text = {

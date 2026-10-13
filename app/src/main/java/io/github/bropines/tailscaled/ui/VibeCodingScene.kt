@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -114,6 +115,8 @@ internal fun VibeCodingScene(onDismiss: () -> Unit) {
     }
     val question = stringResource(R.string.egg_vibe_question)
     val answer = stringResource(R.string.egg_vibe_answer)
+    // The bubbles are the scene's words: a television's safe area keeps them off its edges.
+    val side = if (isTv) maxOf(24.dp, LocalTvSafeArea.current.calculateLeftPadding(LayoutDirection.Ltr)) else 24.dp
 
     Dialog(
         onDismissRequest = leave,
@@ -130,7 +133,7 @@ internal fun VibeCodingScene(onDismiss: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = side)
                     .padding(top = 96.dp),
                 horizontalAlignment = Alignment.Start
             ) {
@@ -142,7 +145,7 @@ internal fun VibeCodingScene(onDismiss: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = side)
                     .padding(bottom = 96.dp),
                 horizontalAlignment = Alignment.End
             ) {

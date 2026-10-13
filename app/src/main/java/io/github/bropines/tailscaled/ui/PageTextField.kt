@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -184,7 +183,7 @@ fun TvFieldRow(
         val close = { editing = false }
         // It is what was asked for by pressing the row: the keyboard may come up.
         LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = close,
             title = { Text(title.ifEmpty { placeholder.orEmpty() }) },
             text = {

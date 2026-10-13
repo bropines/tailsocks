@@ -14,6 +14,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.core.Availability
 import io.github.bropines.tailscaled.core.Capabilities
@@ -49,10 +51,34 @@ val LocalCapabilities = staticCompositionLocalOf<Capabilities?> { null }
 
 /**
  * A television's safe area: 5% of its 960 × 540 dp on every side, for the sets
- * that still cut the picture's edges off. The theme applies it to a screen;
- * a sheet or a dialog is a window the theme does not reach and pads itself.
+ * that still cut the picture's edges off. This is the television's own; a
+ * window of another size has [tvSafeArea], and the theme hands that one down
+ * as [LocalTvSafeArea].
  */
 val TvSafeArea = PaddingValues(horizontal = 48.dp, vertical = 27.dp)
+
+/**
+ * The safe area of a window [width] × [height] wide: [TvSafeArea]'s 5% at most,
+ * which is exactly a television's, and 5% of a smaller window — a phone with
+ * the TV interface turned on has no use for 48dp off each side of 411dp.
+ */
+fun tvSafeArea(width: Dp, height: Dp): PaddingValues {
+    if (width <= 0.dp || height <= 0.dp) return TvSafeArea
+    return PaddingValues(
+        horizontal = minOf(TvSafeArea.calculateLeftPadding(LayoutDirection.Ltr), width * SAFE_AREA_SHARE),
+        vertical = minOf(TvSafeArea.calculateTopPadding(), height * SAFE_AREA_SHARE),
+    )
+}
+
+private const val SAFE_AREA_SHARE = 0.05f
+
+/**
+ * The safe area of this app's window. The theme applies it to a screen; a sheet
+ * or a dialog is a window the theme does not reach, and pads itself with what
+ * it reads here — locals pass through to them, the size of their own window
+ * would not.
+ */
+val LocalTvSafeArea = staticCompositionLocalOf { TvSafeArea }
 
 /**
  * The class of this device, following the Interface setting as it changes.

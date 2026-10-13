@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -175,7 +174,7 @@ fun TvQueryField(
             onDone?.invoke()
         }
         LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { open = false },
             title = { Text(placeholder) },
             text = {
@@ -209,7 +208,7 @@ fun TvSheetDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.padding(TvSafeArea).fillMaxSize()
+            modifier = Modifier.padding(LocalTvSafeArea.current).fillMaxSize()
         ) { content() }
     }
 }

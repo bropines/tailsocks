@@ -366,7 +366,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         val strTaildriveAddManualTitle = stringResource(R.string.taildrive_add_manual_title)
         val strTaildriveAddManualDesc = stringResource(R.string.taildrive_add_manual_desc)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showChoiceDialog = false },
             title = { Text(strTaildriveCdAdd) },
             text = {
@@ -863,7 +863,7 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             // Save, not in a field that opens the keyboard. Decided once, as the dialog opens —
             // typing must not take the focus from the field being typed in.
             val startOnSave = remember { dialogNameInput.isNotBlank() && dialogPathInput.isNotBlank() }
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = {
                     showAddDialog = false
                     editingShare = null
@@ -1079,7 +1079,7 @@ private fun ProxySettingRow(
             if (draft != value) onCommit(draft)
             editing = false
         }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { editing = false },
             title = { Text(label) },
             text = {

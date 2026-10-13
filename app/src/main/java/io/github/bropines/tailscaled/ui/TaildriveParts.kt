@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -193,7 +192,7 @@ internal fun RemoveShareDialog(name: String, onConfirm: () -> Unit, onDismiss: (
     val body = stringResource(R.string.taildrive_remove_body)
     val confirm = stringResource(R.string.taildrive_remove_confirm)
     val cancel = stringResource(R.string.action_cancel)
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body, style = MaterialTheme.typography.bodyMedium) },

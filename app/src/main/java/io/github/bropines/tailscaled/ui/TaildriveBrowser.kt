@@ -38,7 +38,6 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -568,7 +567,7 @@ private fun NoAppDialog(notice: OpenNotice.NoApp, onDismiss: () -> Unit) {
         qrDescription = stringResource(R.string.qr_image),
         qrTooLong = stringResource(R.string.qr_too_long),
     )
-    BasicAlertDialog(onDismissRequest = onDismiss) {
+    AppBasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             NoAppCard(notice.name, notice.address, showAddress, labels, onShowAddress = { showAddress = true }, onClose = onDismiss)
         }
@@ -580,7 +579,7 @@ private fun NoAppDialog(notice: OpenNotice.NoApp, onDismiss: () -> Unit) {
 private fun FailedDialog(notice: OpenNotice.Failed, onDismiss: () -> Unit) {
     val title = stringResource(R.string.taildrive_browser_open_failed_title)
     val close = stringResource(R.string.action_close)
-    BasicAlertDialog(onDismissRequest = onDismiss) {
+    AppBasicAlertDialog(onDismissRequest = onDismiss) {
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall)

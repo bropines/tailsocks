@@ -140,7 +140,7 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
     val strPermAskLater = stringResource(R.string.perm_ask_later)
     val neverRow = remember { MutableInteractionSource() }
     val allRow = remember { MutableInteractionSource() }
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = { answer() },
         icon = { Icon(Icons.Default.PowerSettingsNew, contentDescription = null) },
         title = { Text(strPermAskTitle) },

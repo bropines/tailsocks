@@ -120,7 +120,7 @@ internal fun ValueDialogContent(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.padding(TvSafeArea).widthIn(max = 880.dp).fillMaxWidth().heightIn(max = 460.dp)
+        modifier = Modifier.padding(LocalTvSafeArea.current).widthIn(max = 880.dp).fillMaxWidth().heightIn(max = 460.dp)
     ) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -942,7 +942,7 @@ fun MainScreen(
         val dlgCancel = stringResource(R.string.action_cancel)
         val dlgHonestTitle = stringResource(R.string.settings_honest_hostinfo_title)
         val dlgHonestDesc = stringResource(R.string.honest_hostinfo_checkbox_desc)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showAddAccountDialog = false; newAccountHonest = false },
             title = { Text(dlgTitle) },
             text = {
@@ -1030,7 +1030,7 @@ fun MainScreen(
         val dlgNameLabel = stringResource(R.string.main_new_name_label)
         val dlgRename = stringResource(R.string.action_rename)
         val dlgCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { 
                 showRenameAccountDialog = false
                 accountToRename = null
@@ -1072,7 +1072,7 @@ fun MainScreen(
         val dlgText = stringResource(R.string.main_delete_account_confirm_text)
         val dlgDelete = stringResource(R.string.action_delete)
         val dlgCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { accountToDeleteConfirm = null },
             icon = { Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error) },
             title = { Text(dlgTitle) },
@@ -1119,7 +1119,7 @@ fun MainScreen(
         val dlgText = stringResource(R.string.main_switch_account_text, showSwitchConfirmDialog!!.name)
         val dlgRestart = stringResource(R.string.main_restart_switch)
         val dlgCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showSwitchConfirmDialog = null },
             title = { Text(dlgTitle) },
             text = { Text(dlgText) },
@@ -1805,7 +1805,7 @@ fun MainScreen(
         val dlgText = stringResource(R.string.tv_stop_text)
         val dlgStop = stringResource(R.string.main_status_action_stop)
         val dlgCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { confirmStop = false },
             icon = { Icon(Icons.Default.PowerSettingsNew, null) },
             title = { Text(dlgTitle) },
@@ -1881,7 +1881,7 @@ fun MainScreen(
             VibeCodingScene(onDismiss = { showVibeCoding = false })
         }
 
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showAboutDialog = false },
             icon = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text(dlgTitle) },

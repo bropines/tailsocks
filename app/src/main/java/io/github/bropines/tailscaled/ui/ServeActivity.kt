@@ -1166,7 +1166,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
     publishFor?.let { service ->
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         val hasApi = adminSettings() != null
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { if (!publishBusy) publishFor = null },
             icon = { Icon(Icons.Default.Hub, null) },
             title = { Text(context.getString(R.string.serve_svc_publish_title, "svc:$service")) },
@@ -1203,7 +1203,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
         val strServeClearText = stringResource(R.string.serve_clear_text)
         val strServeClearConfirm = stringResource(R.string.serve_clear_confirm)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showClearDialog = false },
             title = { Text(strServeClearTitle) },
             text = { Text(strServeClearText) },
@@ -1232,7 +1232,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 }
             }
         }
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showCertExportDialog = false },
             title = { Text(context.getString(R.string.serve_export_title)) },
             text = { Text(context.getString(R.string.serve_export_text_format, domain)) },

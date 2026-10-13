@@ -443,7 +443,7 @@ fun SlideHowItWorks() {
         val strSettingsRootWarningDialogBody = stringResource(R.string.settings_root_warning_dialog_body)
         val strSettingsRootWarningDialogConfirm = stringResource(R.string.settings_root_warning_dialog_confirm)
         val strSettingsRootWarningDialogCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showRootWarningDialog = false },
             title = { Text(strSettingsRootWarningDialogTitle) },
             text = { Text(strSettingsRootWarningDialogBody) },
@@ -853,7 +853,7 @@ fun SlideBypassSetup() {
         val strSettingsProxyPresetNameLabel = stringResource(R.string.settings_proxy_preset_name_label)
         val strSettingsProxyPresetSaveBtn = stringResource(R.string.settings_proxy_preset_save_btn)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
             title = { Text(strSettingsProxyPresetSaveTitle) },
             text = {

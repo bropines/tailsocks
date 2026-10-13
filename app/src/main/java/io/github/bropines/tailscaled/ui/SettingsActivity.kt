@@ -939,7 +939,7 @@ fun SettingsScreen(
         val strSettingsLogoutText = stringResource(R.string.settings_logout_text)
         val strSettingsLogoutConfirm = stringResource(R.string.settings_logout_confirm)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showResetDialog = false },
             title = { Text(strSettingsLogoutTitle) },
             text = { Text(strSettingsLogoutText) },
@@ -1076,7 +1076,7 @@ fun SettingsScreen(
             val strBody = stringResource(R.string.settings_honest_hostinfo_dialog_body, strRegisteredAs)
             val strConfirm = stringResource(R.string.settings_honest_hostinfo_create_profile)
             val strCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { showHonestHostinfoDialog = false },
                 icon = { Icon(Icons.Default.Android, contentDescription = null) },
                 title = { Text(strTitle) },
@@ -1285,7 +1285,7 @@ fun SettingsScreen(
             val strSettingsTunWarningBody = stringResource(R.string.settings_tun_warning_body)
             val strSettingsTunWarningConfirm = stringResource(R.string.settings_tun_warning_confirm)
             val strSettingsRootWarningDialogCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { showTunWarningDialog = false },
                 icon = { Icon(Icons.Default.VpnLock, contentDescription = null) },
                 title = { Text(strSettingsTunWarningTitle) },
@@ -1324,7 +1324,7 @@ fun SettingsScreen(
             val strSettingsRootWarningDialogBody = stringResource(R.string.settings_root_warning_dialog_body)
             val strSettingsRootWarningDialogConfirm = stringResource(R.string.settings_root_warning_dialog_confirm)
             val strSettingsRootWarningDialogCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { showRootWarningDialog = false },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1398,7 +1398,7 @@ fun SettingsScreen(
             val strTakeDeviceBody = stringResource(R.string.settings_root_take_device_dialog_body)
             val strTakeDeviceConfirm = stringResource(R.string.settings_root_take_device_confirm)
             val strTakeDeviceCancel = stringResource(R.string.settings_root_warning_dialog_cancel)
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { showTakeDeviceDialog = false },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3295,7 +3295,7 @@ fun SettingsScreen(
         val strSettingsPasswordLabel = stringResource(R.string.settings_password_label)
         val strSettingsBackupAction = stringResource(R.string.settings_backup_action)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showBackupPasswordDialog = false },
             title = { Text(strSettingsBackupPasswordTitle) },
             text = {
@@ -3347,7 +3347,7 @@ fun SettingsScreen(
         val strSettingsPasswordLabel = stringResource(R.string.settings_password_label)
         val strSettingsRestoreAction = stringResource(R.string.settings_restore_action)
         val strActionCancel = stringResource(R.string.action_cancel)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { 
                 showRestorePasswordDialog = false
                 pendingRestoreUri = null

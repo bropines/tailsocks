@@ -564,7 +564,7 @@ fun FilesScreen(
             val strText = stringResource(R.string.taildrop_delete_confirm_text)
             val strDelete = stringResource(R.string.action_delete)
             val strCancel = stringResource(R.string.action_cancel)
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { confirmDelete = null },
                 title = { Text(strTitle) },
                 text = { Text(strText) },
@@ -584,7 +584,7 @@ fun FilesScreen(
             val strText = pluralStringResource(R.plurals.taildrop_history_clear_text, history.size, history.size)
             val strClear = stringResource(R.string.taildrop_history_clear)
             val strCancel = stringResource(R.string.action_cancel)
-            AlertDialog(
+            AppAlertDialog(
                 onDismissRequest = { confirmClear = false },
                 title = { Text(strTitle) },
                 text = { Text(strText) },

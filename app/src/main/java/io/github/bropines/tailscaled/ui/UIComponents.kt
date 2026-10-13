@@ -1811,7 +1811,7 @@ private fun PeerDetailsPage(
                     }
                 }
                 if (reasonShown && taildropNote != null) {
-                    AlertDialog(
+                    AppAlertDialog(
                         onDismissRequest = { reasonShown = false },
                         title = { Text(strings.sendFile) },
                         text = { Text(taildropNote) },

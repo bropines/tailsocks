@@ -104,7 +104,7 @@ class ShareActivity : ComponentActivity() {
                 // This activity's window is see-through, which the theme leaves alone: the
                 // page brings its own background and a television's safe area.
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Box(if (isTv) Modifier.padding(TvSafeArea) else Modifier) {
+                    Box(if (isTv) Modifier.padding(LocalTvSafeArea.current) else Modifier) {
                         PickFilesScreen(
                             source = remember { RealFileSource(this@ShareActivity) },
                             onPicked = { files -> show(ArrayList(files.map(Uri::fromFile))) },

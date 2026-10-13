@@ -51,7 +51,7 @@ fun ChangelogDialog(onDismiss: () -> Unit) {
     val focusSpent = remember { mutableStateOf(false) }
 
     // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {

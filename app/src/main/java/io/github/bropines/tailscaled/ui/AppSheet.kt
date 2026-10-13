@@ -35,7 +35,7 @@ import kotlinx.coroutines.delay
  *
  * On a television it is what the theme cannot do for a sheet, which is a
  * window of its own and outside the safe area laid around a screen
- * ([TvSafeArea]): the sheet stops short of the top edge by that margin and its
+ * ([LocalTvSafeArea]): the sheet stops short of the top edge by that margin and its
  * content ends above the bottom edge by it. And a remote has nothing to drag
  * with, so:
  *  - it has no drag handle, which would be the first stop in every sheet, with
@@ -67,13 +67,14 @@ fun AppModalSheet(
         )
         return
     }
+    val safeArea = LocalTvSafeArea.current
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        modifier = modifier.padding(top = TvSafeArea.calculateTopPadding()),
+        modifier = modifier.padding(top = safeArea.calculateTopPadding()),
         sheetState = sheetState,
         sheetGesturesEnabled = false,
         dragHandle = null,
-        contentWindowInsets = { WindowInsets(bottom = TvSafeArea.calculateBottomPadding()) },
+        contentWindowInsets = { WindowInsets(bottom = safeArea.calculateBottomPadding()) },
         properties = properties,
     ) {
         // The room the handle gave the content above its first line.

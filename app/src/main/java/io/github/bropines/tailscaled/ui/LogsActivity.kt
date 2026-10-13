@@ -699,7 +699,7 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
         val strTitle = stringResource(R.string.tv_logs_saved_title)
         val strWhere = stringResource(R.string.tv_logs_saved_where)
         val strClose = stringResource(R.string.action_close)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { savedPath = null },
             title = { Text(strTitle) },
             text = {

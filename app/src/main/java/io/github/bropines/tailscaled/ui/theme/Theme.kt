@@ -19,12 +19,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.toArgb
 import io.github.bropines.tailscaled.ui.LocalCapabilities
 import io.github.bropines.tailscaled.ui.LocalDeviceClass
-import io.github.bropines.tailscaled.ui.TvSafeArea
+import io.github.bropines.tailscaled.ui.LocalTvSafeArea
+import io.github.bropines.tailscaled.ui.tvSafeArea
 import io.github.bropines.tailscaled.ui.rememberCapabilities
 import io.github.bropines.tailscaled.ui.rememberDeviceClass
 
@@ -396,17 +399,23 @@ private fun DeviceFrame(device: DeviceClass, content: @Composable () -> Unit) {
     val tv = device == DeviceClass.TV
     val view = LocalView.current
     val framed = tv && remember(view) { !view.context.isWindowTranslucent() }
+    // A television's own 48 × 27dp, or 5% of a window that is smaller: a phone with the
+    // TV interface turned on. Handed down for the sheets and dialogs, which pad themselves.
+    val window = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val safeArea = remember(window, density) { with(density) { tvSafeArea(window.width.toDp(), window.height.toDp()) } }
     CompositionLocalProvider(
         LocalDeviceClass provides device,
         LocalCapabilities provides if (tv) rememberCapabilities() else LocalCapabilities.current,
         LocalRippleThemeConfiguration provides
             if (tv) RippleDefaults.InsetFocusRingThemeConfiguration else LocalRippleThemeConfiguration.current,
+        LocalTvSafeArea provides safeArea,
     ) {
         if (framed) {
             // The window's constraints are handed on, so a screen fills the safe
             // area the way it filled the window.
             Box(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(TvSafeArea),
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(safeArea),
                 propagateMinConstraints = true
             ) { content() }
         } else {

@@ -126,7 +126,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     val strSettingsProxyCopyBtn = stringResource(R.string.settings_proxy_copy_btn)
     val strSettingsProxyApply = stringResource(R.string.settings_proxy_apply)
     val strActionCancel = stringResource(R.string.action_cancel)
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strSettingsControlProxyTitle) },
         text = {
@@ -311,7 +311,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
         val strSettingsProxyPresetSaveTitle = stringResource(R.string.settings_proxy_preset_save_title)
         val strSettingsProxyPresetNameLabel = stringResource(R.string.settings_proxy_preset_name_label)
         val strSettingsProxyPresetSaveBtn = stringResource(R.string.settings_proxy_preset_save_btn)
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showSavePresetDialog = false },
             title = { Text(strSettingsProxyPresetSaveTitle) },
             text = {
@@ -469,7 +469,7 @@ fun HelpText(
 @Composable
 private fun SettingsHelpDialog(title: String, text: String, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    AlertDialog(
+    AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
@@ -574,7 +574,7 @@ fun SettingsEditItem(
         ) { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) }
     }
     if (showDialog) {
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { showDialog = false },
             title = { Text(title) },
             text = {
