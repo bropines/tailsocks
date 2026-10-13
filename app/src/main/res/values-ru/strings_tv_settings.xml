@@ -3,17 +3,17 @@
     <string name="tv_settings_advanced">Дополнительно</string>
     <string name="tv_settings_advanced_desc">Тема, Root-режим, резервные копии, диагностика, логи, консоль, DNS, Serve</string>
     <string name="tv_settings_more">Ещё настройки</string>
-    <string name="tv_settings_theme">Тема и значок</string>
-    <string name="tv_settings_theme_desc">Светлая или тёмная, цветовая палитра, значок приложения</string>
+    <string name="tv_settings_theme">Тема и иконка</string>
+    <string name="tv_settings_theme_desc">Светлая или тёмная, цветовая палитра, иконка приложения</string>
     <string name="tv_settings_root">Root-режим</string>
     <string name="tv_settings_root_desc">Для устройства с root: демон работает через su, слот VPN остаётся свободным</string>
 
     <string name="tv_settings_backup_save_title">Куда сохранить копию</string>
     <string name="tv_settings_backup_save_here">Сохранить здесь</string>
-    <string name="tv_settings_backup_pick_title">Выберите файл копии</string>
-    <string name="tv_settings_no_folder_picker">На этом устройстве нет системного выбора папок</string>
+    <string name="tv_settings_backup_pick_title">Выберите файл резервной копии</string>
+    <string name="tv_settings_no_folder_picker">На этом устройстве нет системного окна выбора папки</string>
 
     <string name="tka_waiting_other_device">Подпись подтверждается блокировкой экрана, а у телевизора её нет. Подпишите эти узлы с телефона или компьютера с доверенным ключом.</string>
-    <string name="tka_key_help_show">Ключ этого устройства в Tailnet Lock. Нажмите OK, чтобы показать его кодом для камеры телефона.</string>
-    <string name="tka_sign_me_help_show">Выполните её на устройстве с доверенным ключом, чтобы пустить это устройство в сеть. Нажмите OK, чтобы показать её кодом для камеры телефона.</string>
+    <string name="tka_key_help_show">Ключ этого устройства в Tailnet Lock. Нажмите OK, чтобы показать его QR-кодом для камеры телефона.</string>
+    <string name="tka_sign_me_help_show">Выполните её на устройстве с доверенным ключом, чтобы пустить это устройство в сеть. Нажмите OK, чтобы показать её QR-кодом для камеры телефона.</string>
 </resources>

@@ -22,6 +22,6 @@
 
     <!-- Tailnet Lock on a device that cannot confirm a signature. -->
     <string name="tka_waiting_other_device">A signature is confirmed with the screen lock, and a TV has none. Sign these nodes from a phone or a computer that holds a trusted key.</string>
-    <string name="tka_key_help_show">This device\'s own key in Tailnet Lock. Press OK to show it as a code for a phone\'s camera.</string>
-    <string name="tka_sign_me_help_show">Run it on a device with a trusted key to let this device in. Press OK to show it as a code for a phone\'s camera.</string>
+    <string name="tka_key_help_show">This device\'s own key in Tailnet Lock. Press OK to show it as a QR code for a phone\'s camera.</string>
+    <string name="tka_sign_me_help_show">Run it on a device with a trusted key to let this device in. Press OK to show it as a QR code for a phone\'s camera.</string>
 </resources>
