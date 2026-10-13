@@ -144,10 +144,32 @@ class RemoteClient(
 ) {
     private val session = RemoteSession(api, tokens, profileId, peerId, now)
 
+    /** The peer within its account: a StableNodeID means something only under one control server. */
+    val key: String get() = "$profileId/$peerId"
+
     /** The stored pairing, if this device holds one for the peer. */
     fun pairing(): RemotePairingRecord? = session.pairing()
 
     fun pair(code: String, tv: Boolean = false): RemotePairAnswer = session.pair(code, tv)
+
+    /**
+     * Whether the peer takes management at all: the one small question that needs no pairing
+     * and gives up after four seconds, where every other request waits twelve. What it says of
+     * itself comes back; a refusal is one of [ManagedRefusal.NOT_CONNECTED],
+     * [ManagedRefusal.NO_PEER] and [ManagedRefusal.UNREACHABLE] — the last also for something
+     * on that port that is not a TailSocks.
+     */
+    fun reach(): ManagedResult<RemoteProbe> {
+        val probe = runCatching { api.probe(peerId) }.getOrElse { RemoteProbe(error = "unreachable") }
+        if (probe.ok) return ManagedResult.Ok(probe)
+        return ManagedResult.Failed(
+            when (probe.error) {
+                "not_connected" -> ManagedRefusal.NOT_CONNECTED
+                "no_peer" -> ManagedRefusal.NO_PEER
+                else -> ManagedRefusal.UNREACHABLE
+            }
+        )
+    }
 
     /** A scanned pairing code, or null when the text is not one. */
     fun parseQr(text: String): RemoteQr? = runCatching { api.parseQr(text) }.getOrNull()
@@ -199,6 +221,18 @@ class RemoteClient(
     fun unpair(): ManagedResult<Unit> = when (session.unpair()) {
         is RemoteResult.Ok -> ManagedResult.Ok(Unit)
         is RemoteResult.Failed -> ManagedResult.Failed(ManagedRefusal.UNREACHABLE)
+    }
+
+    /**
+     * Forgets the device here and asks it nothing: for one that is known to be out of reach,
+     * where the asking would only be a wait. The pairing comes back so that the device can
+     * still be told ([tellForgotten]); null when there was none.
+     */
+    fun forgetHere(): RemotePairingRecord? = pairing()?.also { tokens.remove(profileId, peerId) }
+
+    /** Tells the device that a pairing dropped by [forgetHere] is over. Nothing depends on the answer. */
+    fun tellForgotten(record: RemotePairingRecord) {
+        runCatching { api.post(peerId, record.token, RemotePaths.UNPAIR, "") }
     }
 
     private inline fun <reified T> get(path: String): ManagedResult<T> = call(path, null)

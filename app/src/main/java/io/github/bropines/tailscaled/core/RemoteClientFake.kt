@@ -12,6 +12,9 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 
 /*
  * A managed device that is not there: the contract's own example answers
@@ -169,6 +172,9 @@ object RemoteContract {
  *
  * [reachable] off, nothing comes back, as from a device whose route was cut; [script] queues
  * an answer for a route ahead of the device's own, for the refusals it would not give itself.
+ * The tailnet around it is here too, as the bridge on the managing side answers for it:
+ * [inTailnet] off, the device is no peer of this one's any more, and [connected] off, this
+ * one's own TailSocks is down — either way the request is refused before it leaves.
  */
 class FakeManagedDevice(
     private val clock: () -> Long = { 0L },
@@ -183,10 +189,19 @@ class FakeManagedDevice(
         override fun toString() = if (body.isEmpty()) "$method $path" else "$method $path $body"
     }
 
-    /** Everything that was asked, in order — whether or not it got through. */
-    val sent = ArrayList<Request>()
+    /**
+     * Everything that was asked, in order — whether or not it got through. The small question
+     * that needs no pairing ("GET /v1/hello") is in it; the pairing itself is not.
+     */
+    val sent: MutableList<Request> = CopyOnWriteArrayList()
 
     var reachable = true
+    /** The device is a peer in the managing device's network map. */
+    var inTailnet = true
+    /** The managing device's own TailSocks is connected. */
+    var connected = true
+    /** What the device says of a pairing code in its hello: one is on show. */
+    var codeOnShow = true
     /** What the device answers to a permission request and to identify: "shown", "notified", "waiting" / "unseen". */
     var permissionResult = "shown"
     var identifyResult = "shown"
@@ -211,6 +226,8 @@ class FakeManagedDevice(
         put("/storage/emulated/0/Movies", """{"path": "/storage/emulated/0/Movies", "parent": "/storage/emulated/0", "entries": [], "truncated": false, "limited": false}""")
     }
     private val scripted = HashMap<String, ArrayDeque<RemoteAnswer>>()
+    private val pairAnswers = ArrayDeque<RemotePairAnswer>()
+    private val held = ConcurrentHashMap<String, CountDownLatch>()
 
     private class Pending(val id: String, val key: String, val deadline: Long, val notBefore: Long, val original: String, val revert: () -> Unit)
     private var pending: Pending? = null
@@ -224,9 +241,30 @@ class FakeManagedDevice(
     // ─── Shaping the device ──────────────────────────────────────────────────────────────
 
     /** Answers queued for "GET /v1/status"-style [route], taken one per request before the device's own. */
-    fun script(route: String, vararg answers: RemoteAnswer) {
+    fun script(route: String, vararg answers: RemoteAnswer) = synchronized(this) {
         scripted.getOrPut(route) { ArrayDeque() }.addAll(answers)
     }
+
+    /** Answers to the next pairing attempts, ahead of the device's own "paired": a wrong code, a code that ran out. */
+    fun scriptPair(vararg answers: RemotePairAnswer) = synchronized(this) {
+        pairAnswers.addAll(answers)
+    }
+
+    /**
+     * Requests to [route] wait where they arrive until [release]: an answer that takes its
+     * time, for a test that looks at the page meanwhile. Only for a page whose requests run on
+     * threads of their own.
+     */
+    fun hold(route: String) {
+        held[route] = CountDownLatch(1)
+    }
+
+    fun release(route: String) {
+        held.remove(route)?.countDown()
+    }
+
+    /** Lets every held request go: nothing is left waiting when a test is over. */
+    fun releaseAll() = held.keys.toList().forEach(::release)
 
     /**
      * Another caller, level or build. [caps] null makes it the first build: no `caps`, no
@@ -321,11 +359,25 @@ class FakeManagedDevice(
 
     // ─── RemotePeerApi ───────────────────────────────────────────────────────────────────
 
-    override fun probe(peerId: String) = RemoteProbe(ok = reachable, api = 1, deviceClass = status.text("deviceClass"), name = status.text("name"), pairing = true)
+    override fun probe(peerId: String): RemoteProbe {
+        arrive(Request("GET", HELLO))
+        return synchronized(this) {
+            val gone = away()
+            // A scripted answer that is not a 200: something else holds the port, or the device says no.
+            val told = if (gone == null) scripted["GET $HELLO"]?.removeFirstOrNull()?.takeIf { it.status != 200 } else null
+            when {
+                gone != null -> RemoteProbe(error = gone)
+                told != null -> RemoteProbe(error = told.error.ifEmpty { "not_offered" })
+                else -> RemoteProbe(ok = true, api = 1, deviceClass = status.text("deviceClass"), name = status.text("name"), pairing = codeOnShow)
+            }
+        }
+    }
 
-    override fun pair(peerId: String, code: String): RemotePairAnswer =
-        if (!reachable) RemotePairAnswer(error = "unreachable")
-        else RemotePairAnswer(ok = true, status = 200, token = token, role = you().text("class"), left = -1, name = status.text("name"))
+    override fun pair(peerId: String, code: String): RemotePairAnswer = synchronized(this) {
+        away()?.let { return RemotePairAnswer(error = it) }
+        pairAnswers.removeFirstOrNull()
+            ?: RemotePairAnswer(ok = true, status = 200, token = token, role = you().text("class"), left = -1, name = status.text("name"))
+    }
 
     override fun parseQr(text: String): RemoteQr? = null
 
@@ -333,10 +385,28 @@ class FakeManagedDevice(
 
     override fun post(peerId: String, token: String, path: String, body: String): RemoteAnswer = handle(Request("POST", path, body), token)
 
-    private fun handle(request: Request, token: String): RemoteAnswer {
+    /** Why nothing comes back, in the bridge's word; null when the device can be reached. */
+    private fun away(): String? = when {
+        !connected -> "not_connected"
+        !inTailnet -> "no_peer"
+        !reachable -> "unreachable"
+        else -> null
+    }
+
+    /** A request is noted as it arrives, and waits there while its route is held. */
+    private fun arrive(request: Request) {
         sent += request
+        held["${request.method} ${request.path}"]?.await()
+    }
+
+    private fun handle(request: Request, token: String): RemoteAnswer {
+        arrive(request)
+        return synchronized(this) { answer(request, token) }
+    }
+
+    private fun answer(request: Request, token: String): RemoteAnswer {
         expire()
-        if (!reachable) return RemoteAnswer(status = 0, error = "unreachable")
+        away()?.let { return RemoteAnswer(status = 0, error = it) }
         scripted["${request.method} ${request.path}"]?.removeFirstOrNull()?.let { return it }
         if (token != this.token) return refuse(401, "unauthorized")
         val body = if (request.body.isBlank()) JsonObject(emptyMap()) else runCatching { parse(request.body) }.getOrNull()
@@ -667,6 +737,9 @@ class FakeManagedDevice(
 
         /** How many entries of a folder one answer carries (§10). */
         const val STORAGE_PAGE = 500
+
+        /** The route open to any node of the tailnet: what [RemotePeerApi.probe] asks. */
+        const val HELLO = "/v1/hello"
 
         /** What a status carries that the first build's does not. */
         private val LATER_FIELDS = setOf("caps", "level", "guard", "device", "advertise", "fetch", "app")

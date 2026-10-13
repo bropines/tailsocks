@@ -338,6 +338,8 @@ data class RemotePairingRecord(
     val expiresAt: Long = 0,
     /** The device said it is a television when it was paired: for its glyph while it is away. */
     val tv: Boolean = false,
+    /** This phone's clock, milliseconds, when it was paired; 0 in a record kept before this was noted. */
+    val pairedAt: Long = 0,
 )
 
 /**
@@ -448,6 +450,7 @@ class RemoteSession(
             owner = answer.role == REMOTE_CLASS_OWNER,
             expiresAt = if (answer.left >= 0) now() + answer.left * 1000 else 0,
             tv = tv,
+            pairedAt = now(),
         )
         if (!tokens.put(profileId, peerId, record)) {
             api.post(peerId, answer.token, RemotePaths.UNPAIR, "")

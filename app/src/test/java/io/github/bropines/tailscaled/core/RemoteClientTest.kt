@@ -517,6 +517,70 @@ class RemoteClientTest {
         assertNull(client.pairing())
     }
 
+    @Test
+    fun aDeviceKnownToBeAwayIsForgottenHereFirstAndToldAfterwards() {
+        paired()
+        device.reachable = false
+        val record = client.forgetHere()
+        // Gone from here with nothing sent; the pairing comes back for the telling.
+        assertEquals(device.token, record?.token)
+        assertNull(client.pairing())
+        assertTrue(device.sent.isEmpty())
+        client.tellForgotten(record!!)
+        assertEquals(listOf("POST /v1/unpair"), device.sent.map { it.toString() })
+        // Nothing to forget, nothing to tell.
+        assertNull(client.forgetHere())
+    }
+
+    @Test
+    fun theSmallQuestionNeedsNoPairingAndNamesWhyNothingCameBack() {
+        device.codeOnShow = false
+        val hello = client.reach().ok()
+        assertTrue(hello.tv)
+        assertFalse(hello.pairing)
+        assertEquals("living-room-tv", hello.name)
+        assertEquals(listOf("GET /v1/hello"), device.sent.map { it.toString() })
+
+        device.reachable = false
+        assertEquals(ManagedRefusal.UNREACHABLE, client.reach().refusal())
+        device.inTailnet = false
+        assertEquals(ManagedRefusal.NO_PEER, client.reach().refusal())
+        device.connected = false
+        assertEquals(ManagedRefusal.NOT_CONNECTED, client.reach().refusal())
+
+        // Something that is not a TailSocks answers on that port: nobody to manage either.
+        device.connected = true
+        device.inTailnet = true
+        device.reachable = true
+        device.script("GET /v1/hello", FakeManagedDevice.refusal(404, "not_found"))
+        assertEquals(ManagedRefusal.UNREACHABLE, client.reach().refusal())
+        client.reach().ok()
+    }
+
+    @Test
+    fun theRequestsOfADeviceThatLeftTheTailnetAreRefusedBeforeTheyLeave() {
+        paired()
+        device.inTailnet = false
+        assertEquals(ManagedRefusal.NO_PEER, client.status().refusal())
+        assertEquals(RemotePairFailure.NO_PEER, client.pair("483902").failure())
+        // Nothing refused the token: the pairing stays until a person forgets it.
+        assertNotNull(client.pairing())
+        device.inTailnet = true
+        device.connected = false
+        assertEquals(ManagedRefusal.NOT_CONNECTED, client.status().refusal())
+        assertEquals(RemotePairFailure.NOT_CONNECTED, client.pair("483902").failure())
+    }
+
+    @Test
+    fun aPairingNotesWhenItWasMade() {
+        assertTrue(client.pair("483902").ok)
+        assertEquals(clock, client.pairing()?.pairedAt)
+        assertEquals("default/nKq7Xw2CNTRL", client.key)
+        // A pairing kept by a build that did not note it reads as "not known".
+        val old = AppJson.decodeFromString(RemotePairingRecord.serializer(), """{"token":"t","name":"tv","owner":true}""")
+        assertEquals(0L, old.pairedAt)
+    }
+
     // ─── The device of the contract ──────────────────────────────────────────────────────────
 
     @Test
