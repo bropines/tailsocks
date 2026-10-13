@@ -241,13 +241,18 @@ type remoteManager struct {
 	global  *remoteLimiter // every request, before whois
 	perNode *remoteLimiter // per calling node
 	pairs   *remoteLimiter // pairing attempts per calling node
+	asks    *remoteLimiter // requests for a permission's page per calling node
 
 	// delegateSlot serialises calls into the app; delegateWait is how long a
 	// request waits for its turn and delegateAnswer how long for the answer of
-	// a call that has started. See callDelegate.
+	// a call that has started. See callDelegate. reportWait and reportAnswer
+	// are the same two for the app's report, which a status answer carries
+	// when it is to be had and never waits long for.
 	delegateSlot   chan struct{}
 	delegateWait   time.Duration
 	delegateAnswer time.Duration
+	reportWait     time.Duration
+	reportAnswer   time.Duration
 
 	mu        sync.Mutex
 	enabled   bool
@@ -268,6 +273,10 @@ type remoteManager struct {
 	// not kept.
 	facts       map[string]string
 	delegateGen uint64
+	// report is the app's last account of itself (remote_app.go), reused for
+	// remoteReportTTL: a status answer is what a phone polls.
+	report   *remoteAppReport
+	reportAt time.Time
 }
 
 func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI) *remoteManager {
@@ -280,9 +289,12 @@ func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI
 		global:         newRemoteLimiter(40, 80),
 		perNode:        newRemoteLimiter(8, 24),
 		pairs:          newRemoteLimiter(1, 3),
+		asks:           newRemoteLimiter(remoteAskRate, remoteAskBurst),
 		delegateSlot:   make(chan struct{}, 1),
 		delegateWait:   remoteDelegateWait,
 		delegateAnswer: remoteDelegateAnswer,
+		reportWait:     remoteReportWait,
+		reportAnswer:   remoteReportAnswer,
 	}
 }
 
@@ -312,6 +324,7 @@ func (m *remoteManager) setDelegate(d RemoteDelegate) {
 	m.delegate = d
 	m.delegateGen++
 	m.facts = nil
+	m.report, m.reportAt = nil, time.Time{}
 	m.rev++
 	m.mu.Unlock()
 }

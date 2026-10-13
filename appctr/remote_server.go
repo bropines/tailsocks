@@ -60,6 +60,7 @@ type remoteRoute struct {
 // signs out, touches an account, a key or a credential, or returns a file —
 // and none that returns the log: it quotes auth keys, sign-in links, proxy
 // credentials and paths in more forms than a filter can be trusted to know.
+// None grants a permission either: the last one asks the app to show a page.
 var remoteRoutes = []remoteRoute{
 	{"GET", "/v1/hello", "", (*remoteManager).handleHello},
 	{"POST", "/v1/pair", "", (*remoteManager).handlePair},
@@ -72,6 +73,7 @@ var remoteRoutes = []remoteRoute{
 	{"POST", "/v1/actions", remoteOpAction, (*remoteManager).handleAction},
 	{"GET", "/v1/files", remoteOpFiles, (*remoteManager).handleFiles},
 	{"POST", "/v1/files/delete", remoteOpDeleteFile, (*remoteManager).handleDeleteFile},
+	{"POST", "/v1/permissions/request", remoteOpAskPermission, (*remoteManager).handleAskPermission},
 }
 
 // remoteError is the body of every refusal: a fixed word a client can switch
@@ -319,6 +321,8 @@ var (
 	errRemoteBusy       = errors.New("the app is busy; nothing was changed")
 	// Made, and not back yet. Nobody can say what came of it.
 	errRemotePending = errors.New("the app has not answered; the change may still be applied")
+	// Made and answered, in a word that is not one of the answers.
+	errRemoteBadAnswer = errors.New("the app answered with something else; what it did is not known")
 )
 
 // remoteCallResult is what a call into the app came back with.
@@ -342,13 +346,19 @@ type remoteCallResult struct {
 // app refuses what comes next instead of collecting calls it may carry out
 // all at once later.
 func (m *remoteManager) callDelegate(f func(d RemoteDelegate) (string, error)) (v string, late <-chan remoteCallResult, err error) {
+	return m.callDelegateWithin(m.delegateWait, m.delegateAnswer, f)
+}
+
+// callDelegateWithin is callDelegate with waits of the caller's choosing: how
+// long for the app to be free, how long for its answer.
+func (m *remoteManager) callDelegateWithin(free, answered time.Duration, f func(d RemoteDelegate) (string, error)) (v string, late <-chan remoteCallResult, err error) {
 	m.mu.Lock()
 	d := m.delegate
 	m.mu.Unlock()
 	if d == nil {
 		return "", nil, errRemoteNoDelegate
 	}
-	wait := time.NewTimer(m.delegateWait)
+	wait := time.NewTimer(free)
 	select {
 	case m.delegateSlot <- struct{}{}:
 		wait.Stop()
@@ -366,7 +376,7 @@ func (m *remoteManager) callDelegate(f func(d RemoteDelegate) (string, error)) (
 		v, err := f(d)
 		done <- remoteCallResult{v, err}
 	}()
-	answer := time.NewTimer(m.delegateAnswer)
+	answer := time.NewTimer(answered)
 	defer answer.Stop()
 	select {
 	case r := <-done:
@@ -385,6 +395,8 @@ func remoteDelegateRefusal(err error) (int, any) {
 		return http.StatusServiceUnavailable, remoteError{Error: "unavailable", Message: err.Error()}
 	case errors.Is(err, errRemotePending):
 		return http.StatusGatewayTimeout, remoteError{Error: "pending", Message: err.Error()}
+	case errors.Is(err, errRemoteBadAnswer):
+		return http.StatusBadGateway, remoteError{Error: "failed", Message: err.Error()}
 	}
 	return http.StatusConflict, remoteError{Error: "refused", Message: remoteClean(err.Error(), 200)}
 }
@@ -392,11 +404,28 @@ func remoteDelegateRefusal(err error) (int, any) {
 // change makes one change through the app, writes it to the action log as what
 // it turned out to be, and answers the same.
 func (m *remoteManager) change(rq *remoteRequest, op, detail string, f func(d RemoteDelegate) error) (int, any) {
-	_, late, err := m.callDelegate(func(d RemoteDelegate) (string, error) { return "", f(d) })
+	_, status, v := m.changeTold(rq, op, detail, func(d RemoteDelegate) (string, error) { return "", f(d) }, nil)
+	return status, v
+}
+
+// changeTold is change for a call whose answer says more than "done". told
+// reads the app's word: what to add to the line of the action log, or that the
+// word is not one the bridge knows — and then nobody can say what was done.
+// The word comes back only with a 200.
+func (m *remoteManager) changeTold(rq *remoteRequest, op, detail string, f func(d RemoteDelegate) (string, error), told func(v string) (string, bool)) (string, int, any) {
+	v, late, err := m.callDelegate(f)
+	if err == nil && told != nil {
+		if more, ok := told(v); ok {
+			detail += more
+		} else {
+			err = errRemoteBadAnswer
+		}
+	}
 	switch {
 	case err == nil:
 		m.record(rq, op, detail, true)
-		return http.StatusOK, struct{}{}
+		m.forgetReport()
+		return v, http.StatusOK, struct{}{}
 	case errors.Is(err, errRemotePending):
 		// Neither done nor failed. The log says so now and says the rest when
 		// the app comes back, however long after this request is over.
@@ -407,13 +436,18 @@ func (m *remoteManager) change(rq *remoteRequest, op, detail string, f func(d Re
 			} else {
 				m.record(rq, op, detail+" (failed late)", false)
 			}
+			m.forgetReport()
 		}()
 	case errors.Is(err, errRemoteNoDelegate), errors.Is(err, errRemoteBusy):
 		m.record(rq, op, detail+" (not asked of the app)", false)
+	case errors.Is(err, errRemoteBadAnswer):
+		m.record(rq, op, detail+" (the app's answer was not understood)", false)
+		m.forgetReport()
 	default:
 		m.record(rq, op, detail, false)
 	}
-	return remoteDelegateRefusal(err)
+	status, body := remoteDelegateRefusal(err)
+	return "", status, body
 }
 
 // cachedFact returns a read-only setting if the app has already told it, and
@@ -529,6 +563,9 @@ type remoteExitNode struct {
 	Selected bool   `json:"selected,omitempty"`
 	Country  string `json:"country,omitempty"`
 	City     string `json:"city,omitempty"`
+	// Suggested marks, in the list of /v1/exit-nodes, the one this device's
+	// own daemon would pick. At most one, and none when it has no opinion.
+	Suggested bool `json:"suggested,omitempty"`
 }
 
 type remoteYou struct {
@@ -557,6 +594,10 @@ type remoteStatus struct {
 	// Since is when the daemon started, Unix seconds, 0 when not known.
 	Since int64     `json:"since"`
 	You   remoteYou `json:"you"`
+	// App is what the app says of itself — permissions, where received files
+	// go, the folders it shares — as far as this caller may know; absent when
+	// the app did not say in time. See remote_app.go.
+	App *remoteAppReport `json:"app,omitempty"`
 }
 
 func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
@@ -589,6 +630,7 @@ func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
 			st.ExitNode.Name, st.ExitNode.Country, st.ExitNode.City = n.Name, n.Country, n.City
 		}
 	}
+	st.App = m.appReport(rq.class)
 	return http.StatusOK, st
 }
 
@@ -682,9 +724,33 @@ func (m *remoteManager) handleExitNodes(rq *remoteRequest) (int, any) {
 	if err != nil {
 		return http.StatusServiceUnavailable, remoteError{Error: "unavailable"}
 	}
+	if id := m.suggestedExitNode(); id != "" {
+		// A copy: the list itself is kept for naming the exit node in a status.
+		nodes = append([]remoteExitNode(nil), nodes...)
+		for i := range nodes {
+			nodes[i].Suggested = nodes[i].ID == id && nodes[i].Online
+		}
+	}
 	return http.StatusOK, struct {
 		Nodes []remoteExitNode `json:"nodes"`
 	}{nodes}
+}
+
+// suggestedExitNode asks the daemon which exit node it would pick for this
+// device — LocalAPI suggest-exit-node, what `tailscale exit-node suggest`
+// prints — and returns its id; "" when the daemon names none: no relay
+// measured yet, or no node the tailnet recommends. The answer only marks a
+// node of the list: choosing it is still /v1/exit-node with that node's id.
+func (m *remoteManager) suggestedExitNode() string {
+	raw, err := m.api.get("/localapi/v0/suggest-exit-node")
+	if err != nil {
+		return ""
+	}
+	var s struct{ ID string }
+	if json.Unmarshal(raw, &s) != nil || !remoteIsNodeID(s.ID) {
+		return ""
+	}
+	return s.ID
 }
 
 func (m *remoteManager) handleSetExitNode(rq *remoteRequest) (int, any) {
@@ -729,6 +795,9 @@ type remoteSettingView struct {
 	// Writable: the setting can be changed, and by this caller.
 	Writable bool   `json:"writable"`
 	Value    string `json:"value"`
+	// Only, on a switch, is the one value that may be written to it from
+	// afar — "true" or "false"; the other way round is done at the device.
+	Only string `json:"only,omitempty"`
 	// Error is set, and Value empty, when the app could not say.
 	Error string `json:"error,omitempty"`
 }
@@ -737,7 +806,7 @@ func (m *remoteManager) handleSettings(rq *remoteRequest) (int, any) {
 	mayWrite := m.policy.allows(remoteOpSetSetting, rq.class)
 	out := []remoteSettingView{}
 	for _, s := range remoteSettings {
-		v := remoteSettingView{Key: s.key, Kind: s.kind, Writable: s.writable && mayWrite}
+		v := remoteSettingView{Key: s.key, Kind: s.kind, Writable: s.writable && mayWrite, Only: s.only}
 		if !s.writable {
 			v.Value = m.fact(s.key)
 		} else {
@@ -787,6 +856,11 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 	}
 	if !remoteValueFits(s, in.Value) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request", Message: "not a value for this setting"}
+	}
+	if s.only != "" && in.Value != s.only {
+		// The app is not asked: from afar this switch goes one way.
+		m.noteDenied(rq.caller, rq.class, "only at the device: "+s.key+"="+in.Value)
+		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "that way round, only at the device"}
 	}
 	return m.change(rq, "setting", s.key+"="+in.Value, func(d RemoteDelegate) error {
 		return d.SetSetting(s.key, in.Value)

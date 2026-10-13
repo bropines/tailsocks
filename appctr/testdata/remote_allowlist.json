@@ -1,0 +1,69 @@
+{
+  "settings": [
+    "accept_dns",
+    "accept_routes",
+    "exit_node_lan_access",
+    "auto_reconnect=true",
+    "taildrive_enabled=false",
+    "taildrive_proxy_enabled=false"
+  ],
+  "readOnly": [
+    "device_class",
+    "app_version"
+  ],
+  "actions": [
+    "reconnect",
+    "receive_folder_default"
+  ],
+  "permissions": [
+    "storage",
+    "notifications",
+    "battery",
+    "vpn",
+    "alarms",
+    "install",
+    "autostart"
+  ],
+  "askable": [
+    "storage",
+    "notifications",
+    "battery",
+    "alarms",
+    "install",
+    "autostart"
+  ],
+  "askResults": [
+    "notified",
+    "shown",
+    "waiting"
+  ],
+  "routes": [
+    "GET /v1/hello",
+    "POST /v1/pair",
+    "POST /v1/unpair",
+    "GET /v1/status",
+    "GET /v1/exit-nodes",
+    "POST /v1/exit-node",
+    "GET /v1/settings",
+    "POST /v1/settings",
+    "POST /v1/actions",
+    "GET /v1/files",
+    "POST /v1/files/delete",
+    "POST /v1/permissions/request"
+  ],
+  "rights": {
+    "action": "owner",
+    "exit_node.set": "guest",
+    "exit_nodes": "guest",
+    "files": "guest",
+    "files.delete": "owner",
+    "folders": "owner",
+    "permission.request": "owner",
+    "settings": "guest",
+    "settings.set": "owner",
+    "status": "guest",
+    "unpair": "guest"
+  },
+  "report": "report",
+  "ask": "permission_request"
+}

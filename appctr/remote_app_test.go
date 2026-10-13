@@ -162,8 +162,8 @@ func TestRemoteAppAnswerIsWhatHappened(t *testing.T) {
 	if writes != "set accept_routes=true,set accept_routes=false,set accept_routes=true" {
 		t.Errorf("calls the app has seen: %s", writes)
 	}
-	// Status needs nothing from the app and still answers.
-	if a := r.call(rtPhone, "GET", "/v1/status", token, nil); a.status != 200 {
+	// Status does not wait for the app: it answers, without the app's report.
+	if a := r.call(rtPhone, "GET", "/v1/status", token, nil); a.status != 200 || a.obj["app"] != nil {
 		t.Errorf("status while the app hangs: %d %s", a.status, a.raw)
 	}
 
@@ -270,7 +270,8 @@ func TestRemoteNoTokenNoCallIntoTheApp(t *testing.T) {
 	if a := r.call(rtFriend, "GET", "/v1/hello", "", nil); a.str("deviceClass") != "tv" {
 		t.Errorf("hello after the app was asked: %s", a.raw)
 	}
-	if got := strings.Join(r.app.called(), ","); got != "get device_class,get app_version,get app_version,get device_class" {
+	// The status asked for the two facts again, and for the app's report.
+	if got := strings.Join(r.app.called(), ","); got != "get device_class,get app_version,get app_version,get device_class,get report" {
 		t.Errorf("calls: %s", got)
 	}
 }

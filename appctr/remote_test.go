@@ -90,8 +90,12 @@ type remoteFakeDaemon struct {
 	noSelf bool
 	tun    bool
 	health []string
-	whois  int
-	status int
+	// suggest is the exit node the daemon would pick; noSuggest makes the
+	// question itself fail, as before the first relay measurement.
+	suggest   string
+	noSuggest bool
+	whois     int
+	status    int
 }
 
 func newRemoteFakeDaemon() *remoteFakeDaemon {
@@ -176,6 +180,13 @@ func (d *remoteFakeDaemon) get(path string) ([]byte, error) {
 	if u.Path == "/localapi/v0/status" {
 		d.status++
 		return d.statusLocked(u.Query().Get("peers") != "false")
+	}
+	if u.Path == "/localapi/v0/suggest-exit-node" {
+		if d.noSuggest {
+			return nil, errors.New("HTTP 500: no preferred DERP, try again later")
+		}
+		// With nothing to recommend the daemon answers 200 and an empty id.
+		return json.Marshal(apitype.ExitNodeSuggestionResponse{ID: tailcfg.StableNodeID(d.suggest), Name: "suggested"})
 	}
 	return nil, fmt.Errorf("HTTP 404: no such LocalAPI path %s", u.Path)
 }
@@ -284,17 +295,49 @@ type remoteFakeApp struct {
 	calls    []string
 	fail     error
 	block    chan struct{}
+	// report is what the app says of itself, as JSON; askResult is what it
+	// answers after a request for a permission's page, and asked the request
+	// as it arrived.
+	report    string
+	askResult string
+	asked     string
 }
 
+// rtReport is a television's report: no access to storage, so its own folder
+// cannot be written; one file the folder took earlier; one shared folder.
+const rtReport = `{
+ "permissions":[
+  {"id":"install","state":"missing","ask":true},
+  {"id":"storage","state":"missing","ask":true},
+  {"id":"notifications","state":"granted","ask":true},
+  {"id":"battery","state":"na","ask":true},
+  {"id":"vpn","state":"missing","ask":true},
+  {"id":"alarms","state":"granted","ask":false},
+  {"id":"autostart","state":"unknown","ask":false},
+  {"id":"camera","state":"granted","ask":true},
+  {"id":"storage","state":"granted","ask":false}],
+ "receive":{"state":"needs_access","folder":"Movies/From phone","reset":true},
+ "saved":[{"name":"holiday.mp4","size":812647424,"time":1791727380,"folder":"Download/Taildrop"}],
+ "folders":[{"name":"Downloads","path":"/storage/emulated/0/Download"}],
+ "folderCount":7,
+ "logTail":"up --auth-key=tskey-auth-abc"}`
+
 func newRemoteFakeApp() *remoteFakeApp {
-	return &remoteFakeApp{settings: map[string]string{
-		"accept_dns":           "true",
-		"accept_routes":        "false",
-		"exit_node_lan_access": "false",
-		"device_class":         "tv",
-		"app_version":          "4.11.0",
-		RemoteKeyExitNode:      "",
-	}}
+	return &remoteFakeApp{
+		settings: map[string]string{
+			"accept_dns":              "true",
+			"accept_routes":           "false",
+			"exit_node_lan_access":    "false",
+			"auto_reconnect":          "false",
+			"taildrive_enabled":       "true",
+			"taildrive_proxy_enabled": "true",
+			"device_class":            "tv",
+			"app_version":             "4.11.0",
+			RemoteKeyExitNode:         "",
+		},
+		report:    rtReport,
+		askResult: "shown",
+	}
 }
 
 func (a *remoteFakeApp) note(call string) error {
@@ -316,6 +359,12 @@ func (a *remoteFakeApp) GetSetting(k string) (string, error) {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	switch k {
+	case remoteKeyReport:
+		return a.report, nil
+	case remoteKeyAsk:
+		return a.askResult, nil
+	}
 	v, ok := a.settings[k]
 	if !ok {
 		return "", errors.New("unknown setting " + k)
@@ -329,6 +378,10 @@ func (a *remoteFakeApp) SetSetting(k, v string) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if k == remoteKeyAsk {
+		a.asked = v
+		return nil
+	}
 	if _, ok := a.settings[k]; !ok {
 		return errors.New("unknown setting " + k)
 	}
@@ -340,10 +393,17 @@ func (a *remoteFakeApp) PerformAction(name string) error {
 	if err := a.note("action " + name); err != nil {
 		return err
 	}
-	if name != "reconnect" {
+	if name != "reconnect" && name != "receive_folder_default" {
 		return errors.New("unknown action " + name)
 	}
 	return nil
+}
+
+// set changes what the fake app would answer.
+func (a *remoteFakeApp) set(f func(a *remoteFakeApp)) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	f(a)
 }
 
 func (a *remoteFakeApp) called() []string {
@@ -393,6 +453,7 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	r.m.global = newRemoteLimiter(1e6, 1e6)
 	r.m.perNode = newRemoteLimiter(1e6, 1e6)
 	r.m.pairs = newRemoteLimiter(1e6, 1e6)
+	r.m.asks = newRemoteLimiter(1e6, 1e6)
 	r.m.taildropDir = func() string { return "" }
 	// As SetRemoteDelegate does, but here and now rather than on a thread of
 	// its own, so that a test knows which calls the app has seen.
@@ -426,9 +487,10 @@ func (r *remoteRig) restart() {
 	r.m.configure(false, "")
 	policy := r.m.policy
 	m := newRemoteManager(policy, r.clock, r.d)
-	m.global, m.perNode, m.pairs = r.m.global, r.m.perNode, r.m.pairs
+	m.global, m.perNode, m.pairs, m.asks = r.m.global, r.m.perNode, r.m.pairs, r.m.asks
 	m.taildropDir = r.m.taildropDir
 	m.delegateWait, m.delegateAnswer = r.m.delegateWait, r.m.delegateAnswer
+	m.reportWait, m.reportAnswer = r.m.reportWait, r.m.reportAnswer
 	m.setDelegate(r.app)
 	m.loadFacts()
 	r.m = m

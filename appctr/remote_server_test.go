@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -28,16 +29,99 @@ var rtNever = []string{
 	"ShieldsUp", "cp_enabled", "cp_host", "cp_byedpi_enabled", "cp_byedpi_flags", "honest_hostinfo",
 	// root mode, and what needs a dialog or a gesture on the device
 	"root_mode_enabled", "root_tun_enabled", "root_dns_redirect", "root_vpn_bypass", "tun_mode_enabled", "tun_engine",
-	"tun_excluded_apps", "taildrop_root_uri", "taildrive_enabled", "taildrive_shares", "storage_permission",
+	"tun_excluded_apps", "taildrop_root_uri", "taildrop_folder_path", "taildrive_shares", "storage_permission",
+	"storage", "vpn", "grant", "grant_permission", "permission",
 	// serving this device to others
-	"serve", "funnel", "serve_config",
-	// this feature itself
-	"remote_management", "remote_pair", "remote_revoke", "pairing_code",
-	// backups, updates, lifecycle switches
+	"serve", "funnel", "serve_config", "taildrive_proxy_ip", "taildrive_proxy_port", "taildrive_proxy_auth_enabled",
+	"taildrive_proxy_username",
+	// this feature itself, and the two keys the bridge keeps for its own calls into the app
+	"remote_management", "remote_pair", "remote_revoke", "pairing_code", remoteKeyReport, remoteKeyAsk,
+	// backups, updates, lifecycle switches, what the device looks like to the person in front of it
 	"backup_export", "backup_import", "update", "install_update", "auto_start", "force_bg", "service_watchdog",
+	"auto_reconnect_attempts", "app_locale", "ui_device_override", "show_message", "message",
 	// odd shapes
 	"", " ", "accept_dns ", "ACCEPT_DNS", "accept_dns\x00", "../accept_dns", "accept_dns,authkey", "*",
 	RemoteKeyExitNode, "device_class", "app_version",
+}
+
+// rtAllowList is the lists as the review agreed to them, and as the app's own
+// tests read them (app/src/test/.../RemoteAllowListTest.kt): neither side can
+// grow one without the other noticing.
+type rtAllowList struct {
+	// Settings are "key", or "key=value" for a switch that goes one way.
+	Settings    []string          `json:"settings"`
+	ReadOnly    []string          `json:"readOnly"`
+	Actions     []string          `json:"actions"`
+	Permissions []string          `json:"permissions"`
+	Askable     []string          `json:"askable"`
+	AskResults  []string          `json:"askResults"`
+	Routes      []string          `json:"routes"`
+	Rights      map[string]string `json:"rights"`
+	Report      string            `json:"report"`
+	Ask         string            `json:"ask"`
+}
+
+func rtCurrentAllowList() rtAllowList {
+	l := rtAllowList{Rights: map[string]string{}, Report: remoteKeyReport, Ask: remoteKeyAsk}
+	for _, s := range remoteSettings {
+		switch {
+		case !s.writable:
+			l.ReadOnly = append(l.ReadOnly, s.key)
+		case s.only != "":
+			l.Settings = append(l.Settings, s.key+"="+s.only)
+		default:
+			l.Settings = append(l.Settings, s.key)
+		}
+	}
+	l.Actions = append(l.Actions, remoteActions...)
+	l.Permissions = append(l.Permissions, remotePermissions...)
+	for _, id := range remotePermissions {
+		if remoteAskable[id] {
+			l.Askable = append(l.Askable, id)
+		}
+	}
+	for v := range remoteAskResults {
+		l.AskResults = append(l.AskResults, v)
+	}
+	sort.Strings(l.AskResults)
+	for _, rt := range remoteRoutes {
+		l.Routes = append(l.Routes, rt.method+" "+rt.path)
+	}
+	for op, class := range remoteDefaultPolicy().Rights {
+		l.Rights[op] = class.String()
+	}
+	return l
+}
+
+// The allow-lists are exactly the file both halves are tested against;
+// growing one means changing that file on purpose.
+func TestRemoteAllowListFile(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "remote_allowlist.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want rtAllowList
+	if err := json.Unmarshal(raw, &want); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := json.MarshalIndent(rtCurrentAllowList(), "", "  ")
+	expect, _ := json.MarshalIndent(want, "", "  ")
+	if string(got) != string(expect) {
+		t.Errorf("the allow-lists are not testdata/remote_allowlist.json:\n got %s\nwant %s", got, expect)
+	}
+	// Every askable permission is a listed one, and asking is never for a guest.
+	for id := range remoteAskable {
+		found := false
+		for _, p := range remotePermissions {
+			found = found || p == id
+		}
+		if !found {
+			t.Errorf("%q can be asked for and is not a listed permission", id)
+		}
+	}
+	if remoteAskable["vpn"] {
+		t.Error("the VPN consent can be asked for from afar")
+	}
 }
 
 // The allow-lists are exactly what the review agreed to; growing one means
@@ -54,14 +138,24 @@ func TestRemoteAllowListContents(t *testing.T) {
 			readonly = append(readonly, s.key)
 		}
 	}
-	if got := strings.Join(writable, ","); got != "accept_dns,accept_routes,exit_node_lan_access" {
+	if got := strings.Join(writable, ","); got != "accept_dns,accept_routes,exit_node_lan_access,auto_reconnect,taildrive_enabled,taildrive_proxy_enabled" {
 		t.Errorf("writable settings: %s", got)
 	}
 	if got := strings.Join(readonly, ","); got != "device_class,app_version" {
 		t.Errorf("read-only settings: %s", got)
 	}
-	if got := strings.Join(remoteActions, ","); got != "reconnect" {
+	if got := strings.Join(remoteActions, ","); got != "reconnect,receive_folder_default" {
 		t.Errorf("actions: %s", got)
+	}
+	// What widens the device's exposure goes off only; what keeps the device
+	// reachable goes on only.
+	for key, only := range map[string]string{
+		"accept_dns": "", "accept_routes": "", "exit_node_lan_access": "",
+		"auto_reconnect": "true", "taildrive_enabled": "false", "taildrive_proxy_enabled": "false",
+	} {
+		if s, _ := remoteSettingFor(key); s.only != only {
+			t.Errorf("%s may be written as %q from afar, want %q", key, s.only, only)
+		}
 	}
 	for _, never := range rtNever {
 		if s, ok := remoteSettingFor(never); ok && s.writable {
@@ -85,7 +179,7 @@ func TestRemoteAllowListContents(t *testing.T) {
 		}
 	}
 	want := "GET /v1/hello,POST /v1/pair,POST /v1/unpair,GET /v1/status,GET /v1/exit-nodes,POST /v1/exit-node," +
-		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete"
+		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete,POST /v1/permissions/request"
 	if got := strings.Join(paths, ","); got != want {
 		t.Errorf("routes:\n got %s\nwant %s", got, want)
 	}
@@ -142,14 +236,25 @@ func TestRemoteAllowListEnforced(t *testing.T) {
 		for _, bad := range []string{"", "yes", "1", "TRUE", "true ", "null", "tskey-auth-abc"} {
 			r.want(r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": bad}), 400, "bad_request")
 		}
-		if a := r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": "true"}); a.status != 200 {
+		value := "true"
+		if s.only != "" {
+			// A switch that goes one way from afar: the other way is refused
+			// before the app hears of it.
+			value = s.only
+			other := map[string]string{"true": "false", "false": "true"}[s.only]
+			r.want(r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": other}), 403, "forbidden")
+		}
+		if a := r.call(rtPhone, "POST", "/v1/settings", owner, map[string]string{"key": s.key, "value": value}); a.status != 200 {
 			t.Errorf("setting %s: %d %s", s.key, a.status, a.raw)
 		}
 	}
-	if a := r.call(rtPhone, "POST", "/v1/actions", owner, map[string]string{"action": "reconnect"}); a.status != 200 {
-		t.Errorf("reconnect: %d %s", a.status, a.raw)
+	for _, action := range remoteActions {
+		if a := r.call(rtPhone, "POST", "/v1/actions", owner, map[string]string{"action": action}); a.status != 200 {
+			t.Errorf("%s: %d %s", action, a.status, a.raw)
+		}
 	}
-	want := "set accept_dns=true,set accept_routes=true,set exit_node_lan_access=true,action reconnect"
+	want := "set accept_dns=true,set accept_routes=true,set exit_node_lan_access=true,set auto_reconnect=true," +
+		"set taildrive_enabled=false,set taildrive_proxy_enabled=false,action reconnect,action receive_folder_default"
 	if got := strings.Join(r.app.writes(), ","); got != want {
 		t.Errorf("what reached the app:\n got %s\nwant %s", got, want)
 	}
@@ -165,18 +270,23 @@ func TestRemoteAllowListEnforced(t *testing.T) {
 		key := s["key"].(string)
 		got[key] = s["value"].(string)
 		def, ok := remoteSettingFor(key)
-		if !ok || s["writable"] != def.writable || s["kind"] != def.kind {
+		only, _ := s["only"].(string)
+		if !ok || s["writable"] != def.writable || s["kind"] != def.kind || only != def.only {
 			t.Errorf("setting %v", s)
 		}
 	}
-	if len(got) != len(remoteSettings) || got["accept_dns"] != "true" || got["accept_routes"] != "true" || got["device_class"] != "tv" || got["app_version"] != "4.11.0" {
+	if len(got) != len(remoteSettings) || got["accept_dns"] != "true" || got["accept_routes"] != "true" || got["device_class"] != "tv" || got["app_version"] != "4.11.0" ||
+		got["auto_reconnect"] != "true" || got["taildrive_enabled"] != "false" || got["taildrive_proxy_enabled"] != "false" {
 		t.Errorf("settings read back: %v", got)
 	}
 	ops := strings.Join(r.ops(), ",")
-	if !strings.HasPrefix(ops, "action,setting,setting,setting,") {
+	if !strings.HasPrefix(ops, "action,action,setting,setting,setting,setting,setting,setting,") {
 		t.Errorf("action log: %s", ops)
 	}
-	if ev := r.m.actions()[1]; ev.Detail != "exit_node_lan_access=true" || !ev.OK || ev.Name != rtPhone.name || ev.Class != "owner" {
+	if ev := r.m.actions()[2]; ev.Detail != "taildrive_proxy_enabled=false" || !ev.OK || ev.Name != rtPhone.name || ev.Class != "owner" {
+		t.Errorf("logged: %+v", ev)
+	}
+	if ev := r.m.actions()[0]; ev.Op != "action" || ev.Detail != "receive_folder_default" || !ev.OK {
 		t.Errorf("logged: %+v", ev)
 	}
 }

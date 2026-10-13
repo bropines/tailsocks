@@ -74,6 +74,12 @@ const (
 	remoteOpFiles       = "files"
 	remoteOpDeleteFile  = "files.delete"
 	remoteOpUnpair      = "unpair"
+	// Asking for a permission's page to be put in front of whoever is at the
+	// device (remote_app.go).
+	remoteOpAskPermission = "permission.request"
+	// Inside a status answer, the names and paths of the folders the device
+	// shares. No route of its own: a status is everyone's, this part is not.
+	remoteOpFolders = "folders"
 )
 
 func remoteDefaultPolicy() remotePolicy {
@@ -85,17 +91,20 @@ func remoteDefaultPolicy() remotePolicy {
 		OwnerTTL:     0,
 		MaxPairings:  8,
 		// A guest looks and picks an exit node; what changes how the device
-		// behaves afterwards or deletes something is the owner's.
+		// behaves afterwards, deletes something, puts a page in front of the
+		// person at the device or names a path on it is the owner's.
 		Rights: map[string]remoteClass{
-			remoteOpStatus:      remoteGuest,
-			remoteOpExitNodes:   remoteGuest,
-			remoteOpSetExitNode: remoteGuest,
-			remoteOpSettings:    remoteGuest,
-			remoteOpFiles:       remoteGuest,
-			remoteOpUnpair:      remoteGuest,
-			remoteOpSetSetting:  remoteOwner,
-			remoteOpAction:      remoteOwner,
-			remoteOpDeleteFile:  remoteOwner,
+			remoteOpStatus:        remoteGuest,
+			remoteOpExitNodes:     remoteGuest,
+			remoteOpSetExitNode:   remoteGuest,
+			remoteOpSettings:      remoteGuest,
+			remoteOpFiles:         remoteGuest,
+			remoteOpUnpair:        remoteGuest,
+			remoteOpSetSetting:    remoteOwner,
+			remoteOpAction:        remoteOwner,
+			remoteOpDeleteFile:    remoteOwner,
+			remoteOpAskPermission: remoteOwner,
+			remoteOpFolders:       remoteOwner,
 		},
 	}
 }
@@ -115,6 +124,10 @@ type remoteSetting struct {
 	key      string
 	kind     string // "bool" or "text"
 	writable bool
+	// only is the one value a paired device may write to a switch: "true" for
+	// one that may be turned on from afar and never off, "false" for the
+	// reverse, "" for either. Reading is not affected.
+	only string
 }
 
 // remoteSettings is the whole list of what /v1/settings shows and changes.
@@ -128,12 +141,26 @@ type remoteSetting struct {
 //   - exit_node_lan_access: keep the LAN (casting, a NAS) reachable while an
 //     exit node is in use.
 //
+// Three more go one way only, and the way is the one that cannot hurt:
+//
+//   - auto_reconnect, on only: the device restarts its own connection when it
+//     does not come up — the remedy for the one failure nobody can mend from
+//     afar, since a dead connection is a dead management channel too. Turning
+//     it off is how a device gets stranded, so that stays at the device.
+//   - taildrive_enabled and taildrive_proxy_enabled, off only: the device
+//     stops sharing its folders with the tailnet, or closes the local port
+//     other apps read shares through. Turning either on shows more of the
+//     device to a network, and that takes a person at the device.
+//
 // The two facts are read-only: what kind of device this is and which build it
 // runs, for the managing phone's screen.
 var remoteSettings = []remoteSetting{
 	{key: "accept_dns", kind: "bool", writable: true},
 	{key: "accept_routes", kind: "bool", writable: true},
 	{key: "exit_node_lan_access", kind: "bool", writable: true},
+	{key: "auto_reconnect", kind: "bool", writable: true, only: "true"},
+	{key: "taildrive_enabled", kind: "bool", writable: true, only: "false"},
+	{key: "taildrive_proxy_enabled", kind: "bool", writable: true, only: "false"},
 	{key: remoteKeyDeviceClass, kind: "text"},
 	{key: remoteKeyAppVersion, kind: "text"},
 }
@@ -143,11 +170,36 @@ const (
 	remoteKeyAppVersion  = "app_version"
 )
 
-// remoteActions is the whole list of named actions. One: restart the
-// connection, the remedy for a device stuck on a dead path. It is a restart,
-// never a stop — the service's own restart path, which keeps the user's wish
-// to be connected.
-var remoteActions = []string{"reconnect"}
+// remoteActions is the whole list of named actions.
+//
+//   - reconnect: restart the connection, the remedy for a device stuck on a
+//     dead path. It is a restart, never a stop — the service's own restart
+//     path, which keeps the user's wish to be connected.
+//   - receive_folder_default: forget a receive folder that cannot be written —
+//     a drive pulled out, a grant taken back — so that received files go where
+//     this kind of device puts them by default. The app refuses while the
+//     chosen folder works: a working choice is changed at the device.
+var remoteActions = []string{"reconnect", "receive_folder_default"}
+
+// remotePermissions is every permission of the app a status answer may speak
+// of, by the name the app and the managing phone know it under; the app's
+// report is cut down to these (remote_app.go).
+var remotePermissions = []string{"storage", "notifications", "battery", "vpn", "alarms", "install", "autostart"}
+
+// remoteAskable is which of them a paired owner may ask for. Asking grants
+// nothing: the app brings the system's own page or dialog in front of whoever
+// is at the device, or says that it could not (remote_app.go). All but one:
+// the VPN consent is what lets a tunnel start, and behind a tunnel this
+// endpoint may be out of reach (remote.go) — so it is reported and never asked
+// for from afar.
+var remoteAskable = map[string]bool{
+	"storage":       true,
+	"notifications": true,
+	"battery":       true,
+	"alarms":        true,
+	"install":       true,
+	"autostart":     true,
+}
 
 func remoteSettingFor(key string) (remoteSetting, bool) {
 	for _, s := range remoteSettings {
