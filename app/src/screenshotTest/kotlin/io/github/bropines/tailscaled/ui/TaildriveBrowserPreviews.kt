@@ -82,7 +82,7 @@ private fun Page(
     phase: BrowserPhase,
     focusName: String? = null,
     notice: OpenNotice? = null,
-) = AdaptiveShowcase { TaildriveBrowserContent(location, phase, focusName, notice, BrowserActions.None) }
+) = AdaptiveShowcase { TaildriveBrowserContent(location, phase, focusName, notice, DriveBrowserActions.None) }
 
 @PreviewTest
 @DriveBrowserSizes
@@ -153,7 +153,7 @@ private fun NoAppOver(showAddress: Boolean) = AdaptiveShowcase {
         qrTooLong = stringResource(R.string.qr_too_long),
     )
     Box(Modifier.fillMaxSize()) {
-        TaildriveBrowserContent(folderAt, BrowserPhase.Listed(sciFi), null, null, BrowserActions.None)
+        TaildriveBrowserContent(folderAt, BrowserPhase.Listed(sciFi), null, null, DriveBrowserActions.None)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
             Surface(
                 Modifier.widthIn(max = 560.dp),

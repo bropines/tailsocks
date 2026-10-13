@@ -134,7 +134,7 @@ internal sealed interface OpenNotice {
 }
 
 /** What the page can be asked to do; the previews pass [None]. */
-internal class BrowserActions(
+internal class DriveBrowserActions(
     val onOpen: (DriveEntry) -> Unit,
     val onUp: () -> Unit,
     val onRetry: () -> Unit,
@@ -143,7 +143,7 @@ internal class BrowserActions(
     val onDismissNotice: () -> Unit,
 ) {
     companion object {
-        val None = BrowserActions({}, {}, {}, {}, {}, {})
+        val None = DriveBrowserActions({}, {}, {}, {}, {}, {})
     }
 }
 
@@ -242,7 +242,7 @@ fun TaildriveBrowserPage(
         onDispose { lifecycle.removeObserver(observer) }
     }
 
-    val actions = BrowserActions(
+    val actions = DriveBrowserActions(
         onOpen = { entry ->
             if (entry.isFolder) go(location.child(entry.name))
             else scope.launch {
@@ -285,7 +285,7 @@ internal fun TaildriveBrowserContent(
     phase: BrowserPhase,
     focusName: String?,
     notice: OpenNotice?,
-    actions: BrowserActions,
+    actions: DriveBrowserActions,
     modifier: Modifier = Modifier,
 ) {
     val layout = rememberWindowLayout()
@@ -462,7 +462,7 @@ private fun Busy(text: String) {
 
 /** The error or the proxy-off face of the page, with the one thing to do about it. */
 @Composable
-private fun Failure(error: DriveError, actions: BrowserActions) {
+private fun Failure(error: DriveError, actions: DriveBrowserActions) {
     when (error) {
         // The shared "daemon stopped" state starts the service itself and calls back when it answers.
         DriveError.NotConnected -> DaemonStoppedState(onStarted = actions.onDaemonStarted)
