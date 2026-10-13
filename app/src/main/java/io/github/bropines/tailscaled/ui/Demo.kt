@@ -55,6 +55,9 @@ data class DemoData(
     /** What the home screen's tile for remote management says; null leaves it without a state line. */
     val remoteTile: RemoteTile? =
         RemoteTile(RemoteTile.Kind.OFF),
+    /** The pairings this device holds, as the token store would give them: who it manages (ui/ManagedOnMain.kt).
+     *  Whether each is online is read off [statusJson], as in the app. */
+    val managed: List<RemoteDeviceRow> = emptyList(),
 )
 
 /** What TailcatScreen reads from storage and from TailcatService, made up. */
