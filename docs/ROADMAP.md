@@ -32,6 +32,18 @@ State as of 2026-09-20, after 4.3.0.
 
 ### Big
 
+- [ ] **Remote management when the tailnet is not there — a rescue channel over TailCat (next
+      version; the first candidate for a beta).** Asked for by the author on 2026-10-14. Today
+      a paired device is managed over the tailnet only, so the moment that matters most is the
+      one where it cannot be reached: its key expired, the coordination server is blocked for
+      it, the service was stopped, or it signed in to another tailnet. TailCat needs no
+      account and already carries an auth key to a television (`TSP2:`), so it can carry the
+      management API too. To design before any code: who the caller is without `whois` (only
+      the pairing secret is left — the tunnel must be keyed from it, end to end, the relay
+      seeing ciphertext); whether the managed device listens on a relay always or only while
+      its tailnet is down, and what that costs and reveals; and what is allowed over it —
+      looking, restarting and handing over a new key are exactly what 5.0's rules put under
+      "never from afar", so this channel gets its own short list, not the tailnet one.
 - [x] **Native TUN — the opt-in engine (4.2.0).** `tailscaled` owns the `VpnService` device
       instead of hev: `TunVpnService` establishes the tunnel itself and the bridge relaunches
       the daemon with `--tun=android-vpn` on the inherited fd, with a no-op router and netstack
