@@ -41,7 +41,7 @@ class SearchEngineTest {
             "vpn, tun, kill switch, always-on, whole device", "впн, тун, весь трафик",
             does = "Proxy, VPN (TUN) or Root — how traffic leaves this device",
         ),
-        Sample("proxies", "Local proxies", "Локальные прокси", "socks, http, listener", "сокс, порт прокси"),
+        Sample("proxies", "Proxies", "Прокси", "socks, http, listener", "сокс, порт прокси"),
         Sample("socks_address", "SOCKS5 Address", "Адрес SOCKS5", "bind, listen, port", "порт", place = "Local proxies"),
         Sample(
             "bypass", "Censorship bypass", "Обход блокировок",

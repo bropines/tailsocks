@@ -58,7 +58,10 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
     private class Text(val entry: Int, val field: SearchField, val text: String, val letters: Int)
 
     /** A distinct word of the catalogue and the texts it stands in. */
-    private class Lexeme(val word: String, val skeleton: String, val texts: IntArray)
+    private class Lexeme(val word: String, val texts: IntArray) {
+        val stem: String = SearchText.stem(word)
+        val skeleton: String = SearchText.skeleton(word)
+    }
 
     private val ids: List<String> = entries.map { it.id }
     private val texts: List<Text>
@@ -93,7 +96,7 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
         }
         texts = all
         entryTexts = perEntry.toTypedArray()
-        lexemes = byWord.map { (word, where) -> Lexeme(word, SearchText.skeleton(word), where.toIntArray()) }
+        lexemes = byWord.map { (word, where) -> Lexeme(word, where.toIntArray()) }
     }
 
     /**
@@ -128,13 +131,14 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
             var best = 0
             var range: IntRange? = null
             for (term in terms) {
-                val grade = grade(term, word.text, SearchText.skeleton(word.text))
+                val grade = grade(term, word.text, SearchText.stem(word.text), SearchText.skeleton(word.text))
                 if (grade <= best) continue
                 best = grade
                 range = when {
                     grade == EXACT -> word.start until word.end
-                    grade >= PREFIX -> word.start until word.start + term.word.length
-                    grade == STEM_EXACT || grade == STEM_PREFIX -> word.start until word.start + term.stem.length
+                    // The same word in another form: what the two have in common.
+                    grade == STEM_EXACT || grade == STEM_PREFIX -> word.start until word.start + minOf(term.stem.length, word.text.length)
+                    grade in PREFIX until PREFIX_END -> word.start until word.start + term.word.length
                     grade == INFIX -> (word.start + word.text.indexOf(term.word)).let { it until it + term.word.length }
                     else -> word.start until word.end
                 }
@@ -208,17 +212,15 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
             val found = required.count { best[it] > 0 }
             if (found == 0) continue
             val apart = required.sumOf { best[it] } / required.size
-            val together = if (whole >= 0) wholeSum / required.size + TOGETHER else 0
+            // Several words that stand together in one text: "exit node" in a title, not one word here and one there.
+            val together = if (whole >= 0 && required.size > 1) wholeSum / required.size + TOGETHER else 0
             val lead = if (together >= apart && whole >= 0) whole else bestText[required.maxByOrNull { best[it] }!!]
-            // How much of the leading text the words are: "DNS" before "DNS proxy address".
-            val covered = required.sumOf { t -> if (grades[lead * count + t] > 0) terms[t].word.length else 0 }
+            // How much of the leading text the words are: "DNS" before "DNS proxy address". The little
+            // words count here: "kill switch" is all of the keyword "kill switch".
+            val covered = terms.indices.sumOf { t -> if (grades[lead * count + t] > 0) terms[t].word.length else 0 }
             val specific = SPECIFIC * minOf(covered, texts[lead].letters) / texts[lead].letters
             val asides = terms.indices.count { terms[it].optional && bestGrade[it] >= SOLID } * ASIDE
-            // Found in a title and in a keyword too: the entry is about the word, not merely named with it.
-            val twice = required.count { t ->
-                bestGrade[t] >= SOLID && entryTexts[entry].any { grades[it * count + t] >= SOLID && texts[it].field != texts[bestText[t]].field }
-            } * TWICE / required.size
-            var total = maxOf(apart, together) + specific + asides + twice + boost(ids[entry])
+            var total = maxOf(apart, together) + specific + asides + boost(ids[entry])
             val solid = required.all { best[it] == 0 || bestGrade[it] >= SOLID }
             if (found < required.size) total = total * found / required.size
             val hit = SearchHit(ids[entry], total, texts[lead].field, texts[lead].text, solid)
@@ -239,7 +241,7 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
         synchronized(matched) { matched[term.word] }?.let { return it }
         val found = ArrayList<Int>()
         lexemes.forEachIndexed { index, lexeme ->
-            val grade = grade(term, lexeme.word, lexeme.skeleton)
+            val grade = grade(term, lexeme.word, lexeme.stem, lexeme.skeleton)
             if (grade > 0) {
                 found.add(index)
                 found.add(grade)
@@ -252,16 +254,17 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
         // How a typed word was found in a word of a text, best first. Whole numbers out of a
         // thousand; under [SOLID] it is a slip of the finger.
         const val EXACT = 1000
+        /** The same word in another form — "proxy" for "proxies", «блокировки» for «блокировку» — is as good as the word. */
+        const val STEM_EXACT = 999
         /** The word begins with it; up to 79 more for how much of the word it is. */
         const val PREFIX = 900
-        /** The word is its stem: "proxies" for "proxy". */
-        const val STEM_EXACT = 890
+        private const val PREFIX_END = PREFIX + 80
         /** The word sounds like it in the other alphabet: «прокси» for "proksi". */
         const val SOUND_EXACT = 850
         const val STEM_PREFIX = 800
         const val SOUND_PREFIX = 750
-        /** The word contains it: "MagicDNS" for "dns". */
-        const val INFIX = 700
+        /** The word contains it: "MagicDNS" for "dns" — and "import" for "port", so it counts for little. */
+        const val INFIX = 450
         const val SOLID = 100
         /** A slip of the finger, out of [SLIP]: one slip, a second one, and the same in a word still being typed. */
         const val SLIP = 60
@@ -269,14 +272,12 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
         const val SLIP_BEGINNING = 40
         const val SLIP_SOUND = 35
 
-        /** For a text that holds every word of the query itself. */
+        /** For a text that holds every word of a query of several. */
         const val TOGETHER = 60
         /** For words that are all of the text they were found in; a part of it for a part. */
         const val SPECIFIC = 40
         /** For a little word of the question that was found too. */
         const val ASIDE = 10
-        /** For a word found in two kinds of an entry's texts. */
-        const val TWICE = 15
         /** With this many sure hits, the unsure ones are left out. */
         const val ENOUGH = 5
 
@@ -286,15 +287,15 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
             else -> 0
         }
 
-        fun grade(term: Term, word: String, skeleton: String): Int {
+        fun grade(term: Term, word: String, wordStem: String, skeleton: String): Int {
             val typed = term.word
             if (word == typed) return EXACT
-            if (word.startsWith(typed)) return PREFIX + 80 * typed.length / word.length
-            if (typed.length < 3) return 0
             val stem = term.stem
+            if (typed.length >= 3 && wordStem == stem) return STEM_EXACT
+            if (word.startsWith(typed)) return PREFIX + 79 * typed.length / word.length
+            if (typed.length < 3) return 0
             // A word of soft and hard signs alone has no sound to compare, and two letters of it say little.
             val sound = term.skeleton.takeIf { it.length >= 3 }
-            if (stem != typed && word == stem) return STEM_EXACT
             if (sound != null && skeleton == sound) return SOUND_EXACT
             if (stem != typed && word.startsWith(stem)) return STEM_PREFIX
             if (sound != null && skeleton.startsWith(sound)) return SOUND_PREFIX
