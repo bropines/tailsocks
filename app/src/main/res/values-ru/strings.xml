@@ -646,7 +646,7 @@
     <string name="settings_sect_flags_logs">Флаги и Логи</string>
     <string name="settings_accept_routes_desc">Разрешить сети настраивать маршруты</string>
     <string name="settings_accept_dns_desc">Разрешить сети настраивать DNS</string>
-    <string name="settings_force_bg_desc">Удерживает wake lock на всю сессию, чтобы соединение переживало глубокий сон. Расходует батарею.</string>
+    <string name="settings_force_bg_desc">Удерживает wake lock на всю сессию, чтобы соединение переживало глубокий сон. Повышает расход энергии.</string>
     <string name="settings_detailed_logs_title">Подробные логи</string>
     <string name="settings_detailed_logs_desc">Отключить фильтрацию логов (шумно!)</string>
     <string name="settings_extra_args_title">Дополнительные аргументы</string>
@@ -778,7 +778,7 @@
     <string name="first_start_key_oauth_hint_desc">Если стандартный вход в браузере не открывается или кнопка входа по ключу не отображается на веб-странице (она может появляться не сразу), используйте Auth Key или OAuth. Их можно настроить в Настройках -&gt; вкладка Профиль.</string>
     <string name="first_start_select_lang">Выберите язык интерфейса</string>
     <string name="first_start_mode_proxy_title">Режим Прокси (SOCKS5)</string>
-    <string name="first_start_mode_proxy_desc">Работает в фоне без прав VPN. Экономит батарею, но требует настройки прокси в других приложениях.</string>
+    <string name="first_start_mode_proxy_desc">Работает в фоне без прав VPN. Расходует меньше энергии, но требует настройки прокси в других приложениях.</string>
     <string name="first_start_mode_vpn_title">Режим VPN (TUN)</string>
     <string name="first_start_mode_vpn_desc">Перехватывает и маршрутизирует весь трафик устройства в сеть Tailscale. Требует разрешения VPN.</string>
     <string name="first_start_cp_warning_title">Сервер координации</string>
@@ -852,7 +852,7 @@
     <string name="settings_proxy_parsed_success">Ссылка на прокси разобрана!</string>
     <string name="settings_proxy_clipboard_empty">Буфер обмена и поле пусты</string>
     <string name="settings_proxy_cd_paste_parse">Вставить и разобрать</string>
-    <string name="settings_proxy_preset_add_chip">+ Сохранить</string>
+    <string name="settings_proxy_preset_add_chip">Сохранить</string>
     <string name="settings_copy_cd_format">Скопировать «%1$s»</string>
     <string name="main_submit_key">Отправить ключ</string>
     <string name="main_proxy_setup">Настройка прокси</string>

@@ -689,7 +689,7 @@
     <string name="settings_sect_flags_logs">Flags &amp; Logs</string>
     <string name="settings_accept_routes_desc">Allow network to configure routes</string>
     <string name="settings_accept_dns_desc">Allow network to configure DNS</string>
-    <string name="settings_force_bg_desc">Holds a wake lock for the whole session so the connection survives deep sleep. Costs battery.</string>
+    <string name="settings_force_bg_desc">Holds a wake lock for the whole session so the connection survives deep sleep. Uses more power.</string>
     <string name="settings_detailed_logs_title">Detailed Logs</string>
     <string name="settings_detailed_logs_desc">Disable log filtering (noisy!)</string>
     <string name="settings_extra_args_title">Extra Arguments</string>
@@ -828,7 +828,7 @@
     <string name="first_start_key_oauth_hint_desc">If standard web login fails to load or the key login button doesn\'t appear immediately on the webpage, you can use an Auth Key or OAuth client credentials. These can be configured in Settings -> Profile tab.</string>
     <string name="first_start_select_lang">Select Interface Language</string>
     <string name="first_start_mode_proxy_title">Proxy Mode (SOCKS5)</string>
-    <string name="first_start_mode_proxy_desc">Runs in background without VPN permissions. Saves battery, but other apps must be configured to use the proxy.</string>
+    <string name="first_start_mode_proxy_desc">Runs in background without VPN permissions. Uses less power, but other apps must be configured to use the proxy.</string>
     <string name="first_start_mode_vpn_title">VPN Mode (TUN)</string>
     <string name="first_start_mode_vpn_desc">Intercepts and routes all device traffic through Tailscale. Requires system VPN permission.</string>
     <string name="first_start_cp_warning_title">Coordination Server</string>
@@ -909,7 +909,7 @@
     <string name="settings_proxy_parsed_success">Proxy link parsed!</string>
     <string name="settings_proxy_clipboard_empty">Clipboard and field are empty</string>
     <string name="settings_proxy_cd_paste_parse">Paste and parse</string>
-    <string name="settings_proxy_preset_add_chip">+ Save</string>
+    <string name="settings_proxy_preset_add_chip">Save</string>
     <string name="settings_copy_cd_format">Copy %1$s</string>
     <string name="main_submit_key">Submit Key</string>
     <string name="main_proxy_setup">Proxy Setup</string>
