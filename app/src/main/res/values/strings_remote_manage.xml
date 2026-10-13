@@ -30,7 +30,7 @@
     <string name="rmanage_left">%1$s left</string>
     <string name="rmanage_identify">Identify</string>
     <string name="rmanage_identify_help">Shows on that device\'s screen who is managing it, for a few seconds. Handy for telling two televisions apart.</string>
-    <string name="rmanage_identify_shown">It is on the screen of %1$s now.</string>
+    <string name="rmanage_identify_shown">%1$s is showing on its screen who manages it.</string>
     <string name="rmanage_identify_notified">TailSocks is not on screen there, so %1$s showed a notification.</string>
     <string name="rmanage_identify_unseen">Nothing could be shown: TailSocks is not on screen on %1$s and its notifications are off.</string>
 

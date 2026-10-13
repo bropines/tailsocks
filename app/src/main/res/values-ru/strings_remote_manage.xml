@@ -29,7 +29,7 @@
     <string name="rmanage_left">осталось %1$s</string>
     <string name="rmanage_identify">Определить</string>
     <string name="rmanage_identify_help">На экране того устройства на несколько секунд появится, кто им управляет. Удобно, когда телевизоров два.</string>
-    <string name="rmanage_identify_shown">Сейчас это на экране %1$s.</string>
+    <string name="rmanage_identify_shown">%1$s сейчас показывает на экране, кто им управляет.</string>
     <string name="rmanage_identify_notified">TailSocks там не на экране, поэтому %1$s показал уведомление.</string>
     <string name="rmanage_identify_unseen">Показать не удалось: на %1$s TailSocks не на экране, а уведомления выключены.</string>
 
