@@ -109,7 +109,7 @@ adb shell am broadcast -a io.github.bropines.tailscaled.action.SET_BYEDPI -n io.
 | `tailsocks://tailcat` | TailCat |
 | `tailsocks://tailcat/add?cmd=<адрес или команда подключения>` | новое подключение TailCat, уже заполненное (`cmd` в URL-кодировке) |
 | `tailsocks://logs?category=TAILCAT` | Логи на одной категории (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
-| `tailsocks://settings/<раздел>` | Настройки на разделе: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics` |
+| `tailsocks://settings/<раздел>` | Настройки на разделе: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics`, `advanced`; `theme` и `root` открывают тему и Root-режим там, где они находятся на этом устройстве |
 | `tailsocks://peers`, `dns`, `netcheck`, `console`, `files`, `taildrive`, `permissions`, `licenses` | этот экран |
 
 ```bash

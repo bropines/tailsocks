@@ -3,6 +3,8 @@ package io.github.bropines.tailscaled.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import io.github.bropines.tailscaled.core.DeviceProfile
+import io.github.bropines.tailscaled.core.Feature
 
 /**
  * `tailsocks://` links: they open a screen, and nothing more. Any app on the
@@ -23,6 +25,11 @@ import android.net.Uri
  * MainActivity receives them (VIEW, scheme tailsocks) and opens the screen on
  * top of itself, so Back lands on the main screen. A link that reaches the app
  * another way — a scanned QR code — goes through [open], to the same place.
+ *
+ * A link opens what the device has. A screen the device is not offered at all
+ * (core/DeviceProfile.kt: TailCat on a television) is not opened — the link
+ * lands on the main screen, where MainActivity already is — and a Settings
+ * page the device shows somewhere else is found there (settingsLanding).
  */
 object DeepLinks {
     const val SCHEME = "tailsocks"
@@ -33,15 +40,36 @@ object DeepLinks {
     /** The main screen's own too: it opens the QR scanner and deals with what it reads. */
     const val SCAN = "scan"
 
-    /** Settings sections a link may name; the ids SettingsActivity's list uses. */
-    private val SETTINGS_SECTIONS = setOf(
+    /**
+     * Settings pages a link may name: the ids SettingsActivity knows its pages by. The last
+     * three are the Advanced page and the two pages only it leads to — the theme and Root
+     * mode, which a device without that page keeps inside Appearance and Tunnel mode.
+     */
+    internal val SETTINGS_SECTIONS = setOf(
         "appearance", "account", "tunnel", "proxies", "dns", "bypass", "sharing",
-        "background", "backup", "automation", "diagnostics"
+        "background", "backup", "automation", "diagnostics",
+        "advanced", "theme", "root"
     )
+
+    /**
+     * The part of the app a link's screen is, where a device may be without it; null for a
+     * screen every device has. Asked of the link's host.
+     */
+    internal fun featureOf(host: String?): Feature? = when (host) {
+        "serve" -> Feature.SERVE_EDIT
+        "tailcat" -> Feature.TAILCAT
+        "logs" -> Feature.LOGS
+        "dns" -> Feature.DNS_SCREEN
+        "console" -> Feature.CONSOLE
+        SCAN -> Feature.QR_SCANNER
+        else -> null
+    }
 
     /** The screen [uri] names, or null for the main screen or a link it does not know. */
     fun intentFor(context: Context, uri: Uri): Intent? {
         if (uri.scheme != SCHEME) return null
+        // Hidden on this device: no screen to open. One kept for the advanced settings is still its screen.
+        featureOf(uri.host)?.let { if (!DeviceProfile.availability(context, it).reachable) return null }
         val path = uri.pathSegments
         return when (uri.host) {
             "serve" -> Intent(context, ServeActivity::class.java)

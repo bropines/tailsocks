@@ -109,7 +109,7 @@ A `tailsocks://` link opens a screen of the app and does nothing else — no tok
 | `tailsocks://tailcat` | TailCat |
 | `tailsocks://tailcat/add?cmd=<address or connect command>` | a new TailCat connection, filled in (URL-encode `cmd`) |
 | `tailsocks://logs?category=TAILCAT` | Logs on one category (`ALL`, `ERROR`, `CORE`, `TAILSCALE`, `TAILCAT`, …) |
-| `tailsocks://settings/<section>` | Settings on a section: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics` |
+| `tailsocks://settings/<section>` | Settings on a section: `appearance`, `account`, `tunnel`, `proxies`, `dns`, `bypass`, `sharing`, `background`, `backup`, `automation`, `diagnostics`, `advanced`; `theme` and `root` open the theme and Root mode wherever the device keeps them |
 | `tailsocks://peers`, `dns`, `netcheck`, `console`, `files`, `taildrive`, `permissions`, `licenses` | that screen |
 
 ```bash
