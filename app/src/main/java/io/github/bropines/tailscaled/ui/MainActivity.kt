@@ -1301,14 +1301,22 @@ fun MainScreen(
         }
     }
 
-    if (signInOpen) {
+    // The other way in on a television: a key sent from a phone (TvKeySetup.kt). It takes
+    // the sign-in screen's place while it is open and hands back to it when it is left.
+    var keySetupOpen by remember { mutableStateOf(false) }
+    if (signInOpen && keySetupOpen) {
+        TvKeySetupScreen(
+            onSignedIn = { keySetupOpen = false; signInOpen = false },
+            onClose = { keySetupOpen = false },
+        )
+    } else if (signInOpen) {
         // The whole screen, in place of the dashboard, which comes back when the code is
         // left or has done its work.
         TvSignIn(
             account = activeAccount.name,
             url = loginUrl,
             onClose = { signInOpen = false; signInLeft = true },
-            // The place for one more way in, "Use a key from your phone": extraAction = { … }.
+            extraAction = { TvKeySetupButton(onClick = { keySetupOpen = true }) },
         )
     } else
         Scaffold(
