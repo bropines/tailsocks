@@ -22,17 +22,19 @@ class BootReceiver : BroadcastReceiver() {
             action != Intent.ACTION_MY_PACKAGE_REPLACED
         ) return
 
-        // "Keep running in background" is a global setting; it used to be read
-        // from an unrelated preference file here, so it never took effect.
+        // "Auto-start on Boot" is the switch that says so. "Keep the connection
+        // awake" used to be the only thing read here, so it keeps deciding a
+        // reboot too: nobody who relied on it loses the start after an update.
+        val autoStart = GlobalSettings.isAutoStartEnabled(context)
         val forceBg = GlobalSettings.getBoolean(context, "force_bg", false)
         val userLetRunning = ProxyState.isUserLetRunning(context)
 
         // An update kills the running service; the user did not ask for that, so
-        // resume whenever it was running before the install. "Keep running in
-        // background" only decides whether we also come back after a reboot.
+        // resume whenever it was running before the install. The two switches
+        // only decide whether we also come back after a reboot.
         val replaced = action == Intent.ACTION_MY_PACKAGE_REPLACED
-        Log.i(TAG, "$action: userLetRunning=$userLetRunning forceBg=$forceBg")
-        if (userLetRunning && (forceBg || replaced)) {
+        Log.i(TAG, "$action: userLetRunning=$userLetRunning autoStart=$autoStart forceBg=$forceBg")
+        if (userLetRunning && (autoStart || forceBg || replaced)) {
             val serviceIntent = Intent(context, TailscaledService::class.java).apply { this.action = "START_ACTION" }
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
