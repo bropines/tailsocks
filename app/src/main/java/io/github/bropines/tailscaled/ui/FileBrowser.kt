@@ -75,9 +75,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -595,19 +593,25 @@ private fun PathLine(ui: BrowserUi, tv: Boolean, modifier: Modifier = Modifier, 
 @Composable
 private fun BrowserList(ui: BrowserUi, actions: BrowserActions, tv: Boolean, sidePadding: Dp, modifier: Modifier = Modifier) {
     val rows = itemsOf(ui)
-    val focus = remember { FocusRequester() }
-    val listState = rememberSaveable(ui.location.toString(), saver = LazyListState.Saver) { LazyListState() }
-    val input = LocalInputModeManager.current
+    val index = rows.indexOfFirst { it.key == ui.focusKey }
 
     // The remote has no pointer to touch a row with: when a page or a folder opens, the focus is
     // put on the row to press. A touch screen is left alone, or a row would light up unasked.
-    LaunchedEffect(ui.location, ui.focusKey, rows.size) {
-        val index = rows.indexOfFirst { it.key == ui.focusKey }
-        if (index >= 0 && input.inputMode == InputMode.Keyboard) {
+    // The row asks as it is placed (see ListStart); a new start for every page and every read.
+    val start = rememberListStart(Triple(ui.location, ui.focusKey, rows.size))
+    // The list opens with that row in view, so it is composed, placed and asking in the first
+    // frame the rows are there, not after an effect has scrolled to it.
+    val listState = rememberSaveable(ui.location.toString(), ui.focusKey, saver = LazyListState.Saver) {
+        LazyListState(firstVisibleItemIndex = if (start.allowed) index.coerceAtLeast(0) else 0)
+    }
+    // The second try, for a row that is composed only once the list has been scrolled to it.
+    LaunchedEffect(start) {
+        if (index < 0 || !start.allowed) return@LaunchedEffect
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == index }) {
             listState.scrollToItem(index)
             withFrameNanos { }
-            runCatching { focus.requestFocus() }
         }
+        start.ask()
     }
 
     LazyColumn(
@@ -617,7 +621,7 @@ private fun BrowserList(ui: BrowserUi, actions: BrowserActions, tv: Boolean, sid
         verticalArrangement = Arrangement.spacedBy(if (tv) 6.dp else 4.dp),
     ) {
         items(rows, key = { it.key }) { item ->
-            val target = if (item.key == ui.focusKey) Modifier.focusRequester(focus) else Modifier
+            val target = if (item.key == ui.focusKey) Modifier.tvListStart(start) else Modifier
             when (item) {
                 BrowserItem.Banner -> BrowserRow(
                     icon = Icons.Filled.Lock,

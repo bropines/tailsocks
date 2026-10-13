@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -31,6 +33,8 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
@@ -127,6 +131,42 @@ fun Modifier.tvInitialFocus(requester: FocusRequester = remember { FocusRequeste
         if (!asked[0]) asked[0] = runCatching { requester.requestFocus() }.getOrDefault(false)
     }
 }
+
+/**
+ * The remote's first stop in a list that shows a new page of rows now and then — a folder
+ * that was entered or left, a level of a tree — and so cannot ask for focus once, as
+ * [tvInitialFocus] does. [rememberListStart] makes one for every page; the row to start on
+ * carries [tvListStart], and asks as it is placed (see [tvInitialFocus]); a list that must
+ * scroll to that row first calls [ask] when the row is laid out, as the second try.
+ *
+ * Only where there is a remote: a touch screen is left alone, or a row would light up unasked.
+ */
+@Stable
+internal class ListStart(internal val requester: FocusRequester, private val remote: () -> Boolean) {
+    private var spent = false
+
+    /** Whether a remote is what drives the screen: the input mode now, and not in a preview. */
+    val allowed: Boolean get() = remote()
+
+    /** Asks for the focus, once: it stays asked when the request succeeded. */
+    fun ask() {
+        if (spent || !remote()) return
+        spent = runCatching { requester.requestFocus() }.getOrDefault(false)
+    }
+}
+
+/** A new start for every [key]: a page of rows, or what it holds once it has been read. */
+@Composable
+internal fun rememberListStart(key: Any?): ListStart {
+    val requester = remember { FocusRequester() }
+    val input = LocalInputModeManager.current
+    val preview = LocalInspectionMode.current
+    return remember(key) { ListStart(requester) { !preview && input.inputMode == InputMode.Keyboard } }
+}
+
+/** The row [start] puts the remote on: it asks as it is placed, the first moment a request can succeed. */
+internal fun Modifier.tvListStart(start: ListStart): Modifier =
+    focusRequester(start.requester).onGloballyPositioned { start.ask() }
 
 /**
  * Lets the remote scroll a pane that has nothing in it to stop on — a log, a

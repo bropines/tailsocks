@@ -348,15 +348,21 @@ private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusNam
     }
 
     val layout = rememberWindowLayout()
-    val listState = rememberLazyListState()
-    val requester = remember { FocusRequester() }
     // The folder just left when going up, so the list is where it was; the first row otherwise.
     val target = remember(entries, focusName) { entries.indexOfFirst { it.name == focusName }.coerceAtLeast(0) }
-    if (!LocalInspectionMode.current) LaunchedEffect(entries) {
-        listState.scrollToItem(target)
-        withFrameNanos { }
-        // A touch screen has no focus to give; the call then does nothing, or throws before the row exists.
-        runCatching { requester.requestFocus() }
+    // The row asks for the remote as it is placed (see ListStart); a touch screen has none to give.
+    val start = rememberListStart(entries to focusName)
+    // The list opens with that row in view, so it is composed, placed and asking in the first
+    // frame the rows are there, not after an effect has scrolled to it.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (start.allowed) target else 0)
+    // The second try, for a row that is composed only once the list has been scrolled to it.
+    LaunchedEffect(start) {
+        if (!start.allowed) return@LaunchedEffect
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == target }) {
+            listState.scrollToItem(target)
+            withFrameNanos { }
+        }
+        start.ask()
     }
     LazyColumn(
         state = listState,
@@ -368,7 +374,7 @@ private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusNam
             EntryRow(
                 entry,
                 onClick = { onOpen(entry) },
-                modifier = if (entry.name == entries[target].name) Modifier.focusRequester(requester) else Modifier
+                modifier = if (entry.name == entries[target].name) Modifier.tvListStart(start) else Modifier
             )
         }
     }
