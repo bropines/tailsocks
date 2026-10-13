@@ -706,6 +706,13 @@ fun MainScreen(
             if (canScan) scanQr()
         }
     }
+    // The devices this one manages, when it manages any (ui/ManagedOnMain.kt): read off the peer
+    // list above, and again when the page a scanned code opened — which may have paired — is left.
+    val managed = rememberManagedDevices(activeAccount.id, tailnetPeers.takeIf { proxyState != "STOPPED" }, scannedPairing == null)
+    // Where the menu has the tile of the other direction — who manages this device — they stand
+    // beside it, in its row, while a tile there is two cards wide. A handheld has no such tile,
+    // and they have a place of their own: tiles under a dashboard's cards, pills on a phone.
+    fun managedBeside(columns: Int) = remoteTileOffered && columns >= 4 && managed.devices.isNotEmpty()
 
     fun applyExitNode(id: String, ip: String) {
         // The confirm haptic: choosing where all traffic goes is the one
@@ -1672,7 +1679,10 @@ fun MainScreen(
         // How many cards there are: the page's own row takes no column.
         val cardCount = menuEntries.count { !it.wide }
         val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
-            MenuGrid(columns = columns, cardHeight = cardHeight, entries = menuEntries, start = menuStart.takeIf { remoteTileOffered })
+            MenuGrid(
+                columns = columns, cardHeight = cardHeight, entries = menuEntries, start = menuStart.takeIf { remoteTileOffered },
+                beside = if (managedBeside(columns)) ({ ManagedTileCells(managed, places = 1) }) else null
+            )
         }
 
         BoxWithConstraints(
@@ -1721,6 +1731,7 @@ fun MainScreen(
                             .padding(horizontal = 24.dp, vertical = 12.dp)
                     ) {
                         menuPane(menuColumns, cardHeight)
+                        ManagedPills(managed, Modifier.padding(top = 10.dp))
                     }
                 }
             } else if (!window.isPhone && fold == null) {
@@ -1733,7 +1744,12 @@ fun MainScreen(
                     width = maxWidth,
                     height = maxHeight,
                     status = { fillHeight -> statusPane(fillHeight) },
-                    menu = { columns, rowHeight -> menuPane(columns, rowHeight) },
+                    // The managed devices are tiles under the cards, unless the menu has them in
+                    // its own row already — then the rows counted below are the ones there were.
+                    menu = { columns, rowHeight ->
+                        menuPane(columns, rowHeight)
+                        if (!managedBeside(columns)) ManagedTiles(managed)
+                    },
                     menuCount = cardCount,
                     wideMenuRows = menuEntries.size - cardCount,
                     peers = tailnetPeers.takeIf { proxyState != "STOPPED" },
@@ -1783,6 +1799,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.width(paneGap))
                         Column(modifier = Modifier.weight(1f)) {
                             menuPane(menuColumns, cardHeight)
+                            ManagedPills(managed, Modifier.padding(top = 10.dp))
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
@@ -1803,7 +1820,9 @@ fun MainScreen(
                     ) {
                         Spacer(modifier = Modifier.height(12.dp))
                         statusPane(false)
-                        Spacer(modifier = Modifier.height(32.dp))
+                        // The managed devices take their line out of the gap between the two.
+                        if (managed.devices.isEmpty()) Spacer(modifier = Modifier.height(32.dp))
+                        else ManagedPills(managed, Modifier.padding(top = 6.dp, bottom = 14.dp))
                         menuPane(menuColumnsFor(columnWidth - 48.dp, cardCount), cardHeight)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -2597,6 +2616,8 @@ fun MenuGrid(
     modifier: Modifier = Modifier,
     /** Asks the first card to answer it: where the remote comes in on the grid from the status card. */
     start: FocusRequester? = null,
+    /** Tiles that share the row of the [MenuEntry.wide] entry, each taking a weight of it; null leaves that entry the row. */
+    beside: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val cards = entries.filter { !it.wide }
     Column(modifier = modifier.fillMaxWidth()) {
@@ -2626,10 +2647,21 @@ fun MenuGrid(
         // What has a row of its own comes last, across the cards above it.
         entries.filter { it.wide }.forEachIndexed { i, entry ->
             if (cards.isNotEmpty() || i > 0) Spacer(modifier = Modifier.height(16.dp))
-            WideMenuCard(
-                entry,
-                Modifier.fillMaxWidth().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
-            )
+            if (beside == null) {
+                WideMenuCard(
+                    entry,
+                    Modifier.fillMaxWidth().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
+                )
+            } else {
+                // The row is shared, tile for tile, and as tall as the taller of them.
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    WideMenuCard(
+                        entry,
+                        Modifier.weight(1f).fillMaxHeight().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
+                    )
+                    beside()
+                }
+            }
         }
     }
 }
