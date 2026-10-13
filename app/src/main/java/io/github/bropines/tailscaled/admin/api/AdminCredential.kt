@@ -33,7 +33,8 @@ sealed class AdminCredential {
 
     companion object {
         /**
-         * The key id inside a Tailscale secret: "kAbC123CNTRL" of "tskey-api-kAbC123CNTRL-xyz".
+         * The key id inside a Tailscale secret: the "kAbC123CNTRL" between "tskey-api-" and the
+         * last dash.
          * Null when the text does not have that shape.
          */
         fun keyIdOf(secret: String, prefix: String): String? {
