@@ -16,6 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.ClientPrefs
 import io.github.bropines.tailscaled.core.TailnetLock
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
@@ -87,17 +88,29 @@ fun NodeSettingsCards() = Themed {
 
 @PreviewTest @NodeSizes @Composable
 fun TailnetLockSigner() = Themed {
-    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(signerStatus)!!), canUnlock = true, signing = null, onBack = {}, onRefresh = {}, onCopy = {}, onSign = {})
+    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(signerStatus)!!), canUnlock = true, signing = null, onBack = {}, onRefresh = {}, onCopy = { _, _ -> }, onSign = {})
 }
 
 @PreviewTest @NodeSizes @Composable
 fun TailnetLockLockedOut() = Themed {
-    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(lockedOutStatus)!!), canUnlock = true, signing = null, onBack = {}, onRefresh = {}, onCopy = {}, onSign = {})
+    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(lockedOutStatus)!!), canUnlock = true, signing = null, onBack = {}, onRefresh = {}, onCopy = { _, _ -> }, onSign = {})
 }
 
 @PreviewTest @NodeSizes @Composable
 fun TailnetLockOff() = Themed {
-    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(offStatus)!!), canUnlock = false, signing = null, onBack = {}, onRefresh = {}, onCopy = {}, onSign = {})
+    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(offStatus)!!), canUnlock = false, signing = null, onBack = {}, onRefresh = {}, onCopy = { _, _ -> }, onSign = {})
+}
+
+/** A television holding a trusted key: the status, no Sign buttons, and why the nodes are signed elsewhere. */
+@PreviewTest @TvLanguages @Composable
+fun TvTailnetLockSigner() = AdaptiveShowcase(device = DeviceClass.TV) {
+    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(signerStatus)!!), canUnlock = false, signing = null, onBack = {}, onRefresh = {}, onCopy = { _, _ -> }, onSign = {}, signsHere = false, copies = false)
+}
+
+/** A television that is locked out: the command for a trusted device, shown as a code instead of copied. */
+@PreviewTest @TvLanguages @Composable
+fun TvTailnetLockLockedOut() = AdaptiveShowcase(device = DeviceClass.TV) {
+    TailnetLockContent(TailnetLockLoad.Loaded(TailnetLock.parse(lockedOutStatus)!!), canUnlock = false, signing = null, onBack = {}, onRefresh = {}, onCopy = { _, _ -> }, onSign = {}, signsHere = false, copies = false)
 }
 
 /** The relay with its port row and the app connector, which the first render scrolls past. */
