@@ -19,10 +19,12 @@ import io.github.bropines.tailscaled.core.ManagedPermission
 import io.github.bropines.tailscaled.core.ManagedRefusal
 import io.github.bropines.tailscaled.core.ManagedResult
 import io.github.bropines.tailscaled.core.ManagedSetting
+import io.github.bropines.tailscaled.core.ManagedSettings
 import io.github.bropines.tailscaled.core.ManagedShown
 import io.github.bropines.tailscaled.core.ManagedStatus
 import io.github.bropines.tailscaled.core.RemoteClient
 import io.github.bropines.tailscaled.core.RemoteFile
+import io.github.bropines.tailscaled.core.RemoteFiles
 import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemotePairFailure
 import io.github.bropines.tailscaled.core.RemotePairingRecord
@@ -35,6 +37,7 @@ import io.github.bropines.tailscaled.core.lock
 import io.github.bropines.tailscaled.core.setting
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -709,18 +712,29 @@ internal class RemoteManageController(
 
     private val online: Boolean get() = ui.peer?.presence == RemotePresence.ONLINE
 
-    /** Paired already, or the device is asked whether it can be paired with. */
+    /**
+     * Paired already, or the device is asked whether it can be paired with.
+     *
+     * What this device knows by itself — the stored pairing, its own network map — is read
+     * side by side, before the page shows anything of the device. The first questions then
+     * leave in the same breath as the page appears: drawing a whole remembered device takes a
+     * slow television long enough to notice, and must not be what the device waits for.
+     */
     suspend fun start() {
-        val record = io { client.pairing() }
+        val (record, peer) = coroutineScope {
+            val record = async { io { client.pairing() } }
+            val peer = async { io(local) }
+            record.await() to peer.await()
+        }
         whole = false
         if (record == null) {
-            ui = unpaired(scanned)
-            check(asked = present)
+            ui = unpaired(scanned).copy(peer = peer, now = now())
+            check(seen = peer, asked = present)
             return
         }
-        ui = paired(record)
+        ui = paired(record).copy(peer = peer)
         guards.attach(client.peerId, this)
-        if (open(asked = present)) resumeGuard()
+        if (open(seen = peer, asked = present)) resumeGuard()
     }
 
     /**
@@ -840,9 +854,12 @@ internal class RemoteManageController(
         )
     }
 
-    /** The device's own word, just now: the page shows it as news, and it is kept for the page that opens next. */
+    /**
+     * The device's own word, just now: the page shows it as news, and it is kept for the page
+     * that opens next. A device that answers is not away, whatever the page said of it before.
+     */
     private fun heard(status: ManagedStatus) {
-        update { it.withStatus(status) }
+        update { it.withStatus(status).let { m -> if (m.problem?.stale == true) m.copy(problem = null, problemDetail = "") else m } }
         keep()
     }
 
@@ -863,10 +880,13 @@ internal class RemoteManageController(
      * A device that may answer is asked for its status beside that small question, which
      * gives up three times sooner (RemoteClient.reach): one that does not answer is known in
      * four seconds, not twelve.
+     *
+     * A device that could not be reached stays said so while it is asked again: the sentence
+     * and its button wait with the page, and go when the device answers ([heard]).
      */
     private suspend fun open(seen: ManagePeer? = null, asked: Boolean = false): Boolean {
         val run = ++reading
-        update { it.copy(loading = true, problem = null, problemDetail = "", starting = false) }
+        update { it.copy(loading = true, problem = it.problem?.takeIf { p -> p.stale }, problemDetail = "", starting = false) }
         val peer = look(seen)
         val inTheWay = ManageProblem.local(peer, asked)
         if (inTheWay == ManageProblem.OFFLINE) {
@@ -875,53 +895,69 @@ internal class RemoteManageController(
             if (run != reading) return false
             if (reach is ManagedResult.Failed) return fail(reach)
             update { it.copy(problem = null) }
-            return filled(run, io { client.status() })
+            return fill(run, ask())
         }
         if (inTheWay != null) return said(inTheWay)
+        // This device is connected, whatever was said before it was looked at: what is left to doubt is the peer.
+        update { if (it.problem == ManageProblem.NOT_CONNECTED) it.copy(problem = null) else it }
 
-        val status = scope.async { io { client.status() } }
-        val reach = scope.async { io { client.reach() } }
+        val reach = scope.async(io) { client.reach() }
+        val answers = ask()
         val silent = select<ManagedResult.Failed?> {
             // The status has its own say, whatever the small question brought.
-            status.onAwait { null }
+            answers.status.onAwait { null }
             reach.onAwait { it.failed }
         }
         if (run != reading) return false
-        if (silent != null && !status.isCompleted) {
+        if (silent != null && !answers.status.isCompleted) {
             fail(silent)
-            scope.launch { late(run, status.await()) }
+            scope.launch { late(run, answers) }
             return false
         }
-        return filled(run, status.await())
+        return fill(run, answers)
     }
 
     /** [open] for a person who asked: the device is asked whatever this device's network map says of it. */
     private suspend fun load(): Boolean = open(asked = true)
 
     /** Everything the page shows, read again without touching the banner: for reading back after something happened. */
-    private suspend fun read(): Boolean = filled(reading, io { client.status() })
+    private suspend fun read(): Boolean = fill(reading, ask())
+
+    /** The three answers a page is made of, on their way. The last two are null where the status brought none to follow. */
+    private class Answers(
+        val status: Deferred<ManagedResult<ManagedStatus>>,
+        val settings: Deferred<ManagedResult<ManagedSettings>?>,
+        val files: Deferred<ManagedResult<RemoteFiles>?>,
+    )
 
     /**
-     * The status is in, or the reason there is none. Then the settings and the files are asked
-     * for side by side, and each fills its part of the page as it comes.
+     * Asks for everything the page shows: the status, and — the moment it is in, side by side
+     * — the settings and the files. All of it off the main thread, one question handing over
+     * to the next there: a page busy drawing must not be what the device waits for. Nothing
+     * follows a status that did not come.
      */
-    private suspend fun filled(run: Int, status: ManagedResult<ManagedStatus>): Boolean {
+    private fun ask(): Answers {
+        val status = scope.async(io) { client.status() }
+        val settings = scope.async(io) { if (status.await() is ManagedResult.Ok) client.settings() else null }
+        val files = scope.async(io) { if (status.await() is ManagedResult.Ok) client.files() else null }
+        return Answers(status, settings, files)
+    }
+
+    /** The answers are shown as they come, each in its part of the page; the first that brought none is said. */
+    private suspend fun fill(run: Int, answers: Answers): Boolean {
+        val status = answers.status.await()
         if (run != reading) return false
         if (status is ManagedResult.Failed) return fail(status)
         heard((status as ManagedResult.Ok).value)
         // It answers: a change it undid in silence can be said undone now.
         guards.heardAgain(client.peerId)
-        val failed = coroutineScope {
-            val settings = async {
-                io { client.settings() }.also { if (it is ManagedResult.Ok && run == reading) update { m -> m.copy(settings = it.value.settings) } }
-            }
-            val files = async {
-                io { client.files() }.also { if (it is ManagedResult.Ok && run == reading) update { m -> m.copy(files = it.value.files) } }
-            }
-            settings.await().failed ?: files.await().failed
-        }
+        val settings = answers.settings.await()
         if (run != reading) return false
-        if (failed != null) return fail(failed)
+        if (settings is ManagedResult.Ok) update { it.copy(settings = settings.value.settings) }
+        val files = answers.files.await()
+        if (run != reading) return false
+        if (files is ManagedResult.Ok) update { it.copy(files = files.value.files) }
+        (settings?.failed ?: files?.failed)?.let { return fail(it) }
         whole = true
         update { it.copy(loading = false) }
         keep()
@@ -932,13 +968,14 @@ internal class RemoteManageController(
      * The status of a device that did not answer the small question in its four seconds, and
      * answers after all: the page takes its word — the status, or a refusal that is one.
      */
-    private suspend fun late(run: Int, status: ManagedResult<ManagedStatus>) {
+    private suspend fun late(run: Int, answers: Answers) {
+        val status = answers.status.await()
         val m = managing ?: return
         if (run != reading || m.busy || m.loading) return
         when (status) {
             is ManagedResult.Ok -> {
                 update { it.copy(loading = true, problem = null, problemDetail = "") }
-                if (filled(run, status)) resumeGuard()
+                if (fill(run, answers)) resumeGuard()
             }
             is ManagedResult.Failed -> if (!status.refusal.away) fail(status)
         }
@@ -1064,18 +1101,21 @@ internal class RemoteManageController(
      * Before the digits are asked for: whether the device can be paired with at all. This
      * device's own network map answers first and may be all it takes; then the small question
      * (RemoteClient.reach), whose answer also says whether a code is on show there. Like
-     * [open], a peer held as offline is said to be so at once and asked all the same.
+     * [open], a peer held as offline is said to be so at once and asked all the same, and what
+     * was in the way stays said while the device is asked again.
      */
     private suspend fun check(seen: ManagePeer? = null, asked: Boolean = false) {
         val run = ++reading
-        updatePairing { it.copy(checking = true, problem = null, starting = false) }
+        updatePairing { it.copy(checking = true, starting = false) }
         val peer = look(seen)
         val inTheWay = ManageProblem.local(peer, asked)
         if (inTheWay != null && inTheWay != ManageProblem.OFFLINE) {
             updatePairing { it.copy(checking = false, problem = inTheWay) }
             return
         }
-        if (inTheWay != null) updatePairing { it.copy(problem = inTheWay) }
+        // Connected, and the tailnet holds the peer, whatever was said before this device was
+        // looked at: what is left to doubt is the peer's answer.
+        updatePairing { it.copy(problem = inTheWay ?: it.problem?.takeIf { p -> p == ManageProblem.OFFLINE || p == ManageProblem.NOT_ACCEPTING }) }
         val reach = io { client.reach() }
         if (run == reading) updatePairing { it.answered(reach) }
     }

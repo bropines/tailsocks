@@ -35,6 +35,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
 /**
@@ -369,8 +370,8 @@ class RemoteManageControllerTest {
     fun thePageReadsTheStatusTheSettingsAndTheFiles() {
         open()
         runBlocking { controller.start() }
-        // The status beside the small question; then the settings and the files.
-        assertEquals(listOf(STATUS, HELLO, "GET /v1/settings", "GET /v1/files"), sent())
+        // The small question and the status beside it; then, once the status is in, the settings and the files.
+        assertEquals(listOf(HELLO, STATUS, "GET /v1/settings", "GET /v1/files"), sent())
         assertFalse(ui.loading)
         assertNull(ui.problem)
         assertEquals(14, ui.settings.size)
@@ -457,7 +458,7 @@ class RemoteManageControllerTest {
 
         // A person asks: now the status is asked for too, beside the small question that still decides first.
         controller.resolve(ManageProblemAction.RETRY)
-        assertEquals(listOf(HELLO, STATUS, HELLO), sent())
+        assertEquals(listOf(HELLO, HELLO, STATUS), sent())
         assertEquals(ManageProblem.OFFLINE, ui.problem)
     }
 
@@ -480,7 +481,7 @@ class RemoteManageControllerTest {
         assertEquals(ManageProblem.NOT_ACCEPTING, ui.problem)
         assertEquals(ManageProblemAction.RETRY, ui.problemAction)
         // Nothing follows a device that does not answer: no settings, no files, each with a wait of its own.
-        assertEquals(listOf(STATUS, HELLO), sent())
+        assertEquals(listOf(HELLO, STATUS), sent())
     }
 
     // ─── What the device said last ───────────────────────────────────────────────────────────
@@ -662,6 +663,25 @@ class RemoteManageControllerTest {
     }
 
     @Test
+    fun theSettingsAndTheFilesAreAskedWithoutWaitingForThePageToDraw() = threaded { page, at ->
+        paired()
+        device.hold(STATUS)
+        at.scope.launch { page.start() }
+        await("the status asked") { sent().contains(STATUS) }
+        // The page's own thread is busy — drawing what it has — when the status comes in.
+        val drawing = CountDownLatch(1)
+        at.scope.launch { drawing.await() }
+        device.release(STATUS)
+        // What follows the status leaves all the same, from the thread that brought it.
+        await("followed") { sent().containsAll(listOf("GET /v1/settings", "GET /v1/files")) }
+        assertNull((page.ui as RemoteManageUi.Managing).status)
+
+        drawing.countDown()
+        await("read") { (page.ui as? RemoteManageUi.Managing)?.let { !it.loading && it.status != null } == true }
+        assertEquals(14, (page.ui as RemoteManageUi.Managing).settings.size)
+    }
+
+    @Test
     fun whatWasRememberedIsShownWhileTheDeviceIsAsked() = threaded { page, at ->
         open()
         val heard = clock
@@ -723,6 +743,49 @@ class RemoteManageControllerTest {
         val m = page.ui as RemoteManageUi.Managing
         assertEquals(14, m.settings.size)
         assertTrue(m.usable)
+    }
+
+    @Test
+    fun whatWasInTheWayStaysSaidWhileTheDeviceIsAskedAgain() = threaded { page, at ->
+        paired()
+        device.reachable = false
+        at.scope.launch { page.start() }
+        await("said") { (page.ui as? RemoteManageUi.Managing)?.let { it.problem == ManageProblem.NOT_ACCEPTING && !it.loading } == true }
+
+        // Asked again: the sentence and its button wait with the page, instead of going and coming back.
+        device.hold(HELLO)
+        device.hold(STATUS)
+        at.scope.launch { page.resolve(ManageProblemAction.RETRY) }
+        await("asked again") { sent().count { it == HELLO } == 2 }
+        val m = page.ui as RemoteManageUi.Managing
+        assertEquals(ManageProblem.NOT_ACCEPTING, m.problem)
+        assertTrue(m.loading)
+
+        // It answers this time, and the sentence goes with its first word.
+        device.reachable = true
+        device.release(HELLO)
+        device.release(STATUS)
+        await("read") { (page.ui as? RemoteManageUi.Managing)?.let { !it.loading && it.problem == null && it.status != null } == true }
+    }
+
+    @Test
+    fun whatWasInTheWayOfAPairingStaysSaidWhileTheDeviceIsAskedAgain() = threaded { page, at ->
+        device.reachable = false
+        at.scope.launch { page.start() }
+        await("said") { (page.ui as? RemoteManageUi.Pairing)?.let { it.problem == ManageProblem.NOT_ACCEPTING && !it.checking } == true }
+
+        device.hold(HELLO)
+        at.scope.launch { page.resolve(ManageProblemAction.RETRY) }
+        await("asked again") { sent().count { it == HELLO } == 2 }
+        val p = page.ui as RemoteManageUi.Pairing
+        assertEquals(ManageProblem.NOT_ACCEPTING, p.problem)
+        assertTrue(p.checking)
+        assertFalse(p.form)
+
+        device.reachable = true
+        device.release(HELLO)
+        await("the form") { (page.ui as? RemoteManageUi.Pairing)?.form == true }
+        assertNull((page.ui as RemoteManageUi.Pairing).problem)
     }
 
     @Test
