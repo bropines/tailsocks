@@ -973,12 +973,14 @@ fun MainScreen(
                     PageTextField(
                         value = newAccountName,
                         onValueChange = { newAccountName = it },
-                        label = dlgNameLabel
+                        label = dlgNameLabel,
+                        modifier = Modifier.fillMaxWidth()
                     )
                     PageTextField(
                         value = newAccountServer,
                         onValueChange = { newAccountServer = it },
                         label = dlgServerLabel,
+                        modifier = Modifier.fillMaxWidth(),
                         placeholder = dlgServerPlaceholder
                     )
                     // Optional: with a key the profile registers on its first start,
@@ -987,6 +989,7 @@ fun MainScreen(
                         value = newAccountAuthKey,
                         onValueChange = { newAccountAuthKey = it },
                         label = dlgAuthKeyLabel,
+                        modifier = Modifier.fillMaxWidth(),
                         placeholder = dlgAuthKeyPlaceholder
                     )
                     Text(
