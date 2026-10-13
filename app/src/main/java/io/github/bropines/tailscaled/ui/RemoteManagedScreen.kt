@@ -86,6 +86,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.AppPermission
 import io.github.bropines.tailscaled.core.REMOTE_CLASS_OWNER
 import io.github.bropines.tailscaled.core.RemoteAccess
 import io.github.bropines.tailscaled.core.RemoteAccessClass
@@ -98,6 +99,7 @@ import io.github.bropines.tailscaled.core.RemoteLevel
 import io.github.bropines.tailscaled.core.RemoteManage
 import io.github.bropines.tailscaled.core.RemoteOutcome
 import io.github.bropines.tailscaled.core.RemotePairedDevice
+import io.github.bropines.tailscaled.core.RemotePromptRules
 import io.github.bropines.tailscaled.core.RemoteReach
 import io.github.bropines.tailscaled.core.RemoteRevoked
 import io.github.bropines.tailscaled.core.RemoteState
@@ -1160,15 +1162,14 @@ internal object RemoteAccessWords {
         "save_received" to R.string.remote_can_act_save_received,
     )
 
-    val permissions: Map<String, Int> = mapOf(
-        "storage" to R.string.remote_perm_storage,
-        "notifications" to R.string.remote_perm_notifications,
-        "battery" to R.string.remote_perm_battery,
-        "vpn" to R.string.remote_perm_vpn,
-        "alarms" to R.string.remote_perm_alarms,
-        "install" to R.string.remote_perm_install,
-        "autostart" to R.string.remote_perm_autostart,
-    )
+    /**
+     * A permission is called here what the Permissions screen, a request's card and its
+     * notification call it ([RemotePromptRules.title]): one name on this device for one thing —
+     * access to files being "Access to all files" from Android 11 and "Storage" before it.
+     * The VPN consent is never asked for from afar and has only this page's word.
+     */
+    val permissions: Map<String, Int> =
+        AppPermission.entries.associate { it.id to (RemotePromptRules.title(it) ?: R.string.remote_perm_vpn) }
 
     val never: Map<String, Int> = mapOf(
         "stop" to R.string.remote_never_stop,

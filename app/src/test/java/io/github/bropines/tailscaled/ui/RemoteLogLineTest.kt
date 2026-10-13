@@ -155,6 +155,24 @@ class RemoteLogLineTest {
         }
     }
 
+    @Test
+    fun aPermissionHasOneNameWhereverItIsSaid() {
+        // The page's list and its log take the name a request's card, notification and line use.
+        for (permission in AppPermission.entries) {
+            val title = RemotePromptRules.title(permission) ?: continue
+            assertEquals(permission.id, title, RemoteAccessWords.permissions[permission.id])
+        }
+        assertEquals(AppPermission.entries.map { it.id }.toSet(), RemoteAccessWords.permissions.keys)
+        // Access to files is one thing up to Android 10 and another from Android 11: two wordings, by version, and no third.
+        assertEquals(R.string.remote_prompt_perm_storage, RemotePromptRules.title(AppPermission.STORAGE, 28))
+        assertEquals(R.string.remote_prompt_perm_storage, RemotePromptRules.title(AppPermission.STORAGE, 29))
+        assertEquals(R.string.remote_prompt_perm_all_files, RemotePromptRules.title(AppPermission.STORAGE, 30))
+        assertEquals(R.string.remote_prompt_perm_all_files, RemotePromptRules.title(AppPermission.STORAGE, 36))
+        // A unit test's Android is version 0: the older wording, in the log as on the card.
+        assertEquals("Asked for a permission: Storage (shown on screen)", en("permission", "storage: shown"))
+        assertEquals("Запрошено разрешение: Хранилище (показано уведомление)", ru("permission", "storage: notified"))
+    }
+
     private fun <T : Any> assertNotNullOf(value: T?, what: String): T {
         assertNotNull(what, value)
         return value!!

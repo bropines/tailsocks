@@ -85,14 +85,8 @@
     <string name="remote_can_set_advertise_routes">the subnet routes it offers</string>
     <string name="remote_can_set_full_control">full control</string>
     <string name="remote_can_set_exit_node">the exit node</string>
-    <!-- Permissions, as the system names their pages -->
-    <string name="remote_perm_storage">Files and media</string>
-    <string name="remote_perm_notifications">Notifications</string>
-    <string name="remote_perm_battery">Battery optimization</string>
+    <!-- A permission is named by the Permissions screen's own strings (RemotePromptRules.title); the VPN consent has no row there -->
     <string name="remote_perm_vpn">VPN connection</string>
-    <string name="remote_perm_alarms">Alarms &amp; reminders</string>
-    <string name="remote_perm_install">Install unknown apps</string>
-    <string name="remote_perm_autostart">Autostart</string>
     <!-- What nobody may: each begins the line or follows a comma -->
     <string name="remote_never_stop">stop TailSocks for good</string>
     <string name="remote_never_sign_out">sign out</string>
