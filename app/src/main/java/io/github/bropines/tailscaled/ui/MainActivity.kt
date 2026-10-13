@@ -104,22 +104,6 @@ import java.lang.Runtime
 
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
-fun isVersionNewer(current: String, latest: String): Boolean {
-    val cleanCurrent = current.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
-    val cleanLatest = latest.removePrefix("v").substringBefore("-").replace(Regex("[^0-9.]"), "")
-    val c = cleanCurrent.split(".").map { it.toIntOrNull() ?: 0 }
-    val l = cleanLatest.split(".").map { it.toIntOrNull() ?: 0 }
-    for (i in 0 until maxOf(c.size, l.size)) {
-        val cVal = c.getOrNull(i) ?: 0
-        val lVal = l.getOrNull(i) ?: 0
-        if (lVal > cVal) return true
-        if (lVal < cVal) return false
-    }
-    // Equal base numeric versions are not treated as an update. The old dev/debug
-    // branch here also returned false, so it was dead and has been dropped.
-    return false
-}
-
 fun launchApkInstaller(context: Context, apkFile: java.io.File) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
         Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
@@ -3268,15 +3252,8 @@ private fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) 
     val installed = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
     } catch (_: Exception) { "0.0.0" }
-    fun parts(v: String) = v.removePrefix("v").substringBefore("-").split(".").map { it.toIntOrNull() ?: 0 }
-    fun newerThanInstalled(v: String): Boolean {
-        val a = parts(v); val b = parts(installed)
-        for (i in 0 until maxOf(a.size, b.size)) {
-            val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
-            if (x != y) return x > y
-        }
-        return false
-    }
+    // In the order of versions, where a beta is newer than the beta before it and older than its release.
+    fun newerThanInstalled(v: String): Boolean = isVersionNewer(installed, v)
     dir.listFiles { f -> f.name.startsWith("tailsocks-update-") }?.forEach { f ->
         val ver = f.name.removePrefix("tailsocks-update-").substringBefore(".apk").substringBefore(".tmp")
         val keep = f.name.endsWith(".apk") && (ver == keepVersion || newerThanInstalled(ver))
