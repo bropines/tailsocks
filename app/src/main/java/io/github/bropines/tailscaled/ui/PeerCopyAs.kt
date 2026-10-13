@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -229,7 +230,7 @@ internal fun PeerCopyAsContent(peer: PeerData, isSelf: Boolean, names: MagicDnsN
  * and now: the preview renderer takes its picture before anything launched could land.
  */
 @Composable
-private fun rememberPeerCopyForms(peer: PeerData, isSelf: Boolean, names: MagicDnsNames): List<PeerCopyForm> {
+internal fun rememberPeerCopyForms(peer: PeerData, isSelf: Boolean, names: MagicDnsNames): List<PeerCopyForm> {
     val demo = LocalDemo.current
     val inPreview = LocalInspectionMode.current
     val address = peer.tailscaleIPs?.firstOrNull()
@@ -244,13 +245,12 @@ private fun rememberPeerCopyForms(peer: PeerData, isSelf: Boolean, names: MagicD
     return remember(peer, isSelf, names, webServices) { peerCopyForms(peer, isSelf, names, webServices) }
 }
 
-/** The rows: each form's text as the label, what it is under it. Resolved in the parent
- *  composition, as every PickerSheet's words are. [onCopy] gets the form and those words. */
+/**
+ * What each [PeerCopyForm] is, in words and as an icon, resolved in the parent composition as
+ * every picker's words are: the sheet's rows and a television's dialog both read them.
+ */
 @Composable
-private fun peerCopyOptions(
-    forms: List<PeerCopyForm>,
-    onCopy: (PeerCopyForm, String) -> Unit
-): List<PickerOption<() -> Unit>> {
+internal fun rememberPeerFormNames(): (PeerCopyForm) -> Pair<String, ImageVector> {
     val shortName = stringResource(R.string.peer_copy_short_name)
     val fullName = stringResource(R.string.peer_copy_full_name)
     val ipv4 = stringResource(R.string.peer_copy_ipv4)
@@ -262,8 +262,8 @@ private fun peerCopyOptions(
     val webService = stringResource(R.string.peer_copy_web_service)
     val ping = stringResource(R.string.peer_copy_ping)
     val tailscalePing = stringResource(R.string.peer_copy_tailscale_ping)
-    return forms.map { form ->
-        val (what, icon) = when (form.kind) {
+    return { form ->
+        when (form.kind) {
             PeerCopyKind.SHORT_NAME -> shortName to Icons.Default.Dns
             PeerCopyKind.FULL_NAME -> fullName to Icons.Default.Dns
             PeerCopyKind.IPV4 -> ipv4 to Icons.Default.Lan
@@ -274,6 +274,19 @@ private fun peerCopyOptions(
             PeerCopyKind.PING -> ping to Icons.Default.NetworkPing
             PeerCopyKind.TAILSCALE_PING -> tailscalePing to Icons.Default.NetworkPing
         }
+    }
+}
+
+/** The rows: each form's text as the label, what it is under it. Resolved in the parent
+ *  composition, as every PickerSheet's words are. [onCopy] gets the form and those words. */
+@Composable
+private fun peerCopyOptions(
+    forms: List<PeerCopyForm>,
+    onCopy: (PeerCopyForm, String) -> Unit
+): List<PickerOption<() -> Unit>> {
+    val nameOf = rememberPeerFormNames()
+    return forms.map { form ->
+        val (what, icon) = nameOf(form)
         PickerOption(
             value = { onCopy(form, what) },
             label = form.text,

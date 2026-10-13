@@ -18,7 +18,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
@@ -100,6 +100,13 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     // The preview renderer has no daemon and no native bridge; there the demo, or its
     // absence, decides whether the service counts as running.
     val inPreview = LocalInspectionMode.current
+    // A television: no search to reveal (typing is the thing it is worst at), no clipboard to
+    // copy into — the values are shown instead — and no pager to swipe: the tab chips choose.
+    val tv = isTv
+    val searchAllowed = Feature.SEARCH.offered()
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    /** Where the remote starts: on the first row, once. */
+    val initialFocusSpent = remember { mutableStateOf(false) }
     val demoStatus = remember(demo) {
         demo?.statusJson?.let { runCatching { AppJson.decodeFromString<StatusResponse>(it) }.getOrNull() }
     }
@@ -113,7 +120,8 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     var selfPeer by remember { mutableStateOf<PeerData?>(demoStatus?.self) }
     var peersList by remember { mutableStateOf(demoStatus?.let(::listablePeers) ?: emptyList()) }
     // Saveable, with the tab and the field's place: a rotation keeps what is being looked for.
-    var searchQuery by rememberSaveable { mutableStateOf(initialQuery) }
+    // A query nobody can see or clear would only hide rows, so a television starts without one.
+    var searchQuery by rememberSaveable { mutableStateOf(if (searchAllowed) initialQuery else "") }
     var selectedPeer by remember {
         mutableStateOf(initialPeerId?.let { id -> (listOfNotNull(selfPeer) + peersList).firstOrNull { it.id == id } })
     }
@@ -159,15 +167,18 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
             }
         }
     }
+    // Which tab is on screen. A pager's page, except on a television, which has no pager: the
+    // remote's arrows would carry the focus across a page edge, turning the tab under it.
+    val currentPage = if (tv) tabs.indexOf(selectedTab).coerceAtLeast(0) else pager.currentPage
     // What is on screen: the details sheet pages through it and "Ping all" pings it.
-    val shownRows = tabRows.getValue(tabs.getOrElse(pager.currentPage) { PeerTab.ALL })
+    val shownRows = tabRows.getValue(tabs.getOrElse(currentPage) { PeerTab.ALL })
     // A scroll position per tab, held out here so a page that leaves the screen, or a pager
     // rebuilt by a reload, comes back where it was.
     val listStates = PeerTab.entries.associateWith { rememberLazyListState() }
 
     // The search field, folded away until a pull at the top of the list or the top bar's
     // button brings it out; out from the start when the screen opens on a query.
-    val searchShown = rememberSaveable { mutableFloatStateOf(if (initialQuery.isNotEmpty()) 1f else 0f) }
+    val searchShown = rememberSaveable { mutableFloatStateOf(if (searchAllowed && initialQuery.isNotEmpty()) 1f else 0f) }
     val searchSlotPx = with(LocalDensity.current) { SEARCH_SLOT_HEIGHT.toPx() }
     val reveal = remember { SearchReveal(searchShown, coroutineScope, searchSlotPx) { searchQuery.isNotEmpty() } }
     val searchOut by remember { derivedStateOf { reveal.fraction > 0f } }
@@ -301,7 +312,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     // composition while folded, so neither a screen reader nor the keyboard finds a field
     // nobody can see; the top bar's button is the way in for both.
     val searchSlot: @Composable () -> Unit = {
-        if (!daemonStopped && searchOut) {
+        if (searchAllowed && !daemonStopped && searchOut) {
             Box(
                 Modifier
                     .clipToBounds()
@@ -342,8 +353,15 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
         if (!daemonStopped && errorMsg == null && tabs.size > 1) {
             ScrollableSlidingSegmentedChips(
                 items = tabs.map { SegmentedChipItem(stringResource(it.label), count = tabRows.getValue(it).size) },
-                selectedIndex = pager.currentPage,
-                onOptionSelected = { coroutineScope.launch { pager.animateScrollToPage(it) } },
+                selectedIndex = currentPage,
+                onOptionSelected = {
+                    if (tv) {
+                        tabs.getOrNull(it)?.let { tab ->
+                            selectedTab = tab
+                            GlobalSettings.setString(context, PEERS_TAB_PREF, tab.name)
+                        }
+                    } else coroutineScope.launch { pager.animateScrollToPage(it) }
+                },
                 modifier = Modifier.readableWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 height = 36.dp
             )
@@ -353,16 +371,13 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     // The rows, a page per tab.
     val peerPages: @Composable () -> Unit = {
         val searching = searchQuery.isNotBlank()
+        // Where there is nothing to paste into there is no "Copy as…" to long-press: the
+        // details' button shows the forms instead.
         val copyAsLabel = stringResource(R.string.peer_copy_as)
-        key(pager) {
-        // A swipe across the list turns the tab, as in Serve & TailCat; the lists only
-        // scroll up and down, so the two gestures never compete. The pull that brings
-        // out the search reaches the connection from whichever page is under the finger.
-        HorizontalPager(
-            state = pager,
-            modifier = Modifier.fillMaxSize().nestedScroll(reveal.connection),
-            key = { tabs[it] }
-        ) { page ->
+        val rowCopyAs: ((PeerData) -> Unit)? = if (clipboardOffered) { p -> copyAsPeer = p } else null
+        // One tab's rows. Beside a pager it is a page; on a television, which has no pager, it is
+        // the whole list, rebuilt for the tab the chips chose.
+        val tabPage: @Composable (Int) -> Unit = { page ->
             val tab = tabs[page]
             val rows = tabRows.getValue(tab)
             // Two-pane, the row whose details are beside the list is marked.
@@ -375,23 +390,26 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                             true,
                             pingStateOf(peerPings[self.getPrimaryIp()]),
                             nowMillis,
-                            onLongClick = { copyAsPeer = self },
-                            onLongClickLabel = copyAsLabel,
+                            onLongClick = rowCopyAs?.let { copyAs -> { copyAs(self) } },
+                            onLongClickLabel = copyAsLabel.takeIf { rowCopyAs != null },
                             selected = isShown(self),
-                            pathWords = pathWords
+                            pathWords = pathWords,
+                            modifier = Modifier.tvFocusOnce(initialFocusSpent)
                         ) { selectedPeer = self }
                     }
                 }
-                items(rows.peers) { p ->
+                itemsIndexed(rows.peers) { index, p ->
                     PeerItem(
                         p,
                         false,
                         pingStateOf(peerPings[p.getPrimaryIp()]),
                         nowMillis,
-                        onLongClick = { copyAsPeer = p },
-                        onLongClickLabel = copyAsLabel,
+                        onLongClick = rowCopyAs?.let { copyAs -> { copyAs(p) } },
+                        onLongClickLabel = copyAsLabel.takeIf { rowCopyAs != null },
                         selected = isShown(p),
-                        pathWords = pathWords
+                        pathWords = pathWords,
+                        // The first row, when this device's own is not listed above it.
+                        modifier = if (index == 0 && rows.self == null) Modifier.tvFocusOnce(initialFocusSpent) else Modifier
                     ) { selectedPeer = p }
                 }
                 when {
@@ -421,12 +439,23 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                 }
             }
         }
+        if (tv) {
+            tabs.getOrNull(currentPage)?.let { tab -> key(tab) { tabPage(currentPage) } }
+        } else key(pager) {
+            // A swipe across the list turns the tab, as in Serve & TailCat; the lists only
+            // scroll up and down, so the two gestures never compete. The pull that brings
+            // out the search reaches the connection from whichever page is under the finger.
+            HorizontalPager(
+                state = pager,
+                modifier = Modifier.fillMaxSize().nestedScroll(reveal.connection),
+                key = { tabs[it] }
+            ) { page -> tabPage(page) }
         }
         // A turn in the pane can land on a row scrolled out of sight; the list follows it.
         if (panePeer != null) {
-            LaunchedEffect(panePeer.id, pager.currentPage) {
+            LaunchedEffect(panePeer.id, currentPage) {
                 val index = allSelectablePeers.indexOfFirst { if (panePeer.id != null) it.id == panePeer.id else it == panePeer }
-                val state = listStates.getValue(tabs.getOrElse(pager.currentPage) { PeerTab.ALL })
+                val state = listStates.getValue(tabs.getOrElse(currentPage) { PeerTab.ALL })
                 if (index >= 0 && state.layoutInfo.visibleItemsInfo.none { it.index == index && it.offset >= 0 }) {
                     state.animateScrollToItem(index)
                 }
@@ -450,7 +479,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                     actions = {
                         // The search without the pull, for whoever does not know the pull;
                         // and, once it is out, the one tap that empties and folds it.
-                        if (!daemonStopped) {
+                        if (!daemonStopped && searchAllowed) {
                             IconButton(onClick = {
                                 if (searchOut) {
                                     searchQuery = ""
@@ -469,6 +498,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         // rows as they arrive rather than all at the end.
                         IconButton(
                             onClick = {
+                                if (pingingAll || isRefreshing) return@IconButton
                                 pingingAll = true
                                 StatusAsides.bump(context, StatusAsides.PINGS)
                                 coroutineScope.launch {
@@ -482,14 +512,16 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                                     pingingAll = false
                                 }
                             },
-                            enabled = !pingingAll && !isRefreshing && !daemonStopped &&
+                            // On a television the buttons stay targets while a run is under way (the
+                            // click is ignored): one that goes dead takes the remote's focus with it.
+                            enabled = (tv || (!pingingAll && !isRefreshing)) && !daemonStopped &&
                                 shownRows.peers.any { it.online == true }
                         ) {
                             Icon(Icons.Default.NetworkPing, stringResource(R.string.action_ping_all))
                         }
                         // The one way to reload: a pull at the top of the list brings out the
                         // search instead, so this button also shows that a load is running.
-                        IconButton(onClick = { loadPeers() }, enabled = !isRefreshing) {
+                        IconButton(onClick = { loadPeers() }, enabled = !isRefreshing || tv) {
                             if (isRefreshing) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                             else Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh))
                         }
@@ -510,7 +542,8 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                 twoPane = true,
                 modifier = Modifier.padding(padding).fillMaxSize(),
                 list = {
-                    Column(Modifier.fillMaxSize()) {
+                    // Leaving the list for the details and coming back returns to the row.
+                    Column(Modifier.fillMaxSize().tvFocusGroup()) {
                         searchSlot()
                         tabRow()
                         Box(Modifier.weight(1f)) { peerPages() }
@@ -570,6 +603,16 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
         }
 
         copyAsPeer?.let { p ->
+            // Nothing to paste into: the same forms, shown large and with a code, in a dialog.
+            if (!clipboardOffered) {
+                PeerShowAsDialog(
+                    peer = p,
+                    isSelf = p.id?.let { it == selfPeer?.id } ?: (p === selfPeer),
+                    names = magicDns,
+                    onDismiss = { copyAsPeer = null }
+                )
+                return@let
+            }
             val qrLabel = stringResource(R.string.qr_show)
             PeerCopyAsSheet(
                 peer = p,

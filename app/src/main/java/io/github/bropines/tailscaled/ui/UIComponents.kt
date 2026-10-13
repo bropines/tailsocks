@@ -30,6 +30,7 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -322,6 +323,11 @@ private val PEER_COPYABLE_DETAILS = setOf(
     PeerDetailId.ALLOWED_IPS, PeerDetailId.NODE_ID, PeerDetailId.CUR_ADDR,
     PeerDetailId.PEER_API, PeerDetailId.VERSION, PeerDetailId.TAGS,
     PeerDetailId.RELAY, PeerDetailId.PEER_RELAY, PeerDetailId.NO_FILE_SHARING
+)
+
+/** Of those, the rows a television shows with a QR code: an address, a name that resolves to one, a link. */
+private val PEER_QR_DETAILS = setOf(
+    PeerDetailId.IPV4, PeerDetailId.IPV6, PeerDetailId.DNS_NAME, PeerDetailId.CUR_ADDR, PeerDetailId.PEER_API
 )
 
 /** The rows that are machine text and line up better in a monospace face. */
@@ -788,6 +794,8 @@ internal fun PeerItem(
     selected: Boolean = false,
     /** The path's words; a list resolves them once for all its rows. */
     pathWords: PeerPathWords = peerPathWords(),
+    /** For the screen to place the row: the remote's first stop, say. */
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -808,12 +816,17 @@ internal fun PeerItem(
     // rectangle spilling past the rounded corners. Not Surface(onClick), which has no long
     // press.
     val shape = MaterialTheme.shapes.large
+    // A remote's ring goes before the clip, or it loses its corners.
+    val focusSource = remember { MutableInteractionSource() }
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
+            .tvFocusRing(focusSource, shape)
             .clip(shape)
             .combinedClickable(
+                interactionSource = focusSource,
+                indication = LocalIndication.current,
                 role = Role.Button,
                 onLongClickLabel = onLongClickLabel,
                 onLongClick = onLongClick,
@@ -861,7 +874,7 @@ internal fun PeerItem(
                 if (!peer.tags.isNullOrEmpty()) {
                     Text(
                         text = peer.tags.joinToString(", "),
-                        fontSize = 11.sp,
+                        fontSize = if (isTv) 13.sp else 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.primary,
@@ -895,13 +908,15 @@ internal fun PeerItem(
 @Composable
 private fun PeerAddressLine(address: String, path: PeerPath, ago: String?, ping: PeerPingState, words: PeerPathWords) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    // Read from a sofa: two sp more.
+    val size = if (isTv) 14.sp else 12.sp
     val variant: @Composable (PathLine?) -> Unit = { line ->
         val (text, inline) = peerPathText(address, line, muted)
         Text(
             text,
             inlineContent = inline,
             fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
+            fontSize = size,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = muted
@@ -924,7 +939,7 @@ private fun PeerAddressLine(address: String, path: PeerPath, ago: String?, ping:
             Text(
                 latency,
                 fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
+                fontSize = size,
                 maxLines = 1,
                 softWrap = false,
                 color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary else muted
@@ -1097,6 +1112,8 @@ private data class PeerDetailsStrings(
      *  thing that measures, and this is where it says so. */
     val tapToMeasure: String,
     val copy: String,
+    /** A television's twin of [copy]: the value shown large, for a row or a card's lead. */
+    val showLarge: String,
     /** The in-place acknowledgement a copied row shows for a moment. */
     val copied: String,
     val expanded: String,
@@ -1198,6 +1215,12 @@ fun PeerDetailsModal(
     val prevPage = peerAt(-1)
     val nextPage = peerAt(1)
 
+    // Where there is no clipboard (a television) a value is shown instead of copied, large
+    // and with a code where it is an address or a link: the row or lead that was chosen.
+    val clipboardOffered = Feature.CLIPBOARD_ACTIONS.offered()
+    var shownDetail by remember(peer.id) { mutableStateOf<PeerDetail?>(null) }
+    val shownStrings = rememberShownValueStrings()
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberFullSheetState()
@@ -1291,15 +1314,17 @@ fun PeerDetailsModal(
         prevPeer = stringResource(R.string.peer_details_prev),
         nextPeer = stringResource(R.string.peer_details_next),
         sendFile = stringResource(R.string.peer_send_file),
-        copyAs = stringResource(R.string.peer_copy_as),
+        // Where nothing can be pasted, the button shows the forms instead of copying one.
+        copyAs = stringResource(if (clipboardOffered) R.string.peer_copy_as else R.string.tv_peer_show_as),
         tooltipDismiss = stringResource(R.string.action_close),
         pinging = stringResource(R.string.peer_pinging),
         pingResultFormat = stringResource(R.string.peer_ping_result),
         pingSelf = stringResource(R.string.peer_ping_self),
         pingSelfCaption = stringResource(R.string.peer_ping_self_caption),
         pingCardFormat = stringResource(R.string.peer_cd_ping_card),
-        tapToMeasure = stringResource(R.string.peer_conn_tap_to_measure),
+        tapToMeasure = stringResource(if (isTv) R.string.tv_peer_press_to_measure else R.string.peer_conn_tap_to_measure),
         copy = stringResource(R.string.action_copy),
+        showLarge = stringResource(R.string.tv_value_show),
         copied = stringResource(R.string.peer_copied),
         expanded = stringResource(R.string.peer_cd_expanded),
         collapsed = stringResource(R.string.peer_cd_collapsed),
@@ -1338,10 +1363,14 @@ fun PeerDetailsModal(
     // The toast stays for the case where the copied row has scrolled off under the finger;
     // the tick on the row itself is the acknowledgement for everyone else.
     val onCopyDetail: (PeerDetail) -> Unit = { row ->
-        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            .setPrimaryClip(ClipData.newPlainText(row.label, row.value))
-        Toast.makeText(context, context.getString(R.string.copied_to_clipboard, row.label), Toast.LENGTH_SHORT).show()
-        copiedDetail = row.id
+        if (clipboardOffered) {
+            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(ClipData.newPlainText(row.label, row.value))
+            Toast.makeText(context, context.getString(R.string.copied_to_clipboard, row.label), Toast.LENGTH_SHORT).show()
+            copiedDetail = row.id
+        } else {
+            shownDetail = row
+        }
     }
     /** An arrow exists exactly when there is a page to turn to, and turns to that page. */
     fun turnTo(target: PeerPage?): (() -> Unit)? = target?.let { { onSelectPeer(it.peer) } }
@@ -1560,6 +1589,15 @@ fun PeerDetailsModal(
             Box(Modifier.fillMaxWidth().heightIn(max = maxHeight).then(turns)) { pages(1) }
         }
     }
+
+    shownDetail?.let { row ->
+        ValueDialog(
+            title = peer.getDisplayName(),
+            values = listOf(ShownValue(row.label, row.value, qr = row.id in PEER_QR_DETAILS)),
+            strings = shownStrings,
+            onDismiss = { shownDetail = null }
+        )
+    }
 }
 
 /**
@@ -1698,6 +1736,10 @@ private fun PeerDetailsPage(
         val refusedHere = taildrop is TaildropStatus.Blocked
         val tooltipState = rememberTooltipState(isPersistent = true)
         val scope = rememberCoroutineScope()
+        // A tooltip is a popup no key reaches, and a persistent one stays until its Close is
+        // pressed: on a television the reason is a dialog, which the remote can close.
+        val reasonInDialog = isTv
+        var reasonShown by remember { mutableStateOf(false) }
         // Each button takes its place from the layout below: side by side, or stacked.
         // The Box is where that place lands — TooltipBox hands its own modifier to the
         // anchor inside it, where a Row never sees a weight.
@@ -1722,7 +1764,9 @@ private fun PeerDetailsPage(
                 ) {
                     Button(
                         onClick = {
-                            if (refusedHere) scope.launch { tooltipState.show() } else onSendFileClick()
+                            if (refusedHere) {
+                                if (reasonInDialog) reasonShown = true else scope.launch { tooltipState.show() }
+                            } else onSendFileClick()
                         },
                         // Enabled even when refused: a disabled button swallows the tap,
                         // and the tap is what the explanation hangs on. The dimmed
@@ -1749,6 +1793,18 @@ private fun PeerDetailsPage(
                         PeerActionLabel(strings.sendFile)
                     }
                 }
+                if (reasonShown && taildropNote != null) {
+                    AlertDialog(
+                        onDismissRequest = { reasonShown = false },
+                        title = { Text(strings.sendFile) },
+                        text = { Text(taildropNote) },
+                        confirmButton = {
+                            TextButton(onClick = { reasonShown = false }, modifier = Modifier.tvInitialFocus()) {
+                                Text(strings.tooltipDismiss)
+                            }
+                        }
+                    )
+                }
             }
         }
         val copyAsButton: (@Composable (Modifier) -> Unit)? = onCopyAsClick?.let { onClick ->
@@ -1759,7 +1815,7 @@ private fun PeerDetailsPage(
                     shape = MaterialTheme.shapes.medium,
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
+                    Icon(if (Feature.CLIPBOARD_ACTIONS.offered()) Icons.Default.ContentCopy else Icons.Default.QrCode2, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     PeerActionLabel(strings.copyAs)
                 }
@@ -2289,7 +2345,8 @@ private fun PeerInfoCard(
                     PeerLeadCopyButton(
                         copied = copied == copyableLead.id,
                         strings = strings,
-                        onCopy = { onCopyDetail(copyableLead) }
+                        onCopy = { onCopyDetail(copyableLead) },
+                        showIcon = if (copyableLead.id in PEER_QR_DETAILS) Icons.Default.QrCode2 else Icons.Default.Fullscreen
                     )
                 }
                 if (foldable) {
@@ -2353,8 +2410,17 @@ private fun PeerInfoCard(
 private fun PeerLeadCopyButton(
     copied: Boolean,
     strings: PeerDetailsStrings,
-    onCopy: () -> Unit
+    onCopy: () -> Unit,
+    /** What stands for "show it large" where there is nothing to copy into: a code, or just bigger. */
+    showIcon: ImageVector
 ) {
+    if (!Feature.CLIPBOARD_ACTIONS.offered()) {
+        // A television shows the value instead (onCopy opens it), on a target a remote can hit.
+        IconButton(onClick = onCopy, modifier = Modifier.size(44.dp)) {
+            Icon(showIcon, contentDescription = strings.showLarge, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+        }
+        return
+    }
     IconButton(onClick = onCopy, modifier = Modifier.size(36.dp)) {
         Crossfade(
             targetState = copied,
@@ -2396,12 +2462,23 @@ private fun PeerDetailRow(
 ) {
     val copyable = row.id in PEER_COPYABLE_DETAILS
     val technical = row.id in PEER_MONOSPACE_DETAILS
+    // Where nothing can be copied (a television) the row is a target that shows its value
+    // large instead; its ring goes before the clip, so it keeps its corners.
+    val copies = Feature.CLIPBOARD_ACTIONS.offered()
+    val bump = if (isTv) 2 else 0
+    val shape = MaterialTheme.shapes.medium
+    val focusSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.medium)
+            .tvFocusRing(focusSource, shape)
+            .clip(shape)
             .then(
-                if (copyable) Modifier.clickable(onClickLabel = strings.copy) { onCopy(row) }
+                if (copyable) Modifier.clickable(
+                    interactionSource = focusSource,
+                    indication = LocalIndication.current,
+                    onClickLabel = if (copies) strings.copy else strings.showLarge
+                ) { onCopy(row) }
                 else Modifier
             )
             .padding(horizontal = 6.dp, vertical = 8.dp),
@@ -2416,13 +2493,21 @@ private fun PeerDetailRow(
             Text(
                 row.value,
                 fontFamily = if (technical) FontFamily.Monospace else FontFamily.Default,
-                fontSize = if (technical) 13.sp else 14.sp,
+                fontSize = (if (technical) 13 + bump else 14 + bump).sp,
                 fontWeight = if (technical) FontWeight.Normal else FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
-        if (copyable) {
+        if (copyable && !copies) {
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = if (row.id in PEER_QR_DETAILS) Icons.Default.QrCode2 else Icons.Default.Fullscreen,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else if (copyable) {
             Spacer(Modifier.width(8.dp))
             Crossfade(
                 targetState = copied,
