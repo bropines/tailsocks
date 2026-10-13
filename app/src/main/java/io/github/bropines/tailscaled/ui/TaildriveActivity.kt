@@ -44,6 +44,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -67,6 +68,15 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+
+/** How often the screen asks again while the daemon has no network map to answer from. */
+private const val POLICY_POLL_MS = 3_000L
+
+/** How faint a shared folder's card is while it is not shared. */
+private const val NOT_LIVE_ALPHA = 0.6f
 
 class TaildriveActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -150,6 +160,10 @@ internal class TaildriveDemo(
     val storageAccess: Boolean = true,
     val proxy: Boolean = false,
     val grantCommand: String? = null,
+    /** What the policy lets this device do, as the daemon would say it; null leaves the screen asking. */
+    val policy: TaildriveAccess.Report? = null,
+    /** The way into the policy editor is offered. */
+    val canFixPolicy: Boolean = false,
 )
 
 internal val LocalTaildriveDemo = staticCompositionLocalOf<TaildriveDemo?> { null }
@@ -189,6 +203,29 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
     var hasStoragePermission by remember { mutableStateOf(demo?.storageAccess ?: (!inPreview && checkStoragePermission(context))) }
     var isProxyEnabled by remember { mutableStateOf(demo?.proxy ?: prefs.getBoolean("taildrive_proxy_enabled", false)) }
+    // What the tailnet's policy lets this device do (core/TaildriveAccess.kt), asked of the running
+    // daemon: unknown until it has a map. The way into the policy editor is looked up only for a refusal.
+    var policy by remember { mutableStateOf(demo?.policy ?: TaildriveAccess.UNKNOWN) }
+    var fixIntent by remember { mutableStateOf<Intent?>(if (demo?.canFixPolicy == true) Intent() else null) }
+    var resumes by remember { mutableIntStateOf(0) }
+    if (demo == null && !inPreview) {
+        LaunchedEffect(resumes) {
+            // A daemon that is starting has no map yet: look again until it says something.
+            while (true) {
+                policy = withContext(Dispatchers.IO) {
+                    if (ProxyState.isActualRunning(context)) TaildriveAccess.report() else TaildriveAccess.UNKNOWN
+                }
+                if (policy.known) break
+                delay(POLICY_POLL_MS)
+            }
+        }
+        LaunchedEffect(policy) {
+            val refused = policy.share == TaildriveAccess.Verdict.DENIED || policy.access == TaildriveAccess.Verdict.DENIED
+            fixIntent = if (!refused) null else withContext(Dispatchers.IO) {
+                TaildrivePolicyFix.profileFor(context)?.let { TaildrivePolicyFix.intent(context, it) }
+            }
+        }
+    }
     var proxyIp by remember { mutableStateOf(prefs.getString("taildrive_proxy_ip", "127.0.0.1") ?: "127.0.0.1") }
     var proxyPort by remember { mutableStateOf(prefs.getString("taildrive_proxy_port", "33445") ?: "33445") }
     var isProxyAuthEnabled by remember { mutableStateOf(prefs.getBoolean("taildrive_proxy_auth_enabled", false)) }
@@ -335,6 +372,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && !inPreview) {
                 hasStoragePermission = checkStoragePermission(context)
+                // The policy may have been changed in the console, or the daemon started, meanwhile.
+                resumes++
                 // The pause below took the focus away. A remote has no finger to touch the screen
                 // again with: put it back on what it left to open the other window.
                 val back = returnFocus
@@ -479,6 +518,17 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
         }
     }
 
+    // The way into the policy editor, where the console is and a profile may write the policy.
+    val fixButton: @Composable () -> Unit = {
+        fixIntent?.let { intent -> FixPolicyButton(onClick = { context.tryStartActivity(intent) }) }
+    }
+    // What the policy says about opening the other devices' folders; the button is under the first
+    // refusal on the page, which is the one about sharing when there is one.
+    val accessVerdict: @Composable () -> Unit = {
+        DriveVerdict(DriveAbility.ACCESS, policy.access)
+        if (policy.access == TaildriveAccess.Verdict.DENIED && policy.share != TaildriveAccess.Verdict.DENIED) fixButton()
+    }
+
     // The switches, as rows in the style Settings uses, stacked at the rows' own spacing.
     val switches: @Composable () -> Unit = {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -508,6 +558,11 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                     triggerServiceSettingsUpdate(context)
                 }
             }
+
+            // What the policy says about sharing, right under the switch that turns it on; the way
+            // to put a refusal right is under the first refusal on the screen.
+            DriveVerdict(DriveAbility.SHARE, policy.share)
+            if (policy.share == TaildriveAccess.Verdict.DENIED) fixButton()
 
             // Read off the list itself, so deleting the "sdcard" share below
             // turns this off as well — a remembered copy kept it on.
@@ -545,6 +600,9 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
                 prefs.edit().putBoolean("taildrive_proxy_enabled", checked).apply()
                 triggerServiceSettingsUpdate(context)
             }
+            // Opening the other devices' folders is what this switch is for, and the entry to them is an icon
+            // in the bar; on a television that entry is a row with its own line.
+            if (!tv) accessVerdict()
 
             if (isProxyEnabled) {
                 Column(
@@ -699,8 +757,11 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     // Adding a share is possible once sharing is on and the access is there.
     val canAdd = isEnabled && hasStoragePermission
 
+    // The folders stay on the list while the server does not let this device share them, and say so.
+    val notLive = policy.share == TaildriveAccess.Verdict.DENIED
     val sharesHeading: @Composable () -> Unit = {
         val heading = stringResource(R.string.taildrive_shared_folders)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (tv) {
             // A remote reaches a button in the heading in one step from the top; the floating
             // one sits in a corner it would have to cross the whole list to find.
@@ -716,6 +777,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             }
         } else {
             Text(heading, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        if (isEnabled && notLive) SharesNotLiveNote()
         }
     }
 
@@ -740,7 +803,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     val shareCard: @Composable (LocalShare) -> Unit = { share ->
         Card(
             shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.fillMaxWidth()
+            // A folder the server does not let this device share is kept, and does not look live.
+            modifier = Modifier.fillMaxWidth().alpha(if (notLive) NOT_LIVE_ALPHA else 1f)
         ) {
             Row(
                 modifier = Modifier
@@ -786,10 +850,14 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     // it sits in the bar or floats, and the controls stay where they were. In the Files hub it is a
     // small button over Add, and the list leaves room under it.
     val browseRow: @Composable () -> Unit = {
-        BrowseSharesRow(
-            onClick = browseShares,
-            modifier = Modifier.driveInitialFocus(enabled = onBack != null && hasStoragePermission, requester = entryFocus)
-        )
+        Column {
+            BrowseSharesRow(
+                onClick = browseShares,
+                modifier = Modifier.driveInitialFocus(enabled = onBack != null && hasStoragePermission, requester = entryFocus)
+            )
+            // The television's entry to the other devices' folders carries what the policy says about it.
+            accessVerdict()
+        }
     }
     val bottomRoom = if (onBack == null && !tv) 136.dp else 88.dp
     val mainContent = @Composable { paddingValues: PaddingValues ->
