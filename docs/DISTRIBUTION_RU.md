@@ -24,7 +24,7 @@
 
 ## Obtainium
 
-Добавляется по ссылке на репозиторий. Опция *Attempt to filter APKs by CPU architecture* (`autoApkFilterByArch`, для новых приложений включена) ищет имя ABI в имени файла, поэтому из пяти APK релиза выбирается `…-arm64-v8a-…`. На x86 под `x86` попадает и `x86_64` — пользователь выберет сам. Версию Obtainium сравнивает тег (`v4.5.2`) с `versionName`, который с 4.5.2 — просто версия (`4.5.2`).
+Добавляется по ссылке на репозиторий. Опция *Attempt to filter APKs by CPU architecture* (`autoApkFilterByArch`, для новых приложений включена) ищет имя ABI в имени файла, поэтому из пяти APK релиза выбирается `…-arm64-v8a-…`. На x86 под `x86` попадает и `x86_64` — пользователь выберет сам. Версию Obtainium сравнивает тег (`v4.5.2`) с `versionName`, который с 4.5.2 — просто версия (`4.5.2`). Беты (`v5.1.0-beta.1`) публикуются на GitHub как pre-release, и Obtainium их пропускает, пока у приложения не включена опция *Include prereleases* ([RELEASING_RU.md](RELEASING_RU.md)).
 
 Бейдж для README (картинку `assets/graphics/badge_obtainium.png` из репозитория Obtainium положить к себе — хотлинк они просят не делать):
 

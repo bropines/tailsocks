@@ -24,7 +24,7 @@ Order of work: the Obtainium badge now → small fixes useful to every channel (
 
 ## Obtainium
 
-Added by pointing Obtainium at the repository. The *Attempt to filter APKs by CPU architecture* option (`autoApkFilterByArch`, on by default for new apps) looks for an ABI name in the filename, so it picks `…-arm64-v8a-…` out of the release's five APKs. On x86 devices, `x86_64` also matches the `x86` filter, so the user picks manually. Obtainium compares the tag (`v4.5.2`) against `versionName`, which since 4.5.2 is the plain version (`4.5.2`).
+Added by pointing Obtainium at the repository. The *Attempt to filter APKs by CPU architecture* option (`autoApkFilterByArch`, on by default for new apps) looks for an ABI name in the filename, so it picks `…-arm64-v8a-…` out of the release's five APKs. On x86 devices, `x86_64` also matches the `x86` filter, so the user picks manually. Obtainium compares the tag (`v4.5.2`) against `versionName`, which since 4.5.2 is the plain version (`4.5.2`). Betas (`v5.1.0-beta.1`) are published as GitHub pre-releases, which Obtainium skips unless the app's entry has *Include prereleases* switched on ([RELEASING.md](RELEASING.md)).
 
 A badge for the README (save the image `assets/graphics/badge_obtainium.png` from the Obtainium repository locally — they ask that you not hotlink it):
 

@@ -197,6 +197,8 @@ TailSocks maintains 20 minimal atomic patches in [`appctr/patches/`](appctr/patc
 
 Grab the latest APK from the [Releases](https://github.com/bropines/tailsocks/releases/latest) page, or use the download buttons at the top of this README.
 
+Betas of the next version come out as GitHub pre-releases: the app offers them once *Receive beta versions* is on (Settings → Appearance & language), Obtainium once *Include prereleases* is on for it — otherwise both stay on stable releases.
+
 > **Supported architectures:** `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`  
 > **Minimum Android version:** 7.0 (API 24)
 

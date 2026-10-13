@@ -260,6 +260,12 @@ Builds:
       - targetAbi=x86_64
 
 AutoUpdateMode: Version
+# Release tags only. The $ is what keeps betas (v5.1.0-beta.1, GitHub
+# pre-releases, docs/RELEASING.md) out of F-Droid: checkupdates matches the
+# pattern from the start of each tag and reads version.properties only in
+# those that match. Without it VERSION_NAME=([\d.]+) below would read a beta
+# as "5.1.0". The fork's recipe has the same line (checked 2026-10-14, at
+# 4.10.1): nothing to change there for betas, only never to loosen it.
 UpdateCheckMode: Tags ^v\d+\.\d+\.\d+$
 # Both lines are read from version.properties in the tagged commit.
 UpdateCheckData: version.properties|VERSION_CODE=(\d+)|.|VERSION_NAME=([\d.]+)
