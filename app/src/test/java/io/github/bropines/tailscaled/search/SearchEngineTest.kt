@@ -249,6 +249,20 @@ class SearchEngineTest {
         assertEquals("slip", ranked(SearchEntry("slip", listOf(SearchField.TITLE to "Part"))).search("pary").hits.single().id)
     }
 
+    @Test
+    fun aDigitIsNeverASlip() {
+        val engine = ranked(
+            SearchEntry("v4", listOf(SearchField.TITLE to "Force IPv4")),
+            SearchEntry("v6", listOf(SearchField.TITLE to "Route all IPv6")),
+            SearchEntry("http", listOf(SearchField.TITLE to "Port 8080")),
+        )
+        assertEquals(listOf("v6"), engine.search("ipv6").hits.map { it.id })
+        assertEquals(listOf("v4"), engine.search("ipv4").hits.map { it.id })
+        // A slip in the letters around the digit is still a slip.
+        assertEquals(listOf("v6"), engine.search("ivp6").hits.map { it.id })
+        assertTrue(engine.search("8081").hits.isEmpty())
+    }
+
     // ─── Nothing, and nearly ─────────────────────────────────────────────────────────────
 
     @Test

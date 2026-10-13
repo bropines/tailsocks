@@ -281,6 +281,8 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
         /** With this many sure hits, the unsure ones are left out. */
         const val ENOUGH = 5
 
+        fun digits(word: String): String = if (word.none { it.isDigit() }) "" else word.filter { it.isDigit() }
+
         fun score(field: SearchField, grade: Int): Int = when {
             grade >= SOLID -> field.weight * grade / 1000
             grade > 0 -> field.slip * grade / SLIP
@@ -301,6 +303,8 @@ class SearchEngine(entries: List<SearchEntry>, stopWords: Set<String> = emptySet
             if (sound != null && skeleton.startsWith(sound)) return SOUND_PREFIX
             if (word.contains(typed)) return INFIX
             if (typed.length < 4) return 0
+            // A digit is never a slip: IPv4 is not IPv6, and port 80 is not port 8080.
+            if (digits(typed) != digits(word)) return 0
             val max = if (typed.length >= 8) 2 else 1
             val (whole, beginning) = SearchText.slips(typed, word, max)
             // A short word with another first letter is another word, not a slip.
