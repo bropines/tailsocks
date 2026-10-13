@@ -53,6 +53,73 @@ class RemoteDevicePromptsTest {
         assertEquals("unseen", RemotePromptRules.identifyRoute(onScreen = false, canNotify = false).identifyWord())
     }
 
+    // ─── Where a line is said ────────────────────────────────────────────────────────────────
+
+    private val inTheBar = RemotePromptRules.Said(bar = true)
+    private val notified = RemotePromptRules.Said(notification = true)
+    private val nowhere = RemotePromptRules.Said()
+
+    /** "Managed from", as [RemoteDevicePrompts.identify] routes it. */
+    private fun identifySaid(onScreen: Boolean, canNotify: Boolean, tv: Boolean) =
+        RemotePromptRules.said(RemotePromptRules.identifyRoute(onScreen, canNotify), onScreen, tv)
+
+    @Test
+    fun withTheAppInFrontTheLineIsInItsBarAndNowhereElse() {
+        for (tv in listOf(false, true)) for (canNotify in listOf(false, true)) {
+            assertEquals("tv=$tv canNotify=$canNotify", inTheBar, identifySaid(onScreen = true, canNotify = canNotify, tv = tv))
+        }
+        // Which the manager is told as "shown".
+        assertEquals("shown", RemotePromptRules.identifyRoute(onScreen = true, canNotify = false).identifyWord())
+    }
+
+    @Test
+    fun withTheAppOutOfSightAPhoneGetsTheNotificationAndNoToast() {
+        assertEquals(notified, identifySaid(onScreen = false, canNotify = true, tv = false))
+        assertEquals("notified", RemotePromptRules.identifyRoute(onScreen = false, canNotify = true).identifyWord())
+    }
+
+    @Test
+    fun aTelevisionWithTheAppOutOfSightGetsTheNotificationAndAToast() {
+        // It has no shade to find a notification in: the toast is the one thing a person sees.
+        assertEquals(
+            RemotePromptRules.Said(notification = true, toast = true),
+            identifySaid(onScreen = false, canNotify = true, tv = true),
+        )
+    }
+
+    @Test
+    fun whereNothingCanBeShownNothingIsSaidOnAnyDevice() {
+        // Android drops the toast of an app in the background whose notifications are off.
+        assertEquals(nowhere, identifySaid(onScreen = false, canNotify = false, tv = false))
+        assertEquals(nowhere, identifySaid(onScreen = false, canNotify = false, tv = true))
+        assertEquals(nowhere, RemotePromptRules.said(RemoteAskRoute.WAITING, onScreen = true, tv = true))
+    }
+
+    @Test
+    fun aRequestWhosePageDidNotOpenOverTheAppIsNotifiedAndSaidInTheBar() {
+        // The app is in front, the page could not be started: the notification opens it at a
+        // press, and the bar says so on the screen the person is looking at — on any device.
+        val route = RemotePromptRules.below(RemoteAskRoute.SHOWN, canNotify = true)
+        val said = RemotePromptRules.Said(bar = true, notification = true)
+        assertEquals(said, RemotePromptRules.said(route, onScreen = true, tv = false))
+        assertEquals(said, RemotePromptRules.said(route, onScreen = true, tv = true))
+        // Out of sight it is a request like "managed from": notified, and a toast on a television.
+        assertEquals(notified, RemotePromptRules.said(route, onScreen = false, tv = false))
+        assertEquals(notified.copy(toast = true), RemotePromptRules.said(route, onScreen = false, tv = true))
+    }
+
+    @Test
+    fun aToastIsNeverSaidTogetherWithTheBar() {
+        for (route in RemoteAskRoute.entries) for (onScreen in listOf(false, true)) for (tv in listOf(false, true)) {
+            val said = RemotePromptRules.said(route, onScreen, tv)
+            assertFalse("$route onScreen=$onScreen tv=$tv", said.bar && said.toast)
+            // The bar is inside the app, and only there.
+            if (said.bar) assertTrue(onScreen)
+            // A notification is what "notified" means, no more and no less.
+            assertEquals(route == RemoteAskRoute.NOTIFIED, said.notification)
+        }
+    }
+
     @Test
     fun everyPermissionButTheVpnConsentHasANameToBeAskedBy() {
         AppPermission.entries.forEach { permission ->
@@ -152,6 +219,16 @@ class RemoteDevicePromptsTest {
         assertTrue(line.endsWith("…"))
         assertEquals("tv: ".length + RemotePromptRules.NOTICE_LINE_CHARS, line.length)
         assertEquals("tv: File deleted: a b", RemotePromptRules.noticeText("tv", "File deleted: a\nb"))
+    }
+
+    @Test
+    fun theBarsSecondLineIsTheChangeWithoutTheDevice() {
+        // The device's name is the bar's first line; the sentence a screen reader says has both.
+        assertEquals("Exit node: exit-frankfurt", RemotePromptRules.noticeLine(" Exit node:\texit-frankfurt\n"))
+        val long = RemotePromptRules.noticeLine("x".repeat(500))
+        assertEquals(RemotePromptRules.NOTICE_LINE_CHARS, long.length)
+        assertTrue(long.endsWith("…"))
+        assertEquals("tv: " + RemotePromptRules.noticeLine("a  b"), RemotePromptRules.noticeText("tv", "a  b"))
     }
 
     @Test

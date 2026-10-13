@@ -32,6 +32,9 @@ import androidx.compose.ui.window.DialogProperties
  * cancel button of a dialog that has two, the only button of one that has one. A
  * dialog that put the remote somewhere itself (tvInitialFocus, a field) keeps it
  * there; the wrapper sends it in only for the dialog that asked for nothing.
+ *
+ * On every device a dialog carries the bar of what a paired device makes this one say
+ * (ui/RemoteNoticeBar.kt): the screen's own would be dimmed under the dialog.
  */
 
 /**
@@ -60,9 +63,14 @@ fun AppAlertDialog(
     val safeIsConfirm = dismissButton == null
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = if (entry != null && safeIsConfirm) {
-            { Box(Modifier.tvEntryPoint(entry)) { confirmButton() } }
-        } else confirmButton,
+        confirmButton = {
+            // The box is the button's size and adds nothing to the row; the bar's host is a
+            // point inside it, where the row does not count it as one more button.
+            Box(if (safeIsConfirm) Modifier.tvEntryPoint(entry) else Modifier) {
+                confirmButton()
+                RemoteNoticeWindowHost()
+            }
+        },
         modifier = modifier.keepClearOfTheEdges().tvWindowEntered(entry),
         dismissButton = if (entry != null && dismissButton != null) {
             { Box(Modifier.tvEntryPoint(entry)) { dismissButton() } }
@@ -99,8 +107,10 @@ fun AppBasicAlertDialog(
         onDismissRequest = onDismissRequest,
         modifier = modifier.keepClearOfTheEdges().tvWindowEntered(entry),
         properties = properties,
-        content = if (entry == null) content else {
-            { Box(Modifier.tvEntryPoint(entry).focusGroup(), propagateMinConstraints = true) { content() } }
+        content = {
+            if (entry == null) content()
+            else Box(Modifier.tvEntryPoint(entry).focusGroup(), propagateMinConstraints = true) { content() }
+            RemoteNoticeWindowHost()
         },
     )
     TvWindowEntry(entry)

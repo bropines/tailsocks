@@ -26,7 +26,10 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.toArgb
 import io.github.bropines.tailscaled.ui.LocalCapabilities
 import io.github.bropines.tailscaled.ui.LocalDeviceClass
+import io.github.bropines.tailscaled.ui.LocalRemoteNoticeSlot
 import io.github.bropines.tailscaled.ui.LocalTvSafeArea
+import io.github.bropines.tailscaled.ui.RemoteNoticeHost
+import io.github.bropines.tailscaled.ui.RemoteNoticeSlot
 import io.github.bropines.tailscaled.ui.tvSafeArea
 import io.github.bropines.tailscaled.ui.rememberCapabilities
 import io.github.bropines.tailscaled.ui.rememberDeviceClass
@@ -404,12 +407,18 @@ private fun DeviceFrame(device: DeviceClass, content: @Composable () -> Unit) {
     val window = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
     val safeArea = remember(window, density) { with(density) { tvSafeArea(window.width.toDp(), window.height.toDp()) } }
+    // The bar a paired device's line is said in (ui/RemoteNoticeBar.kt): one for the screen,
+    // whose sheets and dialogs find it through the slot. A theme inside a theme leaves it to
+    // the outer one.
+    val outerSlot = LocalRemoteNoticeSlot.current
+    val noticeSlot = outerSlot ?: remember { RemoteNoticeSlot() }
     CompositionLocalProvider(
         LocalDeviceClass provides device,
         LocalCapabilities provides if (tv) rememberCapabilities() else LocalCapabilities.current,
         LocalRippleThemeConfiguration provides
             if (tv) RippleDefaults.InsetFocusRingThemeConfiguration else LocalRippleThemeConfiguration.current,
         LocalTvSafeArea provides safeArea,
+        LocalRemoteNoticeSlot provides noticeSlot,
     ) {
         if (framed) {
             // The window's constraints are handed on, so a screen fills the safe
@@ -421,6 +430,10 @@ private fun DeviceFrame(device: DeviceClass, content: @Composable () -> Unit) {
         } else {
             content()
         }
+        // Beside the screen, not around it — there is still no layout node of the theme's
+        // around a handheld's screen: nothing here while there is nothing to say, and while
+        // the bar is up a layer that the root of a screen lays over its content.
+        if (outerSlot == null) RemoteNoticeHost()
     }
 }
 

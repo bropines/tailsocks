@@ -32,7 +32,9 @@ import kotlinx.coroutines.delay
  * asks for ([rememberFullSheetState]). A drop-in for
  * `ModalBottomSheet(onDismissRequest, sheetState = …)`, and on a handheld
  * exactly that. Every sheet of the app goes through it, so that what a
- * television needs of a sheet is said once, here.
+ * television needs of a sheet is said once, here — and so that the bar of what
+ * a paired device makes this one say (ui/RemoteNoticeBar.kt) is the sheet's
+ * while it is open: the screen's own would be dimmed under it.
  *
  * On a television it is what the theme cannot do for a sheet, which is a
  * window of its own and outside the safe area laid around a screen
@@ -65,8 +67,10 @@ fun AppModalSheet(
             modifier = modifier,
             sheetState = sheetState,
             properties = properties,
-            content = content
-        )
+        ) {
+            content()
+            RemoteNoticeWindowHost()
+        }
         return
     }
     val safeArea = LocalTvSafeArea.current
@@ -85,6 +89,7 @@ fun AppModalSheet(
         // The room the handle gave the content above its first line.
         Spacer(Modifier.height(20.dp))
         TvSheetEntry(content)
+        RemoteNoticeWindowHost()
     }
 }
 

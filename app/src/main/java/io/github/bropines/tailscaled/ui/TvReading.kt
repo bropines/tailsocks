@@ -218,6 +218,8 @@ fun TvSheetDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
             Box(Modifier.tvEntryPoint(entry).focusGroup(), propagateMinConstraints = true) { content() }
         }
         TvWindowEntry(entry)
+        // The window's own bar for what a paired device says (ui/RemoteNoticeBar.kt).
+        RemoteNoticeWindowHost()
     }
 }
 

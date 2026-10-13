@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
@@ -31,6 +32,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * bridge's; nothing here may block for long, and whatever touches the screen is posted to the
  * main thread.
  *
+ * A line is said in the app's own bar while one of its screens is in front
+ * (core/RemoteDeviceNotice.kt, ui/RemoteNoticeBar.kt), and in a notification when none is. A
+ * toast is left for a television with the app out of sight ([RemotePromptRules.said]).
+ *
  * Nothing is ever granted from afar: [RemoteDevicePrompts.ask] brings Android's own page or
  * dialog in front of whoever is at the device, as far as Android lets an app do that
  * ([RemoteAskRoute.of]), and says which of the three happened. The page itself is opened by
@@ -44,6 +49,12 @@ internal object RemotePromptRules {
 
     /** How long "managed from" stays among the notifications. */
     const val IDENTIFY_STAYS_MS = 30_000L
+
+    /** How long "managed from", or a request, stays in the app's bar: a long toast's time, which it was. */
+    const val IDENTIFY_BAR_MS = 3_500L
+
+    /** How long a change stays there: a short toast's. */
+    const val NOTICE_BAR_MS = 2_000L
 
     /** Changes closer together than this are said once: ten lines would queue for half a minute. */
     const val NOTICE_GAP_MS = 1_500L
@@ -69,6 +80,27 @@ internal object RemotePromptRules {
         else -> RemoteAskRoute.WAITING
     }
 
+    /** Where a line is said; nowhere when nothing is set. */
+    data class Said(val bar: Boolean = false, val notification: Boolean = false, val toast: Boolean = false)
+
+    /**
+     * Where the line of a request or of "managed from" is said, by the [route] it took. With
+     * one of the app's screens in front ([onScreen]) it is the bar inside the app, on whatever
+     * screen is open. With none it is the notification — and on a television ([tv]), which has
+     * no shade to find one in, a toast over whatever is on as well: the one thing a person
+     * there sees. A phone's notification is enough, and it gets no toast.
+     *
+     * The route keeps its meaning: [RemoteAskRoute.SHOWN] is the bar (or, for a request, the
+     * page, which says it all itself), [RemoteAskRoute.NOTIFIED] always has its notification —
+     * with the bar too when a request's page did not open over the app's own screen — and
+     * [RemoteAskRoute.WAITING] is said nowhere.
+     */
+    fun said(route: RemoteAskRoute, onScreen: Boolean, tv: Boolean): Said = when (route) {
+        RemoteAskRoute.SHOWN -> Said(bar = onScreen)
+        RemoteAskRoute.NOTIFIED -> Said(bar = onScreen, notification = true, toast = tv && !onScreen)
+        RemoteAskRoute.WAITING -> Said()
+    }
+
     /** Whether a change is left unsaid: one was said less than [NOTICE_GAP_MS] before, at [previous]. */
     fun noticeDropped(previous: Long?, now: Long): Boolean = previous != null && now - previous in 0 until NOTICE_GAP_MS
 
@@ -77,9 +109,14 @@ internal object RemotePromptRules {
      * the managed page says it (ui/RemoteLogLine.kt) — held to one short line.
      */
     fun noticeText(from: String, line: String): String {
-        val one = line.replace(Regex("\\s+"), " ").trim()
-        val short = if (one.length > NOTICE_LINE_CHARS) one.take(NOTICE_LINE_CHARS - 1) + "…" else one
+        val short = noticeLine(line)
         return if (from.isBlank()) short else "$from: $short"
+    }
+
+    /** [line] as the bar's second line, under the device's name: one line, and short. */
+    fun noticeLine(line: String): String {
+        val one = line.replace(Regex("\\s+"), " ").trim()
+        return if (one.length > NOTICE_LINE_CHARS) one.take(NOTICE_LINE_CHARS - 1) + "…" else one
     }
 
     /**
@@ -154,9 +191,6 @@ object RemoteDevicePrompts {
     /** When a change was last said. Guarded by [lock]. */
     private var noticeAt: Long? = null
 
-    /** The line of the last change, to take it down for the next one. The main thread's. */
-    private var noticeToast: Toast? = null
-
     private val screen = ScreenWatch()
     private val watching = AtomicBoolean(false)
     private val main by lazy { Handler(Looper.getMainLooper()) }
@@ -164,8 +198,8 @@ object RemoteDevicePrompts {
     /**
      * Brings [permission]'s page or dialog in front of whoever is at the device, naming
      * [from] as the device that asks: at once where Android lets it, otherwise through a
-     * notification and a line on the screen, and in any case when TailSocks is next opened
-     * within a few minutes.
+     * notification — with a line in the app's bar, or on a television's screen — and in any
+     * case when TailSocks is next opened within a few minutes.
      */
     fun ask(context: Context, permission: AppPermission, from: String): RemoteAskRoute {
         val app = context.applicationContext
@@ -176,7 +210,8 @@ object RemoteDevicePrompts {
         val title = RemotePromptRules.title(permission)?.let { res.getString(it) } ?: return RemoteAskRoute.WAITING
         val who = who(res, from)
         val canNotify = canNotify(app)
-        var route = RemoteAskRoute.of(Build.VERSION.SDK_INT, onScreen(), canNotify)
+        val onScreen = onScreen()
+        var route = RemoteAskRoute.of(Build.VERSION.SDK_INT, onScreen, canNotify)
         if (route == RemoteAskRoute.SHOWN && !app.tryStartActivity(PermissionsActivity.askIntent(app, permission, from))) {
             route = RemotePromptRules.below(route, canNotify)
         }
@@ -195,7 +230,13 @@ object RemoteDevicePrompts {
                     PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                 ),
             )
-            toast(app, res.getString(R.string.remote_prompt_ask_toast, who, title), Toast.LENGTH_LONG)
+            say(
+                app, RemotePromptRules.said(route, onScreen, isTv(app)), RemoteDeviceNotice.Kind.ASK,
+                from = who,
+                text = res.getString(R.string.remote_notice_ask, title),
+                spoken = res.getString(R.string.remote_prompt_ask_toast, who, title),
+                staysMs = RemotePromptRules.IDENTIFY_BAR_MS,
+            )
         } else {
             // The notification of a request this one has replaced would name the wrong thing.
             cancel(app, NOTIF_ASK)
@@ -232,11 +273,14 @@ object RemoteDevicePrompts {
     fun identify(context: Context, from: String): RemoteAskRoute {
         val app = context.applicationContext
         watch(app)
-        val route = RemotePromptRules.identifyRoute(onScreen(), canNotify(app))
+        val onScreen = onScreen()
+        val route = RemotePromptRules.identifyRoute(onScreen, canNotify(app))
         if (route == RemoteAskRoute.WAITING) return route
         val res = inAppLanguage(app)
-        val line = res.getString(R.string.remote_prompt_identify, who(res, from))
-        if (route == RemoteAskRoute.NOTIFIED) {
+        val who = who(res, from)
+        val line = res.getString(R.string.remote_prompt_identify, who)
+        val said = RemotePromptRules.said(route, onScreen, isTv(app))
+        if (said.notification) {
             notify(
                 app, res, NOTIF_IDENTIFY,
                 title = line,
@@ -245,7 +289,13 @@ object RemoteDevicePrompts {
                 tap = null,
             )
         }
-        toast(app, line, Toast.LENGTH_LONG)
+        say(
+            app, said, RemoteDeviceNotice.Kind.IDENTIFY,
+            from = who,
+            text = res.getString(R.string.remote_notice_identify),
+            spoken = line,
+            staysMs = RemotePromptRules.IDENTIFY_BAR_MS,
+        )
         return route
     }
 
@@ -267,8 +317,45 @@ object RemoteDevicePrompts {
         // The bridge says only what was done; a line that could not be put together is not
         // replaced by the bridge's own keys.
         val line = runCatching { remoteEventLine(op, detail, ok = true) { res.getString(it) } }.getOrNull() ?: return
-        toast(app, RemotePromptRules.noticeText(from, line), Toast.LENGTH_SHORT, replacesNotice = true)
+        say(
+            app, RemotePromptRules.Said(bar = true), RemoteDeviceNotice.Kind.CHANGE,
+            from = who(res, from),
+            text = RemotePromptRules.noticeLine(line),
+            spoken = RemotePromptRules.noticeText(from, line),
+            staysMs = RemotePromptRules.NOTICE_BAR_MS,
+        )
     }
+
+    /**
+     * Says a line where [said] has it: [from] and [text] are the two lines of the app's bar,
+     * which takes down whatever it was showing; [spoken] is the same in one sentence, for a
+     * screen reader and for a television's toast. The notification is the caller's.
+     */
+    private fun say(
+        app: Context,
+        said: RemotePromptRules.Said,
+        kind: RemoteDeviceNotice.Kind,
+        from: String,
+        text: String,
+        spoken: String,
+        staysMs: Long,
+    ) {
+        if (said.bar) RemoteDeviceNotices.board.post(kind, from, text, spoken, readingTime(app, staysMs))
+        if (said.toast) toast(app, spoken)
+    }
+
+    /** [staysMs], or as much longer as the person has asked of the system for things that go away by themselves. */
+    private fun readingTime(app: Context, staysMs: Long): Long {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return staysMs
+        return runCatching {
+            val manager = app.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+            val content = AccessibilityManager.FLAG_CONTENT_ICONS or AccessibilityManager.FLAG_CONTENT_TEXT
+            manager.getRecommendedTimeoutMillis(staysMs.toInt(), content).toLong()
+        }.getOrDefault(staysMs).coerceAtLeast(staysMs)
+    }
+
+    /** A television, by the Interface setting too: where a notification alone may never reach a person. */
+    private fun isTv(app: Context): Boolean = runCatching { DeviceProfile.deviceClass(app) == DeviceClass.TV }.getOrDefault(false)
 
     /** The asking device by name; the bridge always has one, and a line with a hole in it would say nothing. */
     private fun who(res: Context, from: String): String = from.ifBlank { res.getString(R.string.remote_prompt_someone) }
@@ -356,19 +443,12 @@ object RemoteDevicePrompts {
     }
 
     /**
-     * One line over whatever is on the screen; it takes no focus from a remote and goes away
-     * by itself. Made on the main thread: the callers are the bridge's. A change's line
-     * ([replacesNotice]) takes down the one before it instead of standing in a queue behind it.
+     * One line over whatever is on a television's screen while the app is out of sight; it
+     * takes no focus from a remote and goes away by itself. Made on the main thread: the
+     * callers are the bridge's.
      */
-    private fun toast(app: Context, line: String, length: Int, replacesNotice: Boolean = false) {
-        main.post {
-            runCatching {
-                if (replacesNotice) noticeToast?.cancel()
-                val toast = Toast.makeText(app, line, length)
-                if (replacesNotice) noticeToast = toast
-                toast.show()
-            }
-        }
+    private fun toast(app: Context, line: String) {
+        main.post { runCatching { Toast.makeText(app, line, Toast.LENGTH_LONG).show() } }
     }
 
     /** [context] in the language picked in Settings; the application's own is in the system's (as in TaildropEvents). */
