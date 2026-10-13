@@ -104,16 +104,6 @@ object RemoteManage {
     /** The managing phone's tokens: one sealed file, under a Keystore key of its own. */
     fun tokens(context: Context): RemoteTokenStore =
         RemoteTokenStore(FileKeyValueStore(File(dir(context), TOKENS_FILE)), KeystoreSecretBox(KEY_ALIAS))
-
-    /**
-     * Why peers cannot reach the endpoint when the bridge reports no way in, read from the
-     * settings that put the daemon in that mode — so the screen can name what to switch.
-     */
-    fun blockedBy(context: Context): RemoteBlocker = when {
-        GlobalSettings.isRootModeEnabled(context) && GlobalSettings.isRootTunEnabled(context) -> RemoteBlocker.ROOT_TUN
-        GlobalSettings.isTunModeEnabled(context) && GlobalSettings.getTunEngine(context) == TunEngines.NATIVE -> RemoteBlocker.NATIVE_TUN
-        else -> RemoteBlocker.OTHER
-    }
 }
 
 // ─── The managed device: what a paired device may read and change ────────────────────────────

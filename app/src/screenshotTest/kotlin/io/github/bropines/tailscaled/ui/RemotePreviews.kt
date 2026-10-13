@@ -117,8 +117,7 @@ private val closing = offWithDevices.copy(state = state(), reach = RemoteReach.C
 private val ready = managed(state(last = RemoteOutcome(RemoteOutcome.EXPIRED, NOW_S - 300)))
 private val showingCode = managed(state(pairing = codeWithGuess), devices = listOf(pixel, ann))
 private val freshCode = managed(state(pairing = code))
-private val nativeTun = managed(state(inbound = RemoteState.INBOUND_NONE), RemoteReach.NATIVE_TUN, listOf(pixel))
-private val rootTun = managed(state(inbound = RemoteState.INBOUND_NONE), RemoteReach.ROOT_TUN)
+private val notForwarded = managed(state(inbound = RemoteState.INBOUND_NONE), RemoteReach.NOT_FORWARDED, listOf(pixel))
 private val notRunning = managed(
     RemoteState(available = true, enabled = true, port = 28115, policy = policy), RemoteReach.NOT_RUNNING, listOf(pixel, ann),
 )
@@ -180,19 +179,12 @@ fun RemoteManagedCodeGuessed() = Managed(showingCode)
 @PreviewTest @RemoteTv @Composable
 fun RemoteManagedCodeGuessedTv() = Managed(showingCode, tv = true)
 
-/** TUN on the native engine: nobody can connect, and no code is offered. */
+/** A daemon that does not pass the port on: nobody can connect, and no code is offered. */
 @PreviewTest @RemotePhone @Composable
-fun RemoteManagedNativeTun() = Managed(nativeTun)
+fun RemoteManagedNotForwarded() = Managed(notForwarded)
 
 @PreviewTest @RemoteTv @Composable
-fun RemoteManagedNativeTunTv() = Managed(nativeTun, tv = true)
-
-/** Root Mode with its own interface. */
-@PreviewTest @RemotePhone @Composable
-fun RemoteManagedRootTun() = Managed(rootTun)
-
-@PreviewTest @RemoteTv @Composable
-fun RemoteManagedRootTunTv() = Managed(rootTun, tv = true)
+fun RemoteManagedNotForwardedTv() = Managed(notForwarded, tv = true)
 
 /** The daemon is not running. */
 @PreviewTest @RemotePhone @Composable

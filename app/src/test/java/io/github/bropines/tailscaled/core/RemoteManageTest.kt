@@ -226,7 +226,7 @@ class RemoteManageTest {
     @Test
     fun reachSaysWhyNobodyCanConnect() {
         val up = RemoteState(available = true, enabled = true, listening = true, inbound = RemoteState.INBOUND_NETSTACK)
-        fun reach(on: Boolean, state: RemoteState, blocker: RemoteBlocker = RemoteBlocker.OTHER) = RemoteReach.of(on, state) { blocker }
+        fun reach(on: Boolean, state: RemoteState) = RemoteReach.of(on, state)
         // Off is said once the endpoint is closed, not when the switch is turned.
         assertEquals(RemoteReach.CLOSING, reach(false, up))
         assertEquals(RemoteReach.CLOSING, reach(false, up.copy(listening = false)))
@@ -237,11 +237,8 @@ class RemoteManageTest {
         // Before the first start, and while the daemon does not answer.
         assertEquals(RemoteReach.NOT_RUNNING, reach(true, RemoteState()))
         assertEquals(RemoteReach.NOT_RUNNING, reach(true, up.copy(inbound = RemoteState.INBOUND_UNKNOWN)))
-        // The daemon's mode keeps peers out, and the settings say which mode.
-        val shut = up.copy(inbound = RemoteState.INBOUND_NONE)
-        assertEquals(RemoteReach.NATIVE_TUN, reach(true, shut, RemoteBlocker.NATIVE_TUN))
-        assertEquals(RemoteReach.ROOT_TUN, reach(true, shut, RemoteBlocker.ROOT_TUN))
-        assertEquals(RemoteReach.OTHER_MODE, reach(true, shut, RemoteBlocker.OTHER))
+        // The running daemon does not pass the port on, whatever its mode.
+        assertEquals(RemoteReach.NOT_FORWARDED, reach(true, up.copy(inbound = RemoteState.INBOUND_NONE)))
         assertEquals(RemoteReach.PORT_BUSY, reach(true, up.copy(listening = false, error = "address already in use")))
         // Switched on a moment ago; the service has not applied it yet.
         assertEquals(RemoteReach.APPLYING, reach(true, up.copy(enabled = false, listening = false)))

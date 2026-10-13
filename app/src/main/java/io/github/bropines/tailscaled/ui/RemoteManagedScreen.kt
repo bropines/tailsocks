@@ -74,7 +74,6 @@ import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.REMOTE_CLASS_OWNER
-import io.github.bropines.tailscaled.core.RemoteBlocker
 import io.github.bropines.tailscaled.core.RemoteCode
 import io.github.bropines.tailscaled.core.RemoteDurationUnit
 import io.github.bropines.tailscaled.core.RemoteEvent
@@ -243,7 +242,7 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
 
             override fun setEnabled(on: Boolean) {
                 // The switch answers at once; the endpoint follows when the service has applied it.
-                val reach = if (on) RemoteReach.APPLYING else RemoteReach.of(false, ui.state) { RemoteBlocker.OTHER }
+                val reach = if (on) RemoteReach.APPLYING else RemoteReach.of(false, ui.state)
                 ui = ui.copy(enabled = on, reach = reach)
                 change { if (RemoteManage.setEnabled(context, on)) null else RemoteNotice.NO_SWITCH }
             }
@@ -279,7 +278,7 @@ private fun readManaged(context: android.content.Context, before: RemoteManagedU
     return RemoteManagedUi(
         enabled = enabled,
         state = state,
-        reach = RemoteReach.of(enabled, state) { RemoteManage.blockedBy(context) },
+        reach = RemoteReach.of(enabled, state),
         tagged = if (changed) selfTagged() else before.tagged,
         devices = if (changed) RemoteJson.paired(Appctr.remotePairedJSON()) else before.devices,
         log = if (changed) RemoteJson.actions(Appctr.remoteActionsJSON()) else before.log,
@@ -490,9 +489,7 @@ private fun ReachCard(reach: RemoteReach, port: Int) {
     val text = when (reach) {
         RemoteReach.OFF, RemoteReach.CLOSING, RemoteReach.APPLYING, RemoteReach.READY -> return
         RemoteReach.NOT_RUNNING -> stringResource(R.string.remote_reach_not_running)
-        RemoteReach.NATIVE_TUN -> stringResource(R.string.remote_reach_native_tun)
-        RemoteReach.ROOT_TUN -> stringResource(R.string.remote_reach_root_tun)
-        RemoteReach.OTHER_MODE -> stringResource(R.string.remote_reach_other)
+        RemoteReach.NOT_FORWARDED -> stringResource(R.string.remote_reach_not_forwarded)
         RemoteReach.PORT_BUSY -> stringResource(R.string.remote_reach_port, port)
     }
     Surface(

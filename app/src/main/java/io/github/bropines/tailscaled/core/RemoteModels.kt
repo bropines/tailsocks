@@ -39,9 +39,9 @@ data class RemoteState(
     val rev: Long = 0,
 ) {
     companion object {
-        /** Peers reach the endpoint: the daemon runs in userspace (proxy mode, the hev engine). */
+        /** Peers reach the endpoint: the daemon passes their connections on to it, in every mode. */
         const val INBOUND_NETSTACK = "netstack"
-        /** They cannot: the native TUN engine, or Root Mode with its own interface. */
+        /** They cannot: a daemon on a real TUN that does not keep the port — one older than the app. */
         const val INBOUND_NONE = "none"
         /** The daemon does not answer. */
         const val INBOUND_UNKNOWN = "unknown"
@@ -483,16 +483,6 @@ enum class RemoteProblem(val action: RemoteProblemAction) {
     }
 }
 
-/** What keeps peers from reaching the endpoint when the daemon reports no way in. */
-enum class RemoteBlocker {
-    /** TUN mode on the native engine: the VpnService device takes the node's own addresses. */
-    NATIVE_TUN,
-    /** Root Mode with tailscale0: the kernel does. */
-    ROOT_TUN,
-    /** The daemon says so and the settings do not say why. */
-    OTHER,
-}
-
 /** Whether a paired device can reach this one right now, as the managed device's screen says it. */
 enum class RemoteReach {
     /** The switch is off, and so is the endpoint. */
@@ -504,9 +494,8 @@ enum class RemoteReach {
     READY,
     /** The daemon is not running or does not answer. */
     NOT_RUNNING,
-    NATIVE_TUN,
-    ROOT_TUN,
-    OTHER_MODE,
+    /** The running daemon does not pass the port on to the app; a restart of it does. */
+    NOT_FORWARDED,
     /** The port could not be opened: something else holds it. */
     PORT_BUSY;
 
@@ -514,16 +503,11 @@ enum class RemoteReach {
     val canPair: Boolean get() = this == READY
 
     companion object {
-        /** [blocker] is asked only when the daemon reports no way in. */
-        fun of(switchOn: Boolean, state: RemoteState, blocker: () -> RemoteBlocker): RemoteReach = when {
+        fun of(switchOn: Boolean, state: RemoteState): RemoteReach = when {
             // Off is said only once the bridge agrees: the switch is a file, the endpoint a socket.
             !switchOn -> if (state.enabled || state.listening) CLOSING else OFF
             !state.available || state.inbound == RemoteState.INBOUND_UNKNOWN -> NOT_RUNNING
-            state.inbound == RemoteState.INBOUND_NONE -> when (blocker()) {
-                RemoteBlocker.NATIVE_TUN -> NATIVE_TUN
-                RemoteBlocker.ROOT_TUN -> ROOT_TUN
-                RemoteBlocker.OTHER -> OTHER_MODE
-            }
+            state.inbound == RemoteState.INBOUND_NONE -> NOT_FORWARDED
             state.listening -> READY
             state.error.isNotEmpty() -> PORT_BUSY
             else -> APPLYING

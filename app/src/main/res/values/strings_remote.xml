@@ -20,9 +20,7 @@
     <string name="remote_reach_closing">Switching off. Until TailSocks has closed the connection, paired devices can still get in.</string>
     <string name="remote_reach_title">Other devices cannot connect now</string>
     <string name="remote_reach_not_running">TailSocks is not connected. Devices can pair with this one and manage it only while it is.</string>
-    <string name="remote_reach_native_tun">TUN mode on the native engine does not let other devices in. Turn TUN mode off, or switch the TUN engine to hev-socks5-tunnel.</string>
-    <string name="remote_reach_root_tun">Root Mode with its own interface (tailscale0) does not let other devices in. Turn that interface off in the Root Mode settings.</string>
-    <string name="remote_reach_other">The current mode does not let other devices in. Proxy mode does.</string>
+    <string name="remote_reach_not_forwarded">The running daemon does not pass connections on to remote management. Reconnect TailSocks; in Root Mode, restart the daemon as well.</string>
     <string name="remote_reach_port">Port %1$d is taken by another app, so nothing can connect. Close that app, then reconnect TailSocks.</string>
     <string name="remote_unsaved">The last change is not saved yet. TailSocks keeps trying.</string>
 

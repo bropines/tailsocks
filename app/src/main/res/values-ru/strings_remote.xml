@@ -22,9 +22,7 @@
     <string name="remote_reach_closing">Выключается. Пока TailSocks не закрыл подключение, сопряжённые устройства ещё могут войти.</string>
     <string name="remote_reach_title">Сейчас другие устройства не подключатся</string>
     <string name="remote_reach_not_running">TailSocks не подключён. Сопрягать устройства и управлять этим можно, только пока он подключён.</string>
-    <string name="remote_reach_native_tun">Режим TUN на нативном движке не пропускает входящие подключения. Выключите режим TUN или смените движок TUN на hev-socks5-tunnel.</string>
-    <string name="remote_reach_root_tun">Root-режим со своим интерфейсом (tailscale0) не пропускает входящие подключения. Выключите этот интерфейс в настройках Root-режима.</string>
-    <string name="remote_reach_other">Текущий режим не пропускает входящие подключения. В режиме прокси они проходят.</string>
+    <string name="remote_reach_not_forwarded">Работающий демон не передаёт подключения удалённому управлению. Переподключите TailSocks, а в Root-режиме перезапустите и демон.</string>
     <string name="remote_reach_port">Порт %1$d занят другим приложением, поэтому подключиться нельзя. Закройте его и переподключите TailSocks.</string>
     <string name="remote_unsaved">Последнее изменение ещё не сохранено. TailSocks пробует снова.</string>
 
