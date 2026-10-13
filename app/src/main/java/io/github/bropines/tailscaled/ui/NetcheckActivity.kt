@@ -120,7 +120,9 @@ data class DiagnosticsReport(
     val preferredDerpId: Int,
     val preferredDerpName: String,
     val totalPeers: Int,
-    val onlinePeers: Int
+    val onlinePeers: Int,
+    /** The MTU of the link the packets leave by; null when it could not be read. */
+    val link: LinkMtuReading? = null
 )
 
 data class DerpLatencyItem(
@@ -138,6 +140,9 @@ data class NetcheckResult(
     val derpLatencies: List<DerpLatencyItem>,
     val textReport: String
 )
+
+/** The link MTU a preview shows beside the demo's netcheck, as [LinkMtu.read] would have found it. Null in the app. */
+val LocalDemoLinkMtu = staticCompositionLocalOf<LinkMtuReading?> { null }
 
 object NetcheckCache {
     var lastReportTime: Long = 0
@@ -169,9 +174,15 @@ internal fun decodeNetcheckStatus(rawStatus: String): StatusResponse {
  * Turns the status document and the bridge's netcheck answer — the report plus
  * the DERP region names, as Appctr.getNetcheckFromAPI returns it — into what the
  * screen shows. The live run and a preview's LocalDemo both come through here,
- * so a render cannot show something the app would read differently.
+ * so a render cannot show something the app would read differently. [link] is the
+ * link MTU read beside the netcheck, which the daemon knows nothing about.
  */
-internal fun parseNetcheck(context: Context, status: StatusResponse, rawNetcheck: String): NetcheckResult {
+internal fun parseNetcheck(
+    context: Context,
+    status: StatusResponse,
+    rawNetcheck: String,
+    link: LinkMtuReading? = null
+): NetcheckResult {
     val netcheckResp = if (rawNetcheck.isBlank()) null
         else runCatching { AppJson.decodeFromString<NetcheckResponse>(rawNetcheck) }.getOrNull()
     if (netcheckResp == null) throw Exception("Received invalid response from bridge")
@@ -243,6 +254,10 @@ internal fun parseNetcheck(context: Context, status: StatusResponse, rawNetcheck
     healthOutput.append(context.getString(R.string.netcheck_ipv4, if (ipv4) "✅ Yes, $globalV4" else "❌ No"))
     healthOutput.append(context.getString(R.string.netcheck_ipv6, if (ipv6) "✅ Yes, $globalV6" else "❌ No"))
     healthOutput.append(context.getString(R.string.netcheck_nat_mapping, if (mappingVaries) "⚠️ Yes (Symmetric NAT)" else "✅ No"))
+    // Said only when it is a problem, as on the screen; the diagnostics report has it always.
+    if (link != null && link.verdict is MtuVerdict.TooSmall) {
+        healthOutput.append(context.getString(R.string.netcheck_report_mtu_small, link.verdict.mtu, link.iface, link.verdict.needed))
+    }
     if (preferredDerp != 0) {
         healthOutput.append(context.getString(R.string.netcheck_nearest_derp, preferredDerp))
     }
@@ -279,7 +294,8 @@ internal fun parseNetcheck(context: Context, status: StatusResponse, rawNetcheck
             preferredDerpId = preferredDerp,
             preferredDerpName = preferredDerpName,
             totalPeers = peerCount,
-            onlinePeers = onlinePeers
+            onlinePeers = onlinePeers,
+            link = link
         ),
         derpLatencies = latencyList,
         textReport = healthOutput.toString()
@@ -360,9 +376,10 @@ fun NetcheckScreen(onBack: () -> Unit) {
     // nothing started from LaunchedEffect would land before the picture is taken —
     // and one that does not parse shows as the error it would be in the app.
     val demo = LocalDemo.current
-    val demoOutcome = remember(demo) {
+    val demoLink = LocalDemoLinkMtu.current
+    val demoOutcome = remember(demo, demoLink) {
         demo?.let { d ->
-            runCatching { parseNetcheck(context, decodeNetcheckStatus(d.statusJson ?: ""), d.netcheckJson ?: "") }
+            runCatching { parseNetcheck(context, decodeNetcheckStatus(d.statusJson ?: ""), d.netcheckJson ?: "", demoLink) }
         }
     }
     var isRunning by remember { mutableStateOf(false) }
@@ -404,7 +421,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
 
                 val rawNetcheck = Appctr.getNetcheckFromAPI()
                 android.util.Log.d("Netcheck", "Raw Netcheck: $rawNetcheck")
-                val fresh = parseNetcheck(context, status, rawNetcheck)
+                val fresh = parseNetcheck(context, status, rawNetcheck, LinkMtu.read(context))
 
                 withContext(Dispatchers.Main) {
                     // Update cache
@@ -805,7 +822,37 @@ private fun NetcheckProtocolCard(report: DiagnosticsReport, modifier: Modifier =
                 successText = stringResource(R.string.netcheck_peers_online_format, report.onlinePeers, report.totalPeers),
                 failText = stringResource(R.string.netcheck_peers_online_none, report.totalPeers)
             )
+
+            // Only when the link is too small; a fine or unreadable MTU adds nothing here.
+            (report.link?.verdict as? MtuVerdict.TooSmall)?.let { LinkMtuFinding(it) }
         }
+    }
+}
+
+/**
+ * The link cannot carry Tailscale's direct packets whole: the number, what is needed, and
+ * what a person can do about it, folded. A warning, in the colour of the other checks that
+ * degrade a connection without breaking it.
+ */
+@Composable
+private fun LinkMtuFinding(verdict: MtuVerdict.TooSmall) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(top = 2.dp).size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.netcheck_mtu_small, verdict.mtu, verdict.needed),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        HelpText(stringResource(R.string.netcheck_mtu_help), modifier = Modifier.padding(start = 28.dp))
     }
 }
 

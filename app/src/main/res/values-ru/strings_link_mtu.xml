@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The link MTU finding on the network check; see values/strings_link_mtu.xml. -->
+<resources>
+    <string name="netcheck_mtu_small">MTU этой сети — %1$d. Для прямых соединений нужно %2$d: крупные пакеты могут теряться, через реле всё работает.</string>
+    <string name="netcheck_mtu_help">Tailscale упаковывает каждый пакет в WireGuard, и это добавляет до 80 байт. Если сеть не пропускает такой пакет целиком, его части часто отбрасываются: короткие запросы проходят, а большие ответы по прямому пути не доходят совсем; через реле всё работает. Исправить это в приложении нельзя — MTU задаёт сеть или хост: другой VPN на том же компьютере, адаптер виртуальной машины. Поможет MTU интерфейса 1500.</string>
+    <string name="netcheck_report_mtu_small">MTU канала: ⚠️ %1$d на %2$s (для прямых соединений нужно %3$d)\n</string>
+</resources>

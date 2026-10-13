@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The link MTU finding on the network check. Kept apart from strings.xml so work
+     on it does not collide with edits there; Android merges every file in values/. -->
+<resources>
+    <string name="netcheck_mtu_small">This network’s MTU is %1$d. Direct connections need %2$d: large packets can be lost, relayed ones are not affected.</string>
+    <string name="netcheck_mtu_help">Tailscale wraps each packet in WireGuard, which adds up to 80 bytes. Where the network cannot carry that in one piece, the pieces are often dropped: small requests work, big answers over a direct path never arrive, while relayed traffic is fine. The setting belongs to the network or the host, not to the app: another VPN on the same computer, a virtual machine’s adapter. Raising the interface’s MTU to 1500 fixes it.</string>
+    <string name="netcheck_report_mtu_small">Link MTU: ⚠️ %1$d on %2$s (direct connections need %3$d)\n</string>
+</resources>
