@@ -92,6 +92,8 @@ class DeviceProfileTest {
             Feature.ADMIN_CONSOLE, Feature.QR_SCANNER, Feature.TAILCAT, Feature.TAILNET_LOCK_SIGN,
             Feature.SEARCH, Feature.CLIPBOARD_ACTIONS, Feature.TOUCH_GESTURES_HINTS,
             Feature.BATTERY_OPTIMISATION_PROMPT,
+            // A browser on the set does not bring the browser login back: the code is the way in.
+            Feature.BROWSER_SIGN_IN,
         )
         for (feature in hidden) {
             // Not a matter of what is installed: a browser does not bring the admin console back.
@@ -108,6 +110,7 @@ class DeviceProfileTest {
         val advanced = listOf(
             Feature.SERVE_EDIT, Feature.CONSOLE, Feature.LOGS, Feature.DNS_SCREEN,
             Feature.ROOT_MODE, Feature.BACKUP_RESTORE, Feature.THEME_AND_ICON,
+            Feature.LIVE_STATE_ON_HOME,
         )
         for (feature in advanced) {
             val answer = DeviceProfile.availability(feature, DeviceClass.TV, Capabilities.NONE)

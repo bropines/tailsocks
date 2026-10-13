@@ -64,6 +64,14 @@ enum class Feature {
     SYSTEM_FILE_PICKER,
     /** Opening a web page in a browser. */
     BROWSER,
+    /** Signing in on the device itself, in a browser tab; the other way is a code for another device. */
+    BROWSER_SIGN_IN,
+    /**
+     * The live state card on the home screen. Where it is not offered there it is still in
+     * Settings → Diagnostics, which shows the same card — keep that section reachable on a
+     * device that takes this off its home screen, or the card is nowhere.
+     */
+    LIVE_STATE_ON_HOME,
     /** Hints that name a touch gesture: pull, swipe, long press. */
     TOUCH_GESTURES_HINTS,
     /** Asking to be left out of battery optimisation: the banner, the permission row, the onboarding card. */
@@ -168,7 +176,8 @@ object DeviceProfile {
      * no clipboard a user can reach, no touch, no battery to optimise — and so
      * is the admin console, which is not offered there; what it can do but is
      * not for moves to the advanced settings; the picker and the browser are
-     * there when the system has them.
+     * there when the system has them. Signing in is never done in a browser
+     * there, whatever is installed: a login form is no job for a remote.
      */
     fun availability(feature: Feature, device: DeviceClass, caps: Capabilities): Availability = when (device) {
         DeviceClass.HANDHELD -> Availability.OFFERED
@@ -180,6 +189,7 @@ object DeviceProfile {
             Feature.SEARCH,
             Feature.CLIPBOARD_ACTIONS,
             Feature.TOUCH_GESTURES_HINTS,
+            Feature.BROWSER_SIGN_IN,
             Feature.BATTERY_OPTIMISATION_PROMPT -> Availability.HIDDEN
 
             Feature.SERVE_EDIT,
@@ -188,7 +198,8 @@ object DeviceProfile {
             Feature.DNS_SCREEN,
             Feature.ROOT_MODE,
             Feature.BACKUP_RESTORE,
-            Feature.THEME_AND_ICON -> Availability.ADVANCED
+            Feature.THEME_AND_ICON,
+            Feature.LIVE_STATE_ON_HOME -> Availability.ADVANCED
 
             Feature.SYSTEM_FILE_PICKER -> if (caps.documents) Availability.OFFERED else Availability.HIDDEN
             Feature.BROWSER -> if (caps.browser) Availability.OFFERED else Availability.HIDDEN
