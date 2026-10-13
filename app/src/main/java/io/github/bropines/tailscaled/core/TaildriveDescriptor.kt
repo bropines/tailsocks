@@ -11,10 +11,7 @@ import android.system.OsConstants
 import android.util.Log
 import androidx.annotation.RequiresApi
 import java.io.FileNotFoundException
-import java.util.concurrent.Callable
-import java.util.concurrent.ExecutionException
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import java.io.InterruptedIOException
 
 /*
  * A share's file as a descriptor another app can seek in: the platform's proxy descriptor
@@ -41,23 +38,25 @@ object TaildriveDescriptor {
     }
 
     /**
-     * A read-only, seekable descriptor over [upstream], or null when there cannot be one —
-     * the server ignores ranges or keeps the file's length to itself, the first block did
-     * not arrive, the platform refused — and the caller hands out its pipe instead.
+     * A read-only, seekable descriptor over the file [newUpstream] reaches, or null when there
+     * cannot be one — the server ignores ranges or keeps the file's length to itself, the first
+     * block did not arrive, the platform refused — and the caller hands out its pipe instead.
      *
      * Waits for the first block on the calling thread; that answer is where the length
-     * comes from, and what tells a server with ranges from one without. A file the server
-     * says is not there, or not ours to read, is refused here rather than at the first read.
-     * [upstream] is closed whenever no descriptor comes back, and with the descriptor
-     * otherwise.
+     * comes from, and what tells a server with ranges from one without. A first answer that is
+     * what a connection that died idle gives is asked for once more, after a pause
+     * ([openRangedFile]). A file the server says is not there, or not ours to read, is refused
+     * here rather than at the first read. Every upstream [newUpstream] made is closed whenever
+     * no descriptor comes back, and the last with the descriptor otherwise.
      */
     @Throws(FileNotFoundException::class)
-    fun open(context: Context, upstream: RangeUpstream): ParcelFileDescriptor? {
+    fun open(context: Context, newUpstream: () -> RangeUpstream): ParcelFileDescriptor? {
+        var asked = 0
         val file = try {
             // Not on the caller's thread: it is a binder thread that carries the calling app's StrictMode
             // policy, and a player's main thread forbids the network (NetworkOnMainThreadException,
             // measured with a stand-in player on API 36) — the pipe's copy runs on a thread of its own for the same reason.
-            onWorker { RangedFile.open(upstream) } ?: return null
+            ProviderWorker.run { openRangedFile({ asked++; newUpstream() }) } ?: return null
         } catch (e: RangeNotFoundException) {
             throw FileNotFoundException("Taildrive: no such file")
         } catch (e: RangeForbiddenException) {
@@ -66,7 +65,10 @@ object TaildriveDescriptor {
             // The pipe meets the same failure and reports it the way it always has.
             Log.w(TAG, "first block: ${describe(e)}")
             return null
+        } catch (e: InterruptedIOException) {
+            return null
         }
+        if (asked > 1) Log.i(TAG, "first block: the first answer was stale, asked again")
         return try {
             val storage = context.getSystemService(StorageManager::class.java)
                 ?: throw IllegalStateException("no StorageManager")
@@ -75,25 +77,6 @@ object TaildriveDescriptor {
             Log.w(TAG, "no proxy descriptor: ${e.javaClass.simpleName}")
             file.close()
             null
-        }
-    }
-
-    /** Threads for the first block of each open: short-lived, and none of them is the reading thread, which may be busy. */
-    private val workers: ExecutorService by lazy {
-        Executors.newCachedThreadPool { r -> Thread(r, "taildrive-open").apply { isDaemon = true } }
-    }
-
-    /** [body] on a worker thread, waited for here; what it throws is thrown as it was. */
-    private fun <T> onWorker(body: () -> T): T {
-        val task = workers.submit(Callable { body() })
-        try {
-            return task.get()
-        } catch (e: ExecutionException) {
-            throw e.cause ?: e
-        } catch (e: InterruptedException) {
-            task.cancel(true)
-            Thread.currentThread().interrupt()
-            throw RangeIoException("interrupted")
         }
     }
 

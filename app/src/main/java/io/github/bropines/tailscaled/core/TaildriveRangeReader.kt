@@ -63,8 +63,8 @@ class RangeForbiddenException : RangeException("access denied")
 
 class RangeTimeoutException : RangeException("timed out")
 
-/** Everything else: [detail] is an HTTP status or the class of what was thrown. */
-class RangeIoException(detail: String) : RangeException(detail)
+/** Everything else: [detail] is an HTTP status or the class of what was thrown; [status] is the HTTP status, 0 when there was none. */
+class RangeIoException(detail: String, val status: Int = 0) : RangeException(detail)
 
 /** The file was closed, before the read or under it. */
 class RangeClosedException : RangeException("closed")
@@ -107,7 +107,49 @@ fun rangeFailure(status: Int, contentRange: String? = null): RangeException = wh
     401, 403 -> RangeForbiddenException()
     404, 410 -> RangeNotFoundException()
     408, 504 -> RangeTimeoutException()
-    else -> RangeIoException("HTTP $status")
+    else -> RangeIoException("HTTP $status", status)
+}
+
+/**
+ * Whether [e], the answer to the first request of an open, is what a connection that died while
+ * it sat idle gives: our own daemon's reverse proxy answering 500, 502 or 503 for it, as the
+ * listing has long known (`TaildriveBrowse.isStale`). Measured with the sharing device's daemon
+ * restarted a moment before: the first request got 500, and so did the pipe's, a tenth of a
+ * second later; the one after a pause worked. A player that is handed the pipe then fails on its
+ * first open and plays on the second.
+ */
+fun isStaleStart(e: RangeException): Boolean = e is RangeIoException && e.status in STALE_STATUSES
+
+private val STALE_STATUSES = setOf(500, 502, 503)
+
+/** How long the quiet second ask of [openRangedFile] waits: the listing's own pause (`TaildriveBrowse.RETRY_DELAY_MS`). */
+const val STALE_RETRY_DELAY_MS = 1_200L
+
+/**
+ * [RangedFile.open] over an upstream from [newUpstream], and over a second one, after
+ * [retryDelayMs], when the first answer was [isStaleStart]. Nothing else is asked twice: a
+ * server that has no ranges, a file that is not there, a refusal and a timeout (which has
+ * already waited long enough) are the first answer's. Whenever no file comes back, every
+ * upstream made here has been closed.
+ */
+@Throws(RangeException::class)
+fun openRangedFile(
+    newUpstream: () -> RangeUpstream,
+    retryDelayMs: Long = STALE_RETRY_DELAY_MS,
+    pause: (Long) -> Unit = { Thread.sleep(it) },
+): RangedFile? {
+    try {
+        return RangedFile.open(newUpstream())
+    } catch (e: RangeException) {
+        if (!isStaleStart(e)) throw e
+    }
+    try {
+        pause(retryDelayMs)
+    } catch (e: InterruptedException) {
+        Thread.currentThread().interrupt()
+        throw RangeClosedException()
+    }
+    return RangedFile.open(newUpstream())
 }
 
 /**

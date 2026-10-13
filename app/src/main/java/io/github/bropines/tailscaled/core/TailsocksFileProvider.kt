@@ -428,7 +428,7 @@ class TailsocksFileProvider : DocumentsProvider() {
         // share's server answers byte ranges; the pipe below otherwise, start to end. Only
         // reads come here: openDocument sends every mode with a "w" in it the other way.
         if (android.os.Build.VERSION.SDK_INT >= 26) {
-            TaildriveDescriptor.open(context, client.rangeUpstream(path))?.let { return it }
+            TaildriveDescriptor.open(context) { client.rangeUpstream(path) }?.let { return it }
         }
 
         val pipe = ParcelFileDescriptor.createReliablePipe()
