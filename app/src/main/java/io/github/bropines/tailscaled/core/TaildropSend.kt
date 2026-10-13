@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.core
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
@@ -14,6 +15,8 @@ import io.github.bropines.tailscaled.models.TaildropSource
 import kotlinx.serialization.decodeFromString
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.security.MessageDigest
 
 /** What became of one file: [error] is null when it arrived, else the reason in words. */
@@ -41,10 +44,13 @@ fun sendTaildropFiles(
  * peer's sheet). Blocking: call it from a background dispatcher.
  *
  * The daemon takes a path, not a stream, so the file is copied into the cache first; the
- * SHA-256 and the size are taken during that copy, in the same pass. The duration is the
- * daemon's call alone. The device's address, OS and route are read from a fresh status
- * once the transfer is over: an idle peer often has no path at all until the first packet,
- * so the status from before the send would mostly say "none".
+ * SHA-256 and the size are taken during that copy, in the same pass. A `file:` URI — a
+ * file picked in the app's own browser, on a device without the system's picker — is a
+ * path already, and one the bridge reads in this process: it is hashed where it lies and
+ * sent from there, since a film on a USB stick does not fit a television's cache as well.
+ * The duration is the daemon's call alone. The device's address, OS and route are read
+ * from a fresh status once the transfer is over: an idle peer often has no path at all
+ * until the first packet, so the status from before the send would mostly say "none".
  */
 fun sendTaildropFile(
     context: Context,
@@ -58,15 +64,17 @@ fun sendTaildropFile(
     var durationMs: Long? = null
     var error: String? = null
     val tmp = File(File(context.cacheDir, "taildrop_out/${source.name.lowercase()}").apply { mkdirs() }, name)
+    // The bridge names the file after the path it is given, so only a path that ends in [name].
+    val inPlace = uri.takeIf { it.scheme == ContentResolver.SCHEME_FILE }?.path?.let(::File)?.takeIf { it.name == name }
     try {
         val target = taildropTargetId(context, peer)
-        val (copied, hash) = copyHashing(context, uri, tmp)
+        val (copied, hash) = if (inPlace != null) inPlace.inputStream().use { hashing(it, null) } else copyHashing(context, uri, tmp)
         size = copied
         sha256 = hash
         val started = SystemClock.elapsedRealtime()
         // "OK" is the bridge's word for a 2xx from the peer itself; anything else starts with
         // "Error" and carries the peer's HTTP status and body, or the local failure.
-        val res = Appctr.sendFileFromAPI(target, tmp.absolutePath)
+        val res = Appctr.sendFileFromAPI(target, (inPlace ?: tmp).absolutePath)
         durationMs = SystemClock.elapsedRealtime() - started
         if (res != "OK") error = res.removePrefix("Error: ").ifBlank { res }
     } catch (e: Exception) {
@@ -148,21 +156,22 @@ private fun displayNameOf(context: Context, uri: Uri): String =
 
 /** Copies [uri] into [dest] and hashes it on the way: one read of the source. */
 private fun copyHashing(context: Context, uri: Uri, dest: File): Pair<Long, String> {
-    val digest = MessageDigest.getInstance("SHA-256")
-    var total = 0L
     val input = context.contentResolver.openInputStream(uri)
         ?: throw IOException(context.getString(R.string.taildrop_error_unreadable))
-    input.use { i ->
-        dest.outputStream().use { o ->
-            val buf = ByteArray(64 * 1024)
-            while (true) {
-                val n = i.read(buf)
-                if (n < 0) break
-                digest.update(buf, 0, n)
-                o.write(buf, 0, n)
-                total += n
-            }
-        }
+    return input.use { i -> dest.outputStream().use { o -> hashing(i, o) } }
+}
+
+/** The size and SHA-256 of what [input] holds from here to its end; written to [copy] on the way when there is one. */
+internal fun hashing(input: InputStream, copy: OutputStream?): Pair<Long, String> {
+    val digest = MessageDigest.getInstance("SHA-256")
+    var total = 0L
+    val buf = ByteArray(64 * 1024)
+    while (true) {
+        val n = input.read(buf)
+        if (n < 0) break
+        digest.update(buf, 0, n)
+        copy?.write(buf, 0, n)
+        total += n
     }
     return total to digest.digest().joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
 }
