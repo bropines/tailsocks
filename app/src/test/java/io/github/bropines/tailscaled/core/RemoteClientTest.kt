@@ -62,7 +62,7 @@ class RemoteClientTest {
         assertEquals(ManagedPermission("storage", ManagedPermission.MISSING, ask = true), app.permissions.first())
         assertEquals(listOf("storage", "install"), app.permissions.filter { it.ask }.map { it.id })
         assertEquals(ManagedAsked("storage", "notified", 42), app.asked)
-        assertEquals(ManagedReceive(ManagedReceive.NEEDS_ACCESS, "Movies/From phone", reset = true, free = 51_234_567_890), app.receive)
+        assertEquals(ManagedReceive(ManagedReceive.NEEDS_ACCESS, "Movies/From phone", reset = true, free = 51_234_567_890, waiting = 2), app.receive)
         assertEquals(listOf(ManagedSavedFile("holiday.mp4", 812_647_424, 1_791_727_380, "Download/Taildrop")), app.saved)
         assertEquals(listOf(ManagedFolder("Downloads", "/storage/emulated/0/Download")), app.folders)
         assertEquals(1, app.folderCount)
@@ -119,7 +119,7 @@ class RemoteClientTest {
     @Test
     fun theSettingsExampleIsReadWithItsOneWayAndGuardMarks() {
         val rows = RemoteContract.settings()
-        assertEquals(8, rows.size)
+        assertEquals(13, rows.size)
         val dns = rows.setting(ManagedKeys.ACCEPT_DNS, ManagedSetting.BOOL)!!
         assertTrue(dns.on)
         assertTrue(dns.writable)
@@ -166,13 +166,15 @@ class RemoteClientTest {
         assertEquals(ManagedPermissionAnswer("storage", "shown"), RemoteJson.decode<ManagedPermissionAnswer>(RemoteContract.PERMISSION_SHOWN))
 
         val roots = RemoteJson.decode<ManagedStorageList>(RemoteContract.STORAGE_ROOTS)!!
-        assertEquals(listOf("Internal storage", "USB drive"), roots.roots?.map { it.name })
+        assertEquals(listOf("Internal storage", "USB-накопитель SanDisk"), roots.roots?.map { it.name })
+        assertEquals(listOf(ManagedStorageRoot.PRIMARY, ManagedStorageRoot.REMOVABLE), roots.roots?.map { it.kind })
         assertEquals(118_111_600_640, roots.roots?.first()?.total)
         val dir = RemoteJson.decode<ManagedStorageList>(RemoteContract.STORAGE_DIR)!!
         assertNull(dir.roots)
         assertEquals("/storage/emulated/0", dir.parent)
         assertEquals(listOf(ManagedStorageEntry("Taildrop", dir = true, size = 0, time = 1_791_727_380), ManagedStorageEntry("film.mkv", size = 734_003_200, time = 1_791_700_000)), dir.entries)
         assertFalse(dir.truncated || dir.limited)
+        assertEquals(0, dir.offset)
         assertEquals(ManagedStorageSent("t3", "film.mkv", 734_003_200), RemoteJson.decode<ManagedStorageSent>(RemoteContract.STORAGE_SENT))
 
         assertTrue(RemoteContract.report().text.startsWith("--- TAILSOCKS DIAGNOSTICS ---\n"))
@@ -561,6 +563,31 @@ class RemoteClientTest {
         device.finishFetch()
         assertEquals(ManagedFetch.SENT, client.status().ok().fetch?.state)
         assertEquals(17, client.log().ok().scrubbed)
+    }
+
+    @Test
+    fun aLongFolderComesInPartsAndTheOffsetIsSentOnlyForTheNext() {
+        device.become(owner = true, full = true)
+        device.putFolder("/storage/emulated/0/Photos", 1_200)
+        paired()
+        val first = client.storageList("/storage/emulated/0/Photos").ok()
+        assertEquals(500, first.entries.size)
+        assertTrue(first.truncated)
+        val second = client.storageList("/storage/emulated/0/Photos", offset = 500).ok()
+        assertEquals(500, second.offset)
+        assertTrue(second.truncated)
+        val third = client.storageList("/storage/emulated/0/Photos", offset = 1_000).ok()
+        assertEquals(200, third.entries.size)
+        assertFalse(third.truncated)
+        assertEquals("IMG_2199.jpg", third.entries.last().name)
+        assertEquals(
+            listOf(
+                """POST /v1/storage/list {"path":"/storage/emulated/0/Photos"}""",
+                """POST /v1/storage/list {"path":"/storage/emulated/0/Photos","offset":500}""",
+                """POST /v1/storage/list {"path":"/storage/emulated/0/Photos","offset":1000}""",
+            ),
+            device.sent.map { it.toString() }
+        )
     }
 
     // ─── Small rules ─────────────────────────────────────────────────────────────────────────

@@ -37,7 +37,7 @@ object RemoteContract {
     {"id": "autostart",     "state": "unknown", "ask": false}
   ],
   "asked": {"id": "storage", "result": "notified", "age": 42},
-  "receive": {"state": "needs_access", "folder": "Movies/From phone", "reset": true, "free": 51234567890},
+  "receive": {"state": "needs_access", "folder": "Movies/From phone", "reset": true, "free": 51234567890, "waiting": 2},
   "saved": [{"name": "holiday.mp4", "size": 812647424, "time": 1791727380, "folder": "Download/Taildrop"}],
   "folders": [{"name": "Downloads", "path": "/storage/emulated/0/Download"}],
   "folderCount": 1
@@ -56,7 +56,7 @@ object RemoteContract {
   "guard": {"id": "g7Jk2", "key": "exit_node", "left": 42, "after": 0},
   "device": {"model": "Xiaomi MiTV-MOOQ1", "android": "11", "sdk": 30, "build": "0e629420", "mode": "proxy", "engine": "", "keyExpiry": 1799539200},
   "advertise": {"exitNode": {"on": true, "approved": false}, "routes": [{"cidr": "192.168.5.0/24", "approved": true}]},
-  "fetch": {"id": "t3", "name": "film.mkv", "size": 734003200, "state": "sending", "error": ""},
+  "fetch": {"id": "t3", "name": "film.mkv", "size": 734003200, "state": "sending", "age": 0},
   "app": $APP
 }"""
 
@@ -75,9 +75,14 @@ object RemoteContract {
   {"key": "accept_dns",              "kind": "bool", "writable": true,  "value": "true",  "guard": "optional"},
   {"key": "accept_routes",           "kind": "bool", "writable": true,  "value": "false", "guard": "optional"},
   {"key": "exit_node_lan_access",    "kind": "bool", "writable": true,  "value": "true",  "guard": "optional"},
+  {"key": "tun_mode",                "kind": "bool", "writable": true,  "value": "false", "guard": "always"},
   {"key": "auto_reconnect",          "kind": "bool", "writable": true,  "value": "false", "only": "true"},
+  {"key": "keep_awake",              "kind": "bool", "writable": true,  "value": "true",  "only": "true"},
   {"key": "taildrive_enabled",       "kind": "bool", "writable": true,  "value": "true",  "only": "false", "needs": "full"},
   {"key": "taildrive_proxy_enabled", "kind": "bool", "writable": true,  "value": "false", "only": "false", "needs": "full"},
+  {"key": "advertise_exit_node",     "kind": "bool", "writable": true,  "value": "false", "only": "false", "needs": "full"},
+  {"key": "advertise_routes",        "kind": "cidrs", "writable": true, "value": "",      "needs": "full"},
+  {"key": "full_control",            "kind": "bool", "writable": true,  "value": "false", "only": "false"},
   {"key": "device_class",            "kind": "text", "writable": false, "value": "tv"},
   {"key": "app_version",             "kind": "text", "writable": false, "value": "4.11.0"}
 ]}"""
@@ -114,15 +119,15 @@ object RemoteContract {
 
     /** §10 */
     const val STORAGE_ROOTS = """{"path": "", "roots": [
-  {"name": "Internal storage", "path": "/storage/emulated/0", "free": 51234567890, "total": 118111600640},
-  {"name": "USB drive", "path": "/storage/1234-ABCD", "free": 1234567, "total": 31914983424}
+  {"kind": "primary",   "name": "Internal storage", "path": "/storage/emulated/0", "free": 51234567890, "total": 118111600640},
+  {"kind": "removable", "name": "USB-накопитель SanDisk", "path": "/storage/1234-ABCD", "free": 1234567, "total": 31914983424}
 ]}"""
     const val STORAGE_DIR = """{"path": "/storage/emulated/0/Download", "parent": "/storage/emulated/0",
  "entries": [
    {"name": "Taildrop", "dir": true,  "size": 0,         "time": 1791727380},
    {"name": "film.mkv", "dir": false, "size": 734003200, "time": 1791700000}
  ],
- "truncated": false, "limited": false}"""
+ "offset": 0, "truncated": false, "limited": false}"""
     const val STORAGE_SENT = """{"id": "t3", "name": "film.mkv", "size": 734003200}"""
 
     /** §13 */
@@ -186,6 +191,8 @@ class FakeManagedDevice(
     var identifyResult = "shown"
     var guardSeconds = 60L
     var guardAfter = 5L
+    /** The next guarded change is answered `504 pending`, with its guard beside the error (§7). */
+    var answerPending = false
 
     private var status: JsonObject = parse(statusJson).without("guard", "fetch").let { s ->
         // The example's request for a permission is somebody's, a moment ago: a fresh device has none.
@@ -204,7 +211,7 @@ class FakeManagedDevice(
     }
     private val scripted = HashMap<String, ArrayDeque<RemoteAnswer>>()
 
-    private class Pending(val id: String, val key: String, val deadline: Long, val notBefore: Long, val revert: () -> Unit)
+    private class Pending(val id: String, val key: String, val deadline: Long, val notBefore: Long, val original: String, val revert: () -> Unit)
     private var pending: Pending? = null
     private var guards = 0
     private var transfers = 0
@@ -258,10 +265,18 @@ class FakeManagedDevice(
             status = status.with("app", seen)
         }
         settings = settings.map { row ->
-            val bool = row.text("kind") == ManagedSetting.BOOL
-            var next = row.with("writable", JsonPrimitive(owner && bool))
-            // With Full control on, what needed it arrives without its one-way mark.
-            if (full && row.text("needs") == ManagedLevel.FULL) next = next.without("only", "needs")
+            val changeable = row.text("kind") != ManagedSetting.TEXT
+            var next = row.with("writable", JsonPrimitive(owner && changeable))
+            when {
+                // It reads "true" while the device is at the full level, and can only be given up.
+                row.text("key") == ManagedKeys.FULL_CONTROL -> next = next.with("value", JsonPrimitive(full.toString()))
+                // With Full control on, what needed it arrives without its one-way mark.
+                full && row.text("needs") == ManagedLevel.FULL -> next = next.without("only", "needs")
+                !full && row.text("key") in NEEDS_FULL -> {
+                    next = next.with("needs", JsonPrimitive(ManagedLevel.FULL))
+                    if (row.text("kind") == ManagedSetting.BOOL) next = next.with("only", JsonPrimitive("false"))
+                }
+            }
             next
         }
     }
@@ -288,6 +303,11 @@ class FakeManagedDevice(
     val shareNames: List<String> get() = folders().map { it.text("name") }
     val fileNames: List<String> get() = files.map { it.text("name") }
     val guardPending: Boolean get() { expire(); return pending != null }
+
+    /** The change that waits is kept as if its confirmation had arrived: for an answer lost on its way back. */
+    fun settle() {
+        pending = null
+    }
 
     /** The transfer the device is running ends: "sent", or "failed" with [error]. */
     fun finishFetch(error: String = "") {
@@ -346,6 +366,12 @@ class FakeManagedDevice(
     // ─── The routes ──────────────────────────────────────────────────────────────────────
 
     private fun statusNow(): JsonObject {
+        // The count of what waits inside the app is the count of GET /v1/files.
+        val app = status["app"] as? JsonObject
+        val receive = app?.get("receive") as? JsonObject
+        val status = if (app != null && receive != null) {
+            status.with("app", app.with("receive", receive.with("waiting", JsonPrimitive(files.size))))
+        } else status
         val p = pending ?: return status
         val now = clock()
         return status.with("guard", buildJsonObject {
@@ -377,7 +403,7 @@ class FakeManagedDevice(
             status = if (node == null) status.without("exitNode") else status.with("exitNode", node.without("suggested").with("selected", JsonPrimitive(true)))
         }
         val revert = { status = if (before == null) status.without("exitNode") else status.with("exitNode", before) }
-        return changed(ManagedKeys.EXIT_NODE, guarded = body.flag("guard"), apply = apply, revert = revert)
+        return changed(ManagedKeys.EXIT_NODE, guarded = body.flag("guard"), before = exitNodeId, value = id, apply = apply, revert = revert)
     }
 
     private fun setSetting(body: JsonObject): RemoteAnswer {
@@ -389,32 +415,54 @@ class FakeManagedDevice(
         if (row["writable"]?.jsonPrimitive?.booleanOrNull != true) return refuse(403, "forbidden")
         if (row.text("kind") == ManagedSetting.BOOL && value != "true" && value != "false") return refuse(400, "bad_request")
         val only = row["only"]?.jsonPrimitive?.content
-        if (only != null && value != only) return refuse(403, if (row.text("needs") == ManagedLevel.FULL) "needs_full" else "forbidden")
+        val needsFull = row.text("needs") == ManagedLevel.FULL
+        if (only != null && value != only) return refuse(403, if (needsFull) "needs_full" else "forbidden")
+        // A list may be cleared at the basic level; writing prefixes takes Full control.
+        if (row.text("kind") == ManagedSetting.CIDRS) {
+            if (needsFull && value.isNotEmpty()) return refuse(403, "needs_full")
+            if (value.isNotEmpty() && cidrList(value) == null) return refuse(400, "bad_request")
+        }
         val before = row.text("value")
         fun write(v: String) {
             settings = settings.map { if (it.text("key") == key) it.with("value", JsonPrimitive(v)) else it }
         }
+        if (key == ManagedKeys.FULL_CONTROL) {
+            // Given up at once, and with it everything it opened.
+            become(owner = true, full = false, caps = caps())
+            return ok()
+        }
         val guarded = row.text("guard") == ManagedSetting.GUARD_ALWAYS || body.flag("guard")
-        return changed(key, guarded, apply = { write(value) }, revert = { write(before) })
+        return changed(key, guarded, before = before, value = value, apply = { write(value) }, revert = { write(before) })
     }
 
     /** Applies a change; guarded, it is provisional and its answer says until when. */
-    private fun changed(key: String, guarded: Boolean, apply: () -> Unit, revert: () -> Unit): RemoteAnswer {
-        if (!guarded) {
+    private fun changed(key: String, guarded: Boolean, before: String, value: String, apply: () -> Unit, revert: () -> Unit): RemoteAnswer {
+        val held = pending
+        // Put back by hand before it was confirmed: the wait is over, and nothing will be undone.
+        if (held != null && held.key == key && value == held.original) {
+            apply()
+            pending = null
+            return ok()
+        }
+        // What the setting already holds needs no guarding, and an unguarded change is held back by nothing.
+        if (!guarded || value == before) {
             apply()
             return ok()
         }
-        val held = pending
         // Another key's change is still waiting; the same key's is replaced, and goes back to the original value.
         if (held != null && held.key != key) return refuse(409, "guard_pending")
         apply()
         val now = clock()
         val id = "g${++guards}"
-        pending = Pending(id, key, now + guardSeconds * 1000, now + guardAfter * 1000, held?.revert ?: revert)
+        pending = Pending(id, key, now + guardSeconds * 1000, now + guardAfter * 1000, held?.original ?: before, held?.revert ?: revert)
         reverted = null
-        return ok(buildJsonObject {
-            put("guard", buildJsonObject { put("id", id); put("key", key); put("seconds", guardSeconds); put("after", guardAfter) })
-        })
+        val guard = buildJsonObject { put("id", id); put("key", key); put("seconds", guardSeconds); put("after", guardAfter) }
+        if (answerPending) {
+            // The app was asked and has not answered — and the change is under guard all the same.
+            answerPending = false
+            return RemoteAnswer(504, buildJsonObject { put("error", "pending"); put("guard", guard) }.toString())
+        }
+        return ok(buildJsonObject { put("guard", guard) })
     }
 
     private fun confirm(body: JsonObject): RemoteAnswer {
@@ -446,10 +494,28 @@ class FakeManagedDevice(
                 ok()
             } else refuse(403, "forbidden")
             ManagedKeys.ACTION_RELAYS -> if (has(ManagedCaps.RELAYS)) ok() else refuse(403, "forbidden")
-            ManagedKeys.ACTION_SAVE_RECEIVED -> if (has(ManagedCaps.SAVE)) {
-                files = emptyList()
-                ok()
-            } else refuse(403, "forbidden")
+            ManagedKeys.ACTION_SAVE_RECEIVED -> {
+                val app = status["app"] as? JsonObject
+                val receive = app?.get("receive") as? JsonObject
+                when {
+                    !has(ManagedCaps.SAVE) -> refuse(403, "forbidden")
+                    receive?.text("state") != ManagedReceive.READY -> refuse(409, "refused", "the receive folder cannot be written")
+                    else -> {
+                        // What waited inside the app is in the folder now, and in the list of what it took.
+                        val moved = files.map { file ->
+                            buildJsonObject {
+                                put("name", file.text("name"))
+                                put("size", file["size"] ?: JsonPrimitive(0))
+                                put("time", file["modTime"] ?: JsonPrimitive(0))
+                                put("folder", receive.text("folder"))
+                            }
+                        }
+                        editApp { put("saved", JsonArray(moved + app["saved"]?.jsonArray.orEmpty())) }
+                        files = emptyList()
+                        ok()
+                    }
+                }
+            }
             else -> refuse(403, "forbidden")
         }
     }
@@ -495,11 +561,33 @@ class FakeManagedDevice(
 
     private fun storageList(body: JsonObject): RemoteAnswer {
         if (!has(ManagedCaps.STORAGE)) return refuse(404, "not_found")
-        unknownField(body, "path")?.let { return it }
+        unknownField(body, "path", "offset")?.let { return it }
         denied(ManagedOp.STORAGE_LIST)?.let { return it }
         val path = body.text("path")
+        val offset = body["offset"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0
         if (".." in path.split('/')) return refuse(403, "forbidden")
-        return storage[path]?.let { RemoteAnswer(200, it) } ?: refuse(404, "not_found")
+        if (offset < 0 || (path.isEmpty() && offset != 0)) return refuse(400, "bad_request")
+        val listing = storage[path]?.let(::parse) ?: return refuse(404, "not_found")
+        if (path.isEmpty()) return ok(listing)
+        // At most a page an answer; "truncated" says the folder holds more after these.
+        val all = listing["entries"]?.jsonArray.orEmpty()
+        val part = all.drop(offset).take(STORAGE_PAGE)
+        return ok(
+            listing.with("entries", JsonArray(part)).with("offset", JsonPrimitive(offset))
+                .with("truncated", JsonPrimitive(offset + part.size < all.size))
+        )
+    }
+
+    /** A folder of [count] files, for a listing longer than one answer. */
+    fun putFolder(path: String, count: Int) {
+        storage[path] = buildJsonObject {
+            put("path", path)
+            put("parent", path.substringBeforeLast('/'))
+            put("entries", buildJsonArray {
+                repeat(count) { i -> add(buildJsonObject { put("name", "IMG_${1000 + i}.jpg"); put("dir", false); put("size", 2_000_000 + i); put("time", 1791700000 + i) }) }
+            })
+            put("limited", false)
+        }.toString()
     }
 
     private fun storageSend(body: JsonObject): RemoteAnswer {
@@ -513,7 +601,7 @@ class FakeManagedDevice(
         if (entry.flag("dir")) return refuse(409, "refused", "not a regular file")
         if ((status["fetch"] as? JsonObject)?.text("state") == ManagedFetch.SENDING) return refuse(409, "refused", "another file is still being sent")
         val started = buildJsonObject { put("id", "t${++transfers}"); put("name", entry.text("name")); put("size", entry["size"] ?: JsonPrimitive(0)) }
-        status = status.with("fetch", started.with("state", JsonPrimitive(ManagedFetch.SENDING)).with("error", JsonPrimitive("")))
+        status = status.with("fetch", started.with("state", JsonPrimitive(ManagedFetch.SENDING)).with("error", JsonPrimitive("")).with("age", JsonPrimitive(0)))
         return ok(started)
     }
 
@@ -573,6 +661,12 @@ class FakeManagedDevice(
         RemoteAnswer(status, buildJsonObject { put("error", error); if (message.isNotEmpty()) put("message", message) }.toString())
 
     companion object {
+        /** The settings whose other value takes Full control (§6.1). */
+        private val NEEDS_FULL = setOf(ManagedKeys.TAILDRIVE, ManagedKeys.TAILDRIVE_PROXY, ManagedKeys.ADVERTISE_EXIT_NODE, ManagedKeys.ADVERTISE_ROUTES)
+
+        /** How many entries of a folder one answer carries (§10). */
+        const val STORAGE_PAGE = 500
+
         /** What a status carries that the first build's does not. */
         private val LATER_FIELDS = setOf("caps", "level", "guard", "device", "advertise", "fetch", "app")
 

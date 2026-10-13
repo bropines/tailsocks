@@ -62,8 +62,17 @@ enum class ManagedRefusal {
 sealed interface ManagedResult<out T> {
     data class Ok<T>(val value: T) : ManagedResult<T>
 
-    /** [message] is the device's own sentence for a [ManagedRefusal.REFUSED]; [after] the seconds of a [ManagedRefusal.TOO_EARLY]. */
-    data class Failed(val refusal: ManagedRefusal, val message: String = "", val after: Long = 0) : ManagedResult<Nothing>
+    /**
+     * [message] is the device's own sentence for a [ManagedRefusal.REFUSED]; [after] the seconds
+     * of a [ManagedRefusal.TOO_EARLY]. [guard] comes with a [ManagedRefusal.PENDING] to a guarded
+     * change: the app may yet apply it, and then it is put back unless confirmed like any other.
+     */
+    data class Failed(
+        val refusal: ManagedRefusal,
+        val message: String = "",
+        val after: Long = 0,
+        val guard: ManagedGuard? = null,
+    ) : ManagedResult<Nothing>
 
     val failed: Failed? get() = this as? Failed
     val valueOrNull: T? get() = (this as? Ok)?.value
@@ -71,7 +80,7 @@ sealed interface ManagedResult<out T> {
 
 /** The body of a refusal, with what `too_early` adds to it. */
 @Serializable
-private data class ManagedErrorBody(val error: String = "", val message: String = "", val after: Long = 0)
+private data class ManagedErrorBody(val error: String = "", val message: String = "", val after: Long = 0, val guard: ManagedGuard? = null)
 
 /** What an answer that is not a 200 means (contract §1). The word decides where one status has several. */
 fun RemoteAnswer.refusal(): ManagedResult.Failed {
@@ -102,6 +111,7 @@ fun RemoteAnswer.refusal(): ManagedResult.Failed {
         // Only a refusal's sentence was written for a person; the rest are the API's own words.
         message = if (kind == ManagedRefusal.REFUSED) told.message else "",
         after = if (kind == ManagedRefusal.TOO_EARLY) told.after.coerceAtLeast(1) else 0,
+        guard = if (kind == ManagedRefusal.PENDING) told.guard?.takeIf { it.id.isNotEmpty() } else null,
     )
 }
 
@@ -168,8 +178,9 @@ class RemoteClient(
     /** The device shows "Managed from <this device>" for a few seconds. */
     fun identify(): ManagedResult<ManagedIdentified> = post(ManagedPaths.IDENTIFY) {}
 
-    /** [path] empty for the roots. */
-    fun storageList(path: String): ManagedResult<ManagedStorageList> = post(ManagedPaths.STORAGE_LIST) { put("path", path) }
+    /** [path] empty for the roots. [offset] asks for the next part of a folder longer than one answer. */
+    fun storageList(path: String, offset: Int = 0): ManagedResult<ManagedStorageList> =
+        post(ManagedPaths.STORAGE_LIST) { put("path", path); if (offset > 0) put("offset", offset) }
 
     /** The device sends the file to this one with its own Taildrop; `status.fetch` follows it. */
     fun storageSend(path: String): ManagedResult<ManagedStorageSent> = post(ManagedPaths.STORAGE_SEND) { put("path", path) }

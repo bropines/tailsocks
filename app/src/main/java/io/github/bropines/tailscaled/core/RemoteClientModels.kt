@@ -147,7 +147,10 @@ data class ManagedFetch(
     val size: Long = 0,
     /** [SENDING], [SENT] or [FAILED]. */
     val state: String = "",
+    /** Why it failed, in the daemon's words. */
     val error: String = "",
+    /** Seconds since it ended; 0 while it runs. The device drops it ten minutes after. */
+    val age: Long = 0,
 ) {
     companion object {
         const val SENDING = "sending"
@@ -206,6 +209,8 @@ data class ManagedReceive(
     val reset: Boolean = false,
     /** Bytes free where received files land; -1 when it cannot be told. */
     val free: Long = -1,
+    /** How many received files wait inside the app: the count of GET /v1/files. */
+    val waiting: Int = 0,
 ) {
     companion object {
         const val READY = "ready"
@@ -325,14 +330,34 @@ data class ManagedStorageList(
     val parent: String? = null,
     val roots: List<ManagedStorageRoot>? = null,
     val entries: List<ManagedStorageEntry> = emptyList(),
-    /** More than the 500 entries listed. */
+    /** Where in the folder these entries start. */
+    val offset: Int = 0,
+    /** The folder holds more after these: ask again from [offset] plus what came. */
     val truncated: Boolean = false,
     /** The app there has no storage access and sees only its own files. */
     val limited: Boolean = false,
 )
 
+/**
+ * A place the device's storage starts from. [kind] is the stable id; [name] is "Internal
+ * storage" in English for the primary one — which a manager names itself — and the system's
+ * own description of the volume, in the managed device's language, for the rest.
+ */
 @Serializable
-data class ManagedStorageRoot(val name: String = "", val path: String = "", val free: Long = -1, val total: Long = -1)
+data class ManagedStorageRoot(
+    /** [PRIMARY], [REMOVABLE] or [VOLUME]; a kind this build does not know is a volume. */
+    val kind: String = "",
+    val name: String = "",
+    val path: String = "",
+    val free: Long = -1,
+    val total: Long = -1,
+) {
+    companion object {
+        const val PRIMARY = "primary"
+        const val REMOVABLE = "removable"
+        const val VOLUME = "volume"
+    }
+}
 
 @Serializable
 data class ManagedStorageEntry(val name: String = "", val dir: Boolean = false, val size: Long = 0, val time: Long = 0)
@@ -479,6 +504,12 @@ fun ManagedSetting.lock(owner: Boolean): ManagedLock = when {
     }
     else -> ManagedLock.NONE
 }
+
+/**
+ * A list of subnets that may be cleared from here and not written: the device is at the
+ * basic level, where offering subnets takes Full control (contract §6.1).
+ */
+val ManagedSetting.clearOnly: Boolean get() = kind == ManagedSetting.CIDRS && only == null && needs == ManagedLevel.FULL
 
 /**
  * The switches of [keys] a device has, in that order: rows of the kind "bool" whose key this
