@@ -65,6 +65,9 @@ type rtAllowList struct {
 	Ops   []rtAllowedOp `json:"ops"`
 	Caps  []string      `json:"caps"`
 	Never []string      `json:"never"`
+	// Notices is which lines of the action log the device also says on its
+	// own screen: the app must have words for each (remote_app.go).
+	Notices []string `json:"notices"`
 	// The guard's two knobs, in seconds.
 	GuardSeconds int64 `json:"guardSeconds"`
 	GuardSettle  int64 `json:"guardSettle"`
@@ -104,6 +107,7 @@ func rtCurrentAllowList() rtAllowList {
 		Requests:     append([]string(nil), remoteRequests...),
 		Caps:         append([]string(nil), remoteCaps...),
 		Never:        append([]string(nil), remoteNever...),
+		Notices:      rtSortedKeys(remoteNoticeOps),
 		GuardSeconds: int64(p.GuardTTL / time.Second),
 		GuardSettle:  int64(p.GuardSettle / time.Second),
 	}

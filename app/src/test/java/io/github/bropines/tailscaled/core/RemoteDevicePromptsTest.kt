@@ -135,42 +135,23 @@ class RemoteDevicePromptsTest {
 
     // ─── A change, in one line ───────────────────────────────────────────────────────────────
 
-    @Test
-    fun everyChangeTheBridgeReportsHasAWord() {
-        assertEquals(R.string.remote_op_exit_node, RemotePromptRules.opWord("exit_node"))
-        assertEquals(R.string.remote_op_setting, RemotePromptRules.opWord("setting"))
-        assertEquals(R.string.remote_op_action, RemotePromptRules.opWord("action"))
-        assertEquals(R.string.remote_op_file_deleted, RemotePromptRules.opWord("file_deleted"))
-        assertEquals(R.string.remote_prompt_op_reverted, RemotePromptRules.opWord("reverted"))
-        assertEquals(R.string.remote_prompt_op_share_added, RemotePromptRules.opWord("share_added"))
-        assertEquals(R.string.remote_prompt_op_share_removed, RemotePromptRules.opWord("share_removed"))
-        assertEquals(R.string.remote_prompt_op_file_sent, RemotePromptRules.opWord("file_sent"))
-        // One the app has not heard of is shown as the bridge names it.
-        assertNull(RemotePromptRules.opWord("something_new"))
-        assertNull(RemotePromptRules.opWord(""))
-    }
+    // What the line says is the log's own (ui/RemoteLogLineTest); here, how it is put on the screen.
 
     @Test
-    fun theLineIsTheDeviceTheWordAndTheBridgesDetail() {
-        assertEquals("pixel-9-pro: Exit node · exit-frankfurt", RemotePromptRules.noticeText("pixel-9-pro", "Exit node", "exit-frankfurt"))
-        assertEquals("pixel-9-pro: Setting · tun_mode=true", RemotePromptRules.noticeText("pixel-9-pro", "Setting", "tun_mode=true"))
-        assertEquals(
-            "pixel-9-pro: Change undone · exit_node: not confirmed",
-            RemotePromptRules.noticeText("pixel-9-pro", "Change undone", "exit_node: not confirmed"),
-        )
-        assertEquals("pixel-9-pro: something_new", RemotePromptRules.noticeText("pixel-9-pro", "something_new", ""))
-        assertEquals("pixel-9-pro: Action", RemotePromptRules.noticeText("pixel-9-pro", "Action", "  "))
+    fun theLineIsTheDeviceAndWhatItDid() {
+        assertEquals("pixel-9-pro: Exit node: exit-frankfurt", RemotePromptRules.noticeText("pixel-9-pro", "Exit node: exit-frankfurt"))
+        assertEquals("pixel-9-pro: Action", RemotePromptRules.noticeText("pixel-9-pro", "  Action "))
         // A device with no name still says what happened.
-        assertEquals("File sent · a.jpg", RemotePromptRules.noticeText("", "File sent", "a.jpg"))
+        assertEquals("File sent to it: a.jpg", RemotePromptRules.noticeText("", "File sent to it: a.jpg"))
     }
 
     @Test
-    fun aLongOrManyLinedDetailStaysOneShortLine() {
-        val line = RemotePromptRules.noticeText("tv", "Setting", "advertise_routes=" + "10.0.0.0/8,".repeat(40))
+    fun aLongOrManyLinedChangeStaysOneShortLine() {
+        val line = RemotePromptRules.noticeText("tv", "Setting: the subnet routes it offers (" + "10.0.0.0/8,".repeat(40) + ")")
         assertFalse(line.contains('\n'))
         assertTrue(line.endsWith("…"))
-        assertEquals("tv: Setting · ".length + RemotePromptRules.NOTICE_DETAIL_CHARS, line.length)
-        assertEquals("tv: File deleted · a b", RemotePromptRules.noticeText("tv", "File deleted", "a\nb"))
+        assertEquals("tv: ".length + RemotePromptRules.NOTICE_LINE_CHARS, line.length)
+        assertEquals("tv: File deleted: a b", RemotePromptRules.noticeText("tv", "File deleted: a\nb"))
     }
 
     @Test

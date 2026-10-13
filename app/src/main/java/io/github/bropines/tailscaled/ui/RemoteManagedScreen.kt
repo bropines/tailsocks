@@ -1395,97 +1395,11 @@ internal fun remoteLogDetail(detail: String): RemoteLogDetail {
     else RemoteLogDetail(head.substring(0, cut).trim(), head.substring(cut + 1).trim(), note)
 }
 
-/** One line of the log: what happened and to what, in this page's words where it has them, and whether it was done. */
+/** One line of the log in words (RemoteLogLine.kt), in the language of this screen. */
 @Composable
 private fun eventText(event: RemoteEvent): String {
-    val words = RemoteAccessWords
-    val detail = remoteLogDetail(event.detail)
-    val line = when (event.op) {
-        "paired" -> stringResource(R.string.remote_op_paired)
-        "pair_failed" -> stringResource(R.string.remote_op_pair_failed)
-        "pair_locked" -> stringResource(R.string.remote_op_pair_locked)
-        "unpaired" -> stringResource(R.string.remote_op_unpaired)
-        "revoked" -> stringResource(R.string.remote_op_revoked)
-        "revoked_all" -> stringResource(R.string.remote_op_revoked_all)
-        "expired" -> stringResource(R.string.remote_op_expired)
-        "reset" -> stringResource(R.string.remote_op_reset)
-        "browse" -> stringResource(R.string.remote_log_browse)
-        // The detail is the bridge's and stays whole: a node's, a file's or a share's name, a refusal's reason.
-        "exit_node" -> titled(R.string.remote_op_exit_node, event.detail)
-        "file_deleted" -> titled(R.string.remote_op_file_deleted, event.detail)
-        "denied" -> titled(R.string.remote_op_denied, event.detail)
-        "share_added" -> titled(R.string.remote_log_share_added, event.detail)
-        "share_removed" -> titled(R.string.remote_log_share_removed, event.detail)
-        "file_sent" -> titled(R.string.remote_log_file_sent, event.detail)
-        // A key or an id, which has words here, and the bridge's remark after it.
-        "setting" -> remarked(titled(R.string.remote_op_setting, changeText(detail)), detail)
-        "action" -> remarked(titled(R.string.remote_op_action, word(detail.name, words.actions)), detail)
-        "confirmed" -> remarked(stringResource(R.string.remote_log_confirmed, changeText(detail)), detail)
-        "reverted" -> remarked(revertedText(detail), detail)
-        "permission" -> remarked(
-            stringResource(R.string.remote_log_permission, noted(word(detail.name, words.permissions), detail.value?.let { word(it, words.results) })),
-            detail
-        )
-        "identify" -> remarked(
-            noted(stringResource(R.string.remote_log_identify), detail.name.takeIf { it.isNotEmpty() }?.let { word(it, words.results) }),
-            detail
-        )
-        "diag" -> when (event.detail) {
-            "log" -> stringResource(R.string.remote_log_diag_log)
-            "report" -> stringResource(R.string.remote_log_diag_report)
-            else -> titled(R.string.remote_log_diag, event.detail)
-        }
-        else -> event.op
-    }
-    return if (event.op in CAN_FAIL && !event.ok) "$line — ${stringResource(R.string.remote_log_failed)}" else line
-}
-
-/** The log's lines that are something asked of this device, which can fail. */
-private val CAN_FAIL = setOf(
-    "exit_node", "setting", "action", "file_deleted", "reverted", "share_added", "share_removed", "file_sent", "permission", "identify",
-)
-
-@Composable
-private fun word(name: String, words: Map<String, Int>): String = words[name]?.let { stringResource(it) } ?: name
-
-@Composable
-private fun titled(@StringRes title: Int, what: String): String =
-    if (what.isEmpty()) stringResource(title) else "${stringResource(title)}: $what"
-
-@Composable
-private fun noted(text: String, note: String?): String =
-    if (note.isNullOrEmpty()) text else stringResource(R.string.remote_log_with_note, text, note)
-
-/** [line] with the bridge's remark after it: in this page's words for the ones it knows, as it came otherwise. */
-@Composable
-private fun remarked(line: String, detail: RemoteLogDetail): String = when {
-    detail.note.isEmpty() -> line
-    detail.note in RemoteAccessWords.remarks -> noted(line, word(detail.note, RemoteAccessWords.remarks))
-    else -> "$line ${detail.note}"
-}
-
-/** "accept_routes=true" as "accepting subnet routes (on)"; the exit node, which the log names without a value, alone. */
-@Composable
-private fun changeText(detail: RemoteLogDetail): String {
-    val what = word(detail.name, RemoteAccessWords.changed)
-    val value = when (detail.value) {
-        null -> return what
-        "true" -> stringResource(R.string.remote_log_on)
-        "false" -> stringResource(R.string.remote_log_off)
-        "" -> stringResource(R.string.remote_log_none)
-        else -> detail.value
-    }
-    return noted(what, value)
-}
-
-/** A change the device put back by itself: because nobody confirmed it, in the bridge's two wordings of that, or in its own words otherwise. */
-@Composable
-private fun revertedText(detail: RemoteLogDetail): String {
-    val what = word(detail.name, RemoteAccessWords.changed)
-    return when (detail.value) {
-        "not confirmed" -> stringResource(R.string.remote_log_reverted_unconfirmed, what)
-        "not confirmed; the one before is gone, so none" -> stringResource(R.string.remote_log_reverted_none)
-        null, "" -> stringResource(R.string.remote_log_reverted, what)
-        else -> stringResource(R.string.remote_log_reverted, "$what: ${detail.value}")
-    }
+    // Read as stringResource reads it: a change of language draws the line again.
+    LocalConfiguration.current
+    val resources = LocalContext.current.resources
+    return remoteEventLine(event.op, event.detail, event.ok) { resources.getString(it) }
 }

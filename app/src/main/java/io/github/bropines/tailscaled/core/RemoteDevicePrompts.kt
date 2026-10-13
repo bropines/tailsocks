@@ -20,7 +20,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.ui.PermissionsActivity
-import io.github.bropines.tailscaled.ui.remoteNoticeWhat
+import io.github.bropines.tailscaled.ui.remoteEventLine
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -48,8 +48,8 @@ internal object RemotePromptRules {
     /** Changes closer together than this are said once: ten lines would queue for half a minute. */
     const val NOTICE_GAP_MS = 1_500L
 
-    /** As much of the bridge's detail as one line on the screen carries. */
-    const val NOTICE_DETAIL_CHARS = 80
+    /** As much of a change as one line on the screen carries, after the device's name. */
+    const val NOTICE_LINE_CHARS = 100
 
     /** The route left to a request that could not take [route] after all. */
     fun below(route: RemoteAskRoute, canNotify: Boolean): RemoteAskRoute = when (route) {
@@ -72,29 +72,14 @@ internal object RemotePromptRules {
     /** Whether a change is left unsaid: one was said less than [NOTICE_GAP_MS] before, at [previous]. */
     fun noticeDropped(previous: Long?, now: Long): Boolean = previous != null && now - previous in 0 until NOTICE_GAP_MS
 
-    /** The word for a line of the log of remote changes (RemoteActionsJSON); null for one the app has not heard of. */
-    @StringRes
-    fun opWord(op: String): Int? = when (op) {
-        "exit_node" -> R.string.remote_op_exit_node
-        "setting" -> R.string.remote_op_setting
-        "action" -> R.string.remote_op_action
-        "file_deleted" -> R.string.remote_op_file_deleted
-        "reverted" -> R.string.remote_prompt_op_reverted
-        "share_added" -> R.string.remote_prompt_op_share_added
-        "share_removed" -> R.string.remote_prompt_op_share_removed
-        "file_sent" -> R.string.remote_prompt_op_file_sent
-        else -> null
-    }
-
     /**
-     * "pixel-9-pro: Exit node · exit-frankfurt": who, [word] for what, and the bridge's own
-     * [detail] — a node's name, `key=value`, a file's name — held to one short line.
+     * "pixel-9-pro: Exit node: exit-frankfurt": who, and [line] — what it did, as the log of
+     * the managed page says it (ui/RemoteLogLine.kt) — held to one short line.
      */
-    fun noticeText(from: String, word: String, detail: String): String {
-        val line = detail.replace(Regex("\\s+"), " ").trim()
-        val short = if (line.length > NOTICE_DETAIL_CHARS) line.take(NOTICE_DETAIL_CHARS - 1) + "…" else line
-        val what = listOf(word.trim(), short).filter { it.isNotEmpty() }.joinToString(" · ")
-        return if (from.isBlank()) what else "$from: $what"
+    fun noticeText(from: String, line: String): String {
+        val one = line.replace(Regex("\\s+"), " ").trim()
+        val short = if (one.length > NOTICE_LINE_CHARS) one.take(NOTICE_LINE_CHARS - 1) + "…" else one
+        return if (from.isBlank()) short else "$from: $short"
     }
 
     /**
@@ -266,8 +251,8 @@ object RemoteDevicePrompts {
 
     /**
      * Says, while one of the app's screens is up, that [from] changed something: [op] and
-     * [detail] are the line of the "recent remote changes" log (RemoteActionsJSON), said in
-     * the words the managed page's log says it in (ui/RemoteNoticeWords.kt).
+     * [detail] are the line of the "recent remote changes" log (RemoteActionsJSON), and it is
+     * said as the managed page's log says it (ui/RemoteLogLine.kt): one wording for one thing.
      */
     fun notice(context: Context, from: String, op: String, detail: String) {
         val app = context.applicationContext
@@ -279,9 +264,10 @@ object RemoteDevicePrompts {
             noticeAt = now
         }
         val res = inAppLanguage(app)
-        val word = RemotePromptRules.opWord(op)?.let { res.getString(it) } ?: op
-        val what = runCatching { remoteNoticeWhat(op, detail) { res.getString(it) } }.getOrDefault(detail)
-        toast(app, RemotePromptRules.noticeText(from, word, what), Toast.LENGTH_SHORT, replacesNotice = true)
+        // The bridge says only what was done; a line that could not be put together is not
+        // replaced by the bridge's own keys.
+        val line = runCatching { remoteEventLine(op, detail, ok = true) { res.getString(it) } }.getOrNull() ?: return
+        toast(app, RemotePromptRules.noticeText(from, line), Toast.LENGTH_SHORT, replacesNotice = true)
     }
 
     /** The asking device by name; the bridge always has one, and a line with a hole in it would say nothing. */

@@ -19,9 +19,5 @@
     <!-- "Say whose hands you are in" -->
     <string name="remote_prompt_identify">Управляется с устройства %1$s</string>
 
-    <!-- A change made from afar, in one line: the device, what it did, the bridge's own detail -->
-    <string name="remote_prompt_op_reverted">Изменение отменено</string>
-    <string name="remote_prompt_op_share_added">Добавлена общая папка</string>
-    <string name="remote_prompt_op_share_removed">Убрана общая папка</string>
-    <string name="remote_prompt_op_file_sent">Файл отправлен</string>
+    <!-- A change made from afar is said in the words of the managed page's log: strings_remote.xml, strings_remote_managed.xml -->
 </resources>

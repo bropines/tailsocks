@@ -259,6 +259,16 @@
     "grant_permission",
     "full_control_on"
   ],
+  "notices": [
+    "action",
+    "exit_node",
+    "file_deleted",
+    "file_sent",
+    "reverted",
+    "setting",
+    "share_added",
+    "share_removed"
+  ],
   "guardSeconds": 60,
   "guardSettle": 5
 }
