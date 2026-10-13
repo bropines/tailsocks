@@ -200,9 +200,9 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
 
     private fun source(): FileSource = RealFileSource(context)
 
-    override fun storageList(path: String): RemoteStorageListing {
+    override fun storageList(path: String, offset: Int): RemoteStorageListing {
         val source = source()
-        if (path.isNotEmpty()) return RemoteStorage.list(source, path)
+        if (path.isNotEmpty()) return RemoteStorage.list(source, path, offset)
         return RemoteStorage.roots(
             source,
             // A volume's own name, as the system gives it; the device's own storage in plain words.

@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -108,11 +107,19 @@ func remoteEntryNameOK(name string) bool {
 }
 
 type remoteStorageRoot struct {
+	// Kind is "primary" for the device's own shared storage, "removable" for
+	// a card or a stick, "volume" for any other. Name is what the device
+	// calls it: for the primary one always "Internal storage", for the others
+	// the system's own description, in the device's language — a manager
+	// names the primary one itself, by Kind.
+	Kind  string `json:"kind"`
 	Name  string `json:"name"`
 	Path  string `json:"path"`
 	Free  int64  `json:"free"`
 	Total int64  `json:"total"`
 }
+
+var remoteRootKinds = map[string]bool{"primary": true, "removable": true, "volume": true}
 
 type remoteStorageEntry struct {
 	Name string `json:"name"`
@@ -128,13 +135,21 @@ type remoteStorageListing struct {
 	Path   string              `json:"path"`
 	Parent string              `json:"parent,omitempty"`
 	Roots  []remoteStorageRoot `json:"roots,omitempty"`
-	// Entries are folders first, then files, by name.
+	// Entries are in the order of the device's own browser: folders first,
+	// then files, by name with numbers by their value. The app's order is
+	// kept, so that a folder read in several answers reads as one list.
 	Entries []remoteStorageEntry `json:"entries"`
-	// Truncated: there were more than remoteMaxEntries. Limited: the app has
-	// no access to storage, and sees only its own files here.
+	// Offset is how many entries of the folder come before these. Truncated:
+	// the folder holds more after them; ask again with Offset plus the number
+	// of entries of this answer. Limited: the app has no access to storage,
+	// and sees only its own files here.
+	Offset    int  `json:"offset"`
 	Truncated bool `json:"truncated"`
 	Limited   bool `json:"limited"`
 }
+
+// remoteMaxOffset bounds how far into a folder a request may start.
+const remoteMaxOffset = 1 << 20
 
 // query asks the app one of remoteRequests that changes nothing. A call that
 // was not made or not answered is all one to a caller who only wanted to
@@ -161,11 +176,19 @@ func remotePathArgs(path string) string {
 func (m *remoteManager) handleStorageList(rq *remoteRequest) (int, any) {
 	var in struct {
 		Path string `json:"path"`
+		// Offset skips that many entries of the folder: the next part of one
+		// that did not fit an answer.
+		Offset int `json:"offset"`
 	}
-	if !remoteDecode(rq.body, &in) || (in.Path != "" && !remoteStoragePathOK(in.Path)) {
+	if !remoteDecode(rq.body, &in) || (in.Path != "" && !remoteStoragePathOK(in.Path)) ||
+		in.Offset < 0 || in.Offset > remoteMaxOffset || (in.Path == "" && in.Offset != 0) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request"}
 	}
-	raw, status, refusal := m.query(remoteRequestStorageList, remotePathArgs(in.Path))
+	args, _ := json.Marshal(struct {
+		Path   string `json:"path"`
+		Offset int    `json:"offset"`
+	}{in.Path, in.Offset})
+	raw, status, refusal := m.query(remoteRequestStorageList, string(args))
 	if status != http.StatusOK {
 		return status, refusal
 	}
@@ -183,7 +206,10 @@ func (m *remoteManager) handleStorageList(rq *remoteRequest) (int, any) {
 			if !remoteStoragePathOK(r.Path) {
 				continue
 			}
-			out.Roots = append(out.Roots, remoteStorageRoot{Name: remoteClean(r.Name, 64), Path: r.Path, Free: max(r.Free, 0), Total: max(r.Total, 0)})
+			if !remoteRootKinds[r.Kind] {
+				r.Kind = "volume"
+			}
+			out.Roots = append(out.Roots, remoteStorageRoot{Kind: r.Kind, Name: remoteClean(r.Name, 64), Path: r.Path, Free: max(r.Free, 0), Total: max(r.Total, 0)})
 		}
 		return http.StatusOK, struct {
 			Path  string              `json:"path"`
@@ -195,7 +221,7 @@ func (m *remoteManager) handleStorageList(rq *remoteRequest) (int, any) {
 	if !remoteStoragePathOK(got.Path) {
 		return http.StatusBadGateway, remoteError{Error: "failed", Message: "the app's listing could not be read"}
 	}
-	out.Path = got.Path
+	out.Path, out.Offset = got.Path, in.Offset
 	if got.Parent != "" && remoteStoragePathOK(got.Parent) {
 		out.Parent = got.Parent
 	}
@@ -213,13 +239,6 @@ func (m *remoteManager) handleStorageList(rq *remoteRequest) (int, any) {
 		out.Entries = append(out.Entries, remoteStorageEntry{Name: e.Name, Dir: e.Dir, Size: max(e.Size, 0), Time: max(e.Time, 0)})
 	}
 	out.Truncated = out.Truncated || got.Truncated
-	sort.SliceStable(out.Entries, func(i, j int) bool {
-		a, b := out.Entries[i], out.Entries[j]
-		if a.Dir != b.Dir {
-			return a.Dir
-		}
-		return strings.ToLower(a.Name) < strings.ToLower(b.Name)
-	})
 	return http.StatusOK, out
 }
 
@@ -254,7 +273,17 @@ type remoteFetch struct {
 	// State is "sending", "sent" or "failed"; Error says why it failed.
 	State string `json:"state"`
 	Error string `json:"error,omitempty"`
+	// Age is the seconds since it ended, 0 while it runs. A transfer that
+	// ended remoteFetchKeep ago is no longer told.
+	Age int64 `json:"age"`
+	// endedUp is the boot-time clock when it ended.
+	endedUp time.Duration
 }
+
+// remoteFetchKeep is how long a finished transfer stays in its caller's
+// status: long enough for a page that was closed meanwhile to say what became
+// of it, not so long that an old one greets every opening.
+const remoteFetchKeep = 10 * time.Minute
 
 // fetchFor is the calling node's last transfer, for its status.
 func (m *remoteManager) fetchFor(nodeID string) *remoteFetch {
@@ -265,6 +294,16 @@ func (m *remoteManager) fetchFor(nodeID string) *remoteFetch {
 		return nil
 	}
 	cp := *f
+	if f.State != "sending" {
+		_, up := m.clock.Boot()
+		age := up - f.endedUp
+		if age < 0 || age >= remoteFetchKeep {
+			// Over and told for long enough; a boot since counts as that.
+			delete(m.fetches, nodeID)
+			return nil
+		}
+		cp.Age = int64(age / time.Second)
+	}
 	return &cp
 }
 
@@ -343,6 +382,7 @@ func (m *remoteManager) handleStorageSend(rq *remoteRequest) (int, any) {
 			f.State = "failed"
 			f.Error = remoteClean(strings.TrimPrefix(res, "Error: "), 200)
 		}
+		_, f.endedUp = m.clock.Boot()
 		m.mu.Unlock()
 		m.record(rq, "file_sent", f.Name, ok)
 	}()

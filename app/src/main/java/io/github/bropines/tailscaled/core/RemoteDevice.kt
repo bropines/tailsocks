@@ -227,8 +227,22 @@ fun RemoteAskRoute.identifyWord(): String = if (this == RemoteAskRoute.WAITING) 
 
 // ─── The storage by name ─────────────────────────────────────────────────────────────────────
 
+/** A volume: [kind] is one of the ROOT_ words, by which a manager names the device's own storage; [name] is the system's for the others. */
 @Serializable
-data class RemoteStorageRoot(val name: String = "", val path: String = "", val free: Long = 0, val total: Long = 0)
+data class RemoteStorageRoot(val kind: String = ROOT_VOLUME, val name: String = "", val path: String = "", val free: Long = 0, val total: Long = 0) {
+    companion object {
+        const val ROOT_PRIMARY = "primary"
+        const val ROOT_REMOVABLE = "removable"
+        const val ROOT_VOLUME = "volume"
+
+        /** What a volume of the in-app browser is to a paired device. */
+        fun kindOf(root: BrowseRoot): String = when {
+            root.kind == RootKind.PRIMARY -> ROOT_PRIMARY
+            root.removable -> ROOT_REMOVABLE
+            else -> ROOT_VOLUME
+        }
+    }
+}
 
 @Serializable
 data class RemoteStorageEntry(val name: String = "", val dir: Boolean = false, val size: Long = 0, val time: Long = 0)
@@ -240,6 +254,8 @@ data class RemoteStorageListing(
     val parent: String = "",
     val roots: List<RemoteStorageRoot> = emptyList(),
     val entries: List<RemoteStorageEntry> = emptyList(),
+    /** How many entries of the folder come before [entries]; [truncated]: more come after them. */
+    val offset: Int = 0,
     val truncated: Boolean = false,
     /** The app has no access to storage, and sees only its own files here. */
     val limited: Boolean = false,
@@ -281,13 +297,18 @@ object RemoteStorage {
         RemoteStorageListing(
             roots = volumes(source).map { root ->
                 val (free, total) = space(root.dir)
-                RemoteStorageRoot(name(root), FileBrowse.clean(root.dir).path, free, total)
+                RemoteStorageRoot(RemoteStorageRoot.kindOf(root), name(root), FileBrowse.clean(root.dir).path, free, total)
             },
             limited = source.needsAllFilesAccess,
         )
 
-    /** What the folder at [path] holds: names, sizes and dates, nothing hidden. */
-    fun list(source: FileSource, path: String): RemoteStorageListing {
+    /**
+     * What the folder at [path] holds: names, sizes and dates, nothing hidden, in the order of
+     * the app's own browser. At most [MAX_ENTRIES] of them, from the one at [offset]: a long
+     * folder is read in parts.
+     */
+    fun list(source: FileSource, path: String, offset: Int = 0): RemoteStorageListing {
+        val from = offset.coerceAtLeast(0)
         val dir = resolve(source, path)
         return when (val listing = source.list(dir, showHidden = false)) {
             is Listing.Unreadable -> throw RemoteRefusal(
@@ -303,10 +324,11 @@ object RemoteStorage {
                 RemoteStorageListing(
                     path = dir.path,
                     parent = if (top) "" else FileBrowse.parentOf(dir)?.path.orEmpty(),
-                    entries = listing.entries.take(MAX_ENTRIES).map {
+                    entries = listing.entries.drop(from).take(MAX_ENTRIES).map {
                         RemoteStorageEntry(it.name, it.isDirectory, if (it.isDirectory) 0 else it.size, it.modified / 1000)
                     },
-                    truncated = listing.entries.size > MAX_ENTRIES,
+                    offset = from,
+                    truncated = listing.entries.size > from + MAX_ENTRIES,
                     limited = listing.limited,
                 )
             }
@@ -383,7 +405,8 @@ interface RemoteDeviceHost {
     /** A paired device changed something: [op] and [detail] are the line of the log. */
     fun notice(from: String, op: String, detail: String)
 
-    fun storageList(path: String): RemoteStorageListing
+    /** The volumes for an empty [path]; else the folder there, from its entry number [offset]. */
+    fun storageList(path: String, offset: Int): RemoteStorageListing
     fun storageFile(path: String): RemoteStorageFile
     fun shareAdd(name: String, path: String)
     fun shareRemove(name: String)
@@ -398,6 +421,7 @@ private data class RemoteRequestArgs(
     val detail: String = "",
     val path: String = "",
     val name: String = "",
+    val offset: Int = 0,
 )
 
 /**
@@ -459,7 +483,7 @@ class RemoteDeviceDelegate(private val base: RemoteDelegate, private val host: R
             }
             RemoteDeviceKeys.REQUEST_IDENTIFY -> asked { host.identify(a.from).identifyWord() }
             RemoteDeviceKeys.REQUEST_NOTICE -> asked { host.notice(a.from, a.op, a.detail); "" }
-            RemoteDeviceKeys.REQUEST_STORAGE_LIST -> asked { AppJson.encodeToString(host.storageList(a.path)) }
+            RemoteDeviceKeys.REQUEST_STORAGE_LIST -> asked { AppJson.encodeToString(host.storageList(a.path, a.offset)) }
             RemoteDeviceKeys.REQUEST_STORAGE_FILE -> asked { AppJson.encodeToString(host.storageFile(a.path)) }
             RemoteDeviceKeys.REQUEST_SHARE_ADD -> asked { host.shareAdd(a.name, a.path); "" }
             RemoteDeviceKeys.REQUEST_SHARE_REMOVE -> asked { host.shareRemove(a.name); "" }

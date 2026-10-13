@@ -57,41 +57,47 @@ func TestRemoteStorageList(t *testing.T) {
 	// The roots: what the app names, as far as it can be a root at all.
 	r.app.set(func(a *remoteFakeApp) {
 		a.answers[remoteRequestStorageList] = `{"roots":[
-		  {"name":"Internal storage","path":"/storage/emulated/0","free":51234567890,"total":118111600640},
-		  {"name":"USB\u0000 drive","path":"/storage/1234-ABCD","free":-5,"total":31914983424},
+		  {"kind":"primary","name":"Internal storage","path":"/storage/emulated/0","free":51234567890,"total":118111600640},
+		  {"kind":"removable","name":"USB\u0000 drive","path":"/storage/1234-ABCD","free":-5,"total":31914983424},
+		  {"kind":"cloud","name":"Something else","path":"/mnt/other"},
 		  {"name":"relative","path":"storage/x"},
 		  {"name":"up","path":"/storage/../data"}],
 		 "secret":"tskey-auth-abc"}`
 	})
 	a := list("")
 	roots, _ := a.obj["roots"].([]any)
-	if a.status != 200 || len(roots) != 2 || a.obj["path"] != "" {
+	if a.status != 200 || len(roots) != 3 || a.obj["path"] != "" {
 		t.Fatalf("roots: %d %s", a.status, a.raw)
 	}
-	if usb := roots[1].(map[string]any); usb["name"] != "USB drive" || usb["free"] != float64(0) || usb["path"] != "/storage/1234-ABCD" {
+	if usb := roots[1].(map[string]any); usb["name"] != "USB drive" || usb["free"] != float64(0) || usb["path"] != "/storage/1234-ABCD" || usb["kind"] != "removable" {
 		t.Errorf("a root: %v", usb)
+	}
+	// A kind the bridge does not know is just a volume.
+	if roots[0].(map[string]any)["kind"] != "primary" || roots[2].(map[string]any)["kind"] != "volume" {
+		t.Errorf("kinds: %v", roots)
 	}
 	if strings.Contains(a.raw, "tskey") || strings.Contains(a.raw, "entries") {
 		t.Errorf("roots: %s", a.raw)
 	}
-	if calls := r.app.called(); calls[len(calls)-1] != `get storage_list {"path":""}` {
+	if calls := r.app.called(); calls[len(calls)-1] != `get storage_list {"path":"","offset":0}` {
 		t.Errorf("what the app was asked: %q", calls[len(calls)-1])
 	}
 
-	// A folder: names, sizes and dates; folders first; nothing hidden, nothing
-	// that is not one name.
+	// A folder: names, sizes and dates, in the app's own order; nothing
+	// hidden, nothing that is not one name.
 	r.app.set(func(a *remoteFakeApp) {
 		a.answers[remoteRequestStorageList] = `{"path":"/storage/emulated/0/Download","parent":"/storage/emulated/0","limited":true,"entries":[
-		  {"name":"film.mkv","dir":false,"size":734003200,"time":1791700000},
+		  {"name":"Album","dir":true},
 		  {"name":"Taildrop","dir":true,"size":4096,"time":1791727380},
 		  {"name":".thumbnails","dir":true},
 		  {"name":"../../data","dir":true},
 		  {"name":"a/b","dir":false},
-		  {"name":"Album","dir":true},
-		  {"name":"broken","dir":false,"size":-1,"time":-1}]}`
+		  {"name":"file2.txt","dir":false,"size":734003200,"time":1791700000},
+		  {"name":"file10.txt","dir":false,"size":-1,"time":-1}]}`
 	})
 	a = list("/storage/emulated/0/Download")
-	if a.status != 200 || a.obj["path"] != "/storage/emulated/0/Download" || a.obj["parent"] != "/storage/emulated/0" || a.obj["limited"] != true || a.obj["truncated"] != false {
+	if a.status != 200 || a.obj["path"] != "/storage/emulated/0/Download" || a.obj["parent"] != "/storage/emulated/0" || a.obj["limited"] != true ||
+		a.obj["truncated"] != false || a.obj["offset"] != float64(0) {
 		t.Fatalf("listing: %d %s", a.status, a.raw)
 	}
 	var names []string
@@ -99,11 +105,26 @@ func TestRemoteStorageList(t *testing.T) {
 		e := raw.(map[string]any)
 		names = append(names, fmt.Sprintf("%v:%v:%v", e["name"], e["dir"], e["size"]))
 	}
-	if got := strings.Join(names, ","); got != "Album:true:0,Taildrop:true:0,broken:false:0,film.mkv:false:7.340032e+08" {
+	// Not sorted again here: "file2" stays before "file10", as the device's own browser has it.
+	if got := strings.Join(names, ","); got != "Album:true:0,Taildrop:true:0,file2.txt:false:7.340032e+08,file10.txt:false:0" {
 		t.Errorf("entries: %s", got)
 	}
 	if a.obj["roots"] != nil {
 		t.Errorf("a folder with roots: %s", a.raw)
+	}
+	// The next part of a long folder: the app is told where to start, and the answer says where it starts.
+	a = r.call(rtPhone, "POST", "/v1/storage/list", owner, map[string]any{"path": "/storage/emulated/0/Download", "offset": 500})
+	if a.status != 200 || a.obj["offset"] != float64(500) {
+		t.Errorf("a later part: %d %s", a.status, a.raw)
+	}
+	if calls := r.app.called(); calls[len(calls)-1] != `get storage_list {"path":"/storage/emulated/0/Download","offset":500}` {
+		t.Errorf("what the app was asked: %q", calls[len(calls)-1])
+	}
+	for _, bad := range []map[string]any{
+		{"path": "/storage/emulated/0", "offset": -1}, {"path": "/storage/emulated/0", "offset": remoteMaxOffset + 1},
+		{"path": "", "offset": 1}, {"path": "/storage/emulated/0", "offset": "2"},
+	} {
+		r.want(r.call(rtPhone, "POST", "/v1/storage/list", owner, bad), 400, "bad_request")
 	}
 
 	// A request for something that is not a path does not reach the app.
@@ -260,8 +281,17 @@ func TestRemoteStorageSend(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("nothing was sent")
 	}
-	if f := fetch(rtPhone, owner); f == nil || f["state"] != "sent" || f["name"] != "film.mkv" || f["id"] != a.str("id") || f["error"] != nil {
+	if f := fetch(rtPhone, owner); f == nil || f["state"] != "sent" || f["name"] != "film.mkv" || f["id"] != a.str("id") || f["error"] != nil || f["age"] != float64(0) {
 		t.Errorf("fetch: %v", f)
+	}
+	// It is told for a while — with how long ago it ended — and then no more.
+	r.clock.advance(90 * time.Second)
+	if st := r.call(rtPhone, "GET", "/v1/status", owner, nil); st.obj["fetch"] == nil || st.obj["fetch"].(map[string]any)["age"] != float64(90) {
+		t.Errorf("fetch a minute and a half later: %s", st.raw)
+	}
+	r.clock.advance(remoteFetchKeep)
+	if st := r.call(rtPhone, "GET", "/v1/status", owner, nil); st.obj["fetch"] != nil {
+		t.Errorf("an old transfer is still told: %s", st.raw)
 	}
 	if st := r.call(rtTablet, "GET", "/v1/status", tablet, nil); st.obj["fetch"] != nil {
 		t.Errorf("another device is shown the transfer: %s", st.raw)
