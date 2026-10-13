@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheetProperties
@@ -35,9 +36,10 @@ import kotlinx.coroutines.delay
  *
  * On a television it is what the theme cannot do for a sheet, which is a
  * window of its own and outside the safe area laid around a screen
- * ([LocalTvSafeArea]): the sheet stops short of the top edge by that margin and its
- * content ends above the bottom edge by it. And a remote has nothing to drag
- * with, so:
+ * ([LocalTvSafeArea]): the sheet is a panel inside it, short of the top edge and of the
+ * bottom edge by that margin, rounded all round — not a strip that runs off the bottom
+ * of the screen, where a set may cut it — and what it holds scrolls within the room that
+ * leaves. And a remote has nothing to drag with, so:
  *  - it has no drag handle, which would be the first stop in every sheet, with
  *    OK on it closing what was just opened;
  *  - it follows no gestures. A sheet that follows its list's scrolling follows
@@ -70,11 +72,14 @@ fun AppModalSheet(
     val safeArea = LocalTvSafeArea.current
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        modifier = modifier.padding(top = safeArea.calculateTopPadding()),
+        // The margin is the sheet's own, both ways: the room it may take is what is left between
+        // the two, and where it rests is above the bottom margin, not on the edge.
+        modifier = modifier.padding(top = safeArea.calculateTopPadding(), bottom = safeArea.calculateBottomPadding()),
         sheetState = sheetState,
         sheetGesturesEnabled = false,
+        shape = MaterialTheme.shapes.extraLarge,
         dragHandle = null,
-        contentWindowInsets = { WindowInsets(bottom = safeArea.calculateBottomPadding()) },
+        contentWindowInsets = { WindowInsets(0) },
         properties = properties,
     ) {
         // The room the handle gave the content above its first line.
