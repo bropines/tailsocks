@@ -58,9 +58,10 @@ val LocalCapabilities = staticCompositionLocalOf<Capabilities?> { null }
 val TvSafeArea = PaddingValues(horizontal = 48.dp, vertical = 27.dp)
 
 /**
- * The safe area of a window [width] × [height] wide: [TvSafeArea]'s 5% at most,
- * which is exactly a television's, and 5% of a smaller window — a phone with
- * the TV interface turned on has no use for 48dp off each side of 411dp.
+ * The safe area of a window [width] × [height] wide: [TvSafeArea], for every window a
+ * television can have — down to 640 × 360dp, a 720p panel at 320 dpi, and at any scale of
+ * the interface — and 7.5% of a window that is smaller, which is a phone with the TV
+ * interface turned on: 48dp off each side of 411dp would be a sixth of its width.
  */
 fun tvSafeArea(width: Dp, height: Dp): PaddingValues {
     if (width <= 0.dp || height <= 0.dp) return TvSafeArea
@@ -70,7 +71,8 @@ fun tvSafeArea(width: Dp, height: Dp): PaddingValues {
     )
 }
 
-private const val SAFE_AREA_SHARE = 0.05f
+/** 48dp of 640dp and 27dp of 360dp: the smallest window a television has. */
+private const val SAFE_AREA_SHARE = 0.075f
 
 /**
  * The safe area of this app's window. The theme applies it to a screen; a sheet

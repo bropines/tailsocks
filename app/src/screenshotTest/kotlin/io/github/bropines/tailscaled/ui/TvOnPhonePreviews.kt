@@ -10,8 +10,9 @@ import io.github.bropines.tailscaled.core.DeviceClass
 /*
  * A phone with the TV interface switched on by hand (Settings → Appearance → Interface → TV),
  * upright and on its side, which is how it is tried out: the frame and the remote's behaviour
- * of a television in a window that is not one. The safe area is 5% of the window, so a phone
- * does not lose a sixth of its width to it; what must hold is that nothing clips or overlaps.
+ * of a television in a window that is not one. The safe area is a share of a window smaller than
+ * a television's, so a phone does not lose a sixth of its width to it; what must hold is that
+ * nothing clips or overlaps.
  */
 
 @Preview(name = "1-phone-as-tv", device = "spec:width=411dp,height=891dp,dpi=420")

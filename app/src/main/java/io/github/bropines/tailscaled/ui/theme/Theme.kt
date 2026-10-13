@@ -399,7 +399,7 @@ private fun DeviceFrame(device: DeviceClass, content: @Composable () -> Unit) {
     val tv = device == DeviceClass.TV
     val view = LocalView.current
     val framed = tv && remember(view) { !view.context.isWindowTranslucent() }
-    // A television's own 48 × 27dp, or 5% of a window that is smaller: a phone with the
+    // A television's own 48 × 27dp, or 7.5% of a window that is smaller: a phone with the
     // TV interface turned on. Handed down for the sheets and dialogs, which pad themselves.
     val window = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current

@@ -10,22 +10,25 @@ class TvSafeAreaTest {
     private fun vertical(width: Int, height: Int) = tvSafeArea(width.dp, height.dp).calculateTopPadding().value
 
     @Test
-    fun aTelevisionKeepsItsOwnMargins() {
-        // 720p, 1080p and 4K are all 960 x 540dp.
-        assertEquals(48f, horizontal(960, 540), 0.001f)
-        assertEquals(27f, vertical(960, 540), 0.001f)
-        // A larger window is no wider a margin than that.
-        assertEquals(48f, horizontal(1920, 1080), 0.001f)
-        assertEquals(27f, vertical(1920, 1080), 0.001f)
+    fun everyWindowATelevisionHasKeepsItsOwnMargins() {
+        // 720p, 1080p and 4K are 960 x 540dp; the interface at 125% is 768 x 432dp, and a 720p
+        // panel at 320 dpi, or the interface at 150%, is 640 x 360dp.
+        for ((width, height) in listOf(960 to 540, 768 to 432, 640 to 360, 1920 to 1080)) {
+            assertEquals("$width x $height", 48f, horizontal(width, height), 0.001f)
+            assertEquals("$width x $height", 27f, vertical(width, height), 0.001f)
+        }
     }
 
     @Test
-    fun aSmallerWindowKeepsFivePercentOfItself() {
-        // A phone upright and on its side, with the TV interface turned on.
-        assertEquals(20.55f, horizontal(411, 891), 0.01f)
+    fun aSmallerWindowKeepsAShareOfItself() {
+        // A phone upright, with the TV interface turned on: a share of its width, not 48dp.
+        assertEquals(30.825f, horizontal(411, 891), 0.01f)
         assertEquals(27f, vertical(411, 891), 0.001f)
-        assertEquals(44.55f, horizontal(891, 411), 0.01f)
-        assertEquals(20.55f, vertical(891, 411), 0.01f)
+        // On its side it is as wide as a television and as low as one.
+        assertEquals(48f, horizontal(891, 411), 0.001f)
+        assertEquals(27f, vertical(891, 411), 0.001f)
+        // And a window lower than that gives up some of its height.
+        assertEquals(22.5f, vertical(891, 300), 0.001f)
     }
 
     @Test
