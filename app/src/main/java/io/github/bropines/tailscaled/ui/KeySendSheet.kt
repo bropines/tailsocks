@@ -71,6 +71,7 @@ import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.KeyField
+import io.github.bropines.tailscaled.core.KeyRoad
 import io.github.bropines.tailscaled.core.KeySendEnd
 import io.github.bropines.tailscaled.core.KeySendNext
 import io.github.bropines.tailscaled.core.KeySendStep
@@ -83,6 +84,7 @@ import io.github.bropines.tailscaled.core.maskAuthKey
 import io.github.bropines.tailscaled.core.normalizeLoginServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,8 +93,9 @@ import kotlinx.coroutines.withContext
  * The phone's side of signing a television in with a key (appctr/setup_send.go,
  * core/KeySetup.kt; the television's is ui/TvKeySetup.kt). The scanner reads
  * the television's code and opens this sheet over itself: where the key would
- * go, the key, the server it belongs to if it is not Tailscale's — then the
- * check code the television shows too, and how it ended.
+ * go and by which road — the local network, a relay, or the one and then the
+ * other — the key, the server it belongs to if it is not Tailscale's; then the
+ * road being tried, the check code the television shows too, and how it ended.
  *
  * The key is typed or pasted into a masked field and is never drawn in full,
  * here or anywhere: once entered, the sheet shows its kind and its length.
@@ -131,13 +134,23 @@ internal class KeySendModel : ViewModel() {
     /** Sends the key and follows the television's answer to its end. */
     fun send(senderName: String) {
         val to = scanned ?: return
-        if (step == KeySendStep.Sending || step is KeySendStep.Compare) return
-        step = KeySendStep.Sending
+        if (step is KeySendStep.Sending || step is KeySendStep.Compare) return
+        step = KeySendStep.Sending()
         job = viewModelScope.launch {
-            // Blocks until the television answers or cannot be reached: twelve seconds at most.
+            // The call below says nothing until it is over; the bridge's status says meanwhile which road it is on.
+            val road = launch {
+                while (true) {
+                    delay(ROAD_LOOK_MS)
+                    val now = withContext(Dispatchers.IO) { SetupSendStatus.parse(runCatching { Appctr.setupSendStatus() }.getOrNull()) }
+                    if (now.state == "sending") step = keySendStep(now)
+                }
+            }
+            // Blocks until the television answers or cannot be reached: about twelve
+            // seconds for a code without a relay, about thirty for one with it.
             var status = withContext(Dispatchers.IO) {
                 SetupSendStatus.parse(runCatching { Appctr.setupSend(to.code, key.trim(), normalizeLoginServer(server), senderName) }.getOrNull())
             }
+            road.cancelAndJoin()
             step = keySendStep(status)
             while (step is KeySendStep.Compare) {
                 delay(1000)
@@ -153,6 +166,20 @@ internal class KeySendModel : ViewModel() {
     /** From a refused field back to the form. */
     fun edit() {
         if (step is KeySendStep.Ended) step = KeySendStep.Form
+    }
+
+    /**
+     * Gives up a send the television has not answered yet: back to the form,
+     * with its fields as they were. A bundle that got there all the same is
+     * asked about on the television, and rejected there.
+     */
+    fun cancel() {
+        if (step !is KeySendStep.Sending) return
+        job?.cancel()
+        job = null
+        // Not a call that waits: it ends the send, which closes whatever connection it had.
+        runCatching { Appctr.setupSendCancel() }
+        step = KeySendStep.Form
     }
 
     /**
@@ -172,6 +199,11 @@ internal class KeySendModel : ViewModel() {
 
     override fun onCleared() {
         if (scanned != null) close()
+    }
+
+    private companion object {
+        /** How often a send on its way is asked which road it is on. */
+        const val ROAD_LOOK_MS = 400L
     }
 }
 
@@ -193,7 +225,8 @@ private fun senderName(context: Context): String {
  * television's next code; [onClose] leaves the scanner. While a key is on its
  * way or in the television's hands the sheet does not go away by a swipe or
  * Back — the check code on it is the half of the comparison this phone holds —
- * only by its own button.
+ * only by its own button: Cancel while it is on its way, which can be half a
+ * minute through the relay, Stop waiting once the television holds it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -208,7 +241,7 @@ internal fun KeySendSheet(model: KeySendModel, onRescan: () -> Unit, onClose: ()
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     val step = model.step
-    val held = step == KeySendStep.Sending || step is KeySendStep.Compare
+    val held = step is KeySendStep.Sending || step is KeySendStep.Compare
     val latestHeld by rememberUpdatedState(held)
     val sheetState = rememberBottomSheetState(
         initialValue = SheetValue.Hidden,
@@ -238,6 +271,7 @@ internal fun KeySendSheet(model: KeySendModel, onRescan: () -> Unit, onClose: ()
                     }
                 },
                 onSend = { model.send(sender) },
+                onCancel = { model.cancel() },
                 onNext = { next ->
                     when (next) {
                         KeySendNext.RESEND -> model.send(sender)
@@ -263,6 +297,7 @@ internal fun KeySendContent(
     onServer: (String) -> Unit,
     onPaste: () -> Unit,
     onSend: () -> Unit,
+    onCancel: () -> Unit,
     onNext: (KeySendNext) -> Unit,
     onStopWaiting: () -> Unit,
 ) {
@@ -279,16 +314,28 @@ internal fun KeySendContent(
         Text(stringResource(R.string.keysend_title), style = MaterialTheme.typography.titleLarge)
         when (step) {
             KeySendStep.Form -> KeySendForm(target, key, onKey, server, onServer, onPaste, onSend)
-            KeySendStep.Sending -> Column(
+            is KeySendStep.Sending -> Column(
                 Modifier.fillMaxWidth().padding(vertical = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 CircularProgressIndicator()
-                Text(stringResource(R.string.keysend_sending), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                // The road being tried: through the relay the wait is long enough to be worth explaining.
+                Text(
+                    stringResource(
+                        when (step.road) {
+                            KeyRoad.LAN -> R.string.keysend_sending_lan
+                            KeyRoad.RELAY -> R.string.keysend_sending_relay
+                            null -> R.string.keysend_sending
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                )
+                TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
             }
             is KeySendStep.Compare -> KeySendCompare(step, onStopWaiting)
-            is KeySendStep.Ended -> KeySendEnded(step, onNext)
+            is KeySendStep.Ended -> KeySendEnded(step, target.relay, onNext)
         }
     }
 }
@@ -306,12 +353,26 @@ private fun KeySendForm(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Default.Tv, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            // A television the relay alone leads to has no address to be named by.
             Text(
-                stringResource(R.string.keysend_target, target.id, target.addresses.joinToString(", ")),
+                if (target.addresses.isEmpty()) stringResource(R.string.keysend_target_named, target.id)
+                else stringResource(R.string.keysend_target, target.id, target.addresses.joinToString(", ")),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
             )
         }
+        // The road the key will take, in words: an address says that to few.
+        Text(
+            stringResource(
+                when {
+                    target.addresses.isEmpty() -> R.string.keysend_road_relay
+                    target.relay -> R.string.keysend_road_both
+                    else -> R.string.keysend_road_lan
+                }
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         HelpText(stringResource(R.string.keysend_target_help))
     }
 
@@ -400,17 +461,22 @@ private fun KeySendCompare(step: KeySendStep.Compare, onStopWaiting: () -> Unit)
         Text(stringResource(R.string.keysend_compare), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
         HelpText(stringResource(R.string.keysend_compare_help), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         LinearProgressIndicator(Modifier.fillMaxWidth())
-        Text(
-            stringResource(R.string.keysend_sent_to, step.address),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // Where it went. Through the relay there is no address worth showing, and the road is named instead.
+        val sent = when {
+            step.road == KeyRoad.RELAY -> stringResource(R.string.keysend_sent_relay)
+            step.address.isNotEmpty() -> stringResource(R.string.keysend_sent_to, step.address)
+            else -> null
+        }
+        if (sent != null) {
+            Text(sent, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         TextButton(onClick = onStopWaiting) { Text(stringResource(R.string.keysend_stop_waiting)) }
     }
 }
 
+/** How a send ended. [relay] says the code named one: then both roads were tried before any of them was given up. */
 @Composable
-private fun KeySendEnded(step: KeySendStep.Ended, onNext: (KeySendNext) -> Unit) {
+private fun KeySendEnded(step: KeySendStep.Ended, relay: Boolean, onNext: (KeySendNext) -> Unit) {
     val how = step.how
     val (title: Int, text: Int) = when (how) {
         KeySendEnd.CONFIRMED -> R.string.keysend_end_confirmed_title to R.string.keysend_end_confirmed_text
@@ -421,8 +487,11 @@ private fun KeySendEnded(step: KeySendStep.Ended, onNext: (KeySendNext) -> Unit)
         KeySendEnd.TAKEN -> R.string.keysend_end_taken_title to R.string.keysend_end_taken_text
         KeySendEnd.UNSUPPORTED -> R.string.keysend_end_unsupported_title to R.string.keysend_end_unsupported_text
         KeySendEnd.CLOSED -> R.string.keysend_end_closed_title to R.string.keysend_end_closed_text
-        KeySendEnd.UNREACHABLE -> R.string.keysend_end_unreachable_title to R.string.keysend_network_hint
+        // With a relay the television is nowhere to be found; without one the local network was the only road.
+        KeySendEnd.UNREACHABLE -> R.string.keysend_end_unreachable_title to
+            if (relay) R.string.keysend_end_unreachable_text else R.string.keysend_network_hint
         KeySendEnd.WRONG_NETWORK -> R.string.keysend_end_wrong_network_title to R.string.keysend_end_wrong_network_text
+        KeySendEnd.RELAY_UNAVAILABLE -> R.string.keysend_end_relay_unavailable_title to R.string.keysend_end_relay_unavailable_text
         KeySendEnd.NO_ANSWER -> R.string.keysend_end_no_answer_title to R.string.keysend_end_no_answer_text
         KeySendEnd.INVALID_CODE -> R.string.keysend_end_invalid_code_title to R.string.keysend_end_invalid_code_text
         KeySendEnd.NEWER_CODE -> R.string.keysend_end_newer_code_title to R.string.keysend_end_newer_code_text
@@ -464,7 +533,7 @@ private fun KeySendEnded(step: KeySendStep.Ended, onNext: (KeySendNext) -> Unit)
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        // The phone is on another network: say what the two have to share.
+        // The phone is on another network, and the code has no relay: say why the two have to share one.
         if (how == KeySendEnd.WRONG_NETWORK) {
             Text(
                 stringResource(R.string.keysend_network_hint),

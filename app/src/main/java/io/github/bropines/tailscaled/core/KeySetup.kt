@@ -8,7 +8,27 @@ import java.net.URI
  * the bridge reports, read into what each of the two screens shows, and the
  * checks the phone makes before anything is sent. Nothing here touches Android
  * or the bridge, so all of it is tested on the JVM (KeySetupTest).
+ *
+ * The key goes over the local network when the two devices share one and
+ * through a relay when they do not. A bridge from before the relay names
+ * neither road and none of the relay's fields: every one of them defaults to
+ * what that bridge meant, the local network alone.
  */
+
+/** The road a key takes to the television: the bridge's "via" on the television, "path" on the phone. */
+enum class KeyRoad {
+    LAN,
+    RELAY;
+
+    companion object {
+        /** Null for a road the bridge did not name: none tried yet, or a bridge that knew the local network alone. */
+        fun of(name: String): KeyRoad? = when (name) {
+            "lan" -> LAN
+            "relay" -> RELAY
+            else -> null
+        }
+    }
+}
 
 // ─── The television ─────────────────────────────────────────────────────────
 
@@ -19,11 +39,16 @@ data class SetupReceiveStatus(
     val reason: String = "",
     val error: String = "",
     val id: String = "",
+    /** Where the session stands with the relay: "starting", "on" or "unavailable". */
+    val relay: String = "",
     val payload: String = "",
+    /** Empty, with [port] 0, for a television the relay alone leads to. */
     val addresses: List<String> = emptyList(),
     val port: Int = 0,
     val failedAttempts: Int = 0,
     val expiresIn: Int = 0,
+    /** How the bundle came, "lan" or "relay"; [from] is its sender's address on the local network, "" through the relay. */
+    val via: String = "",
     val from: String = "",
     val senderName: String = "",
     val code: String = "",
@@ -32,6 +57,13 @@ data class SetupReceiveStatus(
 ) {
     /** Over, or never begun: a new session may be opened in its place. */
     val vacant: Boolean get() = state == "idle" || state == "released"
+
+    /**
+     * A bundle was taken; it stays in the status after the session ended. Its
+     * check code it has by either road, its sender's address only on the local
+     * network.
+     */
+    val tookBundle: Boolean get() = code.isNotEmpty() || via.isNotEmpty() || from.isNotEmpty()
 
     companion object {
         /** An answer that cannot be read is a session that failed, for a reason no screen has words for. */
@@ -62,13 +94,13 @@ enum class KeyKind(val prefix: String) {
 
 /** Why the television has no code on screen and no key to ask about. */
 enum class TvKeyStop {
-    /** The device is on no local network. */
+    /** The device is on no local network, and the relay could not be had either. */
     NO_NETWORK,
-    /** None of its addresses could be listened on. */
+    /** None of its addresses could be listened on, and there is no relay either. */
     CANNOT_LISTEN,
     /** Too many requests that were not a key. */
     TOO_MANY_ATTEMPTS,
-    /** The addresses in the code are no longer the device's. */
+    /** The addresses in the code are no longer the device's, and the code has no relay. */
     NETWORK_CHANGED,
     /** The daemon was stopped or restarted under the session. */
     SERVICE_STOPPED,
@@ -86,19 +118,29 @@ enum class TvKeyStop {
 
 /** What the television's screen shows. */
 sealed interface TvKeyStep {
-    /** The session is being opened. */
+    /** The session is being opened: it has no code yet while the relay is asked for, a few seconds. */
     data object Opening : TvKeyStep
 
-    /** The code is up: [text] is drawn, [session] and [addresses] are what the phone names this device by. */
+    /**
+     * The code is up: [text] is drawn, [session] and [addresses] are what the
+     * phone names this device by. With [relay] the code leads here from any
+     * network, and there may be no [addresses] at all; without it the phone
+     * has to be on one of this device's networks.
+     */
     data class Code(
         val text: String,
         val session: String,
         val addresses: List<String>,
         val secondsLeft: Int,
         val refused: Int,
+        val relay: Boolean = false,
     ) : TvKeyStep
 
-    /** A bundle waits for the person: who sent it, the code both screens show, and what is in it — never the key. */
+    /**
+     * A bundle waits for the person: who sent it, the code both screens show,
+     * and what is in it — never the key. [address] is the sender's on the local
+     * network, and empty for a bundle that came by the relay ([road]).
+     */
     data class Offer(
         val sender: String,
         val address: String,
@@ -106,6 +148,7 @@ sealed interface TvKeyStep {
         val keyKind: KeyKind,
         val server: String,
         val secondsLeft: Int,
+        val road: KeyRoad = KeyRoad.LAN,
     ) : TvKeyStep
 
     data object SigningIn : TvKeyStep
@@ -123,10 +166,18 @@ fun tvKeyStep(status: SetupReceiveStatus?, handover: HandoverPhase): TvKeyStep =
     HandoverPhase.SIGNED_IN -> TvKeyStep.SignedIn
     HandoverPhase.FAILED -> TvKeyStep.Stopped(TvKeyStop.NOT_SIGNED_IN)
     HandoverPhase.IDLE -> when (status?.state) {
-        null, "idle", "released" -> TvKeyStep.Opening
+        // "preparing": the session is there, and draws no code before the relay has answered.
+        null, "idle", "released", "preparing" -> TvKeyStep.Opening
         "waiting" ->
             if (status.payload.isEmpty()) TvKeyStep.Stopped(TvKeyStop.UNKNOWN)
-            else TvKeyStep.Code(status.payload, status.id, status.addresses, status.expiresIn, status.failedAttempts)
+            else TvKeyStep.Code(
+                text = status.payload,
+                session = status.id,
+                addresses = status.addresses,
+                secondsLeft = status.expiresIn,
+                refused = status.failedAttempts,
+                relay = status.relay == "on",
+            )
         "received" -> TvKeyStep.Offer(
             sender = status.senderName,
             address = status.from,
@@ -134,12 +185,12 @@ fun tvKeyStep(status: SetupReceiveStatus?, handover: HandoverPhase): TvKeyStep =
             keyKind = KeyKind.ofPrefix(status.keyPrefix),
             server = status.loginServer,
             secondsLeft = status.expiresIn,
+            road = KeyRoad.of(status.via) ?: KeyRoad.LAN,
         )
         // Said yes: the key is being taken and written, in the same breath.
         "confirmed" -> TvKeyStep.SigningIn
         "rejected" -> TvKeyStep.Stopped(TvKeyStop.REJECTED)
-        // The bundle's sender stays in the status after the session ended.
-        "expired" -> TvKeyStep.Stopped(if (status.from.isEmpty()) TvKeyStop.CODE_EXPIRED else TvKeyStop.NOT_ANSWERED)
+        "expired" -> TvKeyStep.Stopped(if (status.tookBundle) TvKeyStop.NOT_ANSWERED else TvKeyStop.CODE_EXPIRED)
         "failed" -> TvKeyStep.Stopped(
             when (status.reason) {
                 "no_lan_address" -> TvKeyStop.NO_NETWORK
@@ -175,7 +226,12 @@ fun handoverLook(armed: Boolean, daemonAlive: Boolean, backendState: String): Ha
 
 // ─── The phone ──────────────────────────────────────────────────────────────
 
-/** The JSON of the bridge's `setupParse`: where a scanned code would send a key. */
+/**
+ * The JSON of the bridge's `setupParse`: where a scanned code would send a key.
+ * [addresses] and [port] are the television's on its local network — none, and
+ * 0, for one that has no address there. [relay] says the code can be followed
+ * through the relay as well, from any network.
+ */
 @Serializable
 data class SetupTarget(
     val ok: Boolean = false,
@@ -183,6 +239,7 @@ data class SetupTarget(
     val id: String = "",
     val addresses: List<String> = emptyList(),
     val port: Int = 0,
+    val relay: Boolean = false,
 ) {
     companion object {
         fun parse(json: String?): SetupTarget =
@@ -190,9 +247,14 @@ data class SetupTarget(
     }
 }
 
-/** The JSON of the bridge's `setupSend` and `setupSendStatus`. */
+/**
+ * The JSON of the bridge's `setupSend` and `setupSendStatus`. [path] is the
+ * road, "lan" or "relay": the one being tried while "sending", afterwards the
+ * one the television answered by or the last one tried. [address] is where the
+ * bundle went on the local network, and "" through the relay.
+ */
 @Serializable
-data class SetupSendStatus(val state: String = "idle", val code: String = "", val address: String = "") {
+data class SetupSendStatus(val state: String = "idle", val path: String = "", val code: String = "", val address: String = "") {
     companion object {
         fun parse(json: String?): SetupSendStatus =
             runCatching { AppJson.decodeFromString<SetupSendStatus>(json.orEmpty()) }.getOrDefault(SetupSendStatus(state = "unreadable"))
@@ -224,8 +286,12 @@ enum class KeySendEnd(val next: KeySendNext) {
     TAKEN(KeySendNext.RESCAN),
     UNSUPPORTED(KeySendNext.CLOSE),
     CLOSED(KeySendNext.RESCAN),
+    /** No connection by any road the code offers: with a relay in it, the relay was reached and no television answered behind it. */
     UNREACHABLE(KeySendNext.RESEND),
+    /** No connection, the phone is on none of the television's networks, and the code has no relay. */
     WRONG_NETWORK(KeySendNext.RESEND),
+    /** No connection on the local network, and this phone does not get to the relay. */
+    RELAY_UNAVAILABLE(KeySendNext.RESEND),
     NO_ANSWER(KeySendNext.RESEND),
     /** A setup code, but damaged. */
     INVALID_CODE(KeySendNext.RESCAN),
@@ -236,13 +302,13 @@ enum class KeySendEnd(val next: KeySendNext) {
     BUSY(KeySendNext.RESEND),
     UNKNOWN(KeySendNext.CLOSE);
 
-    /** Whether the hint about the two devices' network belongs under it. */
-    val network: Boolean get() = this == UNREACHABLE || this == WRONG_NETWORK
+    /** No road led to the television: what the sheet says is about the two devices' networks. */
+    val network: Boolean get() = this == UNREACHABLE || this == WRONG_NETWORK || this == RELAY_UNAVAILABLE
 
     companion object {
-        /** Why a scanned setup code opens no form, or null when it does. */
+        /** Why a scanned setup code opens no form, or null when it does: a code leads somewhere by an address or by the relay. */
         fun ofTarget(target: SetupTarget): KeySendEnd? = when {
-            target.ok && target.addresses.isNotEmpty() -> null
+            target.ok && (target.addresses.isNotEmpty() || target.relay) -> null
             target.error == "unsupported_version" -> NEWER_CODE
             else -> INVALID_CODE
         }
@@ -252,18 +318,24 @@ enum class KeySendEnd(val next: KeySendNext) {
 /** What the phone's sheet shows. */
 sealed interface KeySendStep {
     data object Form : KeySendStep
-    data object Sending : KeySendStep
 
-    /** The television holds the bundle and shows [checkCode] too; the person there decides. */
-    data class Compare(val checkCode: String, val address: String) : KeySendStep
+    /** On its way: [road] is the one being tried, null until the bridge names one. */
+    data class Sending(val road: KeyRoad? = null) : KeySendStep
+
+    /**
+     * The television holds the bundle and shows [checkCode] too; the person
+     * there decides. [address] is where it went on the local network, and empty
+     * for one that went by the relay ([road]).
+     */
+    data class Compare(val checkCode: String, val address: String, val road: KeyRoad = KeyRoad.LAN) : KeySendStep
 
     data class Ended(val how: KeySendEnd, val address: String = "") : KeySendStep
 }
 
 fun keySendStep(status: SetupSendStatus): KeySendStep = when (status.state) {
     "idle" -> KeySendStep.Form
-    "sending" -> KeySendStep.Sending
-    "awaiting" -> KeySendStep.Compare(status.code, status.address)
+    "sending" -> KeySendStep.Sending(KeyRoad.of(status.path))
+    "awaiting" -> KeySendStep.Compare(status.code, status.address, KeyRoad.of(status.path) ?: KeyRoad.LAN)
     else -> KeySendStep.Ended(
         when (status.state) {
             "confirmed" -> KeySendEnd.CONFIRMED
@@ -276,6 +348,7 @@ fun keySendStep(status: SetupSendStatus): KeySendStep = when (status.state) {
             "closed" -> KeySendEnd.CLOSED
             "unreachable" -> KeySendEnd.UNREACHABLE
             "wrong_network" -> KeySendEnd.WRONG_NETWORK
+            "relay_unavailable" -> KeySendEnd.RELAY_UNAVAILABLE
             "no_answer" -> KeySendEnd.NO_ANSWER
             "invalid_payload" -> KeySendEnd.INVALID_CODE
             "invalid_key" -> KeySendEnd.INVALID_KEY
@@ -289,9 +362,10 @@ fun keySendStep(status: SetupSendStatus): KeySendStep = when (status.state) {
 
 /**
  * Whether [text] is shaped like a setup code — "TSP", a version, a colon, then
- * capitals and digits — whatever the version. Only that: the bridge reads it,
- * and says what is wrong with one it cannot use. The scanner asks this to keep
- * such a code to itself instead of handing it on as text.
+ * capitals and digits — whatever the version: "TSP2:" as a television draws it
+ * now, "TSP1:" as one did before the relay, and any later one. Only that: the
+ * bridge reads it, and says what is wrong with one it cannot use. The scanner
+ * asks this to keep such a code to itself instead of handing it on as text.
  */
 fun looksLikeSetupCode(text: String): Boolean = SetupCodeShape.matches(text.trim())
 

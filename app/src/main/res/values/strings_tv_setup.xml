@@ -7,9 +7,14 @@
 
     <!-- Television: the code -->
     <string name="tvkey_title">Key from a phone</string>
+    <string name="tvkey_opening">Preparing a code…</string>
     <string name="tvkey_scan_line">Scan this code with TailSocks on your phone</string>
-    <string name="tvkey_scan_help">The scanner is in the top bar of the app\'s main screen. The phone and the TV must be on the same Wi-Fi or wired network; a VPN on the phone can get in the way. The phone asks for an auth key and sends it here encrypted. Nothing is used until you confirm it on this screen.</string>
+    <string name="tvkey_scan_help">The scanner is in the top bar of the app\'s main screen. The phone asks for an auth key and sends it here encrypted: over the local network when both devices share one, otherwise through a relay on the internet, which cannot read it. Nothing is used until you confirm it on this screen.</string>
+    <string name="tvkey_scan_help_lan">The scanner is in the top bar of the app\'s main screen. This TV could not reach a relay on the internet, so the phone must be on the same Wi-Fi or wired network; a VPN on the phone can get in the way. The phone asks for an auth key and sends it here encrypted. Nothing is used until you confirm it on this screen.</string>
     <string name="tvkey_this_tv">On the phone this TV is %1$s · %2$s</string>
+    <string name="tvkey_this_tv_named">On the phone this TV is %1$s</string>
+    <string name="tvkey_any_network">The phone does not have to be on the same network</string>
+    <string name="tvkey_same_network">This code works only on this TV\'s network</string>
     <string name="tvkey_waiting">Waiting for the phone · %1$s left</string>
     <plurals name="tvkey_refused">
         <item quantity="one">%d request that was not a key was turned away</item>
@@ -22,6 +27,8 @@
     <string name="tvkey_offer_key">Key</string>
     <string name="tvkey_offer_server">Server</string>
     <string name="tvkey_offer_named" translatable="false">%1$s · %2$s</string>
+    <string name="tvkey_offer_relay">through a relay</string>
+    <string name="tvkey_offer_relay_unnamed">Through a relay</string>
     <string name="tvkey_kind_tailscale_auth">Tailscale auth key</string>
     <string name="tvkey_kind_tailscale_client">Tailscale OAuth client secret</string>
     <string name="tvkey_kind_headscale_auth">Headscale pre-auth key</string>
@@ -40,8 +47,8 @@
     <string name="tvkey_new_code">New code</string>
 
     <!-- Television: why there is no code and no key; one sentence each -->
-    <string name="tvkey_stop_no_network">This TV is not on a local network: connect it to Wi-Fi or a cable.</string>
-    <string name="tvkey_stop_cannot_listen">The TV could not start listening for the phone on its network.</string>
+    <string name="tvkey_stop_no_network">This TV is on no local network and could not reach a relay: connect it to Wi-Fi or a cable.</string>
+    <string name="tvkey_stop_cannot_listen">The TV could not start listening for the phone, on its network or through a relay.</string>
     <string name="tvkey_stop_too_many">Too many requests that were not a key came in, so the code was withdrawn.</string>
     <string name="tvkey_stop_network_changed">The TV\'s network changed, and the code no longer leads to it.</string>
     <string name="tvkey_stop_service">TailSocks was stopped or restarted, and the code ended with it.</string>
@@ -55,9 +62,13 @@
     <!-- Phone: the form -->
     <string name="keysend_title">Send a key to this TV</string>
     <string name="keysend_target">To TV %1$s · %2$s</string>
-    <string name="keysend_target_help">The TV shows the same name and address beside its code. If they differ, the code you scanned is not that TV\'s: do not send.</string>
+    <string name="keysend_target_named">To TV %1$s</string>
+    <string name="keysend_road_lan">Over your local network</string>
+    <string name="keysend_road_both">Over your local network, or through a relay if that fails</string>
+    <string name="keysend_road_relay">Through a relay</string>
+    <string name="keysend_target_help">The TV shows the same name beside its code, and the same address if it has one. If they differ, the code you scanned is not that TV\'s: do not send.</string>
     <string name="keysend_key_label">Auth key</string>
-    <string name="keysend_key_help">An auth key from your tailnet\'s admin console (Settings → Keys), or a Headscale pre-auth key. A one-time, pre-approved key is the safest: this TV uses it up. It goes straight to the TV over the local network, encrypted, and is neither shown again nor kept on this phone.</string>
+    <string name="keysend_key_help">An auth key from your tailnet\'s admin console (Settings → Keys), or a Headscale pre-auth key. A one-time, pre-approved key is the safest: this TV uses it up. It goes to the TV encrypted — over the local network, or through a relay that cannot read it — and is neither shown again nor kept on this phone.</string>
     <string name="keysend_paste">Paste</string>
     <string name="keysend_paste_empty">The clipboard has no text</string>
     <string name="keysend_key_summary" translatable="false">%1$s · %2$s</string>
@@ -75,14 +86,17 @@
 
     <!-- Phone: sent -->
     <string name="keysend_sending">Sending the key to the TV…</string>
+    <string name="keysend_sending_lan">Sending the key over the local network…</string>
+    <string name="keysend_sending_relay">Sending the key through a relay. This can take up to half a minute…</string>
     <string name="keysend_compare">Make sure the TV shows the same code, then confirm there.</string>
     <string name="keysend_compare_help">If the TV shows another code, a key from someone else got there first: reject it on the TV. Never confirm on the TV a code you do not see here.</string>
     <string name="keysend_sent_to">Sent to %1$s</string>
+    <string name="keysend_sent_relay">Sent through a relay</string>
     <string name="keysend_stop_waiting">Stop waiting</string>
     <string name="keysend_done">Done</string>
     <string name="keysend_rescan">Scan the new code</string>
     <string name="keysend_edit">Back to the key</string>
-    <string name="keysend_network_hint">The phone and the TV must be on the same Wi-Fi or wired network. A VPN on this phone can get in the way, and guest networks often keep devices apart.</string>
+    <string name="keysend_network_hint">This code has no relay: the TV has no internet, or could not reach a relay. So the phone must be on the TV\'s own Wi-Fi or wired network. A VPN on this phone can get in the way, and guest networks often keep devices apart.</string>
 
     <!-- Phone: how it ended; a title and one or two sentences -->
     <string name="keysend_end_confirmed_title">Confirmed on the TV</string>
@@ -102,8 +116,11 @@
     <string name="keysend_end_closed_title">The code no longer works</string>
     <string name="keysend_end_closed_text">The TV is there but no longer listens: the code was used, ran out or was closed.</string>
     <string name="keysend_end_unreachable_title">Could not reach the TV</string>
+    <string name="keysend_end_unreachable_text">It answered neither on the local network nor through the relay. Make sure the TV is online and still shows this code.</string>
     <string name="keysend_end_wrong_network_title">Another network</string>
     <string name="keysend_end_wrong_network_text">This phone is on none of the TV\'s networks.</string>
+    <string name="keysend_end_relay_unavailable_title">The relay is out of reach</string>
+    <string name="keysend_end_relay_unavailable_text">The TV was not found on this phone\'s network, and the phone cannot get to the relay. Check the phone\'s internet connection and its VPN, or connect it to the TV\'s network.</string>
     <string name="keysend_end_no_answer_title">The TV did not answer</string>
     <string name="keysend_end_no_answer_text">The key went out and nothing came back. If the TV asks about a key now, reject it there, then try again.</string>
     <string name="keysend_end_invalid_code_title">The code is damaged</string>

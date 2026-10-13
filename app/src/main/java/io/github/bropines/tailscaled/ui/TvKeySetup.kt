@@ -27,9 +27,11 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,6 +74,7 @@ import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.HandoverPhase
 import io.github.bropines.tailscaled.core.KeyHandover
 import io.github.bropines.tailscaled.core.KeyKind
+import io.github.bropines.tailscaled.core.KeyRoad
 import io.github.bropines.tailscaled.core.SetupReceiveStatus
 import io.github.bropines.tailscaled.core.TvKeyStep
 import io.github.bropines.tailscaled.core.TvKeyStop
@@ -85,8 +88,9 @@ import kotlinx.coroutines.launch
  * A television signs in with a key a phone sends it (appctr/setup.go, and
  * core/KeySetup.kt for what the bridge's answers mean here). The television
  * draws a code; TailSocks on a phone reads it (ui/KeySendSheet.kt) and sends an
- * auth key over the local network; this screen shows who sent it and a check
- * code the phone shows too, and the key is used only after Confirm.
+ * auth key — over the local network, or through a relay when the two devices
+ * share none; this screen shows who sent it and a check code the phone shows
+ * too, and the key is used only after Confirm.
  *
  * Everything on it is a remote's: one button a step, two where the person
  * decides — and there the remote starts on Reject.
@@ -94,6 +98,12 @@ import kotlinx.coroutines.launch
 
 /** How long "Signed in" stays up before the screen hands back. */
 private const val SIGNED_IN_PAUSE_MS = 1500L
+
+/** How often the session is asked where it stands: the time left is the bridge's to count. */
+private const val LOOK_EVERY_MS = 1000L
+
+/** The same while it has no code yet: the code is drawn as soon as the relay has answered. */
+private const val LOOK_EVERY_PREPARING_MS = 300L
 
 /**
  * The way into [TvKeySetupScreen], for the sign-in screen: an ordinary stop for
@@ -130,10 +140,10 @@ fun TvKeySetupScreen(onSignedIn: () -> Unit, onClose: () -> Unit) {
         KeyHandover.forgetOutcome()
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
-                // Once a second: the time left is the bridge's to count.
                 while (true) {
-                    status = KeyHandover.receive()
-                    delay(1000)
+                    val now = KeyHandover.receive()
+                    status = now
+                    delay(if (now.state == "preparing") LOOK_EVERY_PREPARING_MS else LOOK_EVERY_MS)
                 }
             } finally {
                 KeyHandover.close()
@@ -204,7 +214,11 @@ internal fun TvKeySetupContent(
             // phone showing the TV interface stacks them and scrolls.
             val wide = maxWidth >= 600.dp && maxWidth > maxHeight
             when (step) {
-                TvKeyStep.Opening -> Centered { CircularProgressIndicator() }
+                // A few seconds, while the session asks for the relay: said, so the wait is not taken for a hang.
+                TvKeyStep.Opening -> Centered {
+                    CircularProgressIndicator()
+                    Text(stringResource(R.string.tvkey_opening), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+                }
                 is TvKeyStep.Code -> CodePane(step, wide, onClose)
                 is TvKeyStep.Offer -> OfferPane(step, currentServer, wide, onConfirm, onReject)
                 TvKeyStep.SigningIn -> Centered {
@@ -274,8 +288,16 @@ private fun CodePane(step: TvKeyStep.Code, wide: Boolean, onClose: () -> Unit) {
         },
     ) {
         Text(stringResource(R.string.tvkey_scan_line), style = MaterialTheme.typography.headlineSmall)
-        FoldedHelp(stringResource(R.string.tvkey_scan_help))
-        Fact(Icons.Default.Tv, stringResource(R.string.tvkey_this_tv, step.session, step.addresses.joinToString(", ")))
+        FoldedHelp(stringResource(if (step.relay) R.string.tvkey_scan_help else R.string.tvkey_scan_help_lan))
+        // A television the relay alone leads to has no address to be named by.
+        Fact(
+            Icons.Default.Tv,
+            if (step.addresses.isEmpty()) stringResource(R.string.tvkey_this_tv_named, step.session)
+            else stringResource(R.string.tvkey_this_tv, step.session, step.addresses.joinToString(", ")),
+        )
+        // Through the relay the code leads here from any network; without it, from this device's own alone.
+        if (step.relay) Fact(Icons.Default.Public, stringResource(R.string.tvkey_any_network))
+        else Fact(Icons.Default.Wifi, stringResource(R.string.tvkey_same_network))
         Fact(Icons.Default.Schedule, stringResource(R.string.tvkey_waiting, formatClock(step.secondsLeft)))
         if (step.refused > 0) {
             Fact(
@@ -330,9 +352,16 @@ private fun OfferPane(step: TvKeyStep.Offer, currentServer: String, wide: Boolea
         Text(stringResource(R.string.tvkey_offer_title), style = MaterialTheme.typography.headlineSmall)
         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // A sender that came through the relay has no address worth showing: the road is named in its place.
+                val relayed = step.road == KeyRoad.RELAY
                 Detail(
                     stringResource(R.string.tvkey_offer_from),
-                    if (step.sender.isEmpty()) step.address else stringResource(R.string.tvkey_offer_named, step.sender, step.address),
+                    when {
+                        step.sender.isEmpty() -> if (relayed) stringResource(R.string.tvkey_offer_relay_unnamed) else step.address
+                        relayed -> stringResource(R.string.tvkey_offer_named, step.sender, stringResource(R.string.tvkey_offer_relay))
+                        step.address.isEmpty() -> step.sender
+                        else -> stringResource(R.string.tvkey_offer_named, step.sender, step.address)
+                    },
                 )
                 // The prefix says what kind of key it is; the key itself never leaves the bridge for a screen.
                 val kind = when (step.keyKind) {

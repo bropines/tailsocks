@@ -7,9 +7,14 @@
 
     <!-- Television: the code -->
     <string name="tvkey_title">Ключ с телефона</string>
+    <string name="tvkey_opening">Готовим код…</string>
     <string name="tvkey_scan_line">Отсканируйте этот код в TailSocks на телефоне</string>
-    <string name="tvkey_scan_help">Сканер — в верхней панели главного экрана приложения. Телефон и телевизор должны быть в одной сети, Wi-Fi или проводной; VPN на телефоне может помешать. Телефон спросит ключ авторизации и пришлёт его сюда в зашифрованном виде. Пока вы не подтвердите ключ на этом экране, ничего не изменится.</string>
+    <string name="tvkey_scan_help">Сканер — в верхней панели главного экрана приложения. Телефон спросит ключ авторизации и пришлёт его сюда в зашифрованном виде: по локальной сети, если оба устройства в одной, а иначе через реле в интернете — прочитать ключ оно не может. Пока вы не подтвердите ключ на этом экране, ничего не изменится.</string>
+    <string name="tvkey_scan_help_lan">Сканер — в верхней панели главного экрана приложения. Связаться с реле в интернете телевизору не удалось, поэтому телефон должен быть с ним в одной сети, Wi-Fi или проводной; VPN на телефоне может помешать. Телефон спросит ключ авторизации и пришлёт его сюда в зашифрованном виде. Пока вы не подтвердите ключ на этом экране, ничего не изменится.</string>
     <string name="tvkey_this_tv">На телефоне этот телевизор — %1$s · %2$s</string>
+    <string name="tvkey_this_tv_named">На телефоне этот телевизор — %1$s</string>
+    <string name="tvkey_any_network">Телефон может быть и в другой сети</string>
+    <string name="tvkey_same_network">Код сработает только в сети этого телевизора</string>
     <string name="tvkey_waiting">Ждём телефон · осталось %1$s</string>
     <plurals name="tvkey_refused">
         <item quantity="one">Отклонён %d посторонний запрос</item>
@@ -23,6 +28,8 @@
     <string name="tvkey_offer_from">От кого</string>
     <string name="tvkey_offer_key">Ключ</string>
     <string name="tvkey_offer_server">Сервер</string>
+    <string name="tvkey_offer_relay">через реле</string>
+    <string name="tvkey_offer_relay_unnamed">Через реле</string>
     <string name="tvkey_kind_tailscale_auth">ключ авторизации Tailscale</string>
     <string name="tvkey_kind_tailscale_client">секрет OAuth-клиента Tailscale</string>
     <string name="tvkey_kind_headscale_auth">pre-auth ключ Headscale</string>
@@ -40,8 +47,8 @@
     <string name="tvkey_new_code">Новый код</string>
 
     <!-- Television: why there is no code and no key; one sentence each -->
-    <string name="tvkey_stop_no_network">Телевизор не в локальной сети: подключите его к Wi-Fi или кабелем.</string>
-    <string name="tvkey_stop_cannot_listen">Телевизор не смог начать приём ключа в своей сети.</string>
+    <string name="tvkey_stop_no_network">Телевизор не в локальной сети и не смог связаться с реле: подключите его к Wi-Fi или кабелем.</string>
+    <string name="tvkey_stop_cannot_listen">Телевизор не смог начать приём ключа ни в своей сети, ни через реле.</string>
     <string name="tvkey_stop_too_many">Пришло слишком много посторонних запросов, и код отозван.</string>
     <string name="tvkey_stop_network_changed">Сеть телевизора изменилась, и код больше к нему не ведёт.</string>
     <string name="tvkey_stop_service">TailSocks остановили или перезапустили, и код перестал действовать.</string>
@@ -55,9 +62,13 @@
     <!-- Phone: the form -->
     <string name="keysend_title">Отправить ключ на телевизор</string>
     <string name="keysend_target">На телевизор %1$s · %2$s</string>
-    <string name="keysend_target_help">Телевизор показывает рядом с кодом те же имя и адрес. Если они другие, вы отсканировали код не того телевизора: не отправляйте.</string>
+    <string name="keysend_target_named">На телевизор %1$s</string>
+    <string name="keysend_road_lan">По локальной сети</string>
+    <string name="keysend_road_both">По локальной сети, а если не выйдет — через реле</string>
+    <string name="keysend_road_relay">Через реле</string>
+    <string name="keysend_target_help">Телевизор показывает рядом с кодом то же имя и, если адрес у него есть, тот же адрес. Если они другие, вы отсканировали код не того телевизора: не отправляйте.</string>
     <string name="keysend_key_label">Ключ авторизации</string>
-    <string name="keysend_key_help">Ключ авторизации из админ-консоли вашей сети (Settings → Keys) или pre-auth ключ Headscale. Надёжнее всего одноразовый и заранее одобренный: телевизор его израсходует. Ключ уходит на телевизор напрямую по локальной сети, в зашифрованном виде; на телефоне он больше не показывается и не сохраняется.</string>
+    <string name="keysend_key_help">Ключ авторизации из админ-консоли вашей сети (Settings → Keys) или pre-auth ключ Headscale. Надёжнее всего одноразовый и заранее одобренный: телевизор его израсходует. Ключ уходит на телевизор в зашифрованном виде — по локальной сети или через реле, которое прочитать его не может; на телефоне он больше не показывается и не сохраняется.</string>
     <string name="keysend_paste">Вставить</string>
     <string name="keysend_paste_empty">В буфере обмена нет текста</string>
     <plurals name="keysend_key_chars">
@@ -76,14 +87,17 @@
 
     <!-- Phone: sent -->
     <string name="keysend_sending">Отправляем ключ на телевизор…</string>
+    <string name="keysend_sending_lan">Отправляем ключ по локальной сети…</string>
+    <string name="keysend_sending_relay">Отправляем ключ через реле. Это может занять до полминуты…</string>
     <string name="keysend_compare">Убедитесь, что на телевизоре тот же код, и подтвердите там.</string>
     <string name="keysend_compare_help">Если на телевизоре другой код, значит раньше туда пришёл чужой ключ: отклоните его на телевизоре. Никогда не подтверждайте на телевизоре код, которого не видите здесь.</string>
     <string name="keysend_sent_to">Отправлено на %1$s</string>
+    <string name="keysend_sent_relay">Отправлено через реле</string>
     <string name="keysend_stop_waiting">Не ждать</string>
     <string name="keysend_done">Готово</string>
     <string name="keysend_rescan">Сканировать новый код</string>
     <string name="keysend_edit">Вернуться к ключу</string>
-    <string name="keysend_network_hint">Телефон и телевизор должны быть в одной сети, Wi-Fi или проводной. Помешать может VPN на телефоне, а гостевые сети часто не дают устройствам видеть друг друга.</string>
+    <string name="keysend_network_hint">В этом коде нет реле: у телевизора нет интернета или связаться с реле ему не удалось. Поэтому телефон должен быть с ним в одной сети, Wi-Fi или проводной. Помешать может VPN на телефоне, а гостевые сети часто не дают устройствам видеть друг друга.</string>
 
     <!-- Phone: how it ended; a title and one or two sentences -->
     <string name="keysend_end_confirmed_title">Подтверждено на телевизоре</string>
@@ -103,8 +117,11 @@
     <string name="keysend_end_closed_title">Код больше не действует</string>
     <string name="keysend_end_closed_text">Телевизор на месте, но уже не принимает: код использован, просрочен или закрыт.</string>
     <string name="keysend_end_unreachable_title">Не удалось связаться с телевизором</string>
+    <string name="keysend_end_unreachable_text">Он не ответил ни по локальной сети, ни через реле. Проверьте, что телевизор в сети и код всё ещё на его экране.</string>
     <string name="keysend_end_wrong_network_title">Другая сеть</string>
     <string name="keysend_end_wrong_network_text">Телефон не подключён ни к одной из сетей телевизора.</string>
+    <string name="keysend_end_relay_unavailable_title">Реле недоступно</string>
+    <string name="keysend_end_relay_unavailable_text">В сети телефона телевизор не нашёлся, а связаться с реле телефону не удалось. Проверьте на телефоне интернет и VPN или подключите его к сети телевизора.</string>
     <string name="keysend_end_no_answer_title">Телевизор не ответил</string>
     <string name="keysend_end_no_answer_text">Ключ отправлен, но ответа нет. Если телевизор сейчас спрашивает про ключ, отклоните его там и повторите.</string>
     <string name="keysend_end_invalid_code_title">Код повреждён</string>
