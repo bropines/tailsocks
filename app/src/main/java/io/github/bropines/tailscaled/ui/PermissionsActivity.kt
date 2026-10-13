@@ -6,6 +6,7 @@ import io.github.bropines.tailscaled.core.*
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,8 +20,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -139,6 +143,8 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
     val strPermAskAll = stringResource(R.string.perm_ask_all)
     val strPermAskGrant = stringResource(R.string.perm_ask_grant)
     val strPermAskLater = stringResource(R.string.perm_ask_later)
+    val neverRow = remember { MutableInteractionSource() }
+    val allRow = remember { MutableInteractionSource() }
     AlertDialog(
         onDismissRequest = { answer() },
         icon = { Icon(Icons.Default.PowerSettingsNew, contentDescription = null) },
@@ -151,12 +157,14 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .tvFocusRing(neverRow, MaterialTheme.shapes.small)
                         .clip(MaterialTheme.shapes.small)
-                        .clickable { neverAgain = !neverAgain }
+                        .clickable(interactionSource = neverRow, indication = LocalIndication.current) { neverAgain = !neverAgain }
                         .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Checkbox(checked = neverAgain, onCheckedChange = { neverAgain = it })
+                    // The row is the remote's stop; the box inside it would be a second one.
+                    Checkbox(checked = neverAgain, onCheckedChange = { neverAgain = it }, modifier = Modifier.tvNoFocus())
                     Text(
                         strPermAskNever,
                         style = MaterialTheme.typography.bodyMedium,
@@ -169,8 +177,9 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .tvFocusRing(allRow, MaterialTheme.shapes.small)
                         .clip(MaterialTheme.shapes.small)
-                        .clickable {
+                        .clickable(interactionSource = allRow, indication = LocalIndication.current) {
                             answer()
                             context.startActivity(Intent(context, PermissionsActivity::class.java))
                         }
@@ -194,11 +203,14 @@ fun AutostartAskDialog(onAnswered: () -> Unit) {
         },
         confirmButton = {
             // Filled, because it is the answer we want, and marked as leaving the
-            // app: it lands in the system's own autostart screen.
-            Button(onClick = {
-                answer()
-                openAutostartSettings(context)
-            }) {
+            // app: it lands in the system's own autostart screen. Where a remote starts.
+            Button(
+                onClick = {
+                    answer()
+                    openAutostartSettings(context)
+                },
+                modifier = Modifier.tvInitialFocus()
+            ) {
                 Text(strPermAskGrant)
                 Icon(
                     Icons.AutoMirrored.Filled.OpenInNew,
@@ -261,7 +273,8 @@ fun PermissionsScreen(onBack: () -> Unit) {
     // Declared in a fixed order and shown by urgency: a row granted on the system
     // screen drops to the end on the way back, and what is left to do stays on top.
     // The sort is stable, so rows with the same answer keep this order.
-    val entries = listOf(
+    val batteryPrompt = Feature.BATTERY_OPTIMISATION_PROMPT.offered()
+    val entries = listOfNotNull(
         PermEntry(
             id = "autostart",
             title = stringResource(R.string.perm_autostart_title),
@@ -299,7 +312,7 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
                 appDetails(context)
             )
-        },
+        }.takeIf { batteryPrompt },
         PermEntry(
             id = "notifications",
             title = stringResource(R.string.perm_notifications_title),
@@ -355,8 +368,8 @@ fun PermissionsScreen(onBack: () -> Unit) {
         ) {
             intro()
 
-            entries.forEach { entry ->
-                key(entry.id) { PermissionRow(entry) }
+            entries.forEachIndexed { index, entry ->
+                key(entry.id) { PermissionRow(entry, first = index == 0) }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -391,8 +404,8 @@ fun PermissionsScreen(onBack: () -> Unit) {
                 ) {
                     intro()
                     CardColumns(minColumnWidth = PermissionColumnWidth) {
-                        entries.forEach { entry ->
-                            key(entry.id) { PermissionRow(entry, spaced = false) }
+                        entries.forEachIndexed { index, entry ->
+                            key(entry.id) { PermissionRow(entry, spaced = false, first = index == 0) }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -412,13 +425,18 @@ private val PermissionColumnWidth = 340.dp
  * answer the system keeps to itself. "Open" stands only where something is left
  * to do. A settled row still opens its system screen on a tap, without a button
  * pulling the eye away from the rows that need one.
+ *
+ * With a remote a row is one stop: OK opens it, "Open" is not a stop of its own, and the
+ * note unfolds while the row has the focus — there is no long press to count on. [first]
+ * is the row the remote starts on.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PermissionRow(
     entry: PermEntry,
     /** The rows' own space between them, in a column; columns of rows are spaced by theirs. */
-    spaced: Boolean = true
+    spaced: Boolean = true,
+    first: Boolean = false
 ) {
     val state = entry.state
     val stateLabel = stringResource(
@@ -443,15 +461,25 @@ private fun PermissionRow(
     val help = remember(explanation) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     val shape = MaterialTheme.shapes.medium
+    val interactions = remember { MutableInteractionSource() }
+    if (isTv) {
+        val focused by interactions.collectIsFocusedAsState()
+        LaunchedEffect(focused) { help.value = focused }
+    }
     Surface(
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         modifier = Modifier
             .fillMaxWidth()
             .then(if (spaced) Modifier.padding(vertical = 4.dp) else Modifier)
+            .then(if (first) Modifier.tvInitialFocus() else Modifier)
+            // Ahead of the clip, which would cut the ring's corners off.
+            .tvFocusRing(interactions, shape)
             .clip(shape)
             // A long press unfolds the note, as on the settings rows.
             .combinedClickable(
+                interactionSource = interactions,
+                indication = LocalIndication.current,
                 onClickLabel = if (canOpen) openLabel else null,
                 onClick = { if (canOpen) entry.open() else help.value = !help.value },
                 onLongClick = {
@@ -461,12 +489,15 @@ private fun PermissionRow(
             )
     ) {
         ListItem(
-            supportingContent = { HelpText(explanation, lines = 1, expanded = help, inClickableRow = true) },
+            // The ⓘ is a target for a finger; for a remote the row unfolds the note itself.
+            supportingContent = {
+                Box(Modifier.tvNoFocus()) { HelpText(explanation, lines = 1, expanded = help, inClickableRow = true) }
+            },
             leadingContent = { Icon(entry.icon, null, tint = MaterialTheme.colorScheme.primary) },
             trailingContent = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (needsAction) {
-                        TextButton(onClick = entry.open) { Text(openLabel) }
+                        TextButton(onClick = entry.open, modifier = Modifier.tvNoFocus()) { Text(openLabel) }
                     }
                     PermStateIcon(state, stateLabel)
                 }
@@ -520,16 +551,17 @@ private fun appDetails(context: Context): Intent =
 /**
  * Starts the first intent the device accepts. Skins drop and rename these screens
  * freely, so every row falls back to the app info page and, failing that, says so
- * instead of doing nothing.
+ * instead of doing nothing. A television answers some of them with a placeholder that
+ * opens and shows nothing (core/SafeLaunch.kt): that one is passed over like a missing page.
  */
 private fun openFirst(context: Context, vararg intents: Intent) {
-    for (intent in intents) {
-        try {
-            context.startActivity(intent)
-            return
-        } catch (e: Exception) {
-            // Not on this device; try the next fallback.
-        }
+    if (intents.none { !context.landsOnPlaceholder(it) && context.tryStartActivity(it) }) {
+        Toast.makeText(context, context.getString(R.string.perm_open_failed), Toast.LENGTH_LONG).show()
     }
-    Toast.makeText(context, context.getString(R.string.perm_open_failed), Toast.LENGTH_LONG).show()
+}
+
+/** Whether what answers [intent] is a placeholder. A page that resolves to nothing is not: the launch itself tells. */
+private fun Context.landsOnPlaceholder(intent: Intent): Boolean {
+    val activity = runCatching { packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY) }.getOrNull()?.activityInfo
+    return isPlaceholderActivity(activity?.packageName, activity?.name)
 }

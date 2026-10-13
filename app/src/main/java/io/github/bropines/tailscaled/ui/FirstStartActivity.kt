@@ -1,8 +1,11 @@
 package io.github.bropines.tailscaled.ui
 
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.ProfileHostinfo
 import io.github.bropines.tailscaled.core.GlobalSettings
+import io.github.bropines.tailscaled.core.tryLaunch
+import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.core.SlidingSegmentedChips
 import io.github.bropines.tailscaled.core.SegmentedChipItem
 import io.github.bropines.tailscaled.core.PredictiveBackContainer
@@ -78,7 +81,14 @@ class FirstStartActivity : ComponentActivity() {
 fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { 6 })
+    // A step with nothing on it is not walked through. That is the permissions on a device
+    // with no battery to be let off optimising for and no notifications left to allow — a
+    // television; a phone is always shown the step, as it was.
+    val inPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+    val notificationsToAllow = remember { !inPreview && !notificationsAllowed(context) }
+    val askPermissions = Feature.BATTERY_OPTIMISATION_PROMPT.offered() || notificationsToAllow
+    val steps = remember(askPermissions) { OnboardingStep.entries.filter { it != OnboardingStep.PERMISSIONS || askPermissions } }
+    val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { steps.size })
 
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
@@ -125,7 +135,7 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            repeat(6) { idx ->
+                            repeat(steps.size) { idx ->
                                 val isSelected = pagerState.currentPage == idx
                                 Box(
                                     modifier = Modifier
@@ -139,25 +149,19 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
                             }
                         }
 
-                        // Next / Finish Button
-                        if (pagerState.currentPage < 5) {
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                    }
-                                },
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(R.string.first_start_btn_next))
-                            }
-                        } else {
-                            Button(
-                                onClick = onFinished,
-                                shape = MaterialTheme.shapes.medium
-                            ) {
-                                Text(stringResource(R.string.first_start_btn_finish))
-                            }
+                        // Next / Finish Button. One button for both, so a remote that walks
+                        // the steps with it stays on it at the last one; and it is where the
+                        // remote starts — every step can be passed with OK alone.
+                        val lastStep = pagerState.currentPage >= steps.lastIndex
+                        Button(
+                            onClick = {
+                                if (lastStep) onFinished()
+                                else scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.tvInitialFocus()
+                        ) {
+                            Text(stringResource(if (lastStep) R.string.first_start_btn_finish else R.string.first_start_btn_next))
                         }
                     }
                 }
@@ -171,13 +175,13 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
                 userScrollEnabled = false
             ) { page ->
                 val slide: @Composable () -> Unit = {
-                    when (page) {
-                        0 -> SlideWelcome()
-                        1 -> SlideHowItWorks()
-                        2 -> SlideControlPlane(profilePrefs)
-                        3 -> SlideBypassSetup()
-                        4 -> SlideLogin(profilePrefs)
-                        5 -> SlidePermissions()
+                    when (steps[page]) {
+                        OnboardingStep.WELCOME -> SlideWelcome()
+                        OnboardingStep.HOW_IT_WORKS -> SlideHowItWorks()
+                        OnboardingStep.CONTROL_PLANE -> SlideControlPlane(profilePrefs)
+                        OnboardingStep.BYPASS -> SlideBypassSetup()
+                        OnboardingStep.LOGIN -> SlideLogin(profilePrefs)
+                        OnboardingStep.PERMISSIONS -> SlidePermissions()
                     }
                 }
                 CompositionLocalProvider(LocalSlideLayout provides slideLayout) {
@@ -226,6 +230,14 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
         }
     }
 }
+
+/** The onboarding's steps, in the order they are walked. */
+private enum class OnboardingStep { WELCOME, HOW_IT_WORKS, CONTROL_PLANE, BYPASS, LOGIN, PERMISSIONS }
+
+/** Before Android 13 a notification needs no permission. */
+private fun notificationsAllowed(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
 /** How a slide stands in its window; see [SlideContainer]. */
 private enum class SlideLayout {
@@ -510,7 +522,8 @@ fun SlideHowItWorks() {
                 }
             }
 
-            Card(
+            // Root Mode is a first choice only where it is offered as one.
+            if (Feature.ROOT_MODE.offered()) Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
@@ -633,15 +646,17 @@ fun SlideBypassSetup() {
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { applyBypassSettings(mode) }
+                        .shapedClickable(MaterialTheme.shapes.medium) { applyBypassSettings(mode) }
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // The card is the remote's stop; the button in it would be a second one.
                         RadioButton(
                             selected = isSelected,
-                            onClick = { applyBypassSettings(mode) }
+                            onClick = { applyBypassSettings(mode) },
+                            modifier = Modifier.tvNoFocus()
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
@@ -671,7 +686,7 @@ fun SlideBypassSetup() {
                             label = { Text(stringResource(R.string.first_start_proxy_link_label)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            trailingIcon = {
+                            trailingIcon = if (!Feature.CLIPBOARD_ACTIONS.offered()) null else ({
                                 IconButton(
                                     onClick = {
                                         val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
@@ -712,7 +727,7 @@ fun SlideBypassSetup() {
                                 ) {
                                     Icon(Icons.Default.ContentPaste, contentDescription = stringResource(R.string.settings_proxy_cd_paste_parse))
                                 }
-                            }
+                            })
                         )
                         Spacer(Modifier.height(4.dp))
 
@@ -882,11 +897,13 @@ fun SlideBypassSetup() {
 @Composable
 fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
     var authKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
+    // Where signing in is a code for a phone, the step says so instead of naming a browser.
+    val browserSignIn = Feature.BROWSER_SIGN_IN.offered()
 
     SlideContainer(
         icon = Icons.Default.VpnKey,
         title = stringResource(R.string.first_start_login_title),
-        description = stringResource(R.string.first_start_login_desc)
+        description = stringResource(if (browserSignIn) R.string.first_start_login_desc else R.string.tv_onboarding_login_desc)
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -916,12 +933,14 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // The row is the remote's stop; the box inside it would be a second one.
                 Checkbox(
                     checked = honestHostinfo,
                     onCheckedChange = {
                         honestHostinfo = it
                         profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, it).apply()
-                    }
+                    },
+                    modifier = Modifier.tvNoFocus()
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_honest_hostinfo_title), style = MaterialTheme.typography.bodyMedium)
@@ -929,7 +948,8 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
                 }
             }
 
-            Card(
+            // The hint is about a login page that does not load: nothing to say without one.
+            if (browserSignIn) Card(
                 shape = MaterialTheme.shapes.large,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
@@ -971,16 +991,7 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
 @Composable
 fun SlidePermissions() {
     val context = LocalContext.current
-    var hasNotificationPermission by remember {
-        mutableStateOf(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            } else true
-        )
-    }
+    var hasNotificationPermission by remember { mutableStateOf(notificationsAllowed(context)) }
 
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     var isBatteryIgnored by remember {
@@ -1029,7 +1040,7 @@ fun SlidePermissions() {
                         )
                         Button(
                             onClick = {
-                                launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                launcher.tryLaunch(Manifest.permission.POST_NOTIFICATIONS)
                             },
                             shape = MaterialTheme.shapes.small
                         ) {
@@ -1039,7 +1050,7 @@ fun SlidePermissions() {
                 }
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isBatteryIgnored) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isBatteryIgnored && Feature.BATTERY_OPTIMISATION_PROMPT.offered()) {
                 Card(
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(
@@ -1068,11 +1079,9 @@ fun SlidePermissions() {
                         }
                         Button(
                             onClick = {
-                                try {
-                                    val intent = Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                    context.startActivity(intent)
+                                if (context.tryStartActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) {
                                     Toast.makeText(context, context.getString(R.string.onboarding_perm_battery_toast), Toast.LENGTH_LONG).show()
-                                } catch (e: Exception) {
+                                } else {
                                     Toast.makeText(context, context.getString(R.string.onboarding_perm_battery_error), Toast.LENGTH_SHORT).show()
                                 }
                             },
