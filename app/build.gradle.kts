@@ -1,3 +1,4 @@
+import io.github.bropines.tailscaled.release.ReleaseVersion
 import java.util.Properties
 
 plugins {
@@ -17,6 +18,17 @@ val appVersion = Properties().apply {
 }
 val appVersionName: String = appVersion.getProperty("VERSION_NAME")
 val appVersionCode: Int = appVersion.getProperty("VERSION_CODE").toInt()
+
+// The code must be the one the name gives: a release's, or — for 5.1.0-beta.1 —
+// a beta's, which sits just under its release. The rule is written once, in
+// buildSrc (ReleaseVersion; docs/RELEASING.md), and no build gets past a pair
+// that breaks it: an APK whose code is out of order either refuses to install
+// over the one before it or keeps the one after it from installing.
+try {
+    ReleaseVersion.check(appVersionName, appVersionCode)
+} catch (e: IllegalArgumentException) {
+    throw GradleException("version.properties: ${e.message}")
+}
 
 // The commit, for the About screen and the diagnostics: two builds between
 // releases carry the same version and differ only here.
@@ -41,8 +53,12 @@ val builtAbis = targetAbi?.let { listOf(it) } ?: allAbis
 
 // Each ABI's APK has its own versionCode: VERSION_CODE plus 1 to 4, in the
 // digits version.properties leaves free, so a store can offer a device the APK
-// for its ABI. The universal APK keeps VERSION_CODE itself.
+// for its ABI. The universal APK keeps VERSION_CODE itself. A beta's code is ten
+// above the beta before it, so an offset has to stay under that.
 val abiVersionOffset = mapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86" to 3, "x86_64" to 4)
+require(abiVersionOffset.values.all { it in 1..ReleaseVersion.MAX_ABI_OFFSET }) {
+    "An ABI's versionCode offset must be 1 to ${ReleaseVersion.MAX_ABI_OFFSET}: $abiVersionOffset"
+}
 
 android {
     // Preview screenshot tests (src/screenshotTest): @Preview functions are
@@ -221,6 +237,9 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+    // The build's own rule for version codes, compiled into the unit tests as well
+    // (ReleaseVersionTest): one source file, held to its promises where tests run.
+    sourceSets["test"].java.srcDir(rootProject.file("buildSrc/src/main/java"))
 
     packaging {
         resources {
