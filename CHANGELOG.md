@@ -2,6 +2,24 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Android TV: a home-screen tile with a banner, and the whole app works with a remote — a visible focus frame, screen-edge margins, sheets, text fields and long texts included.
+- Android TV: sign in by scanning a QR code with a phone, or send an auth key from a phone's scanner — over the local network or a relay, confirmed on the TV by a check code.
+- Sign in on another device: the login link as a QR code, with a share action.
+- A built-in file and folder browser for devices without a system file picker.
+- Taildrop on a TV: files are picked in the app, saved to Download/Taildrop, and an arrival is announced on screen.
+- Taildrive: browse other devices' shares and open their files in a player; on a TV shares are added with the built-in browser and the proxy address shows as a QR code.
+- Settings → Appearance → Interface switches the TV interface by hand; on a TV rarely used pages live under Settings → Advanced.
+- Experimental: manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; off by default, proxy mode only.
+
+### Fixed
+
+- The app no longer crashes when DPI bypass is stopped or restarted.
+- Taildrive: a shared file with a plus sign in its name opens.
+
 ## [4.10.1] - 2026-10-12
 
 ### Fixed
