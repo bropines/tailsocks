@@ -51,6 +51,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -641,6 +644,9 @@ fun MainScreen(
     var remoteOpen by rememberSaveable { mutableStateOf(false) }
     var remoteLeft by remember { mutableStateOf(false) }
     val remoteTile = if (remoteTileOffered) rememberRemoteTile(proxyState, remoteOpen) else null
+    // The row under the cards is nearer to the status card than the cards are, and Right from it
+    // would land there: the remote is sent to the first card instead.
+    val menuStart = remember { FocusRequester() }
 
     // OK on a remote is pressed by accident, and on the start card that stops the service:
     // a television asks first. Starting asks nothing.
@@ -1542,7 +1548,8 @@ fun MainScreen(
             StatusCard(
                 state = cardState,
                 // Where the remote starts on this screen.
-                modifier = (if (fillHeight) Modifier.weight(1f) else Modifier).tvInitialFocus(),
+                modifier = (if (fillHeight) Modifier.weight(1f) else Modifier).tvInitialFocus()
+                    .then(if (remoteTileOffered) Modifier.focusProperties { right = menuStart } else Modifier),
                 issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
@@ -1665,7 +1672,7 @@ fun MainScreen(
         // How many cards there are: the page's own row takes no column.
         val cardCount = menuEntries.count { !it.wide }
         val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
-            MenuGrid(columns = columns, cardHeight = cardHeight, entries = menuEntries)
+            MenuGrid(columns = columns, cardHeight = cardHeight, entries = menuEntries, start = menuStart.takeIf { remoteTileOffered })
         }
 
         BoxWithConstraints(
@@ -2583,11 +2590,16 @@ fun menuColumnsFor(width: Dp, entries: Int = 8): Int {
 }
 
 @Composable
-fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, modifier: Modifier = Modifier) {
+fun MenuGrid(
+    columns: Int,
+    entries: List<MenuEntry>,
+    cardHeight: Dp = 96.dp,
+    modifier: Modifier = Modifier,
+    /** Asks the first card to answer it: where the remote comes in on the grid from the status card. */
+    start: FocusRequester? = null,
+) {
     val cards = entries.filter { !it.wide }
-    // For a remote the grid is one stop: coming in from the status card lands on the card the
-    // remote was last on, not on the nearest — the row of its own under the cards is nearer.
-    Column(modifier = modifier.fillMaxWidth().tvFocusGroup()) {
+    Column(modifier = modifier.fillMaxWidth()) {
         cards.chunked(columns).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) Spacer(modifier = Modifier.height(16.dp))
             // A minimum, not a fixed height: at a large system font the label
@@ -2600,7 +2612,8 @@ fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, mod
                         title = entry.title,
                         icon = entry.icon,
                         icon2 = entry.icon2,
-                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = cardHeight),
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = cardHeight)
+                            .then(if (start != null && rowIndex == 0 && i == 0) Modifier.focusRequester(start) else Modifier),
                         onClick = entry.onClick
                     )
                 }
