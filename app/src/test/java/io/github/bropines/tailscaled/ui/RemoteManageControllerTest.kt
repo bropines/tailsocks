@@ -665,10 +665,34 @@ class RemoteManageControllerTest {
         assertNull(ui.status)
         assertEquals(ManageProblem.OFFLINE, ui.problem)
         assertEquals(ManageProblemAction.RETRY, ui.problem!!.action(loaded = false))
+        // It is asked again at the page's own pace, with no banner coming and going meanwhile.
+        tick()
+        assertEquals(ManageProblem.OFFLINE, ui.problem)
+        device.reachable = true
+        tick()
+        assertNull(ui.problem)
+        assertEquals(NAME, ui.status?.name)
+        assertEquals(2, ui.files?.size)
+
+        device.reachable = false
         controller.forget()
         // Forgotten here; the device was not told.
         assertTrue(controller.ui is RemoteManageUi.Forgotten)
         assertNull(client.pairing())
+    }
+
+    @Test
+    fun aDeviceThatLeftTheTailnetKeepsItsPairingUntilItIsForgotten() {
+        open()
+        device.script("GET /v1/status", RemoteAnswer(status = 0, error = "no_peer"))
+        tick()
+        assertEquals(ManageProblem.NO_PEER, ui.problem)
+        assertTrue(ui.problem!!.final)
+        assertEquals(ManageProblemAction.CLOSE, ui.problem!!.action(loaded = true))
+        // Nothing refused the token: it is still here, for the person to forget.
+        assertNotNull(client.pairing())
+        controller.resolve(ManageProblemAction.CLOSE)
+        assertTrue(closed)
     }
 
     @Test

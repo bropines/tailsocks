@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Troubleshoot
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.VpnLock
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -82,7 +84,6 @@ import io.github.bropines.tailscaled.core.setting
 import io.github.bropines.tailscaled.core.switches
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 /*
  * The groups of the managing page (ui/RemoteManagePage.kt), each as the line it shows folded
@@ -305,35 +306,40 @@ private fun ConnectionGroup(ui: RemoteManageUi.Managing, actions: RemoteManageAc
         onClick = actions::openExitNodes
     )
     Switches(ManagedKeys.CONNECTION, ui, actions)
-    if (!ui.owner && ui.status != null) ManageLine(stringResource(R.string.rmanage_guest_note))
 
+    // The two ways to shake the connection, as rows like the rest: each says what it costs.
     val act = access.gate(ManagedOp.ACTION)
-    ManageGap()
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ManageButton(
-            stringResource(R.string.remote_reconnect),
-            onClick = actions::reconnect,
-            icon = Icons.Default.Autorenew,
-            enabled = ui.usable && act.open,
-            working = ui.reconnecting,
-        )
-        if (access.has(ManagedCaps.RELAYS)) {
-            ManageButton(
-                stringResource(R.string.rmanage_relays),
-                onClick = { actions.act(ManagedKeys.ACTION_RELAYS) },
-                icon = Icons.Default.CellTower,
-                enabled = ui.usable && act.open,
-            )
-        }
+    ManageRow(
+        icon = Icons.Default.Autorenew,
+        title = stringResource(R.string.remote_reconnect),
+        enabled = ui.usable && act.open,
+        onClick = actions::reconnect,
+        help = stringResource(R.string.rmanage_reconnect_help),
+        // While it restarts: said in the row that was pressed, in place of an error.
+        reason = if (ui.reconnecting) stringResource(R.string.remote_reconnecting, ui.name) else null,
+    ) {
+        if (ui.reconnecting) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
     }
-    if (ui.reconnecting) ManageLine(stringResource(R.string.remote_reconnecting, ui.name))
-    else if (ui.owner) HelpText(stringResource(R.string.rmanage_reconnect_help), Modifier.padding(top = 6.dp))
+    if (access.has(ManagedCaps.RELAYS)) {
+        ManageRow(
+            icon = Icons.Default.CellTower,
+            title = stringResource(R.string.rmanage_relays),
+            enabled = ui.usable && act.open,
+            onClick = { actions.act(ManagedKeys.ACTION_RELAYS) },
+            help = stringResource(R.string.rmanage_relays_help),
+        ) {}
+    }
+    if (!ui.owner && ui.status != null) ManageLine(stringResource(R.string.rmanage_guest_note), Modifier.padding(top = 4.dp), icon = Icons.Default.Lock)
 }
 
 // ─── Files ───────────────────────────────────────────────────────────────────────────────────
 
-private fun fileDate(unixSeconds: Long): String =
-    SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(unixSeconds * 1000))
+/** A file's date in the app's own language, which need not be the system's. */
+@Composable
+private fun fileDate(unixSeconds: Long): String {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(unixSeconds, locale) { SimpleDateFormat("d MMM, HH:mm", locale).format(Date(unixSeconds * 1000)) }
+}
 
 @Composable
 private fun sizeText(bytes: Long): String = Formatter.formatShortFileSize(LocalContext.current, bytes)
@@ -452,7 +458,7 @@ private fun FilesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions
             Text(stringResource(R.string.remote_files_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         waiting.take(FILES_SHOWN).forEach { file ->
-            FileRow(file.name, sizeText(file.size) + " · " + remember(file.modTime) { fileDate(file.modTime) }, focusStop = !delete.open) {
+            FileRow(file.name, sizeText(file.size) + " · " + fileDate(file.modTime), focusStop = !delete.open) {
                 if (delete.open) {
                     IconButton(onClick = { ask(ManageAsk.DeleteFile(file.name)) }, enabled = ui.usable) {
                         Icon(Icons.Default.Delete, stringResource(R.string.remote_file_delete, file.name))
@@ -475,7 +481,7 @@ private fun FilesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions
         saved.forEach { file ->
             FileRow(
                 file.name,
-                listOf(sizeText(file.size), remember(file.time) { fileDate(file.time) }, file.folder).filter { it.isNotEmpty() }.joinToString(" · "),
+                listOf(sizeText(file.size), fileDate(file.time), file.folder).filter { it.isNotEmpty() }.joinToString(" · "),
                 focusStop = true,
             )
         }

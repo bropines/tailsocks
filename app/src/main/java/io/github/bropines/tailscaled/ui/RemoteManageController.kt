@@ -553,7 +553,12 @@ internal class RemoteManageController(
     /** The periodic look at the status; quiet unless the device went away or came back. */
     suspend fun tick() {
         val m = managing ?: return
-        if (m.status == null || m.busy || m.loading || m.reconnecting || m.problem?.final == true) return
+        if (m.busy || m.loading || m.reconnecting || m.problem?.final == true) return
+        if (m.status == null) {
+            // Never reached yet, and away: asked again at the page's own pace until it is there.
+            if (m.problem?.stale == true && read()) update { it.copy(problem = null, problemDetail = "") }
+            return
+        }
         // While a change is being confirmed the keeper does the talking.
         if (m.guard?.phase == GuardPhase.CHECKING || m.guard?.phase == GuardPhase.SILENT) return
         val away = m.problem?.stale == true

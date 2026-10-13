@@ -223,14 +223,11 @@ private fun Managing(
                         Text(stringResource(R.string.remote_loading, ui.name), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                // Never reached: all that is left is to forget it.
-                if (ui.problem != null && !ui.problem.final) {
-                    OutlinedButton(onClick = { asked = ManageAsk.Forget }, enabled = !ui.busy, shape = MaterialTheme.shapes.medium) {
-                        Text(stringResource(R.string.remote_forget))
-                    }
-                }
+                // Never reached: all that is left, besides trying again, is to forget it.
+                if (ui.problem != null && ui.problem != ManageProblem.REVOKED && ui.problem != ManageProblem.EXPIRED) ForgetButton(ui) { asked = ManageAsk.Forget }
             }
-            groups.isEmpty() -> Unit
+            // The pairing is gone there, and here with it. A device that left the tailnet still has its pairing here.
+            groups.isEmpty() -> if (ui.problem == ManageProblem.NO_PEER) Narrow(layout) { ForgetButton(ui) { asked = ManageAsk.Forget } }
             // What the device last said stays readable while it cannot be asked, dimmed: it is not news.
             layout.listDetail -> Row(
                 Modifier.fillMaxSize().padding(horizontal = layout.margin).alpha(if (ui.problem?.stale == true) 0.5f else 1f),
@@ -254,6 +251,13 @@ private fun Managing(
     }
 
     ManageWindows(ui, actions, hooks, asked, onAsked = { asked = it })
+}
+
+@Composable
+private fun ForgetButton(ui: RemoteManageUi.Managing, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, enabled = !ui.busy, shape = MaterialTheme.shapes.medium) {
+        Text(stringResource(R.string.remote_forget))
+    }
 }
 
 /** A column of cards that scrolls, and that a remote can read to its end past rows it cannot stop on. */
@@ -283,7 +287,9 @@ private fun Banners(ui: RemoteManageUi.Managing, actions: RemoteManageActions, l
                 .padding(top = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (problem != null) {
+            // While a change's own banner says the device is silent, "offline" beside it says the same twice.
+            val guardSpeaks = guard?.phase == GuardPhase.SILENT || guard?.phase == GuardPhase.REVERTED_AWAY
+            if (problem != null && !(guardSpeaks && problem.stale)) {
                 val action = problem.action(loaded = ui.status != null)
                 Banner(
                     text = problemText(problem, ui.name, ui.problemDetail),
@@ -315,18 +321,33 @@ private fun Banner(
         contentColor = if (warm) scheme.onTertiaryContainer else scheme.onSecondaryContainer,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
-            else if (icon != null) Icon(icon, null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (action != null) {
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onAction, shape = MaterialTheme.shapes.medium, modifier = Modifier.tvInitialFocus()) { Text(action) }
+        // A short sentence has its button beside it; a long one would be squeezed into a
+        // column of five lines by it, so there the button stands under the text.
+        val beside = action != null && text.length <= BANNER_BESIDE_MAX
+        Column(Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (working) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+                else if (icon != null) Icon(icon, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                if (action != null && beside) {
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = onAction, shape = MaterialTheme.shapes.medium, modifier = Modifier.tvInitialFocus()) { Text(action) }
+                }
+            }
+            if (action != null && !beside) {
+                Button(
+                    onClick = onAction,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.align(Alignment.End).padding(top = 8.dp).tvInitialFocus()
+                ) { Text(action) }
             }
         }
     }
 }
+
+/** The longest sentence, in characters, that keeps its button beside it. */
+private const val BANNER_BESIDE_MAX = 90
 
 private fun clockTime(millis: Long): String = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(millis))
 
@@ -518,20 +539,35 @@ private fun PairingBody(ui: RemoteManageUi.Pairing, actions: RemoteManageActions
         Spacer(Modifier.width(12.dp))
         Text(stringResource(R.string.remote_pair_enter, ui.name), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
     }
-    OutlinedTextField(
-        value = ui.code,
-        onValueChange = actions::setCode,
-        label = { Text(stringResource(R.string.remote_pair_code_label)) },
-        singleLine = true,
-        enabled = !ui.busy,
-        isError = ui.error != null,
-        supportingText = ui.error?.let { error -> { Text(pairErrorText(error, ui.name)) } },
-        textStyle = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 6.sp),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { actions.pair() }),
-        shape = MaterialTheme.shapes.medium,
-        modifier = Modifier.fillMaxWidth().tvInitialFocus()
-    )
+    val keyboard = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done)
+    if (isTv) {
+        // A field in a page takes the arrows the moment the remote lands on it: there it is a
+        // row that OK opens as a dialog around the field (ui/PageTextField.kt).
+        TvFieldRow(
+            value = ui.code,
+            onValueChange = actions::setCode,
+            label = stringResource(R.string.remote_pair_code_label),
+            modifier = Modifier.fillMaxWidth().tvInitialFocus(),
+            supportingText = ui.error?.let { pairErrorText(it, ui.name) },
+            isError = ui.error != null,
+            keyboardOptions = keyboard,
+        )
+    } else {
+        OutlinedTextField(
+            value = ui.code,
+            onValueChange = actions::setCode,
+            label = { Text(stringResource(R.string.remote_pair_code_label)) },
+            singleLine = true,
+            enabled = !ui.busy,
+            isError = ui.error != null,
+            supportingText = ui.error?.let { error -> { Text(pairErrorText(error, ui.name)) } },
+            textStyle = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 6.sp),
+            keyboardOptions = keyboard,
+            keyboardActions = KeyboardActions(onDone = { actions.pair() }),
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Button(
             onClick = actions::pair,

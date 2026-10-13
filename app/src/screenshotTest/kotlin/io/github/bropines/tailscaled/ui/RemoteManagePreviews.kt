@@ -38,8 +38,8 @@ import kotlinx.serialization.json.put
 internal annotation class ManagePhone
 
 /** A phone as tall as the page: every group at once, as a person scrolling it would meet them. */
-@Preview(name = "1-phone", device = "spec:width=411dp,height=2400dp,dpi=280")
-@Preview(name = "2-phone-ru", device = "spec:width=411dp,height=2400dp,dpi=280", locale = "ru")
+@Preview(name = "1-phone", device = "spec:width=411dp,height=3600dp,dpi=240")
+@Preview(name = "2-phone-ru", device = "spec:width=411dp,height=3600dp,dpi=240", locale = "ru")
 internal annotation class ManagePhoneLong
 
 @Preview(name = "3-tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
