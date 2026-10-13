@@ -1745,7 +1745,7 @@ fun MainScreen(
                     height = maxHeight,
                     status = { fillHeight -> statusPane(fillHeight) },
                     // The managed devices are tiles under the cards, unless the menu has them in
-                    // its own row already — then the rows counted below are the ones there were.
+                    // its own row already: a television's, which is counted below as it always was.
                     menu = { columns, rowHeight ->
                         menuPane(columns, rowHeight)
                         if (!managedBeside(columns)) ManagedTiles(managed)
