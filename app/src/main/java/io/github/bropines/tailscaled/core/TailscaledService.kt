@@ -2047,6 +2047,9 @@ class TailscaledService : Service() {
             netmapCacheOff = !NetmapCache.isEnabled(this@TailscaledService)
             // Read by the daemon at start (TS_FORCE_NOISE_443); see ControlPort.
             controlPort80 = !ControlPort.isTlsOnly(this@TailscaledService)
+            // Remote management, off unless switched on on this device; the bridge gets
+            // the app's half of it along with the switch (RemoteManage).
+            remoteManagement = RemoteManage.startOption(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the

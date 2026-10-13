@@ -14,4 +14,7 @@
     <!-- Received Taildrop files moved out of states/ in 4.0; they stay out of
          backups, as they did when they were part of it. -->
     <exclude domain="file" path="taildrop" />
+    <!-- Remote management: who may manage this device, its switch, and the tokens of
+         the devices this one manages. A restore must not bring any of it along. -->
+    <exclude domain="file" path="remote" />
 </full-backup-content>

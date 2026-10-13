@@ -3,7 +3,8 @@
     Cloud backup is disabled app-wide (android:allowBackup="false"), but Android 12+
     device-to-device transfer is governed here. Without a policy the Tailscale Admin
     API token, the automation secret and the tailscaled state files (node private
-    keys) would travel to a new device on a D2D transfer. Exclude them.
+    keys) would travel to a new device on a D2D transfer. Exclude them — and files/remote,
+    remote management's pairings, switch and tokens: none of it may arrive by a transfer.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -14,6 +15,7 @@
         <exclude domain="sharedpref" path="tailsocks_global.xml" />
         <exclude domain="file" path="states" />
         <exclude domain="file" path="taildrop" />
+        <exclude domain="file" path="remote" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="admin_api_keys.xml" />
@@ -23,5 +25,6 @@
         <exclude domain="sharedpref" path="tailsocks_global.xml" />
         <exclude domain="file" path="states" />
         <exclude domain="file" path="taildrop" />
+        <exclude domain="file" path="remote" />
     </device-transfer>
 </data-extraction-rules>
