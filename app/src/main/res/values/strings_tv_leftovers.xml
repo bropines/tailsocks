@@ -6,4 +6,16 @@
 <resources>
     <!-- What the large line is, over the address a television shows instead of opening it -->
     <string name="link_address">Page address</string>
+
+    <!-- Home screen tile: the page of remote management (Settings → Advanced → Experimental on a phone) -->
+    <string name="tile_remote_title">From a phone</string>
+    <string name="tile_remote_off">Off</string>
+    <string name="tile_remote_waiting">On, waiting to be paired</string>
+    <plurals name="tile_remote_paired">
+        <item quantity="one">%d device paired</item>
+        <item quantity="other">%d devices paired</item>
+    </plurals>
+    <string name="tile_remote_mode">Not available in this mode</string>
+    <string name="tile_remote_stopped">On, starts with the connection</string>
+    <string name="tile_remote_busy">On, the port is in use</string>
 </resources>

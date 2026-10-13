@@ -52,6 +52,9 @@ data class DemoData(
     val tailcat: DemoTailcat? = null,
     /** The admin console as its ViewModel would hold it: a profile, loaded tabs, a gate. */
     val admin: io.github.bropines.tailscaled.admin.console.ConsoleState? = null,
+    /** What the home screen's tile for remote management says; null leaves it without a state line. */
+    val remoteTile: RemoteTile? =
+        RemoteTile(RemoteTile.Kind.OFF),
 )
 
 /** What TailcatScreen reads from storage and from TailcatService, made up. */

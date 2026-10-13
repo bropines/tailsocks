@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="link_address">Адрес страницы</string>
+
+    <string name="tile_remote_title">С телефона</string>
+    <string name="tile_remote_off">Выключено</string>
+    <string name="tile_remote_waiting">Включено, ждёт сопряжения</string>
+    <plurals name="tile_remote_paired">
+        <item quantity="one">Сопряжённых устройств: %d</item>
+        <item quantity="few">Сопряжённых устройств: %d</item>
+        <item quantity="many">Сопряжённых устройств: %d</item>
+        <item quantity="other">Сопряжённых устройств: %d</item>
+    </plurals>
+    <string name="tile_remote_mode">Недоступно в этом режиме</string>
+    <string name="tile_remote_stopped">Включено, заработает с подключением</string>
+    <string name="tile_remote_busy">Включено, порт занят</string>
 </resources>

@@ -88,7 +88,9 @@ import kotlinx.coroutines.delay
  * Where the live state is not offered on the home screen (a television: it is diagnostics,
  * and kept in the settings), the status has its column to itself and its card takes the
  * height that is left — [status] is told so, as in a phone's two panes. [menuCount] is how
- * many destinations [menu] draws: a device that is offered fewer gets fewer columns.
+ * many destinations [menu] draws: a device that is offered fewer gets fewer columns. [wideMenuRows]
+ * is how many rows of their own the menu has under its cards (a tile that states its state), each of
+ * which the devices give that much of their room to.
  */
 @Composable
 internal fun MainDashboard(
@@ -101,6 +103,7 @@ internal fun MainDashboard(
     peers: List<PeerData>?,
     connected: Boolean,
     onOpenPeers: (peerId: String?) -> Unit,
+    wideMenuRows: Int = 0,
 ) {
     val margin = window.margin
     val inner = width - margin * 2
@@ -159,8 +162,9 @@ internal fun MainDashboard(
                         fills = listOf({}, devices),
                         columnGap = DASHBOARD_GAP,
                         // A television's window is short: three rows of devices under the
-                        // menu, without a page that scrolls by a few dp to show a fourth.
-                        fillMinHeight = 240.dp,
+                        // menu, without a page that scrolls by a few dp to show a fourth; a row
+                        // the menu has of its own takes the room of one of them.
+                        fillMinHeight = 240.dp - WIDE_MENU_ROW * wideMenuRows,
                     )
                 }
             }
@@ -204,6 +208,9 @@ private val DASHBOARD_EDGE = 12.dp
 
 /** Between the status column and the menu, and under the status where it runs across. */
 private val DASHBOARD_GAP = 24.dp
+
+/** What a row of its own in the menu costs: the tile (WideMenuCard's 64dp) and the gap above it. */
+private val WIDE_MENU_ROW = 80.dp
 
 /** MenuGrid's own gap between two cards. */
 private val MENU_GAP = 16.dp

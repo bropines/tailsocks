@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -633,6 +634,13 @@ fun MainScreen(
         signInOpen = !browserSignIn && proxyState == "LOGGED_OUT"
         if (proxyState != "LOGGED_OUT") signInLeft = false
     }
+
+    // Remote management has a tile of its own where its page in the settings would be three
+    // levels down: it opens over this screen, and the remote comes back to the tile.
+    val remoteTileOffered = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
+    var remoteOpen by rememberSaveable { mutableStateOf(false) }
+    var remoteLeft by remember { mutableStateOf(false) }
+    val remoteTile = if (remoteTileOffered) rememberRemoteTile(proxyState, remoteOpen) else null
 
     // OK on a remote is pressed by accident, and on the start card that stops the service:
     // a television asks first. Starting asks nothing.
@@ -1326,6 +1334,9 @@ fun MainScreen(
             onClose = { signInOpen = false; signInLeft = true },
             extraAction = { TvKeySetupButton(onClick = { keySetupOpen = true }) },
         )
+    } else if (remoteOpen && remoteTileOffered) {
+        // The page, in place of the dashboard, which comes back with the remote on its tile.
+        RemoteManagedScreen(onBack = { remoteOpen = false; remoteLeft = true })
     } else
         Scaffold(
             topBar = {
@@ -1639,8 +1650,20 @@ fun MainScreen(
             MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
             MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
             MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public, Icons.Default.Pets) { context.startActivity(Intent(context, ServeActivity::class.java)) }
-                .takeIf { Feature.SERVE_EDIT.offered() }
+                .takeIf { Feature.SERVE_EDIT.offered() },
+            // Where the page would be three levels down in the settings: its own row under the cards,
+            // saying what state it is in. It opens over this screen, and the remote comes back to it.
+            MenuEntry(
+                stringResource(R.string.tile_remote_title), Icons.Default.SettingsRemote,
+                state = remoteTile?.let { remoteTileText(it) },
+                stateWarns = remoteTile?.blocked == true,
+                wide = true,
+                focusOnShow = remoteLeft,
+                onClick = { remoteLeft = false; remoteOpen = true },
+            ).takeIf { remoteTileOffered }
         )
+        // How many cards there are: the page's own row takes no column.
+        val cardCount = menuEntries.count { !it.wide }
         val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
             MenuGrid(columns = columns, cardHeight = cardHeight, entries = menuEntries)
         }
@@ -1669,7 +1692,7 @@ fun MainScreen(
             // tall one starts them under the top bar, where the eye does.
             val paneArrangement = if (maxHeight < 480.dp) Arrangement.Center else Arrangement.Top
             if (fold is Fold.Horizontal) {
-                val menuColumns = menuColumnsFor(maxWidth - 48.dp, menuEntries.size)
+                val menuColumns = menuColumnsFor(maxWidth - 48.dp, cardCount)
                 Column(modifier = Modifier.fillMaxSize()) {
                     Column(
                         modifier = Modifier
@@ -1704,7 +1727,8 @@ fun MainScreen(
                     height = maxHeight,
                     status = { fillHeight -> statusPane(fillHeight) },
                     menu = { columns, rowHeight -> menuPane(columns, rowHeight) },
-                    menuCount = menuEntries.size,
+                    menuCount = cardCount,
+                    wideMenuRows = menuEntries.size - cardCount,
                     peers = tailnetPeers.takeIf { proxyState != "STOPPED" },
                     connected = proxyState == "ACTIVE" || proxyState == "STARTING",
                     onOpenPeers = { id ->
@@ -1725,7 +1749,7 @@ fun MainScreen(
                 // tablet in portrait can have the same window and very
                 // different room left over here.
                 val menuWidth = maxWidth - statusWidth - paneGap - 48.dp
-                val menuColumns = menuColumnsFor(menuWidth, menuEntries.size)
+                val menuColumns = menuColumnsFor(menuWidth, cardCount)
                 // One row for the pair, as tall as the taller of the two. The
                 // card takes up whatever the status column has left, so beside
                 // a taller grid the column ends where the grid does — with the
@@ -1773,7 +1797,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         statusPane(false)
                         Spacer(modifier = Modifier.height(32.dp))
-                        menuPane(menuColumnsFor(columnWidth - 48.dp, menuEntries.size), cardHeight)
+                        menuPane(menuColumnsFor(columnWidth - 48.dp, cardCount), cardHeight)
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
@@ -2519,8 +2543,24 @@ fun StatusCard(
 }
 
 /** One destination on the main screen. */
-/** A destination on the main screen; [icon2], when set, stands beside [icon] for a screen of two parts. */
-data class MenuEntry(val title: String, val icon: ImageVector, val icon2: ImageVector? = null, val onClick: () -> Unit)
+/**
+ * A destination on the main screen; [icon2], when set, stands beside [icon] for a screen of two parts.
+ *
+ * A [wide] entry has a row of its own across the grid, under the cards, and a second line: its
+ * [state], which [stateWarns] sets apart (what it says is not a state to be happy with). It takes
+ * no part in how many columns the cards have. [focusOnShow] puts the remote on it as it appears:
+ * the page it opened has just been left.
+ */
+data class MenuEntry(
+    val title: String,
+    val icon: ImageVector,
+    val icon2: ImageVector? = null,
+    val state: String? = null,
+    val stateWarns: Boolean = false,
+    val wide: Boolean = false,
+    val focusOnShow: Boolean = false,
+    val onClick: () -> Unit,
+)
 
 /**
  * The destinations, [columns] to a row.
@@ -2544,8 +2584,11 @@ fun menuColumnsFor(width: Dp, entries: Int = 8): Int {
 
 @Composable
 fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        entries.chunked(columns).forEachIndexed { rowIndex, row ->
+    val cards = entries.filter { !it.wide }
+    // For a remote the grid is one stop: coming in from the status card lands on the card the
+    // remote was last on, not on the nearest — the row of its own under the cards is nearer.
+    Column(modifier = modifier.fillMaxWidth().tvFocusGroup()) {
+        cards.chunked(columns).forEachIndexed { rowIndex, row ->
             if (rowIndex > 0) Spacer(modifier = Modifier.height(16.dp))
             // A minimum, not a fixed height: at a large system font the label
             // needs more room, and the row grows to its tallest card so the
@@ -2564,6 +2607,61 @@ fun MenuGrid(columns: Int, entries: List<MenuEntry>, cardHeight: Dp = 96.dp, mod
                 repeat(columns - row.size) {
                     Spacer(modifier = Modifier.width(16.dp))
                     Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        // What has a row of its own comes last, across the cards above it.
+        entries.filter { it.wide }.forEachIndexed { i, entry ->
+            if (cards.isNotEmpty() || i > 0) Spacer(modifier = Modifier.height(16.dp))
+            WideMenuCard(
+                entry,
+                Modifier.fillMaxWidth().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
+            )
+        }
+    }
+}
+
+/**
+ * A destination across the width of the grid: its icon and name, and under the name what state it
+ * is in. For what a device would not find in the settings, and wants to see the state of.
+ */
+@Composable
+fun WideMenuCard(entry: MenuEntry, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = entry.onClick,
+        shape = MaterialTheme.shapes.large,
+        color = colors.surfaceContainer,
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Icon(
+                imageVector = entry.icon,
+                contentDescription = null,
+                tint = if (entry.stateWarns) colors.outline else colors.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = entry.title,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.onSurface,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (entry.state != null) {
+                    Text(
+                        text = entry.state,
+                        color = if (entry.stateWarns) colors.tertiary else colors.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }

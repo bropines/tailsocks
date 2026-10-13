@@ -80,6 +80,14 @@ enum class Feature {
     TOUCH_GESTURES_HINTS,
     /** Asking to be left out of battery optimisation: the banner, the permission row, the onboarding card. */
     BATTERY_OPTIMISATION_PROMPT,
+    /**
+     * Remote management kept to its row in Settings → Advanced → Experimental, where a handheld has
+     * always had it. A device that is not offered that has the page on its home screen as well, as a
+     * tile: a television, where it is the way to stop using the remote and nobody finds a page three
+     * levels deep. The one entry that is a place a device gets more of, not less — read it as
+     * `!offered()`; a handheld is offered it like everything else, and so gets no tile.
+     */
+    REMOTE_MANAGEMENT_ONLY_IN_SETTINGS,
 }
 
 /** Where a [Feature] is to be found on a device. */
@@ -194,7 +202,9 @@ object DeviceProfile {
             Feature.CLIPBOARD_ACTIONS,
             Feature.TOUCH_GESTURES_HINTS,
             Feature.BROWSER_SIGN_IN,
-            Feature.BATTERY_OPTIMISATION_PROMPT -> Availability.HIDDEN
+            Feature.BATTERY_OPTIMISATION_PROMPT,
+            // The page is in Settings too: what is hidden is the settings-only arrangement, for a tile.
+            Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS -> Availability.HIDDEN
 
             Feature.SERVE_EDIT,
             Feature.CONSOLE,
