@@ -5,7 +5,9 @@ import (
 	"crypto/ecdh"
 	"crypto/hpke"
 	"crypto/rand"
+	"errors"
 	"io"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -17,8 +19,12 @@ const (
 	testSetupServer = "https://headscale.example.com"
 )
 
-// testCode is a code as a television would draw it, for n addresses.
-func testCode(t testing.TB, n int) (text string, raw []byte) {
+// testRelayRegion is a relay region as the relay map numbers them.
+const testRelayRegion = 303
+
+// testCode is a code as a television would draw it, for n addresses, with or
+// without a relay.
+func testCode(t testing.TB, n int, relay uint16) (text string, raw []byte) {
 	t.Helper()
 	priv, err := hpke.DHKEM(ecdh.X25519()).GenerateKey()
 	if err != nil {
@@ -27,32 +33,130 @@ func testCode(t testing.TB, n int) (text string, raw []byte) {
 	secret := make([]byte, setupSecretLen)
 	rand.Read(secret)
 	all := addrs("192.168.1.50", "10.0.0.2", "169.254.10.20")
-	return encodeSetupCode(priv.PublicKey().Bytes(), secret, 41234, all[:n])
+	return encodeSetupCode(priv.PublicKey().Bytes(), secret, relay, all[:n])
+}
+
+// encodeSetupCodeV1 is the first version's code, which a television no longer
+// draws and a phone still reads: the port spelt out where the relay's region
+// is now, and at least one address.
+func encodeSetupCodeV1(pub, secret []byte, port uint16, addrs []netip.Addr) (text string, raw []byte) {
+	text, raw = encodeSetupCode(pub, secret, port, addrs)
+	return setupPrefixV1 + strings.TrimPrefix(text, setupPrefix), raw
 }
 
 func TestSetupCodeRoundTrip(t *testing.T) {
-	for n := 1; n <= setupMaxAddrs; n++ {
-		text, raw := testCode(t, n)
-		c, err := parseSetupCode(text)
-		if err != nil {
-			t.Fatalf("%d addresses: %v", n, err)
-		}
-		if !bytes.Equal(c.raw, raw) || !bytes.Equal(c.key, raw[:setupKeyLen]) || c.port != 41234 || len(c.addrs) != n {
-			t.Errorf("%d addresses: read back as %+v", n, c)
-		}
-		if !slices.Equal(c.addrs, addrs("192.168.1.50", "10.0.0.2", "169.254.10.20")[:n]) {
-			t.Errorf("%d addresses: %v", n, c.addrs)
-		}
-		for _, variant := range []string{strings.ToLower(text), "  " + text + "\r\n", "tsp1:" + text[5:]} {
-			if again, err := parseSetupCode(variant); err != nil || !bytes.Equal(again.raw, raw) {
-				t.Errorf("%q: %v", variant, err)
+	all := addrs("192.168.1.50", "10.0.0.2", "169.254.10.20")
+	for _, relay := range []uint16{0, 1, testRelayRegion, 0xffff} {
+		for n := 0; n <= setupMaxAddrs; n++ {
+			if n == 0 && relay == 0 {
+				continue
+			}
+			text, raw := testCode(t, n, relay)
+			c, err := parseSetupCode(text)
+			if err != nil {
+				t.Fatalf("%d addresses, relay %d: %v", n, relay, err)
+			}
+			if c.version != 2 || !bytes.Equal(c.raw, raw) || !bytes.Equal(c.key, raw[:setupKeyLen]) || c.relay != relay || !slices.Equal(c.addrs, all[:n]) {
+				t.Errorf("%d addresses, relay %d: read back as %+v", n, relay, c)
+			}
+			if !bytes.Equal(c.secret(), raw[setupKeyLen:setupKeyLen+setupSecretLen]) {
+				t.Errorf("%d addresses, relay %d: another secret", n, relay)
+			}
+			// The port is not in the code: it follows from the key, and is
+			// there only when an address is.
+			want := setupPortOf(c.key)
+			if n == 0 {
+				want = 0
+			}
+			if c.port != want || (n > 0 && (c.port < setupPortBase || int(c.port) >= setupPortBase+setupPortCount)) {
+				t.Errorf("%d addresses, relay %d: port %d", n, relay, c.port)
+			}
+			for _, variant := range []string{strings.ToLower(text), "  " + text + "\r\n", "tsp2:" + text[5:]} {
+				if again, err := parseSetupCode(variant); err != nil || !bytes.Equal(again.raw, raw) {
+					t.Errorf("%q: %v", variant, err)
+				}
 			}
 		}
 	}
 	// A key that starts with zero bytes keeps its length.
-	text, raw := encodeSetupCode(make([]byte, setupKeyLen), make([]byte, setupSecretLen), 2000, addrs("10.0.0.1"))
+	text, raw := encodeSetupCode(make([]byte, setupKeyLen), make([]byte, setupSecretLen), 0, addrs("10.0.0.1"))
 	if c, err := parseSetupCode(text); err != nil || !bytes.Equal(c.raw, raw) || len(text) != len(setupPrefix)+setupDigits[1] {
 		t.Errorf("leading zeros: %q, %v", text, err)
+	}
+}
+
+// A phone still reads the code an earlier build drew: the port in it, no relay.
+func TestSetupCodeV1(t *testing.T) {
+	priv, _ := hpke.DHKEM(ecdh.X25519()).GenerateKey()
+	pub := priv.PublicKey().Bytes()
+	secret := bytes.Repeat([]byte{7}, setupSecretLen)
+	all := addrs("192.168.1.50", "10.0.0.2", "169.254.10.20")
+	for n := 1; n <= setupMaxAddrs; n++ {
+		text, raw := encodeSetupCodeV1(pub, secret, 41234, all[:n])
+		c, err := parseSetupCode(text)
+		if err != nil {
+			t.Fatalf("%d addresses: %v", n, err)
+		}
+		if c.version != 1 || c.port != 41234 || c.relay != 0 || !bytes.Equal(c.raw, raw) || !slices.Equal(c.addrs, all[:n]) {
+			t.Errorf("%d addresses: read back as %+v", n, c)
+		}
+		// The same bytes under the other prefix are another code: the two
+		// bytes after the secret mean something else, and so do the keys.
+		two, err := parseSetupCode(setupPrefix + text[len(setupPrefixV1):])
+		if err != nil || two.version != 2 || two.relay != 41234 || two.port != setupPortOf(pub) {
+			t.Errorf("%d addresses, read as TSP2: %+v, %v", n, two, err)
+		}
+		if bytes.Equal(setupInfo(c.version, c.raw), setupInfo(two.version, two.raw)) {
+			t.Error("the two versions seal under the same info")
+		}
+		// And what a phone seals for it opens as that build opened it: under
+		// the first version's label, with everything the code said.
+		plain, _ := encodeSetupBundle(setupBundle{key: []byte(testSetupKey)})
+		request, phone, err := sealSetupRequest(c, plain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		opened, tv, err := openSetupRequest(priv, append([]byte("TailSocks setup v1\x00"), raw...), request[:setupHeaderLen], request[setupHeaderLen:])
+		if err != nil || !bytes.Equal(opened, plain) || tv.code != phone.code {
+			t.Errorf("%d addresses: a first-version television would not open it: %v", n, err)
+		}
+	}
+	for name, text := range map[string]string{
+		"no address":        setupPrefixV1 + strings.Repeat("1", setupDigits[0]),
+		"port 0":            first(encodeSetupCodeV1(pub, secret, 0, all[:1])),
+		"a well-known port": first(encodeSetupCodeV1(pub, secret, 443, all[:1])),
+		"port 1023":         first(encodeSetupCodeV1(pub, secret, 1023, all[:1])),
+		"a public address":  first(encodeSetupCodeV1(pub, secret, 41234, addrs("203.0.113.7"))),
+	} {
+		if c, err := parseSetupCode(text); err == nil {
+			t.Errorf("%s: read as %v port %d", name, c.addrs, c.port)
+		}
+	}
+	if _, err := parseSetupCode(first(encodeSetupCodeV1(pub, secret, 1024, all[:1]))); err != nil {
+		t.Errorf("port 1024: %v", err)
+	}
+}
+
+func first(text string, _ []byte) string { return text }
+
+// The port of a session is spread over the dynamic range, and one key's is
+// not another's.
+func TestSetupPortOf(t *testing.T) {
+	seen := map[uint16]bool{}
+	for i := range 2000 {
+		pub := make([]byte, setupKeyLen)
+		pub[0], pub[1] = byte(i), byte(i>>8)
+		p := setupPortOf(pub)
+		if p < setupPortBase || p < setupMinPort {
+			t.Fatalf("key %d: port %d", i, p)
+		}
+		seen[p] = true
+	}
+	if len(seen) < 1800 {
+		t.Errorf("2000 keys share %d ports", len(seen))
+	}
+	if setupPortOf(make([]byte, setupKeyLen)) != setupPortOf(make([]byte, setupKeyLen)) {
+		t.Error("one key, two ports")
 	}
 }
 
@@ -71,7 +175,8 @@ var qrDataBits = map[string]int{
 
 // The code is drawn on a television and read from the sofa, so its size is
 // part of the design: capitals and digits only, and small enough for a
-// version 4 code — with error correction M when one address is listed.
+// version 4 code — with error correction M up to one address. The relay does
+// not change that: a code that names it is as long as one that does not.
 func TestSetupCodeFitsQR(t *testing.T) {
 	const alnum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
 	for n, want := range map[int]struct {
@@ -79,28 +184,34 @@ func TestSetupCodeFitsQR(t *testing.T) {
 		fits    []string
 		doesNot []string
 	}{
+		0: {chars: 83, fits: []string{"4-M", "4-L"}, doesNot: []string{"3-L", "4-Q"}},
 		1: {chars: 89, fits: []string{"4-M", "4-L"}, doesNot: []string{"3-L", "4-Q"}},
 		2: {chars: 95, fits: []string{"4-L", "5-M"}, doesNot: []string{"3-L", "4-M", "5-Q"}},
 		3: {chars: 101, fits: []string{"4-L", "5-M", "6-Q"}, doesNot: []string{"3-L", "4-M", "5-Q"}},
 	} {
-		text, _ := testCode(t, n)
-		if len(text) != want.chars {
-			t.Errorf("%d addresses: %d characters, want %d", n, len(text), want.chars)
-		}
-		for _, r := range text {
-			if !strings.ContainsRune(alnum, r) {
-				t.Fatalf("%d addresses: %q is outside the QR alphanumeric set", n, r)
+		for _, relay := range []uint16{0, testRelayRegion} {
+			if n == 0 && relay == 0 {
+				continue
 			}
-		}
-		bits := qrAlnumBits(len(text))
-		for _, v := range want.fits {
-			if bits > qrDataBits[v] {
-				t.Errorf("%d addresses: %d bits do not fit a version %s code (%d)", n, bits, v, qrDataBits[v])
+			text, _ := testCode(t, n, relay)
+			if len(text) != want.chars {
+				t.Errorf("%d addresses, relay %d: %d characters, want %d", n, relay, len(text), want.chars)
 			}
-		}
-		for _, v := range want.doesNot {
-			if bits <= qrDataBits[v] {
-				t.Errorf("%d addresses: %d bits fit a version %s code (%d); the comment in setup.go says otherwise", n, bits, v, qrDataBits[v])
+			for _, r := range text {
+				if !strings.ContainsRune(alnum, r) {
+					t.Fatalf("%d addresses: %q is outside the QR alphanumeric set", n, r)
+				}
+			}
+			bits := qrAlnumBits(len(text))
+			for _, v := range want.fits {
+				if bits > qrDataBits[v] {
+					t.Errorf("%d addresses: %d bits do not fit a version %s code (%d)", n, bits, v, qrDataBits[v])
+				}
+			}
+			for _, v := range want.doesNot {
+				if bits <= qrDataBits[v] {
+					t.Errorf("%d addresses: %d bits fit a version %s code (%d); the comment in setup.go says otherwise", n, bits, v, qrDataBits[v])
+				}
 			}
 		}
 	}
@@ -110,33 +221,43 @@ func TestParseSetupCodeRefuses(t *testing.T) {
 	priv, _ := hpke.DHKEM(ecdh.X25519()).GenerateKey()
 	pub := priv.PublicKey().Bytes()
 	secret := make([]byte, setupSecretLen)
-	code := func(port uint16, as ...string) string {
-		text, _ := encodeSetupCode(pub, secret, port, addrs(as...))
+	code := func(relay uint16, as ...string) string {
+		text, _ := encodeSetupCode(pub, secret, relay, addrs(as...))
 		return text
 	}
-	if _, err := parseSetupCode(code(1024, "192.168.1.50")); err != nil {
-		t.Fatalf("a good code: %v", err)
+	for _, good := range []string{code(0, "192.168.1.50"), code(testRelayRegion), code(testRelayRegion, "192.168.1.50", "10.0.0.2", "169.254.1.1")} {
+		if _, err := parseSetupCode(good); err != nil {
+			t.Fatalf("a good code: %v", err)
+		}
 	}
 	for name, text := range map[string]string{
-		"a public address":         code(41234, "203.0.113.7"),
-		"a public one among good":  code(41234, "192.168.1.50", "8.8.8.8"),
-		"the tailnet":              code(41234, "100.101.102.103"),
-		"this machine":             code(41234, "127.0.0.1"),
-		"no address in particular": code(41234, "0.0.0.0"),
-		"broadcast":                code(41234, "255.255.255.255"),
-		"multicast":                code(41234, "224.0.0.251"),
-		"the same address twice":   code(41234, "192.168.1.50", "192.168.1.50"),
-		"port 0":                   code(0, "192.168.1.50"),
-		"a well-known port":        code(443, "192.168.1.50"),
-		"port 1023":                code(1023, "192.168.1.50"),
-		"another script":           "ТSP1:" + code(41234, "192.168.1.50")[5:],
-		"a folded letter":          "tſp1:" + code(41234, "192.168.1.50")[5:],
-		"a digit from elsewhere":   code(41234, "192.168.1.50")[:30] + "٣" + code(41234, "192.168.1.50")[31:],
-		"a space inside":           code(41234, "192.168.1.50")[:30] + " " + code(41234, "192.168.1.50")[31:],
-		"a link":                   "tailsocks://setup?c=" + code(41234, "192.168.1.50"),
+		"neither an address nor a relay": code(0),
+		"a public address":               code(0, "203.0.113.7"),
+		"a public address with a relay":  code(testRelayRegion, "203.0.113.7"),
+		"a public one among good":        code(0, "192.168.1.50", "8.8.8.8"),
+		"the tailnet":                    code(testRelayRegion, "100.101.102.103"),
+		"this machine":                   code(0, "127.0.0.1"),
+		"no address in particular":       code(0, "0.0.0.0"),
+		"broadcast":                      code(0, "255.255.255.255"),
+		"multicast":                      code(0, "224.0.0.251"),
+		"the same address twice":         code(testRelayRegion, "192.168.1.50", "192.168.1.50"),
+		"a digit short":                  code(testRelayRegion)[:len(code(testRelayRegion))-1],
+		"a digit long":                   code(testRelayRegion) + "0",
+		"more than the bytes hold":       setupPrefix + strings.Repeat("Z", setupDigits[0]),
+		"another script":                 "ТSP2:" + code(0, "192.168.1.50")[5:],
+		"a folded letter":                "tſp2:" + code(0, "192.168.1.50")[5:],
+		"a digit from elsewhere":         code(0, "192.168.1.50")[:30] + "٣" + code(0, "192.168.1.50")[31:],
+		"a space inside":                 code(0, "192.168.1.50")[:30] + " " + code(0, "192.168.1.50")[31:],
+		"a link":                         "tailsocks://setup?c=" + code(0, "192.168.1.50"),
 	} {
 		if c, err := parseSetupCode(text); err == nil {
-			t.Errorf("%s: read as %v port %d", name, c.addrs, c.port)
+			t.Errorf("%s: read as %v port %d relay %d", name, c.addrs, c.port, c.relay)
+		}
+	}
+	// A code of a version to come is told apart from a damaged one.
+	for _, text := range []string{"TSP3:" + code(0, "192.168.1.50")[5:], "tsp10:whatever", "TSP0:1"} {
+		if _, err := parseSetupCode(text); !errors.Is(err, errSetupVersion) {
+			t.Errorf("%q: %v", text, err)
 		}
 	}
 }
@@ -253,11 +374,12 @@ func TestSetupExchangeDerivation(t *testing.T) {
 	}
 	secret := make([]byte, setupSecretLen)
 	rand.Read(secret)
-	text, raw := encodeSetupCode(priv.PublicKey().Bytes(), secret, 41234, addrs("192.168.1.50"))
+	text, raw := encodeSetupCode(priv.PublicKey().Bytes(), secret, testRelayRegion, addrs("192.168.1.50"))
 	code, err := parseSetupCode(text)
 	if err != nil {
 		t.Fatal(err)
 	}
+	info := setupInfo(code.version, raw)
 	plain, _ := encodeSetupBundle(setupBundle{key: []byte(testSetupKey)})
 
 	request, phone, err := sealSetupRequest(code, plain)
@@ -274,7 +396,7 @@ func TestSetupExchangeDerivation(t *testing.T) {
 	if err != nil || !got {
 		t.Fatal(err)
 	}
-	opened, tv, err := openSetupRequest(priv, setupInfo(raw), header, sealed)
+	opened, tv, err := openSetupRequest(priv, info, header, sealed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,20 +450,28 @@ func TestSetupExchangeDerivation(t *testing.T) {
 
 	// The television's side with anything else than the session's own: no.
 	otherPriv, _ := kem.GenerateKey()
-	if _, _, err := openSetupRequest(otherPriv, setupInfo(raw), header, sealed); err == nil {
+	if _, _, err := openSetupRequest(otherPriv, info, header, sealed); err == nil {
 		t.Error("opened with another key")
 	}
 	otherRaw := bytes.Clone(raw)
 	otherRaw[setupKeyLen+3] ^= 0x80
-	if _, _, err := openSetupRequest(priv, setupInfo(otherRaw), header, sealed); err == nil {
+	if _, _, err := openSetupRequest(priv, setupInfo(2, otherRaw), header, sealed); err == nil {
 		t.Error("opened under another secret")
 	}
 	otherRaw = bytes.Clone(raw)
 	otherRaw[len(otherRaw)-1] ^= 1
-	if _, _, err := openSetupRequest(priv, setupInfo(otherRaw), header, sealed); err == nil {
+	if _, _, err := openSetupRequest(priv, setupInfo(2, otherRaw), header, sealed); err == nil {
 		t.Error("opened under another address list")
 	}
-	if _, _, err := openSetupRequest(nil, setupInfo(raw), header, sealed); err == nil {
+	otherRaw = bytes.Clone(raw)
+	otherRaw[setupKeyLen+setupSecretLen+1] ^= 1
+	if _, _, err := openSetupRequest(priv, setupInfo(2, otherRaw), header, sealed); err == nil {
+		t.Error("opened under another relay region")
+	}
+	if _, _, err := openSetupRequest(priv, setupInfo(1, raw), header, sealed); err == nil {
+		t.Error("opened as a code of the other version")
+	}
+	if _, _, err := openSetupRequest(nil, info, header, sealed); err == nil {
 		t.Error("opened without a key")
 	}
 }
@@ -359,12 +489,17 @@ func (c *countingReader) Read(p []byte) (int, error) {
 }
 
 func FuzzParseSetupCode(f *testing.F) {
-	for n := 1; n <= setupMaxAddrs; n++ {
-		text, _ := testCode(f, n)
+	for n := 0; n <= setupMaxAddrs; n++ {
+		text, _ := testCode(f, n, testRelayRegion)
 		f.Add(text)
 		f.Add(strings.ToLower(text))
+		if n > 0 {
+			text, _ = testCode(f, n, 0)
+			f.Add(text)
+			f.Add(setupPrefixV1 + text[len(setupPrefix):])
+		}
 	}
-	for _, s := range []string{"", "TSP1:", "TSP2:ABC", "tsp1:" + strings.Repeat("0", 84), "TSP1:" + strings.Repeat("Z", 96), "TSP1:-1", "TSP999:", "TSP:", " \n"} {
+	for _, s := range []string{"", "TSP1:", "TSP2:", "TSP3:ABC", "tsp2:" + strings.Repeat("0", 78), "tsp1:" + strings.Repeat("0", 84), "TSP2:" + strings.Repeat("Z", 96), "TSP2:-1", "TSP999:", "TSP:", " \n"} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
@@ -374,15 +509,33 @@ func FuzzParseSetupCode(f *testing.F) {
 		}
 		// Whatever is read is a code a television could have drawn, and
 		// drawing it again gives the same text.
-		if len(c.addrs) < 1 || len(c.addrs) > setupMaxAddrs || c.port < setupMinPort || len(c.key) != setupKeyLen {
+		if len(c.addrs) > setupMaxAddrs || len(c.key) != setupKeyLen || (len(c.addrs) == 0) != (c.port == 0) {
 			t.Fatalf("%q read as %+v", s, c)
+		}
+		if len(c.addrs) == 0 && c.relay == 0 {
+			t.Fatalf("%q read as a code for nowhere", s)
+		}
+		if len(c.addrs) > 0 && c.port < setupMinPort {
+			t.Fatalf("%q names port %d", s, c.port)
 		}
 		for i, a := range c.addrs {
 			if !setupLANAddr(a) || slices.Contains(c.addrs[:i], a) {
 				t.Fatalf("%q names %v", s, c.addrs)
 			}
 		}
-		text, raw := encodeSetupCode(c.key, c.raw[setupKeyLen:setupKeyLen+setupSecretLen], c.port, c.addrs)
+		var text string
+		var raw []byte
+		switch c.version {
+		case 1:
+			if c.relay != 0 {
+				t.Fatalf("%q: a first-version code with a relay", s)
+			}
+			text, raw = encodeSetupCodeV1(c.key, c.secret(), c.port, c.addrs)
+		case 2:
+			text, raw = encodeSetupCode(c.key, c.secret(), c.relay, c.addrs)
+		default:
+			t.Fatalf("%q: version %d", s, c.version)
+		}
 		if text != strings.ToUpper(strings.TrimSpace(s)) || !bytes.Equal(raw, c.raw) {
 			t.Fatalf("%q reads back as %q", s, text)
 		}
@@ -433,9 +586,12 @@ func FuzzSetupRequest(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	_, raw := encodeSetupCode(priv.PublicKey().Bytes(), bytes.Repeat([]byte{9}, setupSecretLen), 41234, addrs("192.168.1.50"))
-	code := &setupCode{raw: raw, key: raw[:setupKeyLen], port: 41234, addrs: addrs("192.168.1.50")}
-	info := setupInfo(raw)
+	text, raw := encodeSetupCode(priv.PublicKey().Bytes(), bytes.Repeat([]byte{9}, setupSecretLen), testRelayRegion, addrs("192.168.1.50"))
+	code, err := parseSetupCode(text)
+	if err != nil {
+		f.Fatal(err)
+	}
+	info := setupInfo(code.version, raw)
 	sealedHere := map[string]bool{}
 	for _, key := range []string{"k", testSetupKey} {
 		plain, _ := encodeSetupBundle(setupBundle{key: []byte(key), server: testSetupServer})

@@ -7,6 +7,7 @@ package appctr
 import (
 	"bytes"
 	"crypto/ecdh"
+	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/hpke"
 	"crypto/sha256"
@@ -29,13 +30,20 @@ import (
 const (
 	// setupPrefix opens a code and carries its version. Capitals, like the
 	// rest: a QR code made of capitals, digits and a colon is a third smaller.
-	setupPrefix    = "TSP1:"
+	// setupPrefixV1 is the first version's, which a phone still reads.
+	setupPrefix    = "TSP2:"
+	setupPrefixV1  = "TSP1:"
 	setupKeyLen    = 32
 	setupSecretLen = 16
-	// setupFixedLen is a code without its addresses: key, secret, port.
+	// setupFixedLen is a code without its addresses: key, secret and two
+	// bytes more — the relay's region in a TSP2 code, the port in a TSP1 one.
 	setupFixedLen = setupKeyLen + setupSecretLen + 2
 	// setupMinPort keeps a code from naming a well-known service.
 	setupMinPort = 1024
+	// setupPortBase and setupPortCount are where a TSP2 session listens on
+	// the LAN: the dynamic ports, 49152 to 65535.
+	setupPortBase  = 49152
+	setupPortCount = 16384
 )
 
 var (
@@ -46,30 +54,50 @@ var (
 
 // setupCode is what a code says.
 type setupCode struct {
-	raw   []byte // key | secret | port | addresses: what HPKE's info binds
-	key   []byte // the television's one-time public key
-	port  uint16
+	version int
+	raw     []byte // everything after the prefix, decoded: what HPKE's info binds
+	key     []byte // the television's one-time public key
+	// addrs and port are where it listens on the local network; none, and 0,
+	// when it has no address there.
 	addrs []netip.Addr
+	port  uint16
+	// relay is the region of the relay it listens through as well, 0 for none
+	// (setup_relay.go).
+	relay uint16
 }
 
 // setupDigits[n] is how many base-36 digits a code with n addresses has.
 var setupDigits = func() (d [setupMaxAddrs + 1]int) {
-	for n := 1; n <= setupMaxAddrs; n++ {
+	for n := range d {
 		top := new(big.Int).Lsh(big.NewInt(1), uint(8*(setupFixedLen+4*n)))
 		d[n] = len(top.Sub(top, big.NewInt(1)).Text(36))
 	}
 	return d
 }()
 
-// encodeSetupCode is the text of a code and the bytes it stands for. Base 36
-// rather than base 64: capitals and digits alone let a QR code use its
-// alphanumeric mode, 5.5 bits a character against 8, and survive any trim or
-// change of case on the way.
-func encodeSetupCode(pub, secret []byte, port uint16, addrs []netip.Addr) (text string, raw []byte) {
+// setupPortOf is the LAN port of a TSP2 session: a function of its public
+// key, so the code need not spell it out. The two bytes that saves are the
+// ones the relay's region takes, which keeps a code with a relay exactly as
+// long as one without was — and a code's length is what decides whether a
+// camera reads it across a room. A television whose port is taken draws
+// another key.
+func setupPortOf(pub []byte) uint16 {
+	sum := sha256.Sum256(append([]byte("tsp2 port\x00"), pub...))
+	return setupPortBase + binary.BigEndian.Uint16(sum[:])%setupPortCount
+}
+
+// encodeSetupCode is the text of a code and the bytes it stands for:
+//
+//	key (32) | secret (16) | relay region (2, 0 for none) | 0 to 3 IPv4 addresses (4 each)
+//
+// in base 36 after "TSP2:". Base 36 rather than base 64: capitals and digits
+// alone let a QR code use its alphanumeric mode, 5.5 bits a character against
+// 8, and survive any trim or change of case on the way.
+func encodeSetupCode(pub, secret []byte, relay uint16, addrs []netip.Addr) (text string, raw []byte) {
 	raw = make([]byte, 0, setupFixedLen+4*len(addrs))
 	raw = append(raw, pub...)
 	raw = append(raw, secret...)
-	raw = binary.BigEndian.AppendUint16(raw, port)
+	raw = binary.BigEndian.AppendUint16(raw, relay)
 	for _, a := range addrs {
 		b := a.As4()
 		raw = append(raw, b[:]...)
@@ -78,9 +106,10 @@ func encodeSetupCode(pub, secret []byte, port uint16, addrs []netip.Addr) (text 
 	return setupPrefix + strings.Repeat("0", setupDigits[len(addrs)]-len(digits)) + digits, raw
 }
 
-// parseSetupCode reads a scanned code. It refuses anything a television would
-// not have drawn: an address that is not a LAN address, a port below 1024,
-// the same address twice.
+// parseSetupCode reads a scanned code of either version. It refuses anything
+// a television would not have drawn: an address that is not a LAN address,
+// the same address twice, a TSP1 port below 1024, a TSP2 code with neither an
+// address nor a relay.
 func parseSetupCode(text string) (*setupCode, error) {
 	if len(text) > 4*len(setupPrefix)+4*setupDigits[setupMaxAddrs] {
 		return nil, errSetupNotCode
@@ -94,15 +123,19 @@ func parseSetupCode(text string) (*setupCode, error) {
 		}
 	}
 	text = strings.ToUpper(text)
+	version := 2
 	body, ok := strings.CutPrefix(text, setupPrefix)
 	if !ok {
-		if setupOtherVersion(text) {
-			return nil, errSetupVersion
+		version = 1
+		if body, ok = strings.CutPrefix(text, setupPrefixV1); !ok {
+			if setupOtherVersion(text) {
+				return nil, errSetupVersion
+			}
+			return nil, errSetupNotCode
 		}
-		return nil, errSetupNotCode
 	}
 	n := slices.Index(setupDigits[:], len(body))
-	if n < 1 {
+	if n < 0 || (n == 0 && version == 1) {
 		return nil, errSetupMalformed
 	}
 	// SetString would take a sign as well.
@@ -117,13 +150,20 @@ func parseSetupCode(text string) (*setupCode, error) {
 		return nil, errSetupMalformed
 	}
 	raw := v.FillBytes(make([]byte, size))
-	c := &setupCode{
-		raw:  raw,
-		key:  raw[:setupKeyLen],
-		port: binary.BigEndian.Uint16(raw[setupKeyLen+setupSecretLen:]),
-	}
-	if c.port < setupMinPort {
+	c := &setupCode{version: version, raw: raw, key: raw[:setupKeyLen]}
+	two := binary.BigEndian.Uint16(raw[setupKeyLen+setupSecretLen:])
+	switch {
+	case version == 1:
+		if c.port = two; c.port < setupMinPort {
+			return nil, errSetupMalformed
+		}
+	case n == 0 && two == 0:
 		return nil, errSetupMalformed
+	default:
+		c.relay = two
+		if n > 0 {
+			c.port = setupPortOf(c.key)
+		}
 	}
 	for at := setupFixedLen; at < size; at += 4 {
 		a := netip.AddrFrom4([4]byte(raw[at : at+4]))
@@ -152,6 +192,20 @@ func setupOtherVersion(text string) bool {
 		}
 	}
 	return true
+}
+
+// setupRelaySeed is what both ends derive the relay's tunnel from: 64 bytes
+// out of the code's secret, salted with its key. The relay then costs the
+// code two bytes — the region — instead of the hundred a tailcat address has.
+// It is one-way: what the tunnel shows a relay's operator says nothing about
+// the secret the sealing rests on.
+func setupRelaySeed(pub, secret []byte) ([]byte, error) {
+	return hkdf.Key(sha256.New, secret, pub, "TailSocks setup v2 relay", 64)
+}
+
+// secret is the code's one-time secret.
+func (c *setupCode) secret() []byte {
+	return c.raw[setupKeyLen : setupKeyLen+setupSecretLen]
 }
 
 // setupSessionID names a session without giving anything away: five
@@ -361,11 +415,11 @@ const (
 
 var errSetupRequest = errors.New("not a setup request")
 
-// setupInfo is HPKE's info for a code: a label and everything the code said.
-// The secret is in there, which is what makes every key of the exchange
-// depend on it.
-func setupInfo(raw []byte) []byte {
-	return append([]byte("TailSocks setup v1\x00"), raw...)
+// setupInfo is HPKE's info for a code: a label with its version and
+// everything the code said. The secret is in there, which is what makes
+// every key of the exchange depend on it.
+func setupInfo(version int, raw []byte) []byte {
+	return append(fmt.Appendf(nil, "TailSocks setup v%d\x00", version), raw...)
 }
 
 // setupExchange is what the two ends of one request share beyond the bundle.
@@ -428,7 +482,7 @@ func sealSetupRequest(c *setupCode, plain []byte) ([]byte, *setupExchange, error
 	if err != nil {
 		return nil, nil, err
 	}
-	enc, sender, err := hpke.NewSender(pk, hpke.HKDFSHA256(), hpke.ChaCha20Poly1305(), setupInfo(c.raw))
+	enc, sender, err := hpke.NewSender(pk, hpke.HKDFSHA256(), hpke.ChaCha20Poly1305(), setupInfo(c.version, c.raw))
 	if err != nil {
 		return nil, nil, err
 	}

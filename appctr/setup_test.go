@@ -50,15 +50,22 @@ func testSetupConfig() setupConfig {
 		addrCheck:     time.Hour,
 		tick:          5 * time.Millisecond,
 		locals:        loopbackLocals,
+		// No relay unless a test brings one (setup_relay_test.go): the
+		// session is on the LAN alone, and begins at once.
+		relayOpen: 3 * time.Second,
 	}
 }
 
 func testSendConfig() setupSendConfig {
 	return setupSendConfig{
-		dialTimeout:   3 * time.Second,
-		answerTimeout: 3 * time.Second,
-		verdictWait:   30 * time.Second,
-		locals:        loopbackLocals,
+		dialTimeout:        3 * time.Second,
+		dialTimeoutShort:   3 * time.Second,
+		answerTimeout:      3 * time.Second,
+		answerTimeoutShort: 3 * time.Second,
+		relayDial:          3 * time.Second,
+		relayAnswer:        3 * time.Second,
+		verdictWait:        30 * time.Second,
+		locals:             loopbackLocals,
 	}
 }
 
@@ -239,7 +246,7 @@ func TestSetupExchange(t *testing.T) {
 
 	// A scanner may hand the text over in any case, with a line end.
 	tx := sendTestSetup(" "+strings.ToLower(rx.Payload)+"\n", "  "+testSetupKey+"\n", testSetupServer)
-	if tx.State != setupAwaiting || len(tx.Code) != 6 || tx.Address != setupAddr(rx) {
+	if tx.State != setupAwaiting || tx.Path != setupViaLAN || len(tx.Code) != 6 || tx.Address != setupAddr(rx) {
 		t.Fatalf("send: %+v", tx)
 	}
 	if got := txNow(t); got != tx {
@@ -249,7 +256,7 @@ func TestSetupExchange(t *testing.T) {
 	got := rxNow(t)
 	want := setupRxStatus{
 		State: setupReceived, ID: rx.ID, Addresses: []string{}, ExpiresIn: 30,
-		From: "127.0.0.1", SenderName: "Pixel 9", Code: tx.Code, KeyPrefix: "tskey-auth", LoginServer: testSetupServer,
+		Via: setupViaLAN, From: "127.0.0.1", SenderName: "Pixel 9", Code: tx.Code, KeyPrefix: "tskey-auth", LoginServer: testSetupServer,
 	}
 	if !slices.Equal(got.Addresses, want.Addresses) {
 		t.Errorf("addresses %q after the bundle arrived", got.Addresses)
@@ -354,29 +361,28 @@ func TestSetupReject(t *testing.T) {
 	nothingListens(t, setupAddr(rx))
 }
 
-// A code that differs from the television's in its secret, its key or its
-// addresses gives other keys: the bundle does not open, the phone gets no
-// answer, and the right code works afterwards.
+// A code that differs from the television's in its secret, its key, its
+// relay or its addresses gives other keys: the bundle does not open, the
+// phone gets no answer, and the right code works afterwards.
 func TestSetupWrongCode(t *testing.T) {
 	setupOnLoopback(t)
-	rx := startTestSetup(t, testSetupConfig())
+	cfg := testSetupConfig()
+	cfg.maxFailures = 10
+	rx := startTestSetup(t, cfg)
 	code, err := parseSetupCode(rx.Payload)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pub := code.raw[:setupKeyLen]
-	secret := code.raw[setupKeyLen : setupKeyLen+setupSecretLen]
+	pub, secret := code.key, code.secret()
 
 	otherSecret := bytes.Clone(secret)
 	otherSecret[0] ^= 1
-	other, err := hpke.DHKEM(ecdh.X25519()).GenerateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
 	wrong := map[string]string{}
-	wrong["another secret"], _ = encodeSetupCode(pub, otherSecret, code.port, code.addrs)
-	wrong["another key"], _ = encodeSetupCode(other.PublicKey().Bytes(), secret, code.port, code.addrs)
-	wrong["another address list"], _ = encodeSetupCode(pub, secret, code.port, []netip.Addr{code.addrs[0], netip.MustParseAddr("127.0.0.2")})
+	wrong["another secret"], _ = encodeSetupCode(pub, otherSecret, code.relay, code.addrs)
+	wrong["another relay region"], _ = encodeSetupCode(pub, secret, testRelayRegion, code.addrs)
+	wrong["another address list"], _ = encodeSetupCode(pub, secret, code.relay, []netip.Addr{code.addrs[0], netip.MustParseAddr("127.0.0.2")})
+	// The first version's code for the same bytes: another label under the seal.
+	wrong["another version"], _ = encodeSetupCodeV1(pub, secret, code.port, code.addrs)
 
 	refused := 0
 	for name, payload := range wrong {
@@ -390,13 +396,32 @@ func TestSetupWrongCode(t *testing.T) {
 			t.Errorf("%s: the television is %+v", name, st)
 		}
 	}
+
+	// Another key is another port as well, so a phone that read such a code
+	// would not get this far; the request goes down a connection of the
+	// test's own.
+	other, err := hpke.DHKEM(ecdh.X25519()).GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, _ := encodeSetupCode(other.PublicKey().Bytes(), secret, code.relay, code.addrs)
+	request, _ := testRequest(t, text, testSetupKey)
+	c := dialSetup(t, setupAddr(rx))
+	c.Write(request)
+	if out, _ := io.ReadAll(c); len(out) != 0 {
+		t.Errorf("a request sealed to another key was answered with %d bytes", len(out))
+	}
+	refused++
+	waitFor(t, "another key to be counted", func() bool { return rxNow(t).FailedAttempts == refused })
+
 	if tx := sendTestSetup(rx.Payload, testSetupKey, ""); tx.State != setupAwaiting {
 		t.Errorf("the right code after the wrong ones: %+v", tx)
 	}
 }
 
 // A recorded request is worth nothing: the session it was made for holds one
-// bundle whatever is sent, and any other session has another key and secret.
+// bundle whatever is sent and tells the recording what it told the sender,
+// and any other session has another key and secret.
 func TestSetupReplay(t *testing.T) {
 	setupOnLoopback(t)
 	rx := startTestSetup(t, testSetupConfig())
@@ -417,14 +442,17 @@ func TestSetupReplay(t *testing.T) {
 	}
 	held := rxNow(t)
 
-	// The recording gets no answer of its own: nothing to hand the phone in
-	// place of the one it was given.
+	// The recording is told what the sender was told — it is how a phone
+	// that was not heard asks again — and that is all it does.
 	second.Write(request)
-	if out, _ := io.ReadAll(second); len(out) != 0 {
-		t.Fatalf("the replay was answered with %d bytes", len(out))
+	if _, err := io.ReadFull(second, reply); err != nil {
+		t.Fatal(err)
 	}
-	if now := rxNow(t); now.State != setupReceived || now.Code != x.code || now.Code != held.Code || now.FailedAttempts != 0 {
-		t.Errorf("the replay changed the session: %+v", now)
+	if kind, ok := x.check(reply, setupSaysHeld); !ok {
+		t.Fatalf("the replay was answered %#x", kind)
+	}
+	if now := rxNow(t); !equalRx(now, held) || now.Code != x.code || now.FailedAttempts != 0 {
+		t.Errorf("the replay changed the session: %+v, was %+v", now, held)
 	}
 	if k := heldKey(); string(k) != testSetupKey {
 		t.Errorf("held key after the replay: %q", k)
@@ -437,15 +465,18 @@ func TestSetupReplay(t *testing.T) {
 	}
 
 	SetupReceiveReject()
-	if _, err := io.ReadFull(first, reply); err != nil {
-		t.Fatal(err)
-	}
-	if kind, ok := x.check(reply, setupSaysRejected); !ok {
-		t.Fatalf("the verdict is %#x", kind)
+	for _, c := range []*net.TCPConn{first, second} {
+		if _, err := io.ReadFull(c, reply); err != nil {
+			t.Fatal(err)
+		}
+		if kind, ok := x.check(reply, setupSaysRejected); !ok {
+			t.Fatalf("the verdict is %#x", kind)
+		}
 	}
 	nothingListens(t, setupAddr(rx))
 
-	// The next session, as it happens on any port: the recording does not open.
+	// The next session has another key, so another port too. Even with the
+	// recording brought to its door, it does not open.
 	next := startTestSetup(t, testSetupConfig())
 	c := dialSetup(t, setupAddr(next))
 	c.Write(request)
@@ -542,32 +573,41 @@ func TestSetupHoldAnswers(t *testing.T) {
 	_, second := testRequest(t, rx.Payload, testSetupKey)
 	from := netip.MustParseAddr("127.0.0.1")
 	bundle := func() setupBundle { return setupBundle{key: []byte(testSetupKey)} }
+	a, b := net.Pipe()
+	defer a.Close()
+	defer b.Close()
 
-	h, answer := s.hold(nil, from, bundle(), first)
+	h, answer := s.hold(a, setupViaLAN, from, bundle(), first)
 	if h == nil || answer != setupSaysHeld {
 		t.Fatalf("the first bundle: answer %#x", answer)
 	}
 	nothingListens(t, setupAddr(rx))
-	if h, answer := s.hold(nil, from, bundle(), second); h != nil || answer != setupSaysTaken {
+	if h, answer := s.hold(b, setupViaLAN, from, bundle(), second); h != nil || answer != setupSaysTaken {
 		t.Errorf("another bundle while one is held: answer %#x", answer)
 	}
-	if h, answer := s.hold(nil, from, bundle(), first); h != nil || answer != 0 {
-		t.Errorf("the held request again: answer %#x", answer)
+	// The held request by another road: the same bundle, told so again, and
+	// waiting for the same verdict. It stays the bundle that came first.
+	again, answer := s.hold(b, setupViaRelay, netip.Addr{}, bundle(), first)
+	if again != h || answer != setupSaysHeld || len(h.conns) != 2 {
+		t.Errorf("the held request again: answer %#x, %d connections", answer, len(h.conns))
 	}
-	if st := rxNow(t); st.State != setupReceived || st.Code != first.code {
+	if st := rxNow(t); st.State != setupReceived || st.Code != first.code || st.Via != setupViaLAN || st.From != "127.0.0.1" {
 		t.Errorf("the session: %+v", st)
 	}
 
 	SetupReceiveReject()
-	if v := <-h.verdict; v != setupSaysRejected {
-		t.Errorf("verdict %#x", v)
+	<-h.decided
+	if h.verdict != setupSaysRejected {
+		t.Errorf("verdict %#x", h.verdict)
 	}
-	if h, answer := s.hold(nil, from, bundle(), second); h != nil || answer != setupSaysClosed {
+	if h, answer := s.hold(b, setupViaLAN, from, bundle(), second); h != nil || answer != setupSaysClosed {
 		t.Errorf("a bundle after the session ended: answer %#x", answer)
 	}
-	if h, answer := s.hold(nil, from, bundle(), first); h != nil || answer != 0 {
+	if h, answer := s.hold(b, setupViaLAN, from, bundle(), first); h != nil || answer != 0 {
 		t.Errorf("the held request again, after the end: answer %#x", answer)
 	}
+	h.waiting.Done()
+	h.waiting.Done()
 }
 
 func TestSetupTooManyAttempts(t *testing.T) {
@@ -980,7 +1020,7 @@ func TestSetupTwoSenders(t *testing.T) {
 				defer wg.Done()
 				plain, _ := encodeSetupBundle(setupBundle{key: []byte(testSetupKey + strconv.Itoa(i))})
 				<-start
-				_, _, results[i] = setupDeliver(ctx, testSendConfig(), code, plain)
+				_, _, results[i] = setupDeliver(ctx, testSendConfig(), code, plain, func(string) {})
 			}()
 		}
 		close(start)
@@ -1167,17 +1207,8 @@ func TestSetupNetworkChange(t *testing.T) {
 // What the phone can tell about a television it did not reach.
 func TestSetupSendOutcomes(t *testing.T) {
 	setupOnLoopback(t)
-	kem := hpke.DHKEM(ecdh.X25519())
-	priv, err := kem.GenerateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ln, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	port := ln.Addr().(*net.TCPAddr).AddrPort().Port()
-	payload, raw := encodeSetupCode(priv.PublicKey().Bytes(), make([]byte, setupSecretLen), port, []netip.Addr{netip.MustParseAddr("127.0.0.1")})
+	priv, ln := testListenForKey(t)
+	payload, raw := encodeSetupCode(priv.PublicKey().Bytes(), make([]byte, setupSecretLen), 0, []netip.Addr{netip.MustParseAddr("127.0.0.1")})
 
 	// A television that says what the test tells it to: one answer to the
 	// request, and after it, if there is one, a verdict.
@@ -1194,7 +1225,7 @@ func TestSetupSendOutcomes(t *testing.T) {
 				if err != nil {
 					return
 				}
-				_, x, err := openSetupRequest(priv, setupInfo(raw), header, sealed)
+				_, x, err := openSetupRequest(priv, setupInfo(2, raw), header, sealed)
 				if err != nil {
 					return
 				}
@@ -1327,16 +1358,18 @@ func TestSetupParse(t *testing.T) {
 		"":                                 "not_a_setup_code",
 		"tailsocks://tailcat":              "not_a_setup_code",
 		testSetupKey:                       "not_a_setup_code",
-		strings.Repeat("TSP1:", 500):       "not_a_setup_code",
-		"TSP2:" + valid[5:]:                "unsupported_version",
+		strings.Repeat("TSP2:", 500):       "not_a_setup_code",
+		"TSP3:" + valid[5:]:                "unsupported_version",
 		"tsp10:whatever":                   "unsupported_version",
+		"TSP2:":                            "malformed",
 		"TSP1:":                            "malformed",
 		valid[:len(valid)-1]:               "malformed",
 		valid + "0":                        "malformed",
 		valid[:20] + "-" + valid[21:]:      "malformed",
-		"TSP1:" + strings.Repeat("Z", 84):  "malformed",
-		"TSP1:" + strings.Repeat("0", 84):  "malformed",
-		"TSP1:+" + strings.Repeat("1", 83): "malformed",
+		"TSP2:" + strings.Repeat("Z", 84):  "malformed",
+		"TSP2:" + strings.Repeat("0", 84):  "malformed",
+		"TSP2:" + strings.Repeat("0", 78):  "malformed",
+		"TSP2:+" + strings.Repeat("1", 83): "malformed",
 	} {
 		var got setupParsed
 		if err := json.Unmarshal([]byte(SetupParse(in)), &got); err != nil {
@@ -1345,17 +1378,56 @@ func TestSetupParse(t *testing.T) {
 		if got.Error != want || got.OK != (want == "") || got.Addresses == nil {
 			t.Errorf("SetupParse(%.40q) = %+v, want error %q", in, got, want)
 		}
-		if !got.OK && (got.ID != "" || got.Port != 0 || len(got.Addresses) != 0) {
+		if !got.OK && (got.ID != "" || got.Port != 0 || len(got.Addresses) != 0 || got.Relay) {
 			t.Errorf("SetupParse(%.40q) refused it and still says %+v", in, got)
 		}
 	}
+	// A code with the relay says so, with or without an address beside it.
+	for n := 0; n <= 1; n++ {
+		text, _ := testCode(t, n, testRelayRegion)
+		// testCode's addresses are a television's, not this machine's.
+		var got setupParsed
+		if err := json.Unmarshal([]byte(SetupParse(text)), &got); err != nil {
+			t.Fatal(err)
+		}
+		if !got.OK || !got.Relay || len(got.Addresses) != n || (got.Port == 0) != (n == 0) {
+			t.Errorf("SetupParse of a code with %d addresses and a relay = %+v", n, got)
+		}
+	}
+	var lan setupParsed
+	json.Unmarshal([]byte(SetupParse(valid)), &lan)
+	if lan.Relay {
+		t.Errorf("a code without a relay: %+v", lan)
+	}
+}
+
+// testListenForKey makes a key and listens on loopback at the port that
+// follows from it, as a television with that key would.
+func testListenForKey(t *testing.T) (hpke.PrivateKey, net.Listener) {
+	t.Helper()
+	for range 50 {
+		priv, err := hpke.DHKEM(ecdh.X25519()).GenerateKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+		port := strconv.Itoa(int(setupPortOf(priv.PublicKey().Bytes())))
+		if ln, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", port)); err == nil {
+			t.Cleanup(func() { ln.Close() })
+			return priv, ln
+		}
+	}
+	t.Fatal("no free port for any of fifty keys")
+	return nil, nil
 }
 
 // On whatever network this machine has: a session listens on LAN addresses
-// only, or says there is none.
+// only, or says there is none. The relay is left out — it is the one part of
+// a real session that goes beyond this machine.
 func TestSetupReceiveStartHere(t *testing.T) {
 	t.Cleanup(SetupReceiveCancel)
-	st := decodeRx(t, SetupReceiveStart())
+	cfg := defaultSetupConfig()
+	cfg.relay = nil
+	st := startSetupRx(cfg)
 	switch st.State {
 	case setupWaiting:
 		code, err := parseSetupCode(st.Payload)
