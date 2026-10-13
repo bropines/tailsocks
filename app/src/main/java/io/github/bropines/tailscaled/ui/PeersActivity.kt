@@ -118,6 +118,17 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     var selectedPeer by remember {
         mutableStateOf(initialPeerId?.let { id -> (listOfNotNull(selfPeer) + peersList).firstOrNull { it.id == id } })
     }
+    // The peer asked for by node id before the list was there: the screen opens, then the daemon
+    // answers, and only then is there a peer to select. Without this the pane fell back to its
+    // first row, which is this device.
+    var awaitedPeerId by remember { mutableStateOf(initialPeerId.takeIf { selectedPeer == null }) }
+    LaunchedEffect(loaded) {
+        val id = awaitedPeerId ?: return@LaunchedEffect
+        if (!loaded) return@LaunchedEffect
+        // One chance: the first list. A refresh a minute later does not move the choice.
+        awaitedPeerId = null
+        (listOfNotNull(selfPeer) + peersList).firstOrNull { it.id == id }?.let { selectedPeer = it }
+    }
     var peerForFileDrop by remember { mutableStateOf<PeerData?>(null) }
     // The peer whose "Copy as…" is open — from a long press on its row, or from the details
     // sheet's button, over that sheet. Its forms are built when it opens, never for the list.
