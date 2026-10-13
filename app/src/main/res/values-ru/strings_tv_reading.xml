@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Размер текста в журнале и консоли. -->
+    <string name="tv_text_size">Текст %1$d%%</string>
+
+    <!-- Журнал: кнопки верхней панели и сохранение внутри приложения. -->
+    <string name="tv_logs_logcat">Logcat</string>
+    <string name="tv_logs_unfold_long">Развернуть длинные записи</string>
+    <string name="tv_logs_fold_long">Свернуть длинные записи</string>
+    <string name="tv_logs_folded_more">… ещё строк: %1$d (кнопка «Развернуть длинные записи»)</string>
+    <string name="tv_logs_to_start">В начало</string>
+    <string name="tv_logs_save_title">Папка для журнала</string>
+    <string name="tv_logs_save_here">Сохранить сюда</string>
+    <string name="tv_logs_saved_title">Журнал сохранён</string>
+    <string name="tv_logs_saved_where">Файл лежит здесь:</string>
+
+    <!-- Консоль: строка команды и то, что на телефоне делает долгое нажатие. -->
+    <string name="tv_console_wrap">Переносить строки</string>
+    <string name="tv_console_edit_title">Команда</string>
+    <string name="tv_console_insert_cd">Подставить %1$s в строку команды</string>
+    <string name="tv_console_delete_cd">Удалить %1$s</string>
+
+    <!-- Устройства: значение, которое читают с дивана, вместо копирования. -->
+    <string name="tv_peer_show_as">Показать как…</string>
+    <string name="tv_peer_press_to_measure">Нажмите OK, чтобы замерить</string>
+    <string name="tv_value_show">Показать крупно</string>
+    <string name="tv_value_scan">Наведите камеру телефона на код</string>
+
+    <!-- Лицензии. -->
+    <string name="tv_licenses_help">TailSocks построен на открытом ПО из этого списка, у каждого компонента своя лицензия. Выберите компонент, чтобы прочитать его лицензию; стрелки листают текст.</string>
+    <string name="tv_licenses_page">Страница проекта</string>
+
+    <!-- Карточка «Состояние сейчас». -->
+    <string name="tv_diag_live_help">Обновляется каждые 2 с, пока страница открыта; красным отмечено то, что не так. Стрелки листают карточку, «Проверить SOCKS5» проверяет порт ещё раз.</string>
+    <string name="tv_diag_live_recheck">Проверить SOCKS5</string>
+</resources>

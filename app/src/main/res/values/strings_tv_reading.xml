@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The reading screens on a television (logs, console, peers, licences, the live state card):
+  what a remote needs said in words where a phone has a gesture or an icon. A file of its own
+  so it lands without touching strings.xml.
+-->
+<resources>
+    <!-- The text size button of the logs and the console; %1$d is the size in percent. -->
+    <string name="tv_text_size">Text %1$d%%</string>
+
+    <!-- Logs: the buttons of the top bar and the in-app save. -->
+    <string name="tv_logs_logcat">Logcat</string>
+    <string name="tv_logs_unfold_long">Unfold long entries</string>
+    <string name="tv_logs_fold_long">Fold long entries</string>
+    <!-- Under a long entry that is cut short; %1$d is how many lines are hidden. -->
+    <string name="tv_logs_folded_more">… %1$d more lines (Unfold long entries)</string>
+    <string name="tv_logs_to_start">To the start</string>
+    <string name="tv_logs_save_title">Folder for the log</string>
+    <string name="tv_logs_save_here">Save here</string>
+    <string name="tv_logs_saved_title">Log saved</string>
+    <string name="tv_logs_saved_where">The file is here:</string>
+
+    <!-- Console: the command line, and the twins of what a held button does on a phone. -->
+    <string name="tv_console_wrap">Wrap lines</string>
+    <string name="tv_console_edit_title">Command</string>
+    <!-- %1$s is a command. -->
+    <string name="tv_console_insert_cd">Put %1$s into the command field</string>
+    <string name="tv_console_delete_cd">Delete %1$s</string>
+
+    <!-- Peers: a value to read from the sofa instead of a copy to paste. -->
+    <string name="tv_peer_show_as">Show as…</string>
+    <string name="tv_peer_press_to_measure">Press OK to measure</string>
+    <string name="tv_value_show">Show large</string>
+    <string name="tv_value_scan">Point a phone\'s camera at the code</string>
+
+    <!-- Licences. -->
+    <string name="tv_licenses_help">TailSocks is built on the open-source software listed here, each under its own license. Select a component to read its license; the arrows scroll the text.</string>
+    <string name="tv_licenses_page">Project page</string>
+
+    <!-- The live state card. -->
+    <string name="tv_diag_live_help">Refreshed every 2 s while this page is open; red marks what is wrong. The arrows scroll the card; Check SOCKS5 tests the port again.</string>
+    <string name="tv_diag_live_recheck">Check SOCKS5</string>
+</resources>
