@@ -80,6 +80,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -93,6 +94,7 @@ import io.github.bropines.tailscaled.core.DriveLaunch
 import io.github.bropines.tailscaled.core.DriveLocation
 import io.github.bropines.tailscaled.core.DriveProxy
 import io.github.bropines.tailscaled.core.DriveResult
+import io.github.bropines.tailscaled.core.NoAppAdvice
 import io.github.bropines.tailscaled.core.TaildriveBrowse
 import io.github.bropines.tailscaled.core.formatFileSize
 import io.github.bropines.tailscaled.core.pathLine
@@ -140,7 +142,13 @@ internal sealed interface OpenNotice {
      * No installed app takes the file; [address] is where any Tailscale client can fetch it. With
      * [openInBrowser] set a web browser does take the link, and it is for the person to say whether that will do.
      */
-    class NoApp(val name: String, val address: String, val openInBrowser: (() -> Unit)? = null) : OpenNotice
+    class NoApp(
+        val name: String,
+        val address: String,
+        val openInBrowser: (() -> Unit)? = null,
+        /** What to say of it: a player to install for media, for anything else that nothing here opens it. */
+        val advice: NoAppAdvice = NoAppAdvice.INSTALL_PLAYER,
+    ) : OpenNotice
 
     data class Failed(val name: String, val detail: String) : OpenNotice
 }
@@ -282,7 +290,7 @@ fun TaildriveBrowserPage(
                         val spec = prepared.value
                         notice = when (val launched = spec.launch(context, viaLink)) {
                             DriveLaunch.Started -> null
-                            DriveLaunch.NoApp -> OpenNotice.NoApp(entry.name, spec.tailnetUrl)
+                            DriveLaunch.NoApp -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, advice = spec.noAppAdvice)
                             // Nothing but a browser takes it: not opened until the person says so.
                             is DriveLaunch.OnlyBrowser -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, openInBrowser = {
                                 notice = null
@@ -640,7 +648,13 @@ private fun NoAppDialog(notice: OpenNotice.NoApp, onDismiss: () -> Unit) {
                 else -> R.string.taildrive_browser_noapp_title
             }
         ),
-        body = stringResource(if (browserOnly) R.string.taildrive_open_browseronly_body else R.string.taildrive_browser_noapp_body),
+        body = stringResource(
+            when {
+                browserOnly -> R.string.taildrive_open_browseronly_body
+                notice.advice == NoAppAdvice.NOTHING_OPENS -> R.string.taildrive_browser_noapp_other_body
+                else -> R.string.taildrive_browser_noapp_body
+            }
+        ),
         openInBrowser = stringResource(R.string.taildrive_open_in_browser),
         addressHelp = stringResource(R.string.taildrive_browser_address_help),
         showAddress = stringResource(R.string.taildrive_browser_noapp_show_address),
@@ -648,7 +662,10 @@ private fun NoAppDialog(notice: OpenNotice.NoApp, onDismiss: () -> Unit) {
         qrDescription = stringResource(R.string.qr_image),
         qrTooLong = stringResource(R.string.qr_too_long),
     )
-    AppBasicAlertDialog(onDismissRequest = onDismiss) {
+    // The platform's own width is a narrow column on a television: the address, its code and the
+    // buttons under them are taller than the screen there, and the buttons were cut off. The
+    // width Material gives a dialog puts the code beside the text, which fits.
+    AppBasicAlertDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = !isTv)) {
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             NoAppCard(
                 notice.name, notice.address, showAddress, labels,

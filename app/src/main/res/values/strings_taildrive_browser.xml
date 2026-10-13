@@ -37,6 +37,8 @@
     <!-- No installed app takes the file. -->
     <string name="taildrive_browser_noapp_title">No app can open this file</string>
     <string name="taildrive_browser_noapp_body">Install a media player such as VLC, Kodi or Just Player, or open the file\'s address on another device.</string>
+    <!-- For a file that is not media: a player is no use, and none is offered. -->
+    <string name="taildrive_browser_noapp_other_body">No app on this device opens this kind of file. Its address works on another device.</string>
     <string name="taildrive_browser_noapp_show_address">Show the address</string>
     <string name="taildrive_browser_address_title">Address of the file</string>
     <string name="taildrive_browser_address_help">Any device on the tailnet with Taildrive access can open this address. Scan the code with a phone.</string>

@@ -35,6 +35,15 @@ data class Takers(val players: List<AppRef> = emptyList(), val browsers: List<Ap
 /** What resolved for [type] on [road]; one entry per road and type asked, in the order of asking. */
 data class RoadResolution(val road: OpenRoad, val type: String, val takers: Takers)
 
+/** What to tell a person for whom no app took a file. */
+enum class NoAppAdvice {
+    /** A film, a song or a picture: a media player is what is missing, and one can be installed. */
+    INSTALL_PLAYER,
+
+    /** Anything else: nothing on this device opens this kind of file, and no player would. */
+    NOTHING_OPENS,
+}
+
 /** What to do with a file once the roads have been asked. */
 sealed interface OpenPlan {
     /**
@@ -51,6 +60,9 @@ sealed interface OpenPlan {
 }
 
 object TaildriveOpenPlan {
+
+    /** What to say when no app takes a file of [kind]: a player is offered for media only. */
+    fun noAppAdvice(kind: DriveKind): NoAppAdvice = if (isMedia(kind)) NoAppAdvice.INSTALL_PLAYER else NoAppAdvice.NOTHING_OPENS
 
     /** What a browser is not a taker of: a media file is played, and a browser only shows it. */
     fun isMedia(kind: DriveKind): Boolean = kind == DriveKind.VIDEO || kind == DriveKind.AUDIO || kind == DriveKind.IMAGE

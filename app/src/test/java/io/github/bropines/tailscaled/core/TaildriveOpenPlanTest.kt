@@ -194,4 +194,32 @@ class TaildriveOpenPlanTest {
         val takers = TaildriveOpenPlan.takers(listOf(stub), setOf(stub.pkg))
         assertEquals(Takers(), takers)
     }
+
+    // --- what to say when nothing takes it ---------------------------------------------------------------
+
+    /** `data.bin` was told "install a media player": a player is for a film, a song or a picture only. */
+    @Test
+    fun aPlayerIsOfferedForMediaOnly() {
+        for (kind in listOf(DriveKind.VIDEO, DriveKind.AUDIO, DriveKind.IMAGE)) {
+            assertEquals(NoAppAdvice.INSTALL_PLAYER, TaildriveOpenPlan.noAppAdvice(kind))
+        }
+    }
+
+    @Test
+    fun anythingElseIsToldNothingHereOpensIt() {
+        val others = DriveKind.entries.filter { !TaildriveOpenPlan.isMedia(it) && !it.isFolder }
+        assertTrue(others.isNotEmpty())
+        for (kind in others) assertEquals(NoAppAdvice.NOTHING_OPENS, TaildriveOpenPlan.noAppAdvice(kind))
+    }
+
+    @Test
+    fun theAdviceFollowsTheNameOfTheFile() {
+        for ((name, advice) in listOf(
+            "clip.mp4" to NoAppAdvice.INSTALL_PLAYER, "song.flac" to NoAppAdvice.INSTALL_PLAYER, "pic.jpg" to NoAppAdvice.INSTALL_PLAYER,
+            "data.bin" to NoAppAdvice.NOTHING_OPENS, "notes.txt" to NoAppAdvice.NOTHING_OPENS, "archive.zip" to NoAppAdvice.NOTHING_OPENS,
+            "no-extension" to NoAppAdvice.NOTHING_OPENS,
+        )) {
+            assertEquals(name, advice, TaildriveOpenPlan.noAppAdvice(DriveMime.of(name).kind))
+        }
+    }
 }

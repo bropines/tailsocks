@@ -538,6 +538,9 @@ class DriveOpenSpec internal constructor(
     /** Whether this is a file to play or look at: the kind a browser is no taker of. */
     private val isMedia: Boolean get() = TaildriveOpenPlan.isMedia(DriveMime.of(name).kind)
 
+    /** What to tell the person when nothing takes the file: a player to install only for media. */
+    val noAppAdvice: NoAppAdvice get() = TaildriveOpenPlan.noAppAdvice(DriveMime.of(name).kind)
+
     /**
      * The `ACTION_VIEW` intents of the link road, one per type of [types]. `title` is the extra
      * VLC, MX Player and Just Player read; `headers` is MX Player's way to send `Authorization`, for

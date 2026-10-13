@@ -30,6 +30,7 @@
 
     <string name="taildrive_browser_noapp_title">Нет приложения для этого файла</string>
     <string name="taildrive_browser_noapp_body">Установите медиаплеер, например VLC, Kodi или Just Player, либо откройте адрес файла на другом устройстве.</string>
+    <string name="taildrive_browser_noapp_other_body">На этом устройстве нет приложения, которое открывает такие файлы. Адрес файла откроется на другом устройстве.</string>
     <string name="taildrive_browser_noapp_show_address">Показать адрес</string>
     <string name="taildrive_browser_address_title">Адрес файла</string>
     <string name="taildrive_browser_address_help">Этот адрес откроет любое устройство сети с доступом к Taildrive. Отсканируйте код телефоном.</string>
