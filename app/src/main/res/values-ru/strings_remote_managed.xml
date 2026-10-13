@@ -20,6 +20,7 @@
     <string name="remote_paired_help_owners">Сейчас сопрячься может только устройство из того же аккаунта, что и это: гостей не пускают. Оно становится устройством владельца и остаётся, пока его не отзовут.</string>
     <string name="remote_paired_nobody">Сейчас сопрячься не может никто: у этого устройства есть тег, поэтому владельца у него нет, а гостей не пускают.</string>
     <string name="remote_paired_guest_refused">отказ, пока гостей не пускают</string>
+    <string name="remote_paired_since">сопряжено %1$s</string>
 
     <!-- What a paired device may do: every line is put together from the bridge's own lists.
          The names in a list are joined with remote_access_list_more, and, in a sentence, the last

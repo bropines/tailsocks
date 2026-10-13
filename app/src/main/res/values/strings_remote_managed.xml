@@ -20,6 +20,8 @@
     <string name="remote_paired_help_owners">Only a device signed in to the same account as this one can pair now: guests are not let in. It pairs as an owner and stays until revoked.</string>
     <string name="remote_paired_nobody">Nobody can pair now: this device is tagged, so it has no owner, and guests are not let in.</string>
     <string name="remote_paired_guest_refused">refused while guests are off</string>
+    <!-- %1$s is "3 days ago", "just now" -->
+    <string name="remote_paired_since">paired %1$s</string>
 
     <!-- What a paired device may do: every line is put together from the bridge's own lists.
          The names in a list are joined with remote_access_list_more, and, in a sentence, the last

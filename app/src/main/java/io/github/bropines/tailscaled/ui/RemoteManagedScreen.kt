@@ -962,6 +962,9 @@ private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, o
         device.lastUsed <= 0 -> stringResource(R.string.remote_paired_never_used)
         else -> stringResource(R.string.remote_paired_last_used, agoText(context, device.lastUsed * 1000, now))
     }
+    // Since when: a pairing nobody remembers making is the one to revoke. A store from before the
+    // time was kept says nothing.
+    val since = if (device.created > 0) stringResource(R.string.remote_paired_since, agoText(context, device.created * 1000, now)) else null
     val revokeLabel = stringResource(R.string.remote_revoke_named, device.name)
     Surface(
         shape = MaterialTheme.shapes.medium,
@@ -993,7 +996,7 @@ private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, o
                     )
                 }
                 Text(
-                    "$term · $used",
+                    listOfNotNull(since, term, used).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
