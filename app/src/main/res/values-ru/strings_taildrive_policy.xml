@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrive_verdict_share_allowed">Сервер разрешает этому устройству делиться папками.</string>
+    <string name="taildrive_verdict_share_denied">Сервер не разрешает этому устройству делиться папками.</string>
+    <string name="taildrive_verdict_access_allowed">Сервер разрешает этому устройству открывать папки других устройств.</string>
+    <string name="taildrive_verdict_access_denied">Сервер не разрешает этому устройству открывать папки других устройств.</string>
+    <string name="taildrive_verdict_unknown">Подключитесь, чтобы узнать, разрешает ли это сервер.</string>
+    <string name="taildrive_verdict_share_help">Taildrive включается в политике сети: устройству нужен атрибут drive:share, а правило доступа (grant) должно пускать другие устройства к его папкам. Пока этого нет, папки ниже сохранены, но никому не видны.</string>
+    <string name="taildrive_verdict_access_help">Политика сети должна дать этому устройству атрибут drive:access. Без него папки других устройств здесь не открываются.</string>
+    <string name="taildrive_shares_not_live">Сохранены, но не расшарены, пока сервер этого не разрешит.</string>
+    <string name="taildrive_fix_policy">Разрешить в политике</string>
+    <string name="taildrive_fix_policy_help">Откроется редактор политики с готовым правилом для Taildrive между вашими устройствами. Перед сохранением вы его проверите.</string>
+
+    <string name="taildrive_browser_error_not_permitted">Этому устройству нельзя открывать чужие папки</string>
+    <string name="taildrive_browser_error_not_permitted_help">Политика сети должна дать этому устройству атрибут drive:access. Администратор может разрешить это в политике.</string>
+    <string name="taildrive_browser_error_no_answer">Taildrive не отвечает</string>
+    <string name="taildrive_browser_error_no_answer_help">Taildrive на этом устройстве закрыл соединение: сеть могла ещё не загрузиться, либо политика не даёт этому устройству Taildrive. Подключитесь и повторите.</string>
+
+    <string name="taildrive_unavailable_not_connected">Недоступно — TailSocks не подключён</string>
+    <string name="taildrive_unavailable_not_permitted">Недоступно — политика сети не даёт этому устройству открывать чужие папки</string>
+    <string name="taildrive_unavailable_no_answer">Недоступно — Taildrive не отвечает: подключитесь и повторите</string>
+    <string name="taildrive_unavailable_timeout">Недоступно — нет ответа вовремя</string>
+    <string name="taildrive_unavailable_failed">Недоступно — повторите позже</string>
+</resources>

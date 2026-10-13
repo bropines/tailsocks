@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the tailnet's policy lets this device do with Taildrive, where a person looks: the
+     Taildrive screen (ui/TaildriveActivity.kt), the share browser (ui/TaildriveBrowser.kt) and the
+     document picker (core/TailsocksFileProvider.kt). The verdicts are worded like the netmap
+     cache's (core_netmap_cache_status_*). -->
+<resources>
+    <!-- The Taildrive screen: one line beside the switches, one beside the other devices' folders. -->
+    <string name="taildrive_verdict_share_allowed">The server lets this device share folders.</string>
+    <string name="taildrive_verdict_share_denied">The server does not let this device share folders.</string>
+    <string name="taildrive_verdict_access_allowed">The server lets this device open other devices\' folders.</string>
+    <string name="taildrive_verdict_access_denied">The server does not let this device open other devices\' folders.</string>
+    <string name="taildrive_verdict_unknown">Connect to see whether the server allows it.</string>
+    <string name="taildrive_verdict_share_help">Taildrive is switched on in the tailnet\'s policy: the device needs the drive:share attribute, and a grant has to let the other devices reach its folders. Until then the folders below are kept, but nobody sees them.</string>
+    <string name="taildrive_verdict_access_help">The tailnet\'s policy has to give this device the drive:access attribute. Without it the other devices\' folders do not open here.</string>
+    <string name="taildrive_shares_not_live">Kept, but not shared while the server does not allow it.</string>
+    <string name="taildrive_fix_policy">Allow in the policy</string>
+    <string name="taildrive_fix_policy_help">The policy editor opens with a ready rule for Taildrive between your own devices. You review it before anything is saved.</string>
+
+    <!-- The share browser: this device may not open shares / its own Taildrive does not answer. -->
+    <string name="taildrive_browser_error_not_permitted">This device may not open shares</string>
+    <string name="taildrive_browser_error_not_permitted_help">The tailnet\'s policy has to give this device the drive:access attribute. An admin can allow it in the policy.</string>
+    <string name="taildrive_browser_error_no_answer">Taildrive does not answer</string>
+    <string name="taildrive_browser_error_no_answer_help">This device\'s own Taildrive closed the connection: the tailnet may not have loaded yet, or its policy does not give this device Taildrive. Connect, then try again.</string>
+
+    <!-- The document picker: one line under a folder that cannot be listed. -->
+    <string name="taildrive_unavailable_not_connected">Unavailable — TailSocks is not connected</string>
+    <string name="taildrive_unavailable_not_permitted">Unavailable — the tailnet\'s policy does not let this device open shares</string>
+    <string name="taildrive_unavailable_no_answer">Unavailable — Taildrive does not answer; connect and try again</string>
+    <string name="taildrive_unavailable_timeout">Unavailable — no answer in time</string>
+    <string name="taildrive_unavailable_failed">Unavailable — try again later</string>
+</resources>

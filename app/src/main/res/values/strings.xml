@@ -761,7 +761,6 @@
     <string name="taildrive_unavailable_no_fileserver">Unavailable — the node\'s file server is not running (Windows/macOS: open the Tailscale app)</string>
     <string name="taildrive_unavailable_forbidden">Unavailable — no access to this share</string>
     <string name="taildrive_unavailable_not_found">Unavailable — the share is gone from the node</string>
-    <string name="taildrive_unavailable_generic">Unavailable — %1$s</string>
     <!-- Peer Details & UI Components -->
     <string name="peer_details_prev">Previous</string>
     <string name="peer_details_next">Next</string>
