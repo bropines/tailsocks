@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management (experimental): one device's TailSocks managed from another over the tailnet -->
+    <string name="remote_title">Remote management</string>
+    <string name="remote_experimental">Experimental</string>
+    <string name="remote_role_owner">Owner</string>
+    <string name="remote_role_guest">Guest</string>
+    <string name="remote_dur_days">%1$d d</string>
+    <string name="remote_dur_hours">%1$d h</string>
+    <string name="remote_dur_minutes">%1$d min</string>
+    <plurals name="remote_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+
+    <!-- The managed device's own screen -->
+    <string name="remote_switch_title">Allow remote management</string>
+    <string name="remote_switch_help">A paired device can see this one\'s status and change a few things over the tailnet: the exit node, MagicDNS, subnet routes, LAN access, a reconnect, deleting received files.\n• It cannot stop TailSocks, sign out, or read files and logs.\n• Pairing always takes a code from this screen.</string>
+    <string name="remote_switch_failed">The switch could not be saved on this device.</string>
+    <string name="remote_reach_closing">Switching off. Until TailSocks has closed the connection, paired devices can still get in.</string>
+    <string name="remote_reach_title">Other devices cannot connect now</string>
+    <string name="remote_reach_not_running">TailSocks is not connected. Devices can pair with this one and manage it only while it is.</string>
+    <string name="remote_reach_native_tun">TUN mode on the native engine does not let other devices in. Turn TUN mode off, or switch the TUN engine to hev-socks5-tunnel.</string>
+    <string name="remote_reach_root_tun">Root Mode with its own interface (tailscale0) does not let other devices in. Turn that interface off in the Root Mode settings.</string>
+    <string name="remote_reach_other">The current mode does not let other devices in. Proxy mode does.</string>
+    <string name="remote_reach_port">Port %1$d is taken by another app, so nothing can connect. Close that app, then reconnect TailSocks.</string>
+    <string name="remote_unsaved">The last change is not saved yet. TailSocks keeps trying.</string>
+
+    <string name="remote_pair_title">Pair a device</string>
+    <string name="remote_pair_show">Show a pairing code</string>
+    <string name="remote_pair_new">New code</string>
+    <string name="remote_pair_hide">Hide the code</string>
+    <string name="remote_pair_hint">On the other device open this one in Peers and choose “Manage this device”, then type the code or scan it. The code works once.</string>
+    <string name="remote_pair_left">Valid for %1$s</string>
+    <plurals name="remote_pair_attempts">
+        <item quantity="one">%d wrong attempt left</item>
+        <item quantity="other">%d wrong attempts left</item>
+    </plurals>
+    <string name="remote_pair_wrong">Wrong code from %1$s at %2$s.</string>
+    <string name="remote_pair_wrong_login">Wrong code from %1$s (%2$s) at %3$s.</string>
+    <string name="remote_pair_failed">A code could not be made. Check that TailSocks is connected.</string>
+    <string name="remote_pair_qr">Pairing code as a QR code</string>
+    <string name="remote_outcome_owner">%1$s is paired as an owner.</string>
+    <string name="remote_outcome_guest">%1$s is paired as a guest.</string>
+    <string name="remote_outcome_expired">The last code expired.</string>
+    <string name="remote_outcome_locked">The last code was withdrawn after too many wrong attempts. The last one came from %1$s.</string>
+
+    <string name="remote_paired_title">Paired devices</string>
+    <string name="remote_paired_empty">No device is paired.</string>
+    <string name="remote_paired_help">A device signed in to the same account as this one pairs as an owner and stays until revoked.\n• Any other device is a guest: it sees the status and picks the exit node, nothing more.\n• A guest\'s pairing ends by itself after %1$s.</string>
+    <string name="remote_paired_tagged">This device is tagged, so it has no owner: every device pairs as a guest.</string>
+    <string name="remote_paired_until_revoked">until revoked</string>
+    <string name="remote_paired_expires_in">%1$s left</string>
+    <string name="remote_paired_last_used">used %1$s</string>
+    <string name="remote_paired_never_used">not used yet</string>
+    <string name="remote_revoke">Revoke</string>
+    <string name="remote_revoke_named">Revoke %1$s</string>
+    <string name="remote_revoke_all">Revoke all</string>
+    <string name="remote_revoke_all_title">Revoke all devices?</string>
+    <string name="remote_revoke_all_text">Every paired device loses access at once. Each needs a new code to pair again.</string>
+    <string name="remote_revoke_not_saved">Revoked, but it could not be saved yet. Until it is, the device may be back after the app restarts.</string>
+
+    <string name="remote_log_title">Recent remote changes</string>
+    <string name="remote_log_empty">Nothing was changed remotely.</string>
+    <string name="remote_log_failed">not done</string>
+    <string name="remote_op_paired">Paired</string>
+    <string name="remote_op_pair_failed">Wrong code</string>
+    <string name="remote_op_pair_locked">Code withdrawn</string>
+    <string name="remote_op_unpaired">Unpaired itself</string>
+    <string name="remote_op_revoked">Revoked</string>
+    <string name="remote_op_revoked_all">All revoked</string>
+    <string name="remote_op_expired">Pairing expired</string>
+    <string name="remote_op_reset">Pairings removed</string>
+    <string name="remote_op_exit_node">Exit node</string>
+    <string name="remote_op_setting">Setting</string>
+    <string name="remote_op_action">Action</string>
+    <string name="remote_op_file_deleted">File deleted</string>
+    <string name="remote_op_denied">Refused</string>
+
+    <!-- The managing device: the entry in a peer's details, pairing, the management sheet -->
+    <string name="remote_manage_button">Manage this device</string>
+    <string name="remote_manage_title">Manage %1$s</string>
+    <string name="remote_loading">Asking %1$s…</string>
+    <string name="remote_pair_enter">Type the six digits shown on %1$s.</string>
+    <string name="remote_pair_where">No code there yet? On that device open Settings → Remote management and show a pairing code.</string>
+    <string name="remote_pair_code_label">Pairing code</string>
+    <string name="remote_pair_action">Pair</string>
+    <string name="remote_pair_scan">Scan the code</string>
+    <plurals name="remote_pair_err_wrong">
+        <item quantity="one">That code is not right. %d attempt left.</item>
+        <item quantity="other">That code is not right. %d attempts left.</item>
+    </plurals>
+    <string name="remote_pair_err_wrong_plain">That code is not right.</string>
+    <string name="remote_pair_err_locked">Too many wrong codes. Show a new code on the device.</string>
+    <string name="remote_pair_err_closed">The device is not showing a code. Show one there and try again.</string>
+    <string name="remote_pair_err_used">That code was already used. Show a new one on the device.</string>
+    <string name="remote_pair_err_not_allowed">That device does not let this one pair.</string>
+    <string name="remote_pair_err_full">That device cannot keep another pairing. Revoke one there first.</string>
+    <string name="remote_pair_err_slow">Too many attempts. Wait a few seconds.</string>
+    <string name="remote_pair_err_not_stored">The pairing could not be kept on this device, so it was undone.</string>
+    <string name="remote_pair_err_other">Pairing did not work.</string>
+    <string name="remote_pair_err_other_device">That code belongs to another device: %1$s.</string>
+    <string name="remote_pair_err_not_code">That is not a pairing code.</string>
+
+    <string name="remote_problem_not_connected">TailSocks on this device is not connected.</string>
+    <string name="remote_problem_no_peer">%1$s is not in this tailnet.</string>
+    <string name="remote_problem_offline">%1$s is offline.</string>
+    <string name="remote_problem_not_accepting">%1$s is online but does not accept management now: it was switched off there, or its mode cannot be reached.</string>
+    <string name="remote_problem_revoked">%1$s no longer accepts this pairing: it was revoked there.</string>
+    <string name="remote_problem_expired">Your guest access to %1$s has ended.</string>
+    <string name="remote_problem_owner_only">Only an owner can do this.</string>
+    <string name="remote_problem_gone">That is no longer there.</string>
+    <string name="remote_problem_refused">%1$s refused the change.</string>
+    <string name="remote_problem_refused_why">%1$s refused the change: %2$s.</string>
+    <string name="remote_problem_slow">Too many requests. Wait a few seconds.</string>
+    <string name="remote_problem_busy">TailSocks on %1$s is busy. Nothing was changed.</string>
+    <string name="remote_problem_pending">%1$s has not answered yet. The change may still be applied.</string>
+    <string name="remote_problem_failed">%1$s answered with an error.</string>
+    <string name="remote_action_pair_again">Pair again</string>
+    <string name="remote_action_ok">OK</string>
+
+    <string name="remote_status_running">Connected</string>
+    <string name="remote_status_not_running">Not connected</string>
+    <string name="remote_state_needs_login">Sign-in needed</string>
+    <string name="remote_state_needs_approval">Waiting for approval</string>
+    <string name="remote_state_starting">Starting</string>
+    <string name="remote_state_stopped">Stopped</string>
+    <string name="remote_status_version">Tailscale %1$s</string>
+    <string name="remote_status_version_app">Tailscale %1$s · TailSocks %2$s</string>
+    <string name="remote_status_health_ok">No problems reported</string>
+    <string name="remote_exit_node">Exit node</string>
+    <string name="remote_exit_none">None</string>
+    <string name="remote_exit_offline">%1$s (offline)</string>
+    <string name="remote_exit_offline_tag">offline</string>
+    <string name="remote_exit_pick_title">Exit node for %1$s</string>
+    <string name="remote_exit_empty">This device has no exit nodes to choose from.</string>
+    <string name="remote_setting_accept_dns">MagicDNS</string>
+    <string name="remote_setting_accept_routes">Accept subnet routes</string>
+    <string name="remote_setting_lan">LAN access with an exit node</string>
+    <string name="remote_setting_unknown">The device did not say</string>
+    <string name="remote_guest_note">A guest can look and pick the exit node. Switches, Reconnect and deleting files are the owner\'s.</string>
+    <string name="remote_guest_left">Guest · %1$s left</string>
+    <string name="remote_reconnect">Reconnect</string>
+    <string name="remote_reconnecting">Reconnecting. %1$s will be out of reach for a few seconds.</string>
+    <string name="remote_files_title">Received files</string>
+    <string name="remote_files_empty">No received files.</string>
+    <plurals name="remote_files_more">
+        <item quantity="one">and %d more file</item>
+        <item quantity="other">and %d more files</item>
+    </plurals>
+    <string name="remote_file_delete">Delete %1$s</string>
+    <string name="remote_file_confirm">Delete %1$s from the device?</string>
+    <string name="remote_forget">Forget this device</string>
+    <string name="remote_forget_confirm">Forget %1$s? Managing it again takes a new code from its screen.</string>
+    <string name="remote_forget_action">Forget</string>
+    <string name="remote_forget_local">Forgotten here. %1$s could not be told and may still list this device until it is revoked there.</string>
+</resources>

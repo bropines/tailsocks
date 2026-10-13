@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management (experimental): one device's TailSocks managed from another over the tailnet -->
+    <string name="remote_title">Удалённое управление</string>
+    <string name="remote_experimental">Экспериментально</string>
+    <string name="remote_role_owner">Владелец</string>
+    <string name="remote_role_guest">Гость</string>
+    <string name="remote_dur_days">%1$d дн.</string>
+    <string name="remote_dur_hours">%1$d ч</string>
+    <string name="remote_dur_minutes">%1$d мин</string>
+    <plurals name="remote_hours">
+        <item quantity="one">%d час</item>
+        <item quantity="few">%d часа</item>
+        <item quantity="many">%d часов</item>
+        <item quantity="other">%d часа</item>
+    </plurals>
+
+    <!-- The managed device's own screen -->
+    <string name="remote_switch_title">Разрешить удалённое управление</string>
+    <string name="remote_switch_help">Сопряжённое устройство видит состояние этого и может кое-что менять через tailnet: выходной узел, MagicDNS, маршруты подсетей, доступ к локальной сети, переподключение, удаление полученных файлов.\n• Остановить TailSocks, выйти из аккаунта, прочитать файлы и журнал оно не может.\n• Для сопряжения всегда нужен код с этого экрана.</string>
+    <string name="remote_switch_failed">Не удалось сохранить переключатель на этом устройстве.</string>
+    <string name="remote_reach_closing">Выключается. Пока TailSocks не закрыл подключение, сопряжённые устройства ещё могут войти.</string>
+    <string name="remote_reach_title">Сейчас другие устройства не подключатся</string>
+    <string name="remote_reach_not_running">TailSocks не подключён. Сопрягать устройства и управлять этим можно, только пока он подключён.</string>
+    <string name="remote_reach_native_tun">Режим TUN на нативном движке не пропускает входящие подключения. Выключите режим TUN или смените движок TUN на hev-socks5-tunnel.</string>
+    <string name="remote_reach_root_tun">Root-режим со своим интерфейсом (tailscale0) не пропускает входящие подключения. Выключите этот интерфейс в настройках Root-режима.</string>
+    <string name="remote_reach_other">Текущий режим не пропускает входящие подключения. В режиме прокси они проходят.</string>
+    <string name="remote_reach_port">Порт %1$d занят другим приложением, поэтому подключиться нельзя. Закройте его и переподключите TailSocks.</string>
+    <string name="remote_unsaved">Последнее изменение ещё не сохранено. TailSocks пробует снова.</string>
+
+    <string name="remote_pair_title">Сопряжение</string>
+    <string name="remote_pair_show">Показать код сопряжения</string>
+    <string name="remote_pair_new">Новый код</string>
+    <string name="remote_pair_hide">Скрыть код</string>
+    <string name="remote_pair_hint">На другом устройстве откройте это в «Узлах», выберите «Управлять устройством» и введите код или отсканируйте его. Код действует один раз.</string>
+    <string name="remote_pair_left">Действует ещё %1$s</string>
+    <plurals name="remote_pair_attempts">
+        <item quantity="one">Осталась %d неверная попытка</item>
+        <item quantity="few">Осталось %d неверные попытки</item>
+        <item quantity="many">Осталось %d неверных попыток</item>
+        <item quantity="other">Осталось %d неверной попытки</item>
+    </plurals>
+    <string name="remote_pair_wrong">Неверный код с устройства %1$s в %2$s.</string>
+    <string name="remote_pair_wrong_login">Неверный код с устройства %1$s (%2$s) в %3$s.</string>
+    <string name="remote_pair_failed">Не удалось создать код. Проверьте, что TailSocks подключён.</string>
+    <string name="remote_pair_qr">Код сопряжения в виде QR-кода</string>
+    <string name="remote_outcome_owner">%1$s сопряжено как устройство владельца.</string>
+    <string name="remote_outcome_guest">%1$s сопряжено как гостевое.</string>
+    <string name="remote_outcome_expired">Срок последнего кода истёк.</string>
+    <string name="remote_outcome_locked">Последний код отозван: слишком много неверных попыток. Последняя была с устройства %1$s.</string>
+
+    <string name="remote_paired_title">Сопряжённые устройства</string>
+    <string name="remote_paired_empty">Сопряжённых устройств нет.</string>
+    <string name="remote_paired_help">Устройство из того же аккаунта, что и это, становится устройством владельца и остаётся, пока его не отзовут.\n• Любое другое — гость: видит состояние и выбирает выходной узел, больше ничего.\n• Сопряжение гостя заканчивается само через %1$s.</string>
+    <string name="remote_paired_tagged">У этого устройства есть тег, поэтому владельца у него нет: все сопрягаются как гости.</string>
+    <string name="remote_paired_until_revoked">пока не отозвано</string>
+    <string name="remote_paired_expires_in">осталось %1$s</string>
+    <string name="remote_paired_last_used">управляло %1$s</string>
+    <string name="remote_paired_never_used">ещё не управляло</string>
+    <string name="remote_revoke">Отозвать</string>
+    <string name="remote_revoke_named">Отозвать %1$s</string>
+    <string name="remote_revoke_all">Отозвать все</string>
+    <string name="remote_revoke_all_title">Отозвать все устройства?</string>
+    <string name="remote_revoke_all_text">Все сопряжённые устройства сразу потеряют доступ. Каждому понадобится новый код.</string>
+    <string name="remote_revoke_not_saved">Отозвано, но сохранить это пока не удалось. Пока не сохранится, устройство может вернуться после перезапуска приложения.</string>
+
+    <string name="remote_log_title">Что меняли с других устройств</string>
+    <string name="remote_log_empty">С других устройств ничего не меняли.</string>
+    <string name="remote_log_failed">не выполнено</string>
+    <string name="remote_op_paired">Сопряжено</string>
+    <string name="remote_op_pair_failed">Неверный код</string>
+    <string name="remote_op_pair_locked">Код отозван</string>
+    <string name="remote_op_unpaired">Отключилось само</string>
+    <string name="remote_op_revoked">Отозвано</string>
+    <string name="remote_op_revoked_all">Отозваны все</string>
+    <string name="remote_op_expired">Сопряжение истекло</string>
+    <string name="remote_op_reset">Сопряжения удалены</string>
+    <string name="remote_op_exit_node">Выходной узел</string>
+    <string name="remote_op_setting">Настройка</string>
+    <string name="remote_op_action">Действие</string>
+    <string name="remote_op_file_deleted">Файл удалён</string>
+    <string name="remote_op_denied">Отказано</string>
+
+    <!-- The managing device: the entry in a peer's details, pairing, the management sheet -->
+    <string name="remote_manage_button">Управлять устройством</string>
+    <string name="remote_manage_title">Управление: %1$s</string>
+    <string name="remote_loading">Спрашиваю %1$s…</string>
+    <string name="remote_pair_enter">Введите шесть цифр с экрана %1$s.</string>
+    <string name="remote_pair_where">Кода ещё нет? На том устройстве откройте Настройки → Удалённое управление и покажите код сопряжения.</string>
+    <string name="remote_pair_code_label">Код сопряжения</string>
+    <string name="remote_pair_action">Сопрячь</string>
+    <string name="remote_pair_scan">Сканировать код</string>
+    <plurals name="remote_pair_err_wrong">
+        <item quantity="one">Код не подошёл. Осталась %d попытка.</item>
+        <item quantity="few">Код не подошёл. Осталось %d попытки.</item>
+        <item quantity="many">Код не подошёл. Осталось %d попыток.</item>
+        <item quantity="other">Код не подошёл. Осталось %d попытки.</item>
+    </plurals>
+    <string name="remote_pair_err_wrong_plain">Код не подошёл.</string>
+    <string name="remote_pair_err_locked">Слишком много неверных кодов. Покажите на устройстве новый.</string>
+    <string name="remote_pair_err_closed">Устройство не показывает код. Покажите его там и попробуйте снова.</string>
+    <string name="remote_pair_err_used">Этот код уже использован. Покажите на устройстве новый.</string>
+    <string name="remote_pair_err_not_allowed">То устройство не разрешает этому сопряжение.</string>
+    <string name="remote_pair_err_full">На том устройстве нет места для ещё одного сопряжения. Сначала отзовите там одно.</string>
+    <string name="remote_pair_err_slow">Слишком много попыток. Подождите несколько секунд.</string>
+    <string name="remote_pair_err_not_stored">Не удалось сохранить сопряжение на этом устройстве, поэтому оно отменено.</string>
+    <string name="remote_pair_err_other">Сопряжение не удалось.</string>
+    <string name="remote_pair_err_other_device">Это код другого устройства: %1$s.</string>
+    <string name="remote_pair_err_not_code">Это не код сопряжения.</string>
+
+    <string name="remote_problem_not_connected">TailSocks на этом устройстве не подключён.</string>
+    <string name="remote_problem_no_peer">%1$s нет в этом tailnet.</string>
+    <string name="remote_problem_offline">%1$s не в сети.</string>
+    <string name="remote_problem_not_accepting">%1$s в сети, но сейчас не принимает управление: его там выключили, или в текущем режиме до устройства не достучаться.</string>
+    <string name="remote_problem_revoked">%1$s больше не принимает это сопряжение: его там отозвали.</string>
+    <string name="remote_problem_expired">Ваш гостевой доступ к %1$s закончился.</string>
+    <string name="remote_problem_owner_only">Это может только владелец.</string>
+    <string name="remote_problem_gone">Этого там уже нет.</string>
+    <string name="remote_problem_refused">%1$s отклонил изменение.</string>
+    <string name="remote_problem_refused_why">%1$s отклонил изменение: %2$s.</string>
+    <string name="remote_problem_slow">Слишком много запросов. Подождите несколько секунд.</string>
+    <string name="remote_problem_busy">TailSocks на %1$s занят. Ничего не изменено.</string>
+    <string name="remote_problem_pending">%1$s пока не ответил. Изменение ещё может примениться.</string>
+    <string name="remote_problem_failed">%1$s ответил ошибкой.</string>
+    <string name="remote_action_pair_again">Сопрячь заново</string>
+    <string name="remote_action_ok">Понятно</string>
+
+    <string name="remote_status_running">Подключено</string>
+    <string name="remote_status_not_running">Не подключено</string>
+    <string name="remote_state_needs_login">Нужен вход</string>
+    <string name="remote_state_needs_approval">Ждёт одобрения</string>
+    <string name="remote_state_starting">Запускается</string>
+    <string name="remote_state_stopped">Остановлено</string>
+    <string name="remote_status_version">Tailscale %1$s</string>
+    <string name="remote_status_version_app">Tailscale %1$s · TailSocks %2$s</string>
+    <string name="remote_status_health_ok">Проблем не обнаружено</string>
+    <string name="remote_exit_node">Выходной узел</string>
+    <string name="remote_exit_none">Нет</string>
+    <string name="remote_exit_offline">%1$s (не в сети)</string>
+    <string name="remote_exit_offline_tag">не в сети</string>
+    <string name="remote_exit_pick_title">Выходной узел для %1$s</string>
+    <string name="remote_exit_empty">У этого устройства нет выходных узлов на выбор.</string>
+    <string name="remote_setting_accept_dns">MagicDNS</string>
+    <string name="remote_setting_accept_routes">Принимать маршруты подсетей</string>
+    <string name="remote_setting_lan">Локальная сеть при выходном узле</string>
+    <string name="remote_setting_unknown">Устройство не сообщило</string>
+    <string name="remote_guest_note">Гость может смотреть и выбирать выходной узел. Переключатели, переподключение и удаление файлов — только владельцу.</string>
+    <string name="remote_guest_left">Гость · осталось %1$s</string>
+    <string name="remote_reconnect">Переподключить</string>
+    <string name="remote_reconnecting">Переподключается. %1$s будет недоступно несколько секунд.</string>
+    <string name="remote_files_title">Полученные файлы</string>
+    <string name="remote_files_empty">Полученных файлов нет.</string>
+    <plurals name="remote_files_more">
+        <item quantity="one">и ещё %d файл</item>
+        <item quantity="few">и ещё %d файла</item>
+        <item quantity="many">и ещё %d файлов</item>
+        <item quantity="other">и ещё %d файла</item>
+    </plurals>
+    <string name="remote_file_delete">Удалить %1$s</string>
+    <string name="remote_file_confirm">Удалить %1$s с устройства?</string>
+    <string name="remote_forget">Забыть это устройство</string>
+    <string name="remote_forget_confirm">Забыть %1$s? Чтобы управлять им снова, понадобится новый код с его экрана.</string>
+    <string name="remote_forget_action">Забыть</string>
+    <string name="remote_forget_local">Здесь забыто. Сообщить %1$s не удалось: оно может числить это устройство сопряжённым, пока его там не отзовут.</string>
+</resources>
