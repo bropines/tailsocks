@@ -65,6 +65,7 @@ import io.github.bropines.tailscaled.core.FileSource
 import io.github.bropines.tailscaled.core.ManagedCaps
 import io.github.bropines.tailscaled.core.ManagedExitNode
 import io.github.bropines.tailscaled.core.ManagedKeys
+import io.github.bropines.tailscaled.core.ManagedOp
 import io.github.bropines.tailscaled.core.ManagedPermission
 import io.github.bropines.tailscaled.core.ManagedSetting
 import io.github.bropines.tailscaled.core.clearOnly
@@ -140,8 +141,10 @@ internal fun ManageWindows(
             if (storage == null) LaunchedEffect(asked) { close() }
             else {
                 val folder = asked == ManageAsk.BrowseFolder
-                // The device's own grant is asked for there; the answer comes back to the page.
+                // The device's own grant is asked for there, as the Permissions group asks it; the
+                // answer comes back to the page. Where it cannot be asked the browser says so.
                 val grant = { actions.askPermission(ManagedPermission.STORAGE); close() }
+                    .takeIf { ui.app?.permissions?.firstOrNull { it.id == ManagedPermission.STORAGE }?.ask == true && ui.access.gate(ManagedOp.PERMISSION_REQUEST).open }
                 StorageWindow(
                     title = stringResource(if (folder) R.string.rmanage_share_pick_title else R.string.rmanage_browse_title, ui.name),
                     confirm = stringResource(R.string.rmanage_share_pick_confirm),
@@ -152,7 +155,8 @@ internal fun ManageWindows(
                         if (folder) sharing = file else fetching = file to (storage.describe(file)?.size ?: 0L)
                         close()
                     },
-                    onGrant = grant.takeIf { ui.access.has(ManagedCaps.PERMISSIONS) },
+                    name = ui.name,
+                    onGrant = grant,
                     onClose = close,
                 )
             }
@@ -419,12 +423,13 @@ private fun StorageWindow(
     source: FileSource,
     locals: ParentLocals,
     onPicked: (File) -> Unit,
+    name: String,
     onGrant: (() -> Unit)?,
     onClose: () -> Unit,
 ) {
     PageWindow(locals, onClose) {
         if (folder) {
-            PickFolderScreen(source = source, onPicked = onPicked, onCancel = onClose, title = title, confirmLabel = confirm, onGrantAccess = onGrant)
+            PickFolderScreen(source = source, onPicked = onPicked, onCancel = onClose, title = title, confirmLabel = confirm, onGrantAccess = onGrant, remoteName = name)
         } else {
             PickFilesScreen(
                 source = source,
@@ -433,6 +438,7 @@ private fun StorageWindow(
                 multiple = false,
                 title = title,
                 onGrantAccess = onGrant,
+                remoteName = name,
             )
         }
     }

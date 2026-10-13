@@ -158,6 +158,7 @@ fun PickFilesScreen(
     title: String? = null,
     confirmLabel: (@Composable (count: Int) -> String)? = null,
     onGrantAccess: (() -> Unit)? = null,
+    remoteName: String? = null,
 ) = FileBrowserScreen(
     mode = FileBrowserMode.Files(multiple),
     start = start,
@@ -168,6 +169,7 @@ fun PickFilesScreen(
     title = title,
     confirmLabel = confirmLabel,
     onGrantAccess = onGrantAccess,
+    remoteName = remoteName,
 )
 
 /** [FileBrowserScreen] for a folder: [onPicked] gets an existing folder. [confirmLabel] replaces "Choose this folder". */
@@ -182,6 +184,7 @@ fun PickFolderScreen(
     title: String? = null,
     confirmLabel: String? = null,
     onGrantAccess: (() -> Unit)? = null,
+    remoteName: String? = null,
 ) = FileBrowserScreen(
     mode = FileBrowserMode.Folder(writable),
     start = start,
@@ -192,6 +195,7 @@ fun PickFolderScreen(
     title = title,
     confirmLabel = confirmLabel?.let { label -> { _: Int -> label } },
     onGrantAccess = onGrantAccess,
+    remoteName = remoteName,
 )
 
 /**
@@ -204,7 +208,10 @@ fun PickFolderScreen(
  * folder "Choose this folder", where the count is 1). [showHidden] is where the toggle for
  * hidden files starts. [onGrantAccess] replaces the built-in grant — the Storage permission
  * dialog below Android 11, the All files access page from it, and when the device has no such
- * page the command to run from a computer.
+ * page the command to run from a computer. A browser of another device's storage names it in
+ * [remoteName]: it is that device that cannot read its files yet, and [onGrantAccess] is what
+ * asks it to allow that; with none, the page says so and offers nothing, for the grant of
+ * this device would not help.
  *
  * Reads happen off the main thread; the state (place, checked files, hidden toggle) survives
  * rotation. The page does not take the Back key until it is shown, so a caller that wants
@@ -222,6 +229,7 @@ fun FileBrowserScreen(
     confirmLabel: (@Composable (count: Int) -> String)? = null,
     showHidden: Boolean = false,
     onGrantAccess: (() -> Unit)? = null,
+    remoteName: String? = null,
 ) {
     val context = LocalContext.current
     val inspection = LocalInspectionMode.current
@@ -295,7 +303,7 @@ fun FileBrowserScreen(
     }
 
     var grantUnavailable by remember { mutableStateOf(false) }
-    val grant = onGrantAccess ?: rememberStorageGrant(access) { grantUnavailable = true }
+    val grant = onGrantAccess ?: if (remoteName != null) ({}) else rememberStorageGrant(access) { grantUnavailable = true }
 
     val places = roots
     if (places == null || location == null) {
@@ -324,7 +332,15 @@ fun FileBrowserScreen(
         onToggleHidden = { hidden = !hidden },
         onGrant = grant,
     )
-    FileBrowserContent(ui.copy(grantUnavailable = grantUnavailable, adbCommand = FileBrowse.adbGrantCommand(context.packageName)), actions, modifier)
+    FileBrowserContent(
+        ui.copy(
+            grantUnavailable = grantUnavailable,
+            adbCommand = FileBrowse.adbGrantCommand(context.packageName),
+            remoteName = remoteName,
+            canGrant = remoteName == null || onGrantAccess != null,
+        ),
+        actions, modifier
+    )
 }
 
 /** The Storage permission dialog below Android 11, Settings' All files access page from it; [onUnavailable] when there is no such page. */
@@ -379,6 +395,10 @@ internal data class BrowserUi(
     val focusKey: String?,
     val grantUnavailable: Boolean = false,
     val adbCommand: String = "",
+    /** The device whose storage this is, when it is not this one's: it is that device that lacks the access. */
+    val remoteName: String? = null,
+    /** Whether the missing access can be asked for from here; false for the storage of a device that cannot be asked. */
+    val canGrant: Boolean = true,
 )
 
 /** The button that answers: its text, whether it can be pressed, and why not. */
@@ -809,7 +829,7 @@ private fun NoticeCard(notice: Notice, ui: BrowserUi, actions: BrowserActions, t
     val title: String
     val body: String
     val icon: ImageVector
-    val action: String
+    val action: String?
     val onAction: () -> Unit
     when (notice) {
         is Notice.Empty -> {
@@ -831,15 +851,23 @@ private fun NoticeCard(notice: Notice, ui: BrowserUi, actions: BrowserActions, t
         }
         Notice.NoAccess -> {
             icon = Icons.Filled.Lock
-            title = stringResource(R.string.file_browser_no_access_title)
-            val why = stringResource(
-                if (ui.access == StorageAccess.NEEDS_PERMISSION) R.string.file_browser_no_access_storage else R.string.file_browser_no_access_all_files
-            )
-            // A TV often has no Settings page for the grant: say what to run from a computer instead.
-            body = if (ui.grantUnavailable && ui.access == StorageAccess.NEEDS_ALL_FILES) {
-                why + " " + stringResource(R.string.file_browser_grant_unavailable_format, ui.adbCommand)
-            } else why
-            action = stringResource(grantLabel(ui.access))
+            if (ui.remoteName != null) {
+                // Another device's storage: that device has to allow the access, and asking it is
+                // what the page has for it. The grant of this device would not help.
+                title = stringResource(R.string.file_browser_remote_no_access_title, ui.remoteName)
+                body = stringResource(R.string.file_browser_remote_no_access_body)
+                action = if (ui.canGrant) stringResource(R.string.rmanage_perm_ask) else null
+            } else {
+                title = stringResource(R.string.file_browser_no_access_title)
+                val why = stringResource(
+                    if (ui.access == StorageAccess.NEEDS_PERMISSION) R.string.file_browser_no_access_storage else R.string.file_browser_no_access_all_files
+                )
+                // A TV often has no Settings page for the grant: say what to run from a computer instead.
+                body = if (ui.grantUnavailable && ui.access == StorageAccess.NEEDS_ALL_FILES) {
+                    why + " " + stringResource(R.string.file_browser_grant_unavailable_format, ui.adbCommand)
+                } else why
+                action = stringResource(grantLabel(ui.access))
+            }
             onAction = actions.onGrant
         }
     }
@@ -861,7 +889,7 @@ private fun NoticeCard(notice: Notice, ui: BrowserUi, actions: BrowserActions, t
                 style = if (tv) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Button(onClick = onAction, modifier = button.heightIn(min = if (tv) 56.dp else 48.dp)) {
+            if (action != null) Button(onClick = onAction, modifier = button.heightIn(min = if (tv) 56.dp else 48.dp)) {
                 Text(action, style = if (tv) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge)
             }
         }

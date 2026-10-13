@@ -59,4 +59,7 @@
     <string name="file_browser_limited">Some files and folders may be hidden</string>
     <!-- %1$s is a command for a computer, a single line. -->
     <string name="file_browser_grant_unavailable_format">This device has no settings page for it. From a computer, run: %1$s</string>
+    <!-- The storage of another device, which has not been given the access to all files; %1$s is its name. -->
+    <string name="file_browser_remote_no_access_title">%1$s can\'t read its storage yet</string>
+    <string name="file_browser_remote_no_access_body">Until it allows access to all files, the app there sees only its own folders.</string>
 </resources>

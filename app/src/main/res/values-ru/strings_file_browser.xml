@@ -50,4 +50,6 @@
     <string name="file_browser_grant_storage">Разрешить доступ к памяти</string>
     <string name="file_browser_limited">Часть файлов и папок может быть скрыта</string>
     <string name="file_browser_grant_unavailable_format">На этом устройстве для этого нет страницы настроек. С компьютера выполните: %1$s</string>
+    <string name="file_browser_remote_no_access_title">«%1$s» пока не видит своё хранилище</string>
+    <string name="file_browser_remote_no_access_body">Пока там не разрешён доступ ко всем файлам, приложение видит только свои папки.</string>
 </resources>
