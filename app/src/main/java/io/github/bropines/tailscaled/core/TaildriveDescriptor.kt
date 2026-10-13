@@ -11,6 +11,10 @@ import android.system.OsConstants
 import android.util.Log
 import androidx.annotation.RequiresApi
 import java.io.FileNotFoundException
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /*
  * A share's file as a descriptor another app can seek in: the platform's proxy descriptor
@@ -50,7 +54,10 @@ object TaildriveDescriptor {
     @Throws(FileNotFoundException::class)
     fun open(context: Context, upstream: RangeUpstream): ParcelFileDescriptor? {
         val file = try {
-            RangedFile.open(upstream) ?: return null
+            // Not on the caller's thread: it is a binder thread that carries the calling app's StrictMode
+            // policy, and a player's main thread forbids the network (NetworkOnMainThreadException,
+            // measured with a stand-in player on API 36) — the pipe's copy runs on a thread of its own for the same reason.
+            onWorker { RangedFile.open(upstream) } ?: return null
         } catch (e: RangeNotFoundException) {
             throw FileNotFoundException("Taildrive: no such file")
         } catch (e: RangeForbiddenException) {
@@ -68,6 +75,25 @@ object TaildriveDescriptor {
             Log.w(TAG, "no proxy descriptor: ${e.javaClass.simpleName}")
             file.close()
             null
+        }
+    }
+
+    /** Threads for the first block of each open: short-lived, and none of them is the reading thread, which may be busy. */
+    private val workers: ExecutorService by lazy {
+        Executors.newCachedThreadPool { r -> Thread(r, "taildrive-open").apply { isDaemon = true } }
+    }
+
+    /** [body] on a worker thread, waited for here; what it throws is thrown as it was. */
+    private fun <T> onWorker(body: () -> T): T {
+        val task = workers.submit(Callable { body() })
+        try {
+            return task.get()
+        } catch (e: ExecutionException) {
+            throw e.cause ?: e
+        } catch (e: InterruptedException) {
+            task.cancel(true)
+            Thread.currentThread().interrupt()
+            throw RangeIoException("interrupted")
         }
     }
 
