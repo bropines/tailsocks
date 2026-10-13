@@ -81,6 +81,14 @@ data class RemoteOutcome(
     val nodeId: String = "",
     @SerialName("class") val role: String = "",
 ) {
+    /**
+     * Whether the line this outcome gives is still true next to the [paired] list. "X is paired as
+     * an owner" is about a pairing: once that pairing is gone — forgotten, revoked, run out — the
+     * line goes with it. A code that expired or was locked says nothing about who is paired.
+     */
+    fun stillStands(paired: List<RemotePairedDevice>): Boolean =
+        result != PAIRED || paired.any { it.nodeId == nodeId }
+
     companion object {
         const val PAIRED = "paired"
         const val EXPIRED = "expired"

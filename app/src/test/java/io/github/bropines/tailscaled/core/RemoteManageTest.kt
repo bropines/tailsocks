@@ -51,6 +51,26 @@ class RemoteManageTest {
         assertEquals(41L, s.rev)
     }
 
+    /** "…-1 is paired as an owner" stayed on the page after the device was forgotten: nobody was paired. */
+    @Test
+    fun theLineAboutAPairingGoesWhenThatPairingDoes() {
+        val paired = RemoteOutcome(RemoteOutcome.PAIRED, time = 1, name = "pixel", nodeId = "nP9", role = REMOTE_CLASS_OWNER)
+        val pixel = RemotePairedDevice(nodeId = "nP9", name = "pixel", role = REMOTE_CLASS_OWNER)
+        val other = RemotePairedDevice(nodeId = "nQ1", name = "tablet", role = REMOTE_CLASS_GUEST)
+        assertTrue(paired.stillStands(listOf(pixel)))
+        assertTrue(paired.stillStands(listOf(other, pixel)))
+        // Forgotten, revoked or run out: no such pairing in the list any more.
+        assertFalse(paired.stillStands(emptyList()))
+        assertFalse(paired.stillStands(listOf(other)))
+    }
+
+    @Test
+    fun aCodeThatRanOutSaysNothingOfWhoIsPaired() {
+        for (result in listOf(RemoteOutcome.EXPIRED, RemoteOutcome.LOCKED, RemoteOutcome.CANCELLED)) {
+            assertTrue(result, RemoteOutcome(result, name = "ann-iphone", nodeId = "nB7").stillStands(emptyList()))
+        }
+    }
+
     @Test
     fun aStateWithoutACodeOrABrokenDocumentIsTheQuietOne() {
         val s = RemoteJson.state("""{"available":true,"enabled":false,"listening":false,"port":28115,"inbound":"none","delegate":false,"paired":0,"policy":{},"rev":3}""")

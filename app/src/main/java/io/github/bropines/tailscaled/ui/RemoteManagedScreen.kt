@@ -715,7 +715,8 @@ private fun PairCard(ui: RemoteManagedUi, actions: RemoteManagedActions, wide: B
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.focusRequester(first)
             ) { Text(stringResource(R.string.remote_pair_show)) }
-            outcomeText(ui.state.lastPairing)?.let {
+            // How the last code ended, while that holds: not "paired" of a device that has been forgotten since.
+            outcomeText(ui.state.lastPairing?.takeIf { it.stillStands(ui.devices) })?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
