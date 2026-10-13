@@ -31,11 +31,6 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
  * emulator's screenshots.
  */
 
-/** A television, in both languages. */
-@Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
-@Preview(name = "6-tv-ru", device = "spec:width=960dp,height=540dp,dpi=320", locale = "ru")
-annotation class TvBothLanguages
-
 /** A phone with the TV interface switched on by hand (Settings → Appearance → Interface). */
 @Preview(name = "1-phone-as-tv", device = "spec:width=411dp,height=891dp,dpi=420")
 @Preview(name = "1-phone-as-tv-ru", device = "spec:width=411dp,height=891dp,dpi=420", locale = "ru")

@@ -34,11 +34,6 @@ import java.io.File
  * Android TV emulator.
  */
 
-/** A 1080p television, in both languages. */
-@Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
-@Preview(name = "6-tv-ru", device = "spec:width=960dp,height=540dp,dpi=320", locale = "ru")
-annotation class TvBothLanguages
-
 private const val FOLDER = "/storage/emulated/0/Download/Taildrop"
 private const val MIN = 60_000L
 

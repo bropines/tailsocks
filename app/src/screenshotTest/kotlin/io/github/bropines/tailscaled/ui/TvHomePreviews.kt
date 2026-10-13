@@ -33,11 +33,6 @@ import io.github.bropines.tailscaled.models.StatusResponse
  * it moves is checked on the emulator.
  */
 
-/** A television in both languages. */
-@Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
-@Preview(name = "6-tv-ru", device = "spec:width=960dp,height=540dp,dpi=320", locale = "ru")
-annotation class TvBothLanguages
-
 @Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
 @Preview(name = "1-phone-ru", device = "spec:width=411dp,height=891dp,dpi=420", locale = "ru")
 annotation class PhoneBothLanguages

@@ -34,6 +34,11 @@ annotation class PhoneSizes
 @Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
 annotation class TvSizes
 
+/** [TvSizes] in both languages: the screens whose words were written for a television. */
+@Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
+@Preview(name = "6-tv-ru", device = "spec:width=960dp,height=540dp,dpi=320", locale = "ru")
+annotation class TvBothLanguages
+
 /**
  * [Showcase]'s look with any demo: dark, emerald, AMOLED black. [device] draws the screen
  * as that class of device (ui/DeviceClass.kt); without it the renderer is a handheld. It is
