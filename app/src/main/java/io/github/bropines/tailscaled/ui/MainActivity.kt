@@ -925,7 +925,10 @@ fun MainScreen(
         val dlgServerPlaceholder = stringResource(R.string.settings_login_server_placeholder)
         val dlgAuthKeyLabel = stringResource(R.string.main_add_account_authkey_label)
         val dlgAuthKeyPlaceholder = stringResource(R.string.main_add_account_authkey_placeholder)
-        val dlgAuthKeyHint = stringResource(R.string.main_add_account_authkey_hint)
+        // Without a key a television signs in by a code for a phone, not in a browser.
+        val dlgAuthKeyHint = stringResource(
+            if (Feature.BROWSER_SIGN_IN.offered()) R.string.main_add_account_authkey_hint else R.string.tv_add_account_authkey_hint
+        )
         val dlgAdd = stringResource(R.string.action_add)
         val dlgCancel = stringResource(R.string.action_cancel)
         val dlgHonestTitle = stringResource(R.string.settings_honest_hostinfo_title)
@@ -935,27 +938,26 @@ fun MainScreen(
             title = { Text(dlgTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    // PageTextField: three fields in a row are a page of them, which a remote
+                    // has to cross on its way to the buttons.
+                    PageTextField(
                         value = newAccountName,
                         onValueChange = { newAccountName = it },
-                        label = { Text(dlgNameLabel) },
-                        singleLine = true
+                        label = dlgNameLabel
                     )
-                    OutlinedTextField(
+                    PageTextField(
                         value = newAccountServer,
                         onValueChange = { newAccountServer = it },
-                        label = { Text(dlgServerLabel) },
-                        placeholder = { Text(dlgServerPlaceholder) },
-                        singleLine = true
+                        label = dlgServerLabel,
+                        placeholder = dlgServerPlaceholder
                     )
                     // Optional: with a key the profile registers on its first start,
                     // without one it goes through the browser like before.
-                    OutlinedTextField(
+                    PageTextField(
                         value = newAccountAuthKey,
                         onValueChange = { newAccountAuthKey = it },
-                        label = { Text(dlgAuthKeyLabel) },
-                        placeholder = { Text(dlgAuthKeyPlaceholder) },
-                        singleLine = true
+                        label = dlgAuthKeyLabel,
+                        placeholder = dlgAuthKeyPlaceholder
                     )
                     Text(
                         dlgAuthKeyHint,
@@ -2757,12 +2759,12 @@ fun LoggedOutCard(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedTextField(
+                    PageTextField(
                         value = enteredKey,
                         onValueChange = { enteredKey = it },
-                        label = { Text(stringResource(R.string.main_logged_out_authkey_label), fontSize = 11.sp) },
+                        label = stringResource(R.string.main_logged_out_authkey_label),
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        labelFontSize = 11.sp
                     )
                     Button(
                         onClick = {

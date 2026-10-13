@@ -33,6 +33,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -256,6 +257,9 @@ private val LocalSlideLayout = staticCompositionLocalOf { SlideLayout.PHONE }
 /** The step's column on a tablet: its words and its controls, not the window's width. */
 private val SlideColumnWidth = 560.dp
 
+/** What the Close button in the corner takes of a step's height on a television: its margin and its 48dp. */
+private val SlideCloseClearance = 60.dp
+
 /**
  * One slide: its picture, its title, a line on what it is for, and [content].
  * On a phone a column, top to bottom. On a large window the picture and the
@@ -339,8 +343,11 @@ private fun SlideSideBySide(icon: ImageVector, title: String, description: Strin
                 modifier = Modifier
                     .fillMaxHeight()
                     .widthIn(max = SlideColumnWidth + 48.dp)
+                    // A television's step starts below the Close button: a step as tall as the
+                    // screen ran its first lines under it, and scrolled the rest through it.
+                    .then(if (isTv) Modifier.padding(top = SlideCloseClearance) else Modifier)
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
+                    .then(if (isTv) Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp) else Modifier.padding(24.dp)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -569,15 +576,14 @@ fun SlideControlPlane(profilePrefs: android.content.SharedPreferences) {
         title = stringResource(R.string.first_start_cp_warning_title),
         description = stringResource(R.string.first_start_cp_warning_desc)
     ) {
-        OutlinedTextField(
+        PageTextField(
             value = loginServer,
             onValueChange = {
                 loginServer = it
                 profilePrefs.edit().putString("login_server", it).apply()
             },
-            label = { Text(stringResource(R.string.first_start_cp_field_label)) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            label = stringResource(R.string.first_start_cp_field_label),
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -680,12 +686,11 @@ fun SlideBypassSetup() {
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedTextField(
+                        PageTextField(
                             value = proxyLink,
                             onValueChange = { proxyLink = it },
-                            label = { Text(stringResource(R.string.first_start_proxy_link_label)) },
+                            label = stringResource(R.string.first_start_proxy_link_label),
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
                             trailingIcon = if (!Feature.CLIPBOARD_ACTIONS.offered()) null else ({
                                 IconButton(
                                     onClick = {
@@ -787,17 +792,16 @@ fun SlideBypassSetup() {
                         Spacer(Modifier.height(8.dp))
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
+                            PageTextField(
                                 value = proxyHost,
                                 onValueChange = {
                                     proxyHost = it
                                     GlobalSettings.setCPField(context, "host", it)
                                 },
-                                label = { Text(stringResource(R.string.first_start_proxy_host_label)) },
-                                modifier = Modifier.weight(2f),
-                                singleLine = true
+                                label = stringResource(R.string.first_start_proxy_host_label),
+                                modifier = Modifier.weight(2f)
                             )
-                            OutlinedTextField(
+                            PageTextField(
                                 value = proxyPort,
                                 onValueChange = { newValue ->
                                     val digits = newValue.filter { it.isDigit() }
@@ -809,9 +813,8 @@ fun SlideBypassSetup() {
                                         }
                                     }
                                 },
-                                label = { Text(stringResource(R.string.first_start_proxy_port_label)) },
+                                label = stringResource(R.string.first_start_proxy_port_label),
                                 modifier = Modifier.weight(1f),
-                                singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                         }
@@ -819,25 +822,23 @@ fun SlideBypassSetup() {
                         Spacer(Modifier.height(4.dp))
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
+                            PageTextField(
                                 value = proxyUser,
                                 onValueChange = {
                                     proxyUser = it
                                     GlobalSettings.setCPField(context, "user", it)
                                 },
-                                label = { Text(stringResource(R.string.settings_socks5_username_title)) },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
+                                label = stringResource(R.string.settings_socks5_username_title),
+                                modifier = Modifier.weight(1f)
                             )
-                            OutlinedTextField(
+                            PageTextField(
                                 value = proxyPass,
                                 onValueChange = {
                                     proxyPass = it
                                     GlobalSettings.setCPField(context, "pass", it)
                                 },
-                                label = { Text(stringResource(R.string.settings_socks5_password_title)) },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true
+                                label = stringResource(R.string.settings_socks5_password_title),
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -909,43 +910,47 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            OutlinedTextField(
+            PageTextField(
                 value = authKey,
                 onValueChange = {
                     authKey = it
                     profilePrefs.edit().putString("authkey", it).apply()
                 },
-                label = { Text(stringResource(R.string.first_start_authkey_label)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                label = stringResource(R.string.first_start_authkey_label),
+                modifier = Modifier.fillMaxWidth()
             )
 
             // Decided before the first login, because the coordination server
             // binds the node to the OS it registers with (ProfileHostinfo).
             var honestHostinfo by remember { mutableStateOf(profilePrefs.getBoolean(ProfileHostinfo.KEY, false)) }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        honestHostinfo = !honestHostinfo
-                        profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, honestHostinfo).apply()
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // The row is the remote's stop; the box inside it would be a second one.
-                Checkbox(
-                    checked = honestHostinfo,
-                    onCheckedChange = {
-                        honestHostinfo = it
-                        profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, it).apply()
-                    },
-                    modifier = Modifier.tvNoFocus()
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_honest_hostinfo_title), style = MaterialTheme.typography.bodyMedium)
-                    HelpText(stringResource(R.string.honest_hostinfo_checkbox_desc))
+            val setHonest: (Boolean) -> Unit = {
+                honestHostinfo = it
+                profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, it).apply()
+            }
+            val honestHelp = remember { mutableStateOf(false) }
+            val tv = isTv
+            val honestRow: @Composable (Modifier) -> Unit = { row ->
+                Row(
+                    modifier = row,
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // The row is the remote's stop; the box inside it would be a second one.
+                    Checkbox(checked = honestHostinfo, onCheckedChange = setHonest, modifier = Modifier.tvNoFocus())
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_honest_hostinfo_title), style = MaterialTheme.typography.bodyMedium)
+                        HelpText(stringResource(R.string.honest_hostinfo_checkbox_desc), expanded = honestHelp, inClickableRow = tv)
+                    }
                 }
+            }
+            if (tv) {
+                // One stop, which unfolds its own explanation once the remote rests on it: the
+                // explanation alone was a second stop inside the row, and showed no ring there.
+                ExplainedRow(onClick = { setHonest(!honestHostinfo) }, help = honestHelp, color = Color.Transparent) {
+                    honestRow(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp))
+                }
+            } else {
+                honestRow(Modifier.fillMaxWidth().clickable { setHonest(!honestHostinfo) })
             }
 
             // The hint is about a login page that does not load: nothing to say without one.

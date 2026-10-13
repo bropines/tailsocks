@@ -1813,6 +1813,9 @@ private fun RuleEditorSheet(
     val sheetState = rememberFullSheetState()
     val isNew = state.isNew
     val initial = state.initial
+    // The editor is a page of fields: on a television each is a row that opens its field
+    // (TvFieldRow), or the remote could not cross them on its way down the sheet.
+    val tv = isTv
 
     var kind by remember { mutableStateOf(initial.kind) }
     var target by remember { mutableStateOf(initial.target) }
@@ -1913,7 +1916,16 @@ private fun RuleEditorSheet(
                 }
             }
 
-            OutlinedTextField(
+            if (tv) TvFieldRow(
+                value = target,
+                onValueChange = { target = it },
+                label = targetLabel,
+                placeholder = targetPlaceholder,
+                singleLine = kind != RuleKind.TEXT,
+                isError = !targetOk && target.isNotEmpty(),
+                supportingText = if (!targetOk) context.getString(R.string.serve_editor_target_required) else null,
+                modifier = Modifier.fillMaxWidth()
+            ) else OutlinedTextField(
                 value = target,
                 onValueChange = { target = it },
                 label = { Text(targetLabel) },
@@ -1926,9 +1938,24 @@ private fun RuleEditorSheet(
             )
 
             EditorSection(context.getString(R.string.serve_editor_port)) {
-                OutlinedTextField(
+                val onPorts: (String) -> Unit = { v -> if (v.all { it.isDigit() || it == ',' || it == ' ' || it == ';' }) portsText = v }
+                if (tv) TvFieldRow(
                     value = portsText,
-                    onValueChange = { v -> if (v.all { it.isDigit() || it == ',' || it == ' ' || it == ';' }) portsText = v },
+                    onValueChange = onPorts,
+                    label = "",
+                    title = context.getString(R.string.serve_editor_port),
+                    placeholder = "443, 2550",
+                    isError = !portOk || conflict,
+                    supportingText = when {
+                        !portOk -> context.getString(R.string.serve_editor_port_invalid)
+                        conflict -> context.getString(R.string.serve_editor_conflict)
+                        else -> null
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                ) else OutlinedTextField(
+                    value = portsText,
+                    onValueChange = onPorts,
                     placeholder = { Text("443, 2550") },
                     singleLine = true,
                     isError = !portOk || conflict,
@@ -1990,7 +2017,20 @@ private fun RuleEditorSheet(
                 )
                 if (scopeService) {
                     HelpText(context.getString(R.string.serve_svc_help))
-                    OutlinedTextField(
+                    if (tv) TvFieldRow(
+                        value = serviceName,
+                        onValueChange = { serviceName = it },
+                        label = context.getString(R.string.serve_editor_service_name),
+                        placeholder = "webapp",
+                        prefix = "svc:",
+                        isError = serviceName.isNotEmpty() && !serviceOk,
+                        supportingText = when {
+                            !caps.services && caps.loaded -> context.getString(R.string.serve_cap_services_no)
+                            !serviceOk && serviceName.isNotEmpty() -> context.getString(R.string.serve_editor_service_required)
+                            else -> null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) else OutlinedTextField(
                         value = serviceName,
                         onValueChange = { serviceName = it },
                         label = { Text(context.getString(R.string.serve_editor_service_name)) },
@@ -2038,12 +2078,11 @@ private fun RuleEditorSheet(
             AnimatedVisibility(visible = advanced) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (kind != RuleKind.TCP) {
-                        OutlinedTextField(
+                        PageTextField(
                             value = path,
                             onValueChange = { path = it },
-                            label = { Text(context.getString(R.string.serve_editor_path)) },
-                            placeholder = { Text("/") },
-                            singleLine = true,
+                            label = context.getString(R.string.serve_editor_path),
+                            placeholder = "/",
                             shape = MaterialTheme.shapes.medium,
                             modifier = Modifier.fillMaxWidth()
                         )

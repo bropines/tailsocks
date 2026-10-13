@@ -111,6 +111,7 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
     var showSavePresetDialog by remember { mutableStateOf(false) }
     var presetName by remember { mutableStateOf("") }
 
+    val copiesLink = Feature.CLIPBOARD_ACTIONS.offered()
     // Strings resolved in the parent composition — see wrapContextWithLocale().
     val strSettingsControlProxyTitle = stringResource(R.string.settings_control_proxy_title)
     val strSettingsControlProxyEnable = stringResource(R.string.settings_control_proxy_enable)
@@ -137,15 +138,14 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                 Spacer(Modifier.height(16.dp))
 
                 if (enabled) {
-                    // Import Section
-                    OutlinedTextField(
+                    // Import Section. PageTextField, here and below: five fields in a column are
+                    // a page of them, which a remote crosses on its way to the buttons.
+                    PageTextField(
                         value = importUri,
                         onValueChange = { importUri = it },
-                        label = { Text(strSettingsProxyImport) },
-                        placeholder = { Text("socks5://user:pass@host:port") },
+                        label = strSettingsProxyImport,
+                        placeholder = "socks5://user:pass@host:port",
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        maxLines = 1,
                         shape = MaterialTheme.shapes.medium,
                         trailingIcon = {
                             IconButton(onClick = {
@@ -250,8 +250,8 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
 
-                    OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text(strSettingsControlProxyHost) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = MaterialTheme.shapes.medium)
-                    OutlinedTextField(
+                    PageTextField(value = host, onValueChange = { host = it }, label = strSettingsControlProxyHost, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
+                    PageTextField(
                         value = port,
                         onValueChange = { newValue ->
                             val digits = newValue.filter { it.isDigit() }
@@ -262,20 +262,19 @@ fun ControlProxyDialog(onDismiss: () -> Unit, onApply: () -> Unit) {
                                 }
                             }
                         },
-                        label = { Text(strSettingsControlProxyPort) },
+                        label = strSettingsControlProxyPort,
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        maxLines = 1,
                         shape = MaterialTheme.shapes.medium,
-                        placeholder = { Text(if (type == "SOCKS5") "1080" else "8080") },
+                        placeholder = if (type == "SOCKS5") "1080" else "8080",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
-                    OutlinedTextField(value = user, onValueChange = { user = it }, label = { Text(strSettingsControlProxyUsername) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = MaterialTheme.shapes.medium)
-                    OutlinedTextField(value = pass, onValueChange = { pass = it }, label = { Text(strSettingsControlProxyPassword) }, modifier = Modifier.fillMaxWidth(), singleLine = true, maxLines = 1, shape = MaterialTheme.shapes.medium)
+                    PageTextField(value = user, onValueChange = { user = it }, label = strSettingsControlProxyUsername, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
+                    PageTextField(value = pass, onValueChange = { pass = it }, label = strSettingsControlProxyPassword, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium)
 
-                    Spacer(Modifier.height(12.dp))
+                    // The link is made to be pasted elsewhere: offered where there is a clipboard to speak of.
+                    if (copiesLink) Spacer(Modifier.height(12.dp))
 
-                    OutlinedButton(
+                    if (copiesLink) OutlinedButton(
                         onClick = {
                             val uri = GlobalSettings.buildProxyUri(type, host, port, user, pass)
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

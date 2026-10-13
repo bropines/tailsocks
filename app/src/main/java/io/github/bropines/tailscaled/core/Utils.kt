@@ -303,6 +303,21 @@ fun CompactTextField(
     trailingIcon: (@Composable () -> Unit)? = null,
     shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium
 ) {
+    // It stands in settings pages: on a television a row that opens the field (ui/PageTextField.kt).
+    if (isTv) {
+        TvFieldRow(
+            value = value,
+            onValueChange = onValueChange,
+            label = label.orEmpty(),
+            modifier = modifier.fillMaxWidth(),
+            placeholder = placeholder,
+            supportingText = supportingText,
+            keyboardOptions = keyboardOptions,
+            visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon,
+        )
+        return
+    }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -333,6 +348,12 @@ fun CompactSearchBar(
     modifier: Modifier = Modifier,
     onSearch: (() -> Unit)? = null
 ) {
+    // A field at the head of a list is the first thing a remote crosses: on a television it
+    // is a button that opens the field (TvQueryField), wherever a screen draws this.
+    if (isTv) {
+        TvQueryField(value = value, onValueChange = onValueChange, placeholder = placeholderText, modifier = modifier, onDone = onSearch)
+        return
+    }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     BasicTextField(
         value = value,

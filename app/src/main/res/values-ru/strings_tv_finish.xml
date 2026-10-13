@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_field_done">Готово</string>
+
+    <string name="tv_add_account_authkey_hint">С ключом устройство зарегистрируется само при первом запуске; оставьте пустым, чтобы войти по коду с телефона.</string>
+</resources>

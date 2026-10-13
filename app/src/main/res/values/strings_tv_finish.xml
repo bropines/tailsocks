@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the last pass over the television work added: the dialog a field in a page opens on a
+  television (ui/PageTextField.kt), and the Advanced page where every device has one — a phone's
+  holds only what is still an experiment.
+-->
+<resources>
+    <!-- The button under a field a television opened in a dialog: what is typed is already applied. -->
+    <string name="tv_field_done">Done</string>
+    <!-- "Add account" where signing in is a code for another device, not a browser tab. -->
+    <string name="tv_add_account_authkey_hint">With a key the device registers itself on the first start; leave it empty to sign in with a code for a phone.</string>
+</resources>
