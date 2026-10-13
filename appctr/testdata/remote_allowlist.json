@@ -31,6 +31,12 @@
       "only": "true"
     },
     {
+      "key": "auto_start",
+      "kind": "bool",
+      "writable": true,
+      "only": "true"
+    },
+    {
       "key": "keep_awake",
       "kind": "bool",
       "writable": true,

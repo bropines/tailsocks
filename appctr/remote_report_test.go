@@ -440,7 +440,7 @@ func TestRemoteOneWay(t *testing.T) {
 		s := raw.(map[string]any)
 		only[s["key"].(string)], _ = s["only"].(string)
 	}
-	if only["auto_reconnect"] != "true" || only["keep_awake"] != "true" || only["full_control"] != "false" ||
+	if only["auto_reconnect"] != "true" || only["auto_start"] != "true" || only["keep_awake"] != "true" || only["full_control"] != "false" ||
 		only["taildrive_enabled"] != "false" || only["taildrive_proxy_enabled"] != "false" || only["advertise_exit_node"] != "false" || only["accept_dns"] != "" {
 		t.Errorf("only: %v", only)
 	}
@@ -450,7 +450,7 @@ func TestRemoteOneWay(t *testing.T) {
 	// a network is closed from afar, and opened only with full control
 	// (TestRemoteLevels).
 	writes := len(r.app.writes())
-	for key, refused := range map[string]string{"auto_reconnect": "false", "keep_awake": "false", "full_control": "true"} {
+	for key, refused := range map[string]string{"auto_reconnect": "false", "auto_start": "false", "keep_awake": "false", "full_control": "true"} {
 		a := set(rtPhone, owner, key, refused)
 		r.want(a, 403, "forbidden")
 		if !strings.Contains(a.str("message"), "only at the device") {

@@ -31,6 +31,7 @@ import java.io.File
 object RemoteDeviceKeys {
     const val TUN_MODE = "tun_mode"
     const val AUTO_RECONNECT = "auto_reconnect"
+    const val AUTO_START = "auto_start"
     const val KEEP_AWAKE = "keep_awake"
     const val TAILDRIVE = "taildrive_enabled"
     const val TAILDRIVE_PROXY = "taildrive_proxy_enabled"
@@ -39,7 +40,7 @@ object RemoteDeviceKeys {
     const val FULL_CONTROL = "full_control"
 
     /** The switches read and written here; the three of [RemoteKeys.SWITCHES] stay with RemoteSettingsDelegate. */
-    val SWITCHES = listOf(TUN_MODE, AUTO_RECONNECT, KEEP_AWAKE, TAILDRIVE, TAILDRIVE_PROXY, ADVERTISE_EXIT_NODE, FULL_CONTROL)
+    val SWITCHES = listOf(TUN_MODE, AUTO_RECONNECT, AUTO_START, KEEP_AWAKE, TAILDRIVE, TAILDRIVE_PROXY, ADVERTISE_EXIT_NODE, FULL_CONTROL)
 
     /** Appctr.RemoteKeyExitNode. Written through RemoteSettingsDelegate; read here, for a guarded change. */
     const val EXIT_NODE = "exit_node"

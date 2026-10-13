@@ -31,6 +31,7 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
     override fun switchOn(key: String): Boolean = when (key) {
         RemoteDeviceKeys.TUN_MODE -> GlobalSettings.isTunModeEnabled(context)
         RemoteDeviceKeys.AUTO_RECONNECT -> GlobalSettings.isAutoReconnectEnabled(context)
+        RemoteDeviceKeys.AUTO_START -> GlobalSettings.isAutoStartEnabled(context)
         RemoteDeviceKeys.KEEP_AWAKE -> GlobalSettings.getBoolean(context, KEEP_AWAKE_PREF, false)
         // What the service itself assumes of a profile that has never been asked.
         RemoteDeviceKeys.TAILDRIVE -> profilePrefs().getBoolean(TAILDRIVE_PREF, true)
@@ -53,6 +54,7 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
                 apply()
             }
             RemoteDeviceKeys.AUTO_RECONNECT -> GlobalSettings.setAutoReconnectEnabled(context, on)
+            RemoteDeviceKeys.AUTO_START -> GlobalSettings.setAutoStartEnabled(context, on)
             RemoteDeviceKeys.KEEP_AWAKE -> GlobalSettings.setBoolean(context, KEEP_AWAKE_PREF, on)
             RemoteDeviceKeys.TAILDRIVE -> {
                 // Shares are read by path: without the access they would be listed and empty.

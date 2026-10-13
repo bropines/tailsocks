@@ -225,8 +225,11 @@ type remoteSetting struct {
 //
 //   - auto_reconnect: the device restarts its own connection when it does not
 //     come up, the remedy for the one failure nobody can mend from afar.
-//   - keep_awake: the app's "keep the connection awake", which is also what
-//     starts it again after a reboot.
+//   - auto_start: the app's "Auto-start on Boot" — the connection comes back
+//     after a reboot or a power cut, which on a television box is every night
+//     for some.
+//   - keep_awake: the app's "keep the connection awake", a wake lock, which
+//     starts it again after a reboot as well.
 //
 // What shows more of the device to a network: off for any owner, on only with
 // full control:
@@ -247,6 +250,7 @@ var remoteSettings = []remoteSetting{
 	{key: "exit_node_lan_access", kind: "bool", writable: true, guard: "optional"},
 	{key: "tun_mode", kind: "bool", writable: true, guard: "always"},
 	{key: "auto_reconnect", kind: "bool", writable: true, only: "true"},
+	{key: "auto_start", kind: "bool", writable: true, only: "true"},
 	{key: "keep_awake", kind: "bool", writable: true, only: "true"},
 	{key: "taildrive_enabled", kind: "bool", writable: true, full: "true"},
 	{key: "taildrive_proxy_enabled", kind: "bool", writable: true, full: "true"},

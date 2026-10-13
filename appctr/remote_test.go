@@ -358,6 +358,7 @@ func newRemoteFakeApp() *remoteFakeApp {
 			"exit_node_lan_access":    "false",
 			"tun_mode":                "false",
 			"auto_reconnect":          "false",
+			"auto_start":              "false",
 			"keep_awake":              "false",
 			"taildrive_enabled":       "true",
 			"taildrive_proxy_enabled": "true",

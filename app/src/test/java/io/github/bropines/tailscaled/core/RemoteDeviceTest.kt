@@ -131,7 +131,7 @@ class RemoteDeviceTest {
         // The bridge filters first; these lists must hold without it.
         val never = listOf(
             "socks5_pass", "taildrive_proxy_password", "taildrive_proxy_ip", "taildrive_shares", "extra_args_raw", "authkey",
-            "login_server", "root_mode_enabled", "tun_mode_enabled", "force_bg", "auto_start", "remote_management",
+            "login_server", "root_mode_enabled", "tun_mode_enabled", "force_bg", "autostart", "auto_reconnect_attempts", "remote_management",
             "TUN_MODE", "tun_mode ", "report", "ask_permission", "", null,
         )
         for (key in never) {

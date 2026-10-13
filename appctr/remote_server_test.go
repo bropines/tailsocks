@@ -40,7 +40,7 @@ var rtNever = []string{
 	"allow_guests", "level", "report", "ask_permission", "identify", "notice", "storage_list", "storage_file",
 	"share_add", "share_remove", "diag_report",
 	// backups, updates, lifecycle switches, what the device looks like to the person in front of it
-	"backup_export", "backup_import", "update", "install_update", "auto_start", "force_bg", "service_watchdog",
+	"backup_export", "backup_import", "update", "install_update", "autostart", "force_bg", "service_watchdog",
 	"auto_reconnect_attempts", "app_locale", "ui_device_override", "show_message", "message",
 	// odd shapes
 	"", " ", "accept_dns ", "ACCEPT_DNS", "accept_dns\x00", "../accept_dns", "accept_dns,authkey", "*",
@@ -189,7 +189,7 @@ func TestRemoteAllowListContents(t *testing.T) {
 			readonly = append(readonly, s.key)
 		}
 	}
-	if got := strings.Join(writable, ","); got != "accept_dns,accept_routes,exit_node_lan_access,tun_mode,auto_reconnect,keep_awake,"+
+	if got := strings.Join(writable, ","); got != "accept_dns,accept_routes,exit_node_lan_access,tun_mode,auto_reconnect,auto_start,keep_awake,"+
 		"taildrive_enabled,taildrive_proxy_enabled,advertise_exit_node,advertise_routes,full_control" {
 		t.Errorf("writable settings: %s", got)
 	}
@@ -209,6 +209,7 @@ func TestRemoteAllowListContents(t *testing.T) {
 		"exit_node_lan_access":    {guard: "optional"},
 		"tun_mode":                {guard: "always"},
 		"auto_reconnect":          {only: "true"},
+		"auto_start":              {only: "true"},
 		"keep_awake":              {only: "true"},
 		"taildrive_enabled":       {full: "true"},
 		"taildrive_proxy_enabled": {full: "true"},

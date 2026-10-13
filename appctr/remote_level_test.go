@@ -309,7 +309,10 @@ func TestRemoteAccess(t *testing.T) {
 	if s := settings["auto_reconnect"]; s.Only != "true" || s.Needs != "" {
 		t.Errorf("auto_reconnect: %+v", s)
 	}
-	if _, listed := settings["device_class"]; listed || len(settings) != 11 {
+	if s := settings["auto_start"]; s.Only != "true" || s.Needs != "" || s.Guard != "" {
+		t.Errorf("auto_start: %+v", s)
+	}
+	if _, listed := settings["device_class"]; listed || len(settings) != 12 {
 		t.Errorf("settings: %v", settings)
 	}
 	var fullKeys []string
