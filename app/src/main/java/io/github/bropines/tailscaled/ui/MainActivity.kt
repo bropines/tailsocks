@@ -2145,11 +2145,7 @@ fun MainScreen(
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
                                             if (isCheckingUpdate) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(18.dp),
-                                                    strokeWidth = 2.dp,
-                                                    color = LocalContentColor.current
-                                                )
+                                                ButtonBusyIndicator(18.dp, color = LocalContentColor.current)
                                                 Spacer(Modifier.width(8.dp))
                                                 Text(dlgChecking)
                                             } else {
