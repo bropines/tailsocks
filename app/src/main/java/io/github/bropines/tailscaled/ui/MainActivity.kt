@@ -61,6 +61,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.layout.IntrinsicMeasurable
+import androidx.compose.ui.layout.IntrinsicMeasureScope
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasurePolicy
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -2501,8 +2519,8 @@ fun StatusCard(
                 }
                 return@Column
             }
-            Text(
-                text = when {
+            StatusLine(
+                line = when {
                     isProcessing -> stringResource(R.string.main_status_please_wait)
                     state == "ACTIVE" -> when {
                         // Root wins the label: with it on, the VpnService is not
@@ -2535,6 +2553,64 @@ fun StatusCard(
                 color = contentColor
             )
         }
+    }
+}
+
+/** The smallest the status card's second line gets to stay on one line. */
+private val STATUS_LINE_MIN = 13.sp
+
+/**
+ * The status card's second line: on one line when it fits there at the body size or a little
+ * smaller, down to [STATUS_LINE_MIN] — the Russian "Служба запущена • Нажмите для остановки" broke
+ * after its last word on a phone — and at the body size over two lines when not even that fits.
+ *
+ * A layout of its own that draws the text it measured: the size depends on the width it is
+ * given, and the card stands in rows sized by their content's intrinsic height, which a
+ * BoxWithConstraints cannot answer.
+ */
+@Composable
+private fun StatusLine(line: String, modifier: Modifier, color: Color) {
+    val style = LocalTextStyle.current.copy(color = color, textAlign = TextAlign.Center)
+    val measurer = rememberTextMeasurer()
+    val fit = remember(line, style, measurer) { StatusLineFit(measurer, line, style) }
+    Layout(
+        content = {},
+        modifier = modifier
+            .semantics { text = AnnotatedString(line) }
+            .drawBehind { fit.last?.let { drawText(it) } },
+        measurePolicy = object : MeasurePolicy {
+            override fun MeasureScope.measure(measurables: List<Measurable>, constraints: Constraints): MeasureResult {
+                val laid = fit.at(constraints.maxWidth)
+                return layout(constraints.constrainWidth(laid.size.width), constraints.constrainHeight(laid.size.height)) {}
+            }
+            override fun IntrinsicMeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Int) = fit.at(width).size.height
+            override fun IntrinsicMeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Int) = fit.at(width).size.height
+            override fun IntrinsicMeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Int) = fit.oneLineWidth()
+            override fun IntrinsicMeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Int) = fit.oneLineWidth()
+        }
+    )
+}
+
+/** [text] laid out for a width, by StatusLine's rule; the last answer is what is drawn. */
+private class StatusLineFit(private val measurer: TextMeasurer, private val text: String, private val style: TextStyle) {
+    private val full = style.fontSize.takeIf { it.isSp } ?: 16.sp
+    private var width = -1
+    var last: TextLayoutResult? = null
+        private set
+
+    fun oneLineWidth(): Int = measurer.measure(text, style.copy(fontSize = full), maxLines = 1, softWrap = false).size.width
+
+    fun at(maxWidth: Int): TextLayoutResult {
+        last?.takeIf { width == maxWidth }?.let { return it }
+        val bounded = if (maxWidth == Constraints.Infinity) Constraints() else Constraints(maxWidth = maxWidth)
+        var size = full.value
+        var chosen = full
+        while (maxWidth != Constraints.Infinity && size >= STATUS_LINE_MIN.value) {
+            val line = measurer.measure(text, style.copy(fontSize = size.sp), maxLines = 1, softWrap = false)
+            if (line.size.width <= maxWidth) { chosen = size.sp; break }
+            size -= 0.5f
+        }
+        return measurer.measure(text, style.copy(fontSize = chosen), constraints = bounded).also { width = maxWidth; last = it }
     }
 }
 
