@@ -742,7 +742,7 @@
     <string name="settings_tun_address_title">Адрес TUN-интерфейса</string>
     <string name="settings_tun_address_desc">IPv4-адрес с префиксом подсети (например, 10.0.0.1/8)</string>
     <string name="settings_tun_ipv6_title">Весь IPv6 через туннель</string>
-    <string name="settings_tun_ipv6_desc">Адреса тейлнета идут через туннель всегда; речь об остальном IPv6.\n• Включайте, только если выходной узел действительно умеет IPv6.\n• Иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
+    <string name="settings_tun_ipv6_desc">Адреса tailnet идут через туннель всегда; речь об остальном IPv6.\n• Включайте, только если выходной узел действительно умеет IPv6.\n• Иначе сайты с адресом IPv6 будут висеть вместо отката на IPv4.</string>
     <string name="main_tun_full_tunnel_desc">Весь трафик направляется через VPN</string>
     <string name="main_tun_split_tunnel_desc">Трафик подсетей Tailscale направляется через VPN</string>
     <string name="settings_tab_byedpi">Обход DPI</string>
@@ -945,12 +945,12 @@
     <string name="settings_tunnel_mode_vpn_desc">Пропускает весь трафик устройства через Tailscale по интерфейсу Android VPN. Потребуется системное разрешение VPN.</string>
     <string name="settings_tunnel_mode_root_desc">Демон работает через su на интерфейсе ядра tailscale0; слот Android VPN остаётся свободным.\n• Маршрутизация и DNS меняются для всего устройства: имена всем приложениям разрешает MagicDNS, а при выходном узле через него уходит весь трафик.\n• Приложения из списка исключений ниже выводятся из-под выходного узла.\n• Имена им по-прежнему разрешает MagicDNS: Android отправляет DNS приложения системным резолвером от его имени, и поприложенное исключение его не видит.</string>
     <!-- 4.0 settings restructure: stage 5 link rows -->
-    <string name="settings_sect_share_links">Доступ для тейлнета</string>
+    <string name="settings_sect_share_links">Доступ для tailnet</string>
     <string name="settings_link_taildrive_desc">Папки, которые устройство раздаёт остальным вашим устройствам через Taildrive</string>
-    <string name="settings_link_serve_desc">Опубликовать локальный сервис внутри тейлнета или на весь интернет</string>
+    <string name="settings_link_serve_desc">Опубликовать локальный сервис внутри tailnet или на весь интернет</string>
     <string name="settings_sect_tools">Инструменты</string>
     <string name="settings_link_dns_desc">Текущие резолверы, записи MagicDNS и проверка разрешения имён</string>
-    <string name="settings_link_admin_desc">Управление тейлнетом: устройства, ключи, ACL и DNS</string>
+    <string name="settings_link_admin_desc">Управление tailnet: устройства, ключи, ACL и DNS</string>
     <string name="settings_link_logs_desc">Живой лог демона с фильтром и выгрузкой</string>
     <string name="settings_link_console_desc">Выполняйте команды tailscale прямо на устройстве</string>
     <string name="settings_link_netcheck_desc">Реле DERP, задержки и тип NAT</string>
@@ -975,10 +975,10 @@
     <string name="settings_root_take_device_dialog_title">Забрать устройство у другого VPN?</string>
     <string name="settings_root_take_device_dialog_body">Маршрут по умолчанию и DNS этого устройства сейчас держит другой VPN. Если забрать их, весь трафик и все запросы имён пойдут через TailSocks: приложения, которые тот VPN защищал, останутся без туннеля, а его фильтрация перестанет работать — и он об этом не узнает. Выключите переключатель, чтобы вернуть устройство.</string>
     <string name="settings_root_take_device_confirm">Занять устройство</string>
-    <string name="settings_root_yielded_banner">Устройство держит другой VPN.\n• Маршрутизируются только адреса тейлнета и имена MagicDNS.\n• Выходной узел и системный DNS выключены, пока он работает.</string>
-    <string name="main_root_yielded_title">Только тейлнет</string>
-    <string name="main_root_yielded_desc">Устройство держит другой VPN: выходной узел и системный DNS выключены. Адреса тейлнета и имена MagicDNS работают.</string>
-    <string name="main_status_active_root_yielded_desc">Только тейлнет — устройство держит другой VPN • Нажмите для остановки</string>
+    <string name="settings_root_yielded_banner">Устройство держит другой VPN.\n• Маршрутизируются только адреса tailnet и имена MagicDNS.\n• Выходной узел и системный DNS выключены, пока он работает.</string>
+    <string name="main_root_yielded_title">Только tailnet</string>
+    <string name="main_root_yielded_desc">Устройство держит другой VPN: выходной узел и системный DNS выключены. Адреса tailnet и имена MagicDNS работают.</string>
+    <string name="main_status_active_root_yielded_desc">Только tailnet — устройство держит другой VPN • Нажмите для остановки</string>
     <string name="main_exit_node_inert_label">Выходной узел не используется</string>
     <string name="main_exit_node_inert_desc">Выбран %1$s, но устройство держит другой VPN</string>
     <!-- Root Mode sharing the device: the other VPN bypasses some apps, we carry those -->

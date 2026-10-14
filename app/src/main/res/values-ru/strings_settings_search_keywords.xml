@@ -49,7 +49,7 @@
     <string name="search_kw_honest_hostinfo">ос, android, linux, модель устройства, hostinfo, маскировка, притворяться linux, настоящая система, в консоли показывает linux</string>
     <string name="search_kw_shields_up">shields up, фаервол, файрвол, входящие, щит, приватность</string>
     <string name="search_kw_posture">posture, проверка устройства, серийный номер, проверки организации, соответствие</string>
-    <string name="search_kw_tailnet_lock">блокировка тейлнета, tka, подпись узла, ключ подписи, доверенные ключи, ключ узла</string>
+    <string name="search_kw_tailnet_lock">блокировка tailnet, блокировка тейлнета, tka, подпись узла, ключ подписи, доверенные ключи, ключ узла</string>
     <string name="search_kw_advertise_routes">анонс маршрутов, сабнет роутер, подсеть, расшарить локальную сеть, cidr, 192.168, advertise routes</string>
     <string name="search_kw_advertise_tags">теги, тег, acl, tag:, advertise tags, контроль доступа</string>
     <string name="search_kw_relay">ретранслятор, реле, релей, relay, udp-реле, пересылка трафика</string>
@@ -84,7 +84,7 @@
     <string name="search_kw_lan_access">локалка, lan, вай-фай, wi-fi, точка доступа, раздать прокси, 0.0.0.0, другие устройства, прокси для телевизора</string>
 
     <!-- DNS -->
-    <string name="search_kw_magicdns">меджик днс, accept dns, имена тейлнета, короткие имена, ts.net</string>
+    <string name="search_kw_magicdns">меджик днс, accept dns, имена tailnet, имена тейлнета, короткие имена, ts.net</string>
     <string name="search_kw_dns_proxy_address">порт dns, 1053, локальный dns, днс прокси, приватный dns, upstream для adguard</string>
     <string name="search_kw_root_dns_redirect">dns всего устройства, перенаправление dns, iptables, magicdns для всех приложений</string>
     <string name="search_kw_dns_fallbacks">запасной днс, 8.8.8.8, 1.1.1.1, upstream, google dns, cloudflare</string>

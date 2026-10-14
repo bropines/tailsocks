@@ -15,7 +15,7 @@
     <string name="admin_pvc_node_groups">Видимость групп</string>
     <string name="admin_pvc_node_groups_help">Эти устройства узнают, в каких группах состоят пользователи, которые к ним обращаются, — для приложений, читающих это через tsnet или LocalAPI. На устройствах нужен Tailscale 1.97.8 или новее.</string>
     <string name="admin_pvc_node_connectors">Коннектор приложений</string>
-    <string name="admin_pvc_node_connectors_help">Делает эти устройства коннекторами приложений: они ходят к указанным доменам от имени тейлнета.</string>
+    <string name="admin_pvc_node_connectors_help">Делает эти устройства коннекторами приложений: они ходят к указанным доменам от имени tailnet.</string>
 
     <string name="admin_pvc_attr_cache">Кешировать карту сети</string>
     <string name="admin_pvc_attr_cache_help">Устройство хранит карту сети на диске и при запуске соединяется по ней, не дожидаясь сервера управления: старт быстрее, а пиры доступны, даже пока сервер медлит. Tailscale 1.98 или новее.</string>
@@ -57,8 +57,8 @@
     <string name="admin_pvc_pa_custom_help">Задаются через API или при выдаче устройства, с префиксом custom:. Тариф Premium и выше.</string>
 
     <string name="admin_pvc_ext_title">Декларативный общий доступ</string>
-    <string name="admin_pvc_ext_help">Устройства, которыми доверенные тейлнеты делятся через политику, когда согласны обе стороны. Каждый тейлнет ниже — тот, которому этот файл доверяет; гранты здесь называют его группы и теги как group://псевдоним/имя. Правится в JSON.</string>
-    <string name="admin_pvc_ext_id">ID тейлнета: %s</string>
+    <string name="admin_pvc_ext_help">Устройства, которыми доверенные tailnet делятся через политику, когда согласны обе стороны. Каждый tailnet ниже — тот, которому этот файл доверяет; гранты здесь называют его группы и теги как group://псевдоним/имя. Правится в JSON.</string>
+    <string name="admin_pvc_ext_id">ID tailnet: %s</string>
     <string name="admin_pvc_ext_incoming_yes">Принимает от него подключения</string>
     <string name="admin_pvc_ext_incoming_no">Не принимает от него подключения</string>
     <string name="admin_pvc_ext_refs">Может называть здесь: %s</string>

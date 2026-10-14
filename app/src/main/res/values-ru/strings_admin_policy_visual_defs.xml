@@ -81,7 +81,7 @@
     <string name="admin_pvd_groups_pane_empty">Выберите группу, чтобы посмотреть и изменить её</string>
     <string name="admin_pvd_group_new">Новая группа</string>
     <string name="admin_pvd_group_members">Участники</string>
-    <string name="admin_pvd_group_members_help">Пользователи по логину из списка тейлнета; логин, которого там пока нет, можно ввести вручную.</string>
+    <string name="admin_pvd_group_members_help">Пользователи по логину из списка tailnet; логин, которого там пока нет, можно ввести вручную.</string>
     <string name="admin_pvd_group_no_members">Участников пока нет: правила с этой группой никого не касаются.</string>
     <plurals name="admin_pvd_n_members">
         <item quantity="one">%d участник</item>
@@ -138,7 +138,7 @@
     <string name="admin_pvd_host_address">Адрес</string>
     <string name="admin_pvd_host_address_help">IP-адрес или сеть: 100.64.0.20, 192.168.1.0/24, fd7a:115c:a1e0::1</string>
     <string name="admin_pvd_host_devices">Устройства по этому адресу</string>
-    <string name="admin_pvd_host_no_device">Ни у одного устройства тейлнета нет такого адреса</string>
+    <string name="admin_pvd_host_no_device">Ни у одного устройства tailnet нет такого адреса</string>
     <string name="admin_pvd_host_delete">Удалить хост</string>
     <string name="admin_pvd_host_create_hint">Сначала дайте название и адрес.</string>
     <string name="admin_pvd_ipsets_title">Наборы IP</string>
@@ -229,7 +229,7 @@
     <string name="admin_pvd_attr_drive_access">Taildrive: открывать чужие папки</string>
     <string name="admin_pvd_attr_drive_access_help">Эти устройства могут открывать папки, которыми поделились через Taildrive.</string>
     <string name="admin_pvd_attr_mullvad">Выходные узлы Mullvad</string>
-    <string name="admin_pvd_attr_mullvad_help">Эти устройства могут выходить в интернет через узлы Mullvad. Нужно дополнение Mullvad для тейлнета.</string>
+    <string name="admin_pvd_attr_mullvad_help">Эти устройства могут выходить в интернет через узлы Mullvad. Нужно дополнение Mullvad для tailnet.</string>
     <string name="admin_pvd_attr_random_port">Случайный порт WireGuard</string>
     <string name="admin_pvd_attr_random_port_help">Случайный UDP-порт вместо 41641 — для файрволов, которые путаются, когда много устройств на одном порту. Заменяет общий randomizeClientPort.</string>
     <string name="admin_pvd_attr_no_ipv4">Без IPv4 Tailscale</string>
@@ -241,9 +241,9 @@
     <string name="admin_pvd_attr_nextdns_private">NextDNS без данных об устройстве</string>
     <string name="admin_pvd_attr_nextdns_private_help">Имена и модели устройств не отправляются в NextDNS.</string>
     <string name="admin_pvd_attr_nextdns">Профиль NextDNS</string>
-    <string name="admin_pvd_attr_nextdns_help">Эти устройства используют этот профиль NextDNS, если NextDNS — DNS-сервер тейлнета.</string>
+    <string name="admin_pvd_attr_nextdns_help">Эти устройства используют этот профиль NextDNS, если NextDNS — DNS-сервер tailnet.</string>
     <string name="admin_pvd_attr_controld">Профиль Control D</string>
-    <string name="admin_pvd_attr_controld_help">Эти устройства используют этот профиль Control D, если Control D — DNS-сервер тейлнета.</string>
+    <string name="admin_pvd_attr_controld_help">Эти устройства используют этот профиль Control D, если Control D — DNS-сервер tailnet.</string>
 
     <string name="admin_pvd_postures_help">Проверка — список условий, которым должно отвечать устройство: ОС, версия клиента, защитные программы. Правила, которые её требуют, пропускают только такие устройства.</string>
     <string name="admin_pvd_postures_empty">Проверки задают условия, которым должно отвечать устройство, чтобы правила его пропустили</string>

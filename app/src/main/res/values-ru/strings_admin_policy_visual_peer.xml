@@ -2,7 +2,7 @@
 <resources>
     <string name="admin_pvr_page">Реле-узлы</string>
     <string name="admin_pvr_page_short">Реле-узлы</string>
-    <string name="admin_pvr_help">Реле-узлы — устройства вашего тейлнета, через которые идёт трафик двух устройств, не сумевших соединиться напрямую; обычно это быстрее серверов DERP от Tailscale. Правило здесь говорит, какие устройства какими реле могут пользоваться. Само реле включается на устройстве: tailscale set --relay-server-port=40000, и этот UDP-порт должен быть доступен. С обеих сторон нужен Tailscale 1.86 или новее; Android, iOS и Apple TV реле быть не могут.</string>
+    <string name="admin_pvr_help">Реле-узлы — устройства вашего tailnet, через которые идёт трафик двух устройств, не сумевших соединиться напрямую; обычно это быстрее серверов DERP от Tailscale. Правило здесь говорит, какие устройства какими реле могут пользоваться. Само реле включается на устройстве: tailscale set --relay-server-port=40000, и этот UDP-порт должен быть доступен. С обеих сторон нужен Tailscale 1.86 или новее; Android, iOS и Apple TV реле быть не могут.</string>
     <string name="admin_pvr_add">Добавить правило</string>
     <string name="admin_pvr_pane_empty">Выберите правило, чтобы посмотреть и изменить его</string>
     <string name="admin_pvr_empty">Реле-узлов пока нет: устройства, которые не соединяются напрямую, идут через серверы DERP от Tailscale</string>
@@ -36,7 +36,7 @@
     <string name="admin_pvr_also_posture">только при %s</string>
     <string name="admin_pvr_note_os">%1$s: на %2$s реле не работает</string>
     <string name="admin_pvr_note_old">%1$s: Tailscale %2$s, а реле-узлам нужна 1.86</string>
-    <string name="admin_pvr_note_shared">%1$s: устройство из другого тейлнета, а реле служат только своему</string>
+    <string name="admin_pvr_note_shared">%1$s: устройство из другого tailnet, а реле служат только своему</string>
     <string name="admin_pvr_rule_title">Правило реле-узлов %d</string>
     <string name="admin_pvr_mixed">Это ещё и правило доступа: %s</string>
     <string name="admin_pvr_mixed_help">Его устройства — те же, что у доступа, который оно даёт, поэтому меняются они на странице «Доступ». Вынесите реле в отдельное правило, чтобы править их здесь.</string>

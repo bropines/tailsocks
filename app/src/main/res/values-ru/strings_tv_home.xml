@@ -3,9 +3,9 @@
     <!-- Signing in without a browser on the device: the link as a QR code (ui/SignIn.kt) -->
     <!-- The logged-out card, on a phone: the link for another device to open -->
     <string name="signin_other_device">Войти с другого устройства</string>
-    <string name="signin_other_device_help">Откройте ссылку на любом телефоне или компьютере и войдите там — это устройство продолжит само. Кто войдёт, тот и решит, в чей тейлнет попадёт устройство, поэтому отправляйте ссылку только владельцу тейлнета.</string>
+    <string name="signin_other_device_help">Откройте ссылку на любом телефоне или компьютере и войдите там — это устройство продолжит само. Кто войдёт, тот и решит, в чей tailnet попадёт устройство, поэтому отправляйте ссылку только владельцу tailnet.</string>
     <!-- %1$s: the device's name, %2$s: the link -->
-    <string name="signin_share_message">Ссылка для входа устройства «%1$s» (TailSocks): %2$s\nОткройте её и войдите, чтобы пустить устройство в свой тейлнет.</string>
+    <string name="signin_share_message">Ссылка для входа устройства «%1$s» (TailSocks): %2$s\nОткройте её и войдите, чтобы пустить устройство в свой tailnet.</string>
 
     <!-- The same on a television: a screen of its own -->
     <string name="tv_signin_title">Войдите с телефона</string>
@@ -25,7 +25,7 @@
     <string name="tv_home_start">OK — запустить</string>
     <string name="tv_home_active">Служба запущена • OK — остановить</string>
     <string name="tv_home_active_root">Система идёт через tailscale0 • OK — остановить</string>
-    <string name="tv_home_active_root_yielded">Только тейлнет — устройство держит другой VPN • OK — остановить</string>
+    <string name="tv_home_active_root_yielded">Только tailnet — устройство держит другой VPN • OK — остановить</string>
     <string name="tv_home_active_root_shared">Ведём приложения вне чужого VPN • OK — остановить</string>
     <string name="tv_home_degraded">%1$s • OK — остановить</string>
     <string name="tv_home_needs_login">Войдите ниже • OK — остановить</string>
@@ -33,7 +33,7 @@
 
     <!-- Stopping asks first: OK on a remote is pressed by accident -->
     <string name="tv_stop_title">Остановить TailSocks?</string>
-    <string name="tv_stop_text">Связь с тейлнетом пропадёт, пока вы не запустите его снова.</string>
+    <string name="tv_stop_text">Связь с tailnet пропадёт, пока вы не запустите его снова.</string>
 
     <!-- Onboarding on a television: the login step -->
     <string name="tv_onboarding_login_desc">Для входа нужен телефон: когда служба запустится, на этом экране появится код для его камеры. Войти можно и ключом — это подождёт.</string>

@@ -50,8 +50,8 @@
     <string name="admin_pv_net_random_port">Случайный порт клиента</string>
     <string name="admin_pv_net_random_port_help">Устройства берут случайный UDP-порт вместо 41641 — некоторым файрволам так нужно. Атрибут устройства randomize-client-port делает то же только для выбранных устройств.</string>
     <string name="admin_pv_net_no_ipv4">Без адресов IPv4</string>
-    <string name="admin_pv_net_no_ipv4_help">Устройства получают в тейлнете только адреса IPv6, без 100.x. Атрибут устройства disable-ipv4 делает это для выбранных устройств, и документация теперь советует его.</string>
-    <string name="admin_pv_net_cgnat">Маршрут к тейлнету на Mac</string>
+    <string name="admin_pv_net_no_ipv4_help">Устройства получают в tailnet только адреса IPv6, без 100.x. Атрибут устройства disable-ipv4 делает это для выбранных устройств, и документация теперь советует его.</string>
+    <string name="admin_pv_net_cgnat">Маршрут к tailnet на Mac</string>
     <string name="admin_pv_net_cgnat_help">Как маки прокладывают маршрут к 100.64.0.0/10. «Автоматически» — один маршрут на весь диапазон, если другая сеть на маке его не занимает.</string>
     <string name="admin_pv_net_cgnat_auto">Автоматически</string>
     <string name="admin_pv_net_cgnat_always">Один маршрут на весь диапазон</string>

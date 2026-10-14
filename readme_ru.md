@@ -53,7 +53,7 @@
 
 TailSocks запускает на Android-телефоне (экспериментально — и на Android TV) полноценный узел [Tailscale](https://tailscale.com/) и даёт выбрать, как он доступен остальному устройству: как **локальный SOCKS5/HTTP-прокси**, которому не нужно разрешение VPN и который уживается с любым другим VPN; как **системный VPN** (TUN, раздельный или полный туннель); или — на рутованных устройствах — через **настоящий сетевой интерфейс ядра** с policy routing. Всё, что умеет Tailscale, на месте: [выходные узлы](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), несколько аккаунтов, Headscale и встроенный обход DPI для управляющего канала там, где Tailscale блокируют.
 
-Приложение говорит, что происходит на самом деле: подключён ли тейлнет, ещё подключается или отрезан от реле, какие ваши устройства доступны напрямую, а какие только через реле, — и предлагает то единственное действие, которое поможет.
+Приложение говорит, что происходит на самом деле: подключён ли tailnet, ещё подключается или отрезан от реле, какие ваши устройства доступны напрямую, а какие только через реле, — и предлагает то единственное действие, которое поможет.
 
 ---
 
@@ -74,7 +74,7 @@ TailSocks запускает на Android-телефоне (эксперимен
 **Управление**
 
 - **Несколько аккаунтов**, Headscale и основной аккаунт, который нельзя удалить.
-- **Удалённое управление (экспериментально):** управлять TailSocks другого устройства через тейлнет после сопряжения по коду.
+- **Удалённое управление (экспериментально):** управлять TailSocks другого устройства через tailnet после сопряжения по коду.
 - **Консоль администратора:** API Tailscale — устройства, DNS, пользователи, ключи, политика — под биометрической защитой.
 - **Автоматизация:** broadcast-команды для Tasker с токеном, AppFunctions для ассистентов на Android 16+, ссылки `tailsocks://` — [автоматизация](https://bropines.github.io/tailsocks/ru/automation/).
 - **Резервные копии:** полный зашифрованный бэкап и экспорт отдельных аккаунтов.
@@ -93,7 +93,7 @@ TailSocks запускает на Android-телефоне (эксперимен
 
 <table>
   <tr>
-    <td width="25%" align="center"><img src="docs/screenshots/ru/main.webp" alt="Подключено" /><br/><sub>Подключено, со сводкой тейлнета</sub></td>
+    <td width="25%" align="center"><img src="docs/screenshots/ru/main.webp" alt="Подключено" /><br/><sub>Подключено, со сводкой tailnet</sub></td>
     <td width="25%" align="center"><img src="docs/screenshots/ru/main-problem.webp" alt="Проблема с реле" /><br/><sub>Что не так — и что поможет</sub></td>
     <td width="25%" align="center"><img src="docs/screenshots/ru/peers.webp" alt="Узлы" /><br/><sub>Узлы с пингом всех разом</sub></td>
     <td width="25%" align="center"><img src="docs/screenshots/ru/netcheck.webp" alt="Проверка сети" /><br/><sub>Домашнее реле и задержки DERP</sub></td>
@@ -104,7 +104,7 @@ TailSocks запускает на Android-телефоне (эксперимен
   </tr>
 </table>
 
-<sub>Отрисовано из вымышленного тейлнета собственными превью-тестами приложения — см. <a href="scripts/readme_shots.py"><code>scripts/readme_shots.py</code></a>.</sub>
+<sub>Отрисовано из вымышленного tailnet собственными превью-тестами приложения — см. <a href="scripts/readme_shots.py"><code>scripts/readme_shots.py</code></a>.</sub>
 
 ---
 

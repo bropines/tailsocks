@@ -105,7 +105,7 @@
     <string name="admin_pv_tpl_admins">Администраторам — всё</string>
     <string name="admin_pv_tpl_admins_help">Пользователи с ролью администратора ко всем устройствам на всех портах. Добавляется сразу.</string>
     <string name="admin_pv_tpl_guests">Гостям — только exit-ноды</string>
-    <string name="admin_pv_tpl_guests_help">Интернет через exit-ноды и ничего внутри тейлнета. Останется выбрать, кто гости.</string>
+    <string name="admin_pv_tpl_guests_help">Интернет через exit-ноды и ничего внутри tailnet. Останется выбрать, кто гости.</string>
     <string name="admin_pv_tpl_group_tag">Группа к тегу на нужных портах</string>
     <string name="admin_pv_tpl_group_tag_help">Выберите группу, тег и порты.</string>
     <string name="admin_pv_rule_title">Правило доступа</string>

@@ -27,8 +27,8 @@
     <string name="search_sum_palette">Акцентный цвет интерфейса</string>
     <string name="search_sum_login_server">Свой сервер координации вместо сервера Tailscale</string>
     <string name="search_sum_auth_key">Вход по заранее выпущенному ключу, без браузера</string>
-    <string name="search_sum_device_name">Имя этого устройства в тейлнете</string>
-    <string name="search_sum_exit_node">Пускать весь интернет-трафик через другое устройство тейлнета</string>
+    <string name="search_sum_device_name">Имя этого устройства в tailnet</string>
+    <string name="search_sum_exit_node">Пускать весь интернет-трафик через другое устройство tailnet</string>
     <string name="search_sum_logout">Выйти из профиля и забыть ключ его узла</string>
     <string name="search_sum_tun_engine">Что ведёт туннель: сам tailscaled или hev-socks5-tunnel</string>
     <string name="search_sum_tun_uses_socks">Локальный прокси, в который движок hev отдаёт все пакеты</string>
@@ -37,8 +37,8 @@
     <string name="search_sum_socks5_username">Логин для SOCKS5-прокси; задаётся вместе с паролем</string>
     <string name="search_sum_socks5_password">Пароль для SOCKS5-прокси; задаётся вместе с логином</string>
     <string name="search_sum_sagernet_link">Ссылка socks5:// на этот прокси для SagerNet, NekoBox и им подобных</string>
-    <string name="search_sum_dns_proxy_address">Адрес и порт локального DNS, который отвечает на имена тейлнета</string>
-    <string name="search_sum_dns_fallbacks">Серверы, которые спрашивают, когда DNS тейлнета не отвечает</string>
+    <string name="search_sum_dns_proxy_address">Адрес и порт локального DNS, который отвечает на имена tailnet</string>
+    <string name="search_sum_dns_fallbacks">Серверы, которые спрашивают, когда DNS tailnet не отвечает</string>
     <string name="search_sum_doh_fallback">Сервер DNS-over-HTTPS — последняя попытка</string>
     <string name="search_sum_control_proxy">Ходить к серверу координации через свой прокси</string>
     <string name="search_sum_byedpi_flags">Параметры десинхронизации, с которыми запускается ByeByeDPI</string>
