@@ -22,12 +22,13 @@ private class DnsQueryResponse(@SerialName("Bytes") val bytes: String? = null)
 
 object RootUtils {
     private const val TAG = "RootUtils"
-    const val SERVICE_D_DIR = "/data/adb/service.d"
-    const val SERVICE_SCRIPT_PATH = "$SERVICE_D_DIR/tailscaled.sh"
 
-    /** Root-owned home of everything the boot script consumes; the app uid cannot write here. */
-    const val ROOT_ENV_DIR = "/data/adb/tailsocks"
-    const val ROOT_ENV_FILE = "$ROOT_ENV_DIR/control_proxy.env"
+    /**
+     * This package's files outside the sandbox — the boot script, the env file,
+     * the CLI wrapper, the hosts copy. The debug build has its own (`-dev`), so
+     * it never overwrites the release app's; the ruleset below is shared.
+     */
+    private val paths: RootPaths get() = RootPaths.current
 
     /**
      * Policy routing table reserved for the tailscale0 interface.
@@ -151,8 +152,8 @@ object RootUtils {
     private val CIDR_V4 = Regex("^\\d{1,3}(\\.\\d{1,3}){3}/\\d{1,2}$")
     private val CIDR_V6 = Regex("^[0-9a-fA-F:]{2,45}/\\d{1,3}$")
 
-    /** Pre-fix rp_filter value of `all`, kept so cleanup can restore it. */
-    private const val RP_FILTER_ORIG = "$ROOT_ENV_DIR/rp_filter.orig"
+    /** Pre-fix rp_filter value of `all`, kept so cleanup can restore it; shared, like the ruleset. */
+    private const val RP_FILTER_ORIG = RootPaths.RP_FILTER_ORIG
 
     /**
      * Run boundaries in the daemon log. The daemon appends to one file across
@@ -699,16 +700,16 @@ object RootUtils {
 
     private fun writeRootEnvFile(env: String, dataDir: String): Boolean {
         val envScript = StringBuilder()
-            .append("mkdir -p ").append(ROOT_ENV_DIR).append(" && chmod 700 ").append(ROOT_ENV_DIR).append('\n')
-            .append("cat > ").append(ROOT_ENV_FILE).append(" <<'TAILSOCKS_ENV_EOF'\n")
+            .append("mkdir -p ").append(paths.envDir).append(" && chmod 700 ").append(paths.envDir).append('\n')
+            .append("cat > ").append(paths.envFile).append(" <<'TAILSOCKS_ENV_EOF'\n")
             // Who wrote it, in the boot script's header style. The file has no
             // format version — the script accepts `export NAME='value'` lines
-            // and skips everything else, this comment included — but the release
-            // and the debug build share it, and one look should tell which.
+            // and skips everything else, this comment included. Each package
+            // has its own file (RootPaths); the line says which build wrote it.
             .append(RootBootScript.envFileHeader(BuildConfig.APPLICATION_ID, BuildConfig.VERSION_NAME))
             .append(env)
             .append("TAILSOCKS_ENV_EOF\n")
-            .append("chmod 600 ").append(ROOT_ENV_FILE).append('\n')
+            .append("chmod 600 ").append(paths.envFile).append('\n')
             .append("rm -f ").append(shQuote("$dataDir/files/control_proxy.env")).append('\n')
         val ok = runSu("control-proxy-env", envScript.toString()).ok
         if (!ok) {
@@ -873,15 +874,16 @@ object RootUtils {
         // on the body — the entries are copied through verbatim.
         val sb = StringBuilder()
         sb.append("set -e\n")
-        sb.append("mkdir -p /data/adb/tailshosts\n")
+        val hosts = paths.hostsFile
+        sb.append("mkdir -p ${paths.hostsDir}\n")
         sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
-        sb.append("cp /system/etc/hosts /data/adb/tailshosts/hosts 2>/dev/null || printf '127.0.0.1 localhost\\n::1 ip6-localhost\\n' > /data/adb/tailshosts/hosts\n")
-        sb.append("cat >> /data/adb/tailshosts/hosts <<'TAILSOCKS_EOF'\n")
+        sb.append("cp /system/etc/hosts $hosts 2>/dev/null || printf '127.0.0.1 localhost\\n::1 ip6-localhost\\n' > $hosts\n")
+        sb.append("cat >> $hosts <<'TAILSOCKS_EOF'\n")
         for (line in lines) sb.append(line).append('\n')
         sb.append("TAILSOCKS_EOF\n")
-        sb.append("chmod 644 /data/adb/tailshosts/hosts\n")
-        sb.append("chcon u:object_r:system_file:s0 /data/adb/tailshosts/hosts 2>/dev/null || true\n")
-        sb.append("mount -o bind /data/adb/tailshosts/hosts /system/etc/hosts 2>/dev/null || true\n")
+        sb.append("chmod 644 $hosts\n")
+        sb.append("chcon u:object_r:system_file:s0 $hosts 2>/dev/null || true\n")
+        sb.append("mount -o bind $hosts /system/etc/hosts 2>/dev/null || true\n")
         return runSu("hosts-sync", sb.toString()).ok
     }
 
@@ -2409,9 +2411,10 @@ object RootUtils {
      * of `all` is saved once, through a temp file and mv so a partial write can
      * never leave a bad value for [rpFilterRestore]; the directory is created
      * here as well because the boot script reaches this without startRootDaemon.
+     * The record is the ruleset's, not a package's ([RootPaths.RP_FILTER_ORIG]).
      */
     private fun rpFilterLoosen(): String = buildString {
-        val dir = shQuote(ROOT_ENV_DIR)
+        val dir = shQuote(RP_FILTER_ORIG.substringBeforeLast('/'))
         val orig = shQuote(RP_FILTER_ORIG)
         val tmp = shQuote("$RP_FILTER_ORIG.tmp")
         append("mkdir -p $dir && chmod 700 $dir\n")
@@ -2777,15 +2780,16 @@ object RootUtils {
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply { writeText(scriptContent) }
 
                 val cmd = """
-                    mkdir -p "$SERVICE_D_DIR"
-                    cp "${tempFile.absolutePath}" "$SERVICE_SCRIPT_PATH"
-                    chmod 755 "$SERVICE_SCRIPT_PATH"
+                    mkdir -p "${RootPaths.SERVICE_D_DIR}"
+                    cp "${tempFile.absolutePath}" "${paths.serviceScript}"
+                    chmod 755 "${paths.serviceScript}"
                     rm -f "${tempFile.absolutePath}"
                 """.trimIndent()
 
                 runSu("service-script-install", cmd).ok
             } else {
-                runSu("service-script-remove", "rm -f \"$SERVICE_SCRIPT_PATH\"").ok
+                // This package's script only; the other build's is not ours.
+                runSu("service-script-remove", "rm -f \"${paths.serviceScript}\"").ok
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to manage service.d script: ${e.message}", e)
@@ -2795,7 +2799,7 @@ object RootUtils {
     }
 
     fun isServiceScriptInstalled(): Boolean {
-        val res = runSu("service-script-check", "[ -f \"$SERVICE_SCRIPT_PATH\" ] && echo 'exists'", timeoutMs = 10_000L)
+        val res = runSu("service-script-check", "[ -f \"${paths.serviceScript}\" ] && echo 'exists'", timeoutMs = 10_000L)
         return res.ok && res.output.contains("exists")
     }
 
@@ -2814,7 +2818,7 @@ object RootUtils {
         val marker = "TAILSOCKS_SCRIPT_PRESENT"
         val res = runSu(
             "service-script-check",
-            "[ -f \"$SERVICE_SCRIPT_PATH\" ] && { echo '$marker'; head -n ${RootBootScript.HEADER_SEARCH_LINES} \"$SERVICE_SCRIPT_PATH\"; }",
+            "[ -f \"${paths.serviceScript}\" ] && { echo '$marker'; head -n ${RootBootScript.HEADER_SEARCH_LINES} \"${paths.serviceScript}\"; }",
             timeoutMs = 10_000L,
             quiet = true
         )
@@ -2825,56 +2829,23 @@ object RootUtils {
         return RootBootScript.state(head, expected)
     }
 
-    const val CLI_SCRIPT_PATH = "/system/bin/tailscale"
-    const val ALT_CLI_SCRIPT_PATH = "/data/adb/service.d/tailscale"
-    const val MAGISK_MODULE_CLI_PATH = "/data/adb/modules/tailscaled/system/bin/tailscale"
-
     fun setTailscaleCliInstalled(context: Context, install: Boolean): Boolean {
         return try {
             if (install) {
                 // The daemon binary is the CLI too (ts_include_cli); the wrapper
                 // sets TS_BE_CLI so it runs as one.
                 val cliBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
-                val pkgName = context.packageName
-
                 val scriptContent = context.assets.open("scripts/tailscale_cli.sh").bufferedReader().use { it.readText() }
-                    .replace("%PKG_NAME%", pkgName)
+                    .replace("%PKG_NAME%", context.packageName)
                     .replace("%CLI_BIN%", cliBin)
 
                 val tempFile = File(context.cacheDir, "tailscale_cli_wrapper.sh").apply {
                     writeText(scriptContent)
                 }
-
-                val cmd = """
-                    mkdir -p "$SERVICE_D_DIR"
-                    cp "${tempFile.absolutePath}" "$ALT_CLI_SCRIPT_PATH"
-                    chmod 755 "$ALT_CLI_SCRIPT_PATH"
-
-                    mkdir -p "/data/adb/modules/tailscaled/system/bin"
-                    rm -f "/data/adb/modules/tailscaled/disable" "/data/adb/modules/tailscaled/remove"
-                    printf 'id=tailscaled\nname=TailSocks CLI Integration\nversion=v1.0\nversionCode=100\nauthor=TailSocks\ndescription=Tailscale CLI binary overlay\n' > /data/adb/modules/tailscaled/module.prop
-                    cp "${tempFile.absolutePath}" "$MAGISK_MODULE_CLI_PATH"
-                    chmod 755 "$MAGISK_MODULE_CLI_PATH"
-                    chcon u:object_r:system_file:s0 "$MAGISK_MODULE_CLI_PATH" 2>/dev/null || true
-
-                    if mount -o remount,rw /product/bin 2>/dev/null; then
-                        cp "${tempFile.absolutePath}" /product/bin/tailscale 2>/dev/null && chmod 755 /product/bin/tailscale && chcon u:object_r:system_file:s0 /product/bin/tailscale 2>/dev/null
-                        mount -o remount,ro /product/bin 2>/dev/null || true
-                    fi
-                    if mount -o remount,rw /system 2>/dev/null; then
-                        cp "${tempFile.absolutePath}" "$CLI_SCRIPT_PATH" 2>/dev/null && chmod 755 "$CLI_SCRIPT_PATH" 2>/dev/null
-                        mount -o remount,ro /system 2>/dev/null || true
-                    fi
-                    rm -f "${tempFile.absolutePath}"
-                """.trimIndent()
-
-                runSu("cli-install", cmd).ok
+                runSu("cli-install", paths.cliInstallScript(tempFile.absolutePath)).ok
             } else {
-                val cmd = """
-                    rm -f "$CLI_SCRIPT_PATH" "$ALT_CLI_SCRIPT_PATH" "$MAGISK_MODULE_CLI_PATH"
-                    mount -o remount,rw /product/bin 2>/dev/null && rm -f /product/bin/tailscale && mount -o remount,ro /product/bin 2>/dev/null || true
-                """.trimIndent()
-                runSu("cli-remove", cmd).ok
+                // This package's wrapper only, from wherever it went.
+                runSu("cli-remove", paths.cliRemoveScript()).ok
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to manage CLI wrapper script: ${e.message}", e)
@@ -2884,8 +2855,7 @@ object RootUtils {
     }
 
     fun isTailscaleCliInstalled(): Boolean {
-        val check = "([ -f \"$CLI_SCRIPT_PATH\" ] || [ -f \"$ALT_CLI_SCRIPT_PATH\" ] || [ -f \"$MAGISK_MODULE_CLI_PATH\" ] || [ -f \"/product/bin/tailscale\" ]) && echo 'exists'"
-        val res = runSu("cli-check", check, timeoutMs = 10_000L)
+        val res = runSu("cli-check", paths.cliCheckScript(), timeoutMs = 10_000L)
         return res.ok && res.output.contains("exists")
     }
 

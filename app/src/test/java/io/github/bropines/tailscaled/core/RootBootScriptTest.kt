@@ -127,6 +127,7 @@ class RootBootScriptTest {
         assertTrue(script.startsWith("#!/system/bin/sh\n${RootBootScript.HEADER_TAG} "))
         assertFalse(script.contains("%PKG_NAME%"))
         assertFalse(script.contains("%DAEMON_BIN%"))
+        assertFalse(script.contains("%ENV_FILE%"))
         // What Settings reads back is what `head` of the installed file returns.
         val head = script.lines().take(RootBootScript.HEADER_SEARCH_LINES).joinToString("\n")
         assertEquals(

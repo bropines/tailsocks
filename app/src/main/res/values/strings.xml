@@ -899,7 +899,7 @@
     <string name="settings_root_service_script_installed">Service script installed to service.d</string>
     <string name="settings_root_service_script_removed">Service script removed</string>
     <string name="settings_root_service_script_failed">Failed to manage service.d script</string>
-    <string name="settings_root_cli_installed">CLI wrapper installed to /system/bin/tailscale</string>
+    <string name="settings_root_cli_installed">CLI wrapper installed to %1$s</string>
     <string name="settings_root_cli_removed">CLI wrapper removed</string>
     <string name="settings_root_cli_failed">Failed to manage CLI wrapper</string>
     <string name="settings_root_daemon_status_label">Daemon Status:</string>

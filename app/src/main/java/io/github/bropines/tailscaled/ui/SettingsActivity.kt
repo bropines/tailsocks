@@ -1747,7 +1747,12 @@ fun SettingsScreen(
                         isRootBusy = false
                         if (success) {
                             cliInstalled = install
-                            Toast.makeText(context, context.getString(if (install) R.string.settings_root_cli_installed else R.string.settings_root_cli_removed), Toast.LENGTH_SHORT).show()
+                            val message = if (install) {
+                                context.getString(R.string.settings_root_cli_installed, RootPaths.current.systemCli)
+                            } else {
+                                context.getString(R.string.settings_root_cli_removed)
+                            }
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(context, context.getString(R.string.settings_root_cli_failed), Toast.LENGTH_SHORT).show()
                         }
@@ -2871,7 +2876,7 @@ fun SettingsScreen(
                 val socketPath = "${context.filesDir.absolutePath}/tailscaled.sock"
                 val logsDir = File(context.filesDir.parentFile ?: context.filesDir, "logs").absolutePath
                 val logPath = "$logsDir/tailscaled.log"
-                val serviceScriptPath = RootUtils.SERVICE_SCRIPT_PATH
+                val serviceScriptPath = RootPaths.current.serviceScript
                 var daemonAlive by remember { mutableStateOf(false) }
 
                 // Poll real socket liveness every 3s instead of just File.exists()

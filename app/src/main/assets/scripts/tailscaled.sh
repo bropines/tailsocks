@@ -1,10 +1,12 @@
 #!/system/bin/sh
 # TailSocks Root Autostart Service Script
 
-# %PKG_NAME% and %DAEMON_BIN% are filled in by RootUtils.setServiceScriptInstalled.
+# %PKG_NAME%, %DAEMON_BIN% and %ENV_FILE% are filled in by
+# RootUtils.setServiceScriptInstalled. The script starts the package that
+# installed it and no other: the release app and the debug build each have
+# their own copy (tailscaled.sh, tailscaled-dev.sh) and their own env file, and
+# a copy whose package is gone does nothing.
 PKG="%PKG_NAME%"
-[ ! -d "/data/data/$PKG" ] && PKG="io.github.bropines.tailscaled"
-[ ! -d "/data/data/$PKG" ] && PKG="io.github.bropines.tailscaled.dev"
 
 DATA_DIR="/data/data/$PKG"
 [ ! -d "$DATA_DIR" ] && exit 1
@@ -29,7 +31,7 @@ mkdir -p "$LOGS_DIR"
 # dead until the app restarted it, and with several profiles the wrong one
 # could come up. Unset (an install that never started Root Mode from the app)
 # falls back to the old behaviour below.
-ENV_FILE="/data/adb/tailsocks/control_proxy.env"
+ENV_FILE="%ENV_FILE%"
 if [ -f "$ENV_FILE" ] && [ "$(stat -c %u "$ENV_FILE" 2>/dev/null)" = "0" ]; then
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in

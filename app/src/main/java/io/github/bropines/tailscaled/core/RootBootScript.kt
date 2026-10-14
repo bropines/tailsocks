@@ -15,7 +15,8 @@ import java.security.MessageDigest
  *     # tailsocks-boot-script: 3f9a2c1b7d0e 5.0.0
  *
  * The version is a digest of the script as this build would write it, the
- * template with its two placeholders filled in, so it cannot be forgotten when
+ * template with its placeholders filled in (the package, the daemon path, and
+ * the package's own env file — [RootPaths]), so it cannot be forgotten when
  * the template changes, and it also moves when the daemon path baked into the
  * script does (Android renames the install directory on every update; a stale
  * path costs the boot start a wait for the package manager). The build name is
@@ -42,7 +43,7 @@ object RootBootScript {
 
     /** The script this build installs: the template filled in, the header after the shebang. */
     fun render(template: String, packageName: String, daemonBin: String, buildName: String): String {
-        val body = template.replace("%PKG_NAME%", packageName).replace("%DAEMON_BIN%", daemonBin)
+        val body = fill(template, packageName, daemonBin)
         val header = "$HEADER_TAG ${versionOf(body)} ${buildName.replace(unsafeBuildName, "")}".trimEnd() + "\n"
         val firstLineEnd = body.indexOf('\n')
         return if (body.startsWith("#!") && firstLineEnd >= 0) {
@@ -64,7 +65,13 @@ object RootBootScript {
 
     /** The version this build would write: [render]'s header, read back. */
     fun expectedVersion(template: String, packageName: String, daemonBin: String): String =
-        versionOf(template.replace("%PKG_NAME%", packageName).replace("%DAEMON_BIN%", daemonBin))
+        versionOf(fill(template, packageName, daemonBin))
+
+    /** The template with this package's values in: its name, its daemon, its env file. */
+    private fun fill(template: String, packageName: String, daemonBin: String): String = template
+        .replace("%PKG_NAME%", packageName)
+        .replace("%DAEMON_BIN%", daemonBin)
+        .replace("%ENV_FILE%", RootPaths.forPackage(packageName).envFile)
 
     /** The header of an installed script: its version and the build that wrote it. */
     data class Header(val version: String, val writtenBy: String?)

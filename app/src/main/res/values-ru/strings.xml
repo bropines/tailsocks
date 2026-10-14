@@ -842,7 +842,7 @@
     <string name="settings_root_service_script_installed">Скрипт службы установлен в service.d</string>
     <string name="settings_root_service_script_removed">Скрипт службы удалён</string>
     <string name="settings_root_service_script_failed">Не удалось изменить скрипт в service.d</string>
-    <string name="settings_root_cli_installed">CLI-обёртка установлена в /system/bin/tailscale</string>
+    <string name="settings_root_cli_installed">CLI-обёртка установлена в %1$s</string>
     <string name="settings_root_cli_removed">CLI-обёртка удалена</string>
     <string name="settings_root_cli_failed">Не удалось изменить CLI-обёртку</string>
     <string name="settings_root_daemon_status_label">Статус демона:</string>

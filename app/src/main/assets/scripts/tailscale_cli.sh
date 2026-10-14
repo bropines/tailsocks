@@ -1,8 +1,9 @@
 #!/system/bin/sh
 # TailSocks Tailscale CLI Wrapper
+# The package that installed this copy, and only that one: the release app and
+# the debug build each install their own wrapper (tailscale, tailscale-dev), and
+# one must never talk to the other's daemon.
 PKG="%PKG_NAME%"
-[ ! -d "/data/data/$PKG" ] && PKG="io.github.bropines.tailscaled"
-[ ! -d "/data/data/$PKG" ] && PKG="io.github.bropines.tailscaled.dev"
 
 # The CLI is the daemon binary itself, libtailscale.so, built with upstream's
 # ts_include_cli tag: it acts as the CLI when argv[0] is "tailscale" or when
