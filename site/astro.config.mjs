@@ -27,7 +27,12 @@ export default defineConfig({
 				{
 					label: 'Start',
 					translations: { ru: 'Начало' },
-					items: [{ slug: 'getting-started' }, { slug: 'connection-modes' }],
+					items: [
+						{ slug: 'getting-started' },
+						{ slug: 'connection-modes' },
+						{ slug: 'root-mode' },
+						{ slug: 'root-mode-internals' },
+					],
 				},
 				{
 					label: 'Features',
