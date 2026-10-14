@@ -2228,6 +2228,8 @@ fun SettingsScreen(
                 else stringResource(R.string.settings_taildrop_folder_set_format, folderLabel ?: "…"),
                 Icons.Default.Folder
             ) { taildropFolderChooser.choose() }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            TaildriveDownloadFolderRow()
         }
 
         SettingsCardGap()
