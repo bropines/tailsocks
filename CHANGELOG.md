@@ -36,6 +36,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Signing in without an auth key uses the custom login server (Headscale), not Tailscale's; broken since 4.0.0.
 - Deleting the account in use moves to the main account, not to whichever came first.
 - The status card's second line stays on one line where a slightly smaller size fits it.
+- Log lines read on a light theme: values, keys and addresses were nearly white on white.
 
 ## [4.10.2] - 2026-10-13
 
