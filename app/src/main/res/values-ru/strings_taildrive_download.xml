@@ -35,6 +35,7 @@
     <string name="taildrive_download_pick_title">Куда сохранить</string>
     <string name="taildrive_download_pick_confirm">Сохранить сюда</string>
     <string name="taildrive_download_folder_lost">Папка для загрузок больше недоступна. Выберите, куда сохранить.</string>
+    <string name="taildrive_download_taildrop_unwritable">В папку Taildrop сейчас не записать. Выберите, куда сохранить.</string>
 
     <string name="taildrive_download_channel">Загрузки Taildrive</string>
     <string name="taildrive_download_to">Скачивание в %1$s</string>
@@ -76,11 +77,15 @@
     <string name="taildrive_download_folder_title">Загрузки Taildrive</string>
     <string name="taildrive_download_folder_ask">Спрашивать каждый раз. Файлы из общих папок других устройств сохраняются туда, куда вы укажете при скачивании.</string>
     <string name="taildrive_download_folder_set_format">%1$s. Сюда сохраняются файлы, скачанные из общих папок других устройств.</string>
-    <string name="taildrive_download_folder_dialog_body">Файлы из общих папок других устройств сохраняются в %1$s.</string>
-    <string name="taildrive_download_folder_change">Изменить</string>
+    <string name="taildrive_download_folder_taildrop_format">Как у Taildrop: %1$s</string>
+    <string name="taildrive_download_mode_taildrop">Как у Taildrop</string>
     <string name="taildrive_download_folder_reset">Спрашивать каждый раз</string>
+    <string name="taildrive_download_mode_ask_note">Папка выбирается при каждом скачивании</string>
+    <string name="taildrive_download_mode_choose">Выбрать папку</string>
+    <string name="taildrive_download_mode_choose_note">Выбирается один раз и запоминается</string>
+    <string name="taildrive_download_mode_picker_help">Android не даёт приложениям выбрать корень памяти или саму папку Download — выберите или создайте папку внутри неё.</string>
     <string name="search_sum_taildrive_download_folder">Куда сохраняются файлы, скачанные из общих папок Taildrive</string>
-    <string name="search_kw_taildrive_download_folder">папка загрузок, скачивание, загрузки, куда сохранять, общие папки, спрашивать каждый раз</string>
+    <string name="search_kw_taildrive_download_folder">папка загрузок, скачивание, загрузки, куда сохранять, общие папки, спрашивать каждый раз, как у taildrop</string>
 
     <string name="taildrive_path_edit">Ввести путь</string>
     <string name="taildrive_path_field">Путь</string>

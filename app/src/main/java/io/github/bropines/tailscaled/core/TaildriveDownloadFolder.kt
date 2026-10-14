@@ -8,30 +8,51 @@ import java.io.File
 
 /**
  * Where files downloaded from Taildrive shares go: Settings → Sharing & access → Storage, "Taildrive
- * downloads". Nothing stored is "ask every time", the default: each download asks for a folder,
- * and the one picked then can be kept from the end of that download.
+ * downloads", three choices ([DownloadMode]).
  *
- * The same two kinds of folder as Taildrop's ([ReceiveFolder]): a SAF tree granted through the
- * system's picker, or a directory chosen in the app's own browser where the system has none. Its
- * own two keys, apart from Taildrop's, and neither exported with the settings: both name a place
- * on this device.
+ * - **Same as Taildrop**, the default, for every install that never chose: the Taildrop folder as
+ *   it is at the moment of the download ([TaildropFolder.get]), followed when it changes, written
+ *   the way received files are — a SAF tree through its grant, a directory with java.io.File. A
+ *   phone that keeps received files in the app has no Taildrop folder: then the one a television
+ *   starts with, Download/Taildrop ([TaildropFolder.defaultDir]), where from Android 11 an app may
+ *   create its own files with no grant at all. No picker, nothing to allow — and the system's
+ *   picker refuses Download itself and the storage root, which is where people go. Nothing of
+ *   Taildrop's sees the download: its inbox and its notifications come from the daemon's own
+ *   transfers and its history, which a download never touches.
+ * - **Ask every time**: a folder for each download.
+ * - **A folder chosen once**: the same two kinds of folder as Taildrop's ([ReceiveFolder]) — a SAF
+ *   tree granted through the system's picker, or a directory chosen in the app's own browser where
+ *   the system has none.
+ *
+ * Its own keys, apart from Taildrop's, none of them exported with the settings: they name places on
+ * this device.
  */
 object TaildriveDownloadFolder {
+    private const val KEY_MODE = "taildrive_download_mode"
     private const val KEY_TREE = "taildrive_download_tree"
     private const val KEY_PATH = "taildrive_download_path"
 
-    /** The stored strings as a folder; null — ask every time — when neither is stored. Pure. */
+    /** The stored strings as a chosen folder; null when neither is stored. Pure. */
     fun resolve(tree: String?, path: String?): ReceiveFolder? = when {
         !tree.isNullOrEmpty() -> ReceiveFolder.Tree(tree)
         !path.isNullOrEmpty() -> ReceiveFolder.Dir(FileBrowse.clean(File(path)))
         else -> null
     }
 
-    /** The download folder, or null: ask every time. */
-    fun get(context: Context): ReceiveFolder? =
+    /** The folder chosen for [DownloadMode.FOLDER], whatever the mode is now; null when none was. */
+    fun chosen(context: Context): ReceiveFolder? =
         resolve(GlobalSettings.getString(context, KEY_TREE, ""), GlobalSettings.getString(context, KEY_PATH, ""))
 
-    /** Makes [folder] the download folder; the user's last choice is the one stored. */
+    /** The setting; [DownloadMode.SAME_AS_TAILDROP] for an install that never chose ([DownloadMode.of]). */
+    fun mode(context: Context): DownloadMode =
+        DownloadMode.of(GlobalSettings.getString(context, KEY_MODE, ""), chosen(context) != null)
+
+    /** [DownloadMode.SAME_AS_TAILDROP] or [DownloadMode.ASK]; a chosen folder is kept for when it is chosen again. */
+    fun setMode(context: Context, mode: DownloadMode) {
+        GlobalSettings.setString(context, KEY_MODE, mode.id)
+    }
+
+    /** Makes [folder] the download folder: [DownloadMode.FOLDER], with that folder. */
     fun set(context: Context, folder: ReceiveFolder) {
         when (folder) {
             is ReceiveFolder.Tree -> {
@@ -44,13 +65,20 @@ object TaildriveDownloadFolder {
                 GlobalSettings.setString(context, KEY_PATH, FileBrowse.clean(folder.dir).path)
             }
         }
+        GlobalSettings.setString(context, KEY_MODE, DownloadMode.FOLDER.id)
     }
 
-    /** Back to "ask every time". The grant on a tree is kept: Taildrop may use the same folder. */
-    fun reset(context: Context) {
-        GlobalSettings.setString(context, KEY_TREE, "")
-        GlobalSettings.setString(context, KEY_PATH, "")
+    /** The folder [mode] writes to without asking ([DownloadPlace]): Taildrop's now, the chosen one, or none. */
+    fun target(context: Context, mode: DownloadMode = mode(context)): ReceiveFolder? = when (mode) {
+        DownloadMode.SAME_AS_TAILDROP -> sameAsTaildrop(TaildropFolder.get(context))
+        else -> DownloadPlace.of(mode, null, null, chosen(context))
     }
+
+    /** Where "same as Taildrop" writes while Taildrop's folder is [taildrop]: it, or the one a television starts with. */
+    fun sameAsTaildrop(taildrop: ReceiveFolder?): ReceiveFolder? =
+        DownloadPlace.of(DownloadMode.SAME_AS_TAILDROP, taildrop, taildropDefault(), null)
+
+    private fun taildropDefault(): ReceiveFolder? = TaildropFolder.defaultDir()?.let { ReceiveFolder.Dir(FileBrowse.clean(it), isDefault = true) }
 
     /**
      * Takes the system picker's grant on [tree] for good: a download outlives the screen that
@@ -62,10 +90,20 @@ object TaildriveDownloadFolder {
         }
     }
 
-    /** Where the next download goes: the default while it can be written, the person asked otherwise. Blocking. */
+    /**
+     * Where the next download goes. Blocking: a directory is tried by making a file in it — before
+     * Android 11 Download/Taildrop needs the Storage permission, and without it the download asks
+     * instead (that picker still takes Download itself there); a SAF folder by its grant.
+     */
     fun destination(context: Context): DownloadDestination {
-        val folder = get(context)
-        return DownloadDestination.of(folder, folder != null && TaildropFolder.state(context, folder) == TaildropFolder.State.READY)
+        val mode = mode(context)
+        val folder = target(context, mode)
+        val writable = when (folder) {
+            null -> false
+            is ReceiveFolder.Tree -> TaildropSave.holdsGrant(context, folder.treeUri)
+            is ReceiveFolder.Dir -> TaildropFolder.canCreateIn(folder.dir)
+        }
+        return DownloadDestination.of(mode, folder, writable)
     }
 
     /**

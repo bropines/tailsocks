@@ -199,19 +199,72 @@ object DownloadNames {
 // Where it goes
 // ---------------------------------------------------------------------------------------------
 
-/** Where a download goes: the folder of Settings, or one asked for now. */
+/** The "Taildrive downloads" setting: where a download goes without asking, if anywhere. */
+enum class DownloadMode(val id: String) {
+    /**
+     * The Taildrop folder, whatever it is now — the one of Settings, or where a television starts
+     * one — written the way received files are: no picker, nothing to allow. The default.
+     */
+    SAME_AS_TAILDROP("taildrop"),
+
+    /** A folder asked for at every download. */
+    ASK("ask"),
+
+    /** A folder picked once, in Settings or kept after a download. */
+    FOLDER("folder");
+
+    companion object {
+        /**
+         * The stored [id], or, for an install that stored none, the default — except one that chose
+         * a folder before the setting had three choices ([hasChosen]), which keeps that folder.
+         */
+        fun of(id: String?, hasChosen: Boolean): DownloadMode =
+            entries.firstOrNull { it.id == id } ?: if (hasChosen) FOLDER else SAME_AS_TAILDROP
+    }
+}
+
+object DownloadPlace {
+    /**
+     * The folder [mode] writes to without asking: Taildrop's [taildrop] as it resolves now
+     * (TaildropFolder.resolve) — or, where Taildrop keeps received files in the app and so has none,
+     * [taildropDefault], the folder it would start with on a television; the [chosen] one; or none.
+     */
+    fun of(mode: DownloadMode, taildrop: ReceiveFolder?, taildropDefault: ReceiveFolder?, chosen: ReceiveFolder?): ReceiveFolder? =
+        when (mode) {
+            DownloadMode.SAME_AS_TAILDROP -> taildrop ?: taildropDefault
+            DownloadMode.FOLDER -> chosen
+            DownloadMode.ASK -> null
+        }
+}
+
+/** Why a download asks where to go. */
+enum class AskReason {
+    /** The setting says so. */
+    SETTING,
+
+    /** The folder chosen in Settings cannot be written any more: a grant revoked, a card pulled out. */
+    FOLDER_GONE,
+
+    /** The Taildrop folder cannot be written now: before Android 11 without the Storage permission, a revoked grant. */
+    TAILDROP_UNWRITABLE,
+}
+
+/** Where a download goes: a folder without asking, or one asked for now. */
 sealed interface DownloadDestination {
     data class Default(val folder: ReceiveFolder) : DownloadDestination
 
-    /** Asked for now. [lost]: there is a default and it cannot be written any more — say so. */
-    data class Ask(val lost: Boolean = false) : DownloadDestination
+    data class Ask(val reason: AskReason) : DownloadDestination
 
     companion object {
-        /** "Ask every time" when no folder is set ([default] null); the folder when it can be written; asked otherwise. */
-        fun of(default: ReceiveFolder?, writable: Boolean): DownloadDestination = when {
-            default == null -> Ask()
-            writable -> Default(default)
-            else -> Ask(lost = true)
+        /**
+         * With the setting at [mode], whose folder ([DownloadPlace]) is [folder] — null where there is
+         * none — and [writable] whether a file can be created there now.
+         */
+        fun of(mode: DownloadMode, folder: ReceiveFolder?, writable: Boolean): DownloadDestination = when {
+            mode == DownloadMode.ASK -> Ask(AskReason.SETTING)
+            folder != null && writable -> Default(folder)
+            mode == DownloadMode.FOLDER -> Ask(AskReason.FOLDER_GONE)
+            else -> Ask(AskReason.TAILDROP_UNWRITABLE)
         }
     }
 }

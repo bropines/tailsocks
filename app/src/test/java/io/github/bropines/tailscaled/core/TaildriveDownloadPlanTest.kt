@@ -182,13 +182,59 @@ class TaildriveDownloadPlanTest {
     // --- where it goes ---------------------------------------------------------------------------
 
     @Test
-    fun askOrDefault() {
-        val dir = ReceiveFolder.Dir(File("/storage/emulated/0/Download/Taildrive"))
-        assertEquals(DownloadDestination.Ask(lost = false), DownloadDestination.of(null, writable = false))
-        assertEquals(DownloadDestination.Ask(lost = false), DownloadDestination.of(null, writable = true))
-        assertEquals(DownloadDestination.Default(dir), DownloadDestination.of(dir, writable = true))
-        // A default that cannot be written any more is asked for, and said to be gone.
-        assertEquals(DownloadDestination.Ask(lost = true), DownloadDestination.of(dir, writable = false))
+    fun anInstallThatNeverChoseGoesWhereTaildropGoes() {
+        assertEquals(DownloadMode.SAME_AS_TAILDROP, DownloadMode.of(null, hasChosen = false))
+        assertEquals(DownloadMode.SAME_AS_TAILDROP, DownloadMode.of("", hasChosen = false))
+        // One that chose a folder before there were three choices keeps it.
+        assertEquals(DownloadMode.FOLDER, DownloadMode.of("", hasChosen = true))
+        assertEquals(DownloadMode.ASK, DownloadMode.of("ask", hasChosen = true))
+        assertEquals(DownloadMode.SAME_AS_TAILDROP, DownloadMode.of("taildrop", hasChosen = true))
+        assertEquals(DownloadMode.FOLDER, DownloadMode.of("folder", hasChosen = false))
+    }
+
+    private val taildropDefault = File("/storage/emulated/0/Download/Taildrop")
+    private val fallback = ReceiveFolder.Dir(taildropDefault, isDefault = true)
+
+    /** Taildrop's folder as Settings resolves it from what is stored, on [device]. */
+    private fun taildrop(tree: String?, path: String?, device: DeviceClass = DeviceClass.HANDHELD) =
+        TaildropFolder.resolve(tree, path, device, if (device == DeviceClass.TV) taildropDefault else null)
+
+    @Test
+    fun theDefaultIsTheTaildropFolderAndFollowsIt() {
+        val same = DownloadMode.SAME_AS_TAILDROP
+        // A television that never chose: Download/Taildrop, as Taildrop has it.
+        assertEquals(fallback, DownloadPlace.of(same, taildrop(null, null, DeviceClass.TV), fallback, null))
+        // Taildrop's folder changed to a directory, then to a SAF tree: the downloads follow, each time.
+        val movies = ReceiveFolder.Dir(File("/storage/emulated/0/Movies"))
+        assertEquals(movies, DownloadPlace.of(same, taildrop(null, "/storage/emulated/0/Movies/"), fallback, null))
+        val tree = ReceiveFolder.Tree("content://com.android.externalstorage.documents/tree/primary%3ADownload%2FTaildrop")
+        assertEquals(tree, DownloadPlace.of(same, taildrop(tree.uri, "/storage/emulated/0/Movies"), fallback, null))
+        // A phone that keeps received files in the app: the folder a television would start with.
+        assertEquals(fallback, DownloadPlace.of(same, taildrop(null, null), fallback, null))
+        // A folder chosen for the downloads is no part of it.
+        assertEquals(movies, DownloadPlace.of(same, movies, fallback, ReceiveFolder.Dir(File("/sdcard/Other"))))
+    }
+
+    @Test
+    fun theOtherChoicesTakeTheirOwnFolder() {
+        val chosen = ReceiveFolder.Dir(File("/storage/emulated/0/Download/Films"))
+        assertEquals(chosen, DownloadPlace.of(DownloadMode.FOLDER, fallback, fallback, chosen))
+        assertNull(DownloadPlace.of(DownloadMode.FOLDER, fallback, fallback, null))
+        assertNull(DownloadPlace.of(DownloadMode.ASK, fallback, fallback, chosen))
+    }
+
+    @Test
+    fun askOrGoStraightThere() {
+        val dir = ReceiveFolder.Dir(File("/storage/emulated/0/Download/Taildrop"))
+        assertEquals(DownloadDestination.Default(dir), DownloadDestination.of(DownloadMode.SAME_AS_TAILDROP, dir, writable = true))
+        assertEquals(DownloadDestination.Default(dir), DownloadDestination.of(DownloadMode.FOLDER, dir, writable = true))
+        // Ask every time asks, whatever folder there is.
+        assertEquals(DownloadDestination.Ask(AskReason.SETTING), DownloadDestination.of(DownloadMode.ASK, dir, writable = true))
+        // A folder that cannot be written: asked for, and said why.
+        assertEquals(DownloadDestination.Ask(AskReason.TAILDROP_UNWRITABLE), DownloadDestination.of(DownloadMode.SAME_AS_TAILDROP, dir, writable = false))
+        assertEquals(DownloadDestination.Ask(AskReason.TAILDROP_UNWRITABLE), DownloadDestination.of(DownloadMode.SAME_AS_TAILDROP, null, writable = false))
+        assertEquals(DownloadDestination.Ask(AskReason.FOLDER_GONE), DownloadDestination.of(DownloadMode.FOLDER, dir, writable = false))
+        assertEquals(DownloadDestination.Ask(AskReason.FOLDER_GONE), DownloadDestination.of(DownloadMode.FOLDER, null, writable = false))
     }
 
     @Test

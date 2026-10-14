@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.AskReason
 import io.github.bropines.tailscaled.core.DownloadFailReason
 import io.github.bropines.tailscaled.core.DownloadStage
 import io.github.bropines.tailscaled.core.DownloadState
@@ -94,7 +95,7 @@ fun rememberDownloadFolderAsk(): DownloadFolderAsk {
     if (browsing) {
         val source = remember { RealFileSource(context) }
         // Where downloads went last time they were not asked for, or Downloads, which the app may write with no grant.
-        val start = remember { (TaildriveDownloadFolder.get(context) as? ReceiveFolder.Dir)?.dir ?: TaildropFolder.defaultDir()?.parentFile }
+        val start = remember { (TaildriveDownloadFolder.chosen(context) as? ReceiveFolder.Dir)?.dir ?: TaildropFolder.defaultDir()?.parentFile }
         val cancel = { browsing = false; pending = null }
         PickerWindow(onDismiss = cancel) {
             PickFolderScreen(
@@ -121,9 +122,15 @@ fun rememberDownloadFolderAsk(): DownloadFolderAsk {
     }
 }
 
-/** Toast that the folder of Settings cannot be written any more, before the picker opens instead. */
-internal fun sayFolderLost(context: android.content.Context) =
-    Toast.makeText(context, context.getString(R.string.taildrive_download_folder_lost), Toast.LENGTH_LONG).show()
+/** Why the picker opens instead of the folder of Settings, when that is not simply the setting. */
+internal fun sayWhyAsked(context: android.content.Context, reason: AskReason) {
+    val text = when (reason) {
+        AskReason.SETTING -> return
+        AskReason.FOLDER_GONE -> R.string.taildrive_download_folder_lost
+        AskReason.TAILDROP_UNWRITABLE -> R.string.taildrive_download_taildrop_unwritable
+    }
+    Toast.makeText(context, context.getString(text), Toast.LENGTH_LONG).show()
+}
 
 // ---------------------------------------------------------------------------------------------
 // The question
@@ -373,4 +380,4 @@ internal fun keepFolder(context: android.content.Context, state: DownloadState) 
 
 /** Whether downloads go to [state]'s folder without asking already. */
 internal fun isDefaultFolder(context: android.content.Context, state: DownloadState): Boolean =
-    TaildriveDownloadFolder.get(context) == state.folder
+    TaildriveDownloadFolder.target(context) == state.folder

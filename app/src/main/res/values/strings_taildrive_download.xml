@@ -39,6 +39,7 @@
     <string name="taildrive_download_pick_title">Where to save</string>
     <string name="taildrive_download_pick_confirm">Save here</string>
     <string name="taildrive_download_folder_lost">The download folder is not available any more. Choose where to save.</string>
+    <string name="taildrive_download_taildrop_unwritable">The Taildrop folder cannot be written now. Choose where to save.</string>
 
     <!-- A download as it runs and ends: the page's panel and the notification. -->
     <string name="taildrive_download_channel">Taildrive downloads</string>
@@ -78,12 +79,17 @@
     <string name="taildrive_download_folder_title">Taildrive downloads</string>
     <string name="taildrive_download_folder_ask">Ask every time. Files you download from other devices\' shares go where you choose for each download.</string>
     <string name="taildrive_download_folder_set_format">%1$s. Files you download from other devices\' shares are saved here.</string>
-    <string name="taildrive_download_folder_dialog_body">Downloads from other devices\' shares go to %1$s.</string>
-    <string name="taildrive_download_folder_change">Change</string>
+    <string name="taildrive_download_folder_taildrop_format">Same as Taildrop: %1$s</string>
+    <!-- The three choices of the row's dialog; the first is the default. -->
+    <string name="taildrive_download_mode_taildrop">Same as Taildrop</string>
     <string name="taildrive_download_folder_reset">Ask every time</string>
+    <string name="taildrive_download_mode_ask_note">A folder is chosen for each download</string>
+    <string name="taildrive_download_mode_choose">Choose a folder</string>
+    <string name="taildrive_download_mode_choose_note">Picked once and remembered</string>
+    <string name="taildrive_download_mode_picker_help">Android does not let apps pick the storage root or Download itself — pick or make a folder inside it.</string>
     <!-- What the settings search knows the row by (ui/SettingsCatalog.kt). -->
     <string name="search_sum_taildrive_download_folder">Where files downloaded from Taildrive shares are saved</string>
-    <string name="search_kw_taildrive_download_folder">download folder, downloads, save location, where downloads go, shares, ask every time</string>
+    <string name="search_kw_taildrive_download_folder">download folder, downloads, save location, where downloads go, shares, ask every time, same as taildrop</string>
 
     <!-- The path under the title: its names open their level; the field takes a typed one. -->
     <string name="taildrive_path_edit">Type a path</string>

@@ -439,7 +439,7 @@ fun TaildriveBrowserPage(
             when (where) {
                 is DownloadDestination.Default -> begin(where.folder, false)
                 is DownloadDestination.Ask -> {
-                    if (where.lost) sayFolderLost(context)
+                    sayWhyAsked(context, where.reason)
                     folderAsk.ask { begin(it, true) }
                 }
             }
