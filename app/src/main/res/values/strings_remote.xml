@@ -79,7 +79,7 @@
     <string name="remote_manage_title">Manage %1$s</string>
     <string name="remote_loading">Asking %1$s…</string>
     <string name="remote_pair_enter">Type the six digits shown on %1$s.</string>
-    <string name="remote_pair_where">No code there yet? On that device open Settings → Remote management and show a pairing code.</string>
+    <string name="remote_pair_where">No code there yet? On that device open Settings → Advanced → Remote management and show a pairing code.</string>
     <string name="remote_pair_code_label">Pairing code</string>
     <string name="remote_pair_action">Pair</string>
     <string name="remote_pair_scan">Scan the code</string>

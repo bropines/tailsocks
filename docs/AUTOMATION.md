@@ -8,7 +8,7 @@ On Android 16+ the same operations are also exposed to on-device assistants thro
 
 ## 🔒 Security & Token Protection
 
-Automation is configured in TailSocks under **Settings → APP tab → Tasker & Automation**:
+Automation is configured in TailSocks under **Settings → Automation & API**:
 
 * **Allow External Automation:** Master switch. When off, every broadcast is ignored and every mutating AppFunction returns an error.
 * **Security Secret Token (required since 4.0.0):** The broadcast receiver is exported with no permission, so without a token any installed app could stop the VPN or reroute your traffic. Since 4.0.0 the receiver **refuses every intent until a token is set**. Use **Generate** to create one and **Copy** to move it into your automation app.
@@ -124,11 +124,11 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://logs?category=T
 
 ## 🔄 Background behaviour
 
-What happens to the connection when the app is not in the foreground is governed by three settings, all under **Settings → APP → System & Backup** unless noted:
+What happens to the connection when the app is not in the foreground is governed by three settings, all under **Settings → Background & permissions**:
 
 * **Auto-reconnect** (off by default): restarts the daemon when the connection does not come up or drops. Three consecutive unhealthy checks are required before a restart, a daemon waiting for you to sign in is never treated as a failure, and **Restart attempts** caps the number of restarts (0 = unlimited, default 3).
 * **Revive service in background** (on by default): an alarm checks every 15 minutes that the service is still alive while you want it running, and starts it again after a background kill (OEM task killers). Turning the switch on offers the "Alarms & reminders" permission, which makes the alarm exact and lets its broadcast start a foreground service from the background; without it the alarm stays inexact and fires later. If the start is refused anyway, the refusal is still written to the log, but you also get a notification that reconnects in one tap, and the next time you open the app it points once at the OEM autostart setting.
-* **Force Background Run** (Settings → TS-Core → Flags & Logs, off by default): holds a partial wake lock for the whole session so the daemon keeps servicing WireGuard/DERP keepalives in deep sleep. Costs battery.
+* **Keep the connection awake** (off by default): holds a partial wake lock for the whole session so the daemon keeps servicing WireGuard/DERP keepalives in deep sleep. Costs battery. Whether the service starts after a reboot is **Auto-start on Boot**, on the same page.
 
 Two rules hold regardless of these switches:
 

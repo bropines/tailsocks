@@ -34,7 +34,7 @@ Since TailSocks runs in userspace, resolving a `.ts.net` IP is not enough—AdGu
 
 #### Option A: Direct Proxy (Simple)
 *   In AdGuard, go to **Settings** -> **Proxy**.
-*   Add a **SOCKS5 Proxy**: `127.0.0.1:1055` (or your configured port).
+*   Add a **SOCKS5 Proxy**: `127.0.0.1:48115` (the default; or your configured port).
 *   Enable it for all traffic or use AdGuard's "Proxy applications" rules.
 
 #### Option B: Chain via Exclave/Rules (Advanced)

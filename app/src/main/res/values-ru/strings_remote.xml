@@ -83,7 +83,7 @@
     <string name="remote_manage_title">Управление: %1$s</string>
     <string name="remote_loading">Спрашиваю %1$s…</string>
     <string name="remote_pair_enter">Введите шесть цифр с экрана %1$s.</string>
-    <string name="remote_pair_where">Кода ещё нет? На том устройстве откройте Настройки → Удалённое управление и покажите код сопряжения.</string>
+    <string name="remote_pair_where">Кода ещё нет? На том устройстве откройте Настройки → Дополнительно → Удалённое управление и покажите код сопряжения.</string>
     <string name="remote_pair_code_label">Код сопряжения</string>
     <string name="remote_pair_action">Сопрячь</string>
     <string name="remote_pair_scan">Сканировать код</string>
