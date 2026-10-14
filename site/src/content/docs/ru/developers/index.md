@@ -11,6 +11,6 @@ description: Сборка, архитектура, участие в разра�
 - [Перевод](/tailsocks/ru/developers/translating/) — на Hosted Weblate, прямо в браузере. Исходный язык — английский, русский ведётся вместе с ним.
 - [Выпуск релизов](/tailsocks/ru/developers/releasing/) — релиз — это тег. Два канала, коды версий, на чём держится F-Droid.
 
-Ещё на GitHub: [руководство по Root](https://github.com/bropines/tailsocks/blob/main/docs/ROOT_RU.md) и [история изменений](https://github.com/bropines/tailsocks/blob/main/CHANGELOG.md).
+Ещё здесь: [Root-режим изнутри](/tailsocks/ru/root-mode-internals/) и [список изменений](/tailsocks/ru/changelog/).
 
 Если ответа на страницах нет — откройте issue на [GitHub](https://github.com/bropines/tailsocks/issues).

@@ -150,7 +150,7 @@ Concretely:
   been chosen. Its rules are tiered — T1
   (tailnet reachability) coexists with anything, T2 (default-route capture) and
   T3 (device-wide DNS) claim the whole device and therefore have exactly one
-  owner. If you touch T2 or T3, read the [Root Mode guide](https://github.com/bropines/tailsocks/blob/main/docs/ROOT.md) §4–5 first: the coexistence
+  owner. If you touch T2 or T3, read the [Root Mode guide](/tailsocks/root-mode-internals/) §4–5 first: the coexistence
   logic there is what keeps another VPN client's apps from being stolen.
 - TUN mode has two engines, chosen in Settings → TUN (`tun_engine`, stored only
   when the user picks one). The native engine is the default: `core/TunVpnService.kt`
@@ -250,7 +250,7 @@ What genuinely needs a device:
 
 - [Architecture](/tailsocks/developers/architecture/) — how the daemon, the bridge
   and the app fit together, and why each workaround exists.
-- [Root Mode guide](https://github.com/bropines/tailsocks/blob/main/docs/ROOT.md) — the complete Root Mode reference: the three
+- [Root Mode guide](/tailsocks/root-mode-internals/) — the complete Root Mode reference: the three
   rule tiers, coexistence with other VPN clients, the boot script, diagnostics.
 - [`agents.md`](https://github.com/bropines/tailsocks/blob/main/agents.md) — the full engineering mandate this guide summarises.
 - [Building](/tailsocks/developers/building/) — build pipeline details.
