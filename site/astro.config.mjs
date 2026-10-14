@@ -47,7 +47,21 @@ export default defineConfig({
 				{
 					label: 'Help',
 					translations: { ru: 'Помощь' },
-					items: [{ slug: 'troubleshooting' }, { slug: 'developers' }],
+					items: [
+						{ slug: 'troubleshooting' },
+						{
+							label: 'For developers',
+							translations: { ru: 'Разработчикам' },
+							items: [
+								{ slug: 'developers', label: 'Overview', translations: { ru: 'Обзор' } },
+								{ slug: 'developers/building' },
+								{ slug: 'developers/architecture' },
+								{ slug: 'developers/contributing' },
+								{ slug: 'developers/translating' },
+								{ slug: 'developers/releasing' },
+							],
+						},
+					],
 				},
 			],
 		}),
