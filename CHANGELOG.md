@@ -37,6 +37,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Deleting the account in use moves to the main account, not to whichever came first.
 - The status card's second line stays on one line where a slightly smaller size fits it.
 - Log lines read on a light theme: values, keys and addresses were nearly white on white.
+- Buttons that work show the app's newer loading indicator, and DNS's Test button stays legible and keeps its width while it checks.
 
 ## [4.10.2] - 2026-10-13
 
