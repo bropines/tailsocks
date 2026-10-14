@@ -379,7 +379,7 @@ fun DnsScreen(onBack: () -> Unit) {
                         modifier = Modifier.height(36.dp)
                     ) {
                         if (isTestingLocal) {
-                            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                            ButtonBusyIndicator(16.dp, color = MaterialTheme.colorScheme.onPrimary)
                         } else {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
@@ -450,7 +450,7 @@ fun DnsScreen(onBack: () -> Unit) {
                         modifier = Modifier.size(height = 40.dp, width = 50.dp).focusRequester(queryButtonFocus)
                     ) {
                         if (isQuerying) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                            ButtonBusyIndicator(18.dp, color = MaterialTheme.colorScheme.onPrimary)
                         } else {
                             Icon(Icons.Default.Search, contentDescription = stringResource(R.string.dns_cd_query), modifier = Modifier.size(18.dp))
                         }
@@ -619,7 +619,7 @@ fun DnsScreen(onBack: () -> Unit) {
                                 enabled = !isTesting || tv
                             ) {
                                 if (isTesting) {
-                                    CircularProgressIndicator(modifier = Modifier.size(if (tv) 20.dp else 14.dp), strokeWidth = 2.dp)
+                                    ButtonBusyIndicator(if (tv) 20.dp else 16.dp)
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,

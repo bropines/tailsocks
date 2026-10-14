@@ -518,7 +518,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                     // is ignored): a target that goes dead takes the remote's focus with it.
                     IconButton(onClick = { if (!busy) runDiagnostics() }, enabled = !busy || isTv) {
                         if (busy) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            ButtonBusyIndicator(24.dp)
                         } else {
                             Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.netcheck_cd_run_diagnostics))
                         }
