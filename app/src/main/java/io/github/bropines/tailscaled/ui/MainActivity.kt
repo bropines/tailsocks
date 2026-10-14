@@ -1596,10 +1596,9 @@ fun MainScreen(
                     }
                 )
             }
-            // In one column the summary steps aside while the card says its other line, so
-            // the menu below does not move twice. Beside the menu the card has the height
-            // to itself, and the summary leaving only made the card swallow its place.
-            if (cardState == "ACTIVE" && (statusAside == null || fillHeight) && showConnectionSummary) {
+            // The summary stays whatever the card says: it is what the card is about, and
+            // taking it away moved everything under it twice.
+            if (cardState == "ACTIVE" && showConnectionSummary) {
                 connectionSummary?.let { summary ->
                     Spacer(modifier = Modifier.height(12.dp))
                     ConnectionSummaryRow(summary)
