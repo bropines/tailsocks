@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The installed Root Mode boot script and its version (Settings → Tunnel mode → Root).
+     Kept apart from strings.xml so work on it does not collide with edits there. -->
+<resources>
+    <string name="settings_root_script_outdated">Outdated script: TailSocks %1$s installed it, and this version writes a different one. Reinstall it, so that after a reboot the daemon starts the way this version starts it.</string>
+    <string name="settings_root_script_outdated_unknown">Outdated script: a TailSocks version that did not mark its scripts yet installed it. Reinstall it, so that after a reboot the daemon starts the way this version starts it.</string>
+</resources>

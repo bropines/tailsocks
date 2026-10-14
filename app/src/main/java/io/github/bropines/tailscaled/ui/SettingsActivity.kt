@@ -1198,6 +1198,8 @@ fun SettingsScreen(
         var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
         var rootTunEnabled by remember { mutableStateOf(GlobalSettings.isRootTunEnabled(context)) }
         var serviceScriptInstalled by remember { mutableStateOf(false) }
+        // Whether the installed copy is the one this build writes (RootBootScript).
+        var serviceScript by remember { mutableStateOf(RootBootScript.State(RootBootScript.Status.ABSENT)) }
         var cliInstalled by remember { mutableStateOf(false) }
         var killDaemonOnStop by remember { mutableStateOf(GlobalSettings.shouldKillRootDaemonOnStop(context)) }
         var rootVpnBypass by remember { mutableStateOf(GlobalSettings.isRootVpnBypassEnabled(context)) }
@@ -1254,10 +1256,11 @@ fun SettingsScreen(
         LaunchedEffect(rootModeEnabled) {
             if (!rootModeEnabled) return@LaunchedEffect
             withContext(Dispatchers.IO) {
-                val script = RootUtils.isServiceScriptInstalled()
+                val script = RootUtils.serviceScriptState(context)
                 val cli = RootUtils.isTailscaleCliInstalled()
                 withContext(Dispatchers.Main) {
-                    serviceScriptInstalled = script
+                    serviceScript = script
+                    serviceScriptInstalled = script.installed
                     cliInstalled = cli
                 }
             }
@@ -1685,10 +1688,13 @@ fun SettingsScreen(
                 ) { install ->
                     isRootBusy = true
                     scope.launch {
-                        val success = withContext(Dispatchers.IO) {
-                            RootUtils.setServiceScriptInstalled(context, install)
+                        // Read back rather than assumed: the state shown is the file's.
+                        val (success, state) = withContext(Dispatchers.IO) {
+                            val ok = RootUtils.setServiceScriptInstalled(context, install)
+                            ok to RootUtils.serviceScriptState(context)
                         }
                         isRootBusy = false
+                        serviceScript = state
                         if (success) {
                             serviceScriptInstalled = install
                             Toast.makeText(context, context.getString(if (install) R.string.settings_root_service_script_installed else R.string.settings_root_service_script_removed), Toast.LENGTH_SHORT).show()
@@ -1705,51 +1711,23 @@ fun SettingsScreen(
                     var reinstallStatus by remember { mutableStateOf<String?>(null) }
                     var isReinstallOk by remember { mutableStateOf(true) }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // The status is a whole sentence and the button never
-                        // shrinks: without the weight they were drawn over each other.
-                        reinstallStatus?.let { status ->
-                            Text(
-                                text = status,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isReinstallOk) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
-                        } ?: Spacer(Modifier.width(1.dp))
-
-                        Spacer(Modifier.width(12.dp))
-
-                        OutlinedButton(
-                            onClick = {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val success = RootUtils.setServiceScriptInstalled(context, true)
-                                    withContext(Dispatchers.Main) {
-                                        isReinstallOk = success
-                                        reinstallStatus = if (success) msgOk else msgFail
-                                        Toast.makeText(context, if (success) msgOk else msgFail, Toast.LENGTH_SHORT).show()
-                                    }
+                    BootScriptReinstallRow(
+                        script = serviceScript,
+                        reinstallStatus = reinstallStatus,
+                        reinstallOk = isReinstallOk,
+                        onReinstall = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                val success = RootUtils.setServiceScriptInstalled(context, true)
+                                val state = RootUtils.serviceScriptState(context)
+                                withContext(Dispatchers.Main) {
+                                    serviceScript = state
+                                    isReinstallOk = success
+                                    reinstallStatus = if (success) msgOk else msgFail
+                                    Toast.makeText(context, if (success) msgOk else msgFail, Toast.LENGTH_SHORT).show()
                                 }
-                            },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                stringResource(R.string.settings_root_script_reinstall),
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                softWrap = false
-                            )
+                            }
                         }
-                    }
+                    )
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))

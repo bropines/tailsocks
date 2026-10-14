@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_root_script_outdated">Скрипт устарел: его поставил TailSocks %1$s, а эта версия пишет другой. Переустановите его, чтобы после перезагрузки демон запускался так, как его запускает эта версия.</string>
+    <string name="settings_root_script_outdated_unknown">Скрипт устарел: его поставила версия TailSocks, которая ещё не помечала свои скрипты. Переустановите его, чтобы после перезагрузки демон запускался так, как его запускает эта версия.</string>
+</resources>

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.util.Log
+import io.github.bropines.tailscaled.BuildConfig
 import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -700,6 +701,11 @@ object RootUtils {
         val envScript = StringBuilder()
             .append("mkdir -p ").append(ROOT_ENV_DIR).append(" && chmod 700 ").append(ROOT_ENV_DIR).append('\n')
             .append("cat > ").append(ROOT_ENV_FILE).append(" <<'TAILSOCKS_ENV_EOF'\n")
+            // Who wrote it, in the boot script's header style. The file has no
+            // format version — the script accepts `export NAME='value'` lines
+            // and skips everything else, this comment included — but the release
+            // and the debug build share it, and one look should tell which.
+            .append(RootBootScript.envFileHeader(BuildConfig.APPLICATION_ID, BuildConfig.VERSION_NAME))
             .append(env)
             .append("TAILSOCKS_ENV_EOF\n")
             .append("chmod 600 ").append(ROOT_ENV_FILE).append('\n')
@@ -2762,10 +2768,12 @@ object RootUtils {
                 // would exec a same-named library from any other app as root.
                 // BootReceiver re-installs the script on every app update, so the
                 // path follows the install directory.
-                val daemonBin = File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
-                val scriptContent = context.assets.open("scripts/tailscaled.sh").bufferedReader().use { it.readText() }
-                    .replace("%PKG_NAME%", context.packageName)
-                    .replace("%DAEMON_BIN%", daemonBin)
+                // The version line goes in with it (RootBootScript), so Settings
+                // can tell a copy an older build left behind.
+                val scriptContent = RootBootScript.render(
+                    bootScriptTemplate(context), context.packageName, bootScriptDaemonBin(context),
+                    BuildConfig.VERSION_NAME
+                )
                 val tempFile = File(context.cacheDir, "tailscaled.sh").apply { writeText(scriptContent) }
 
                 val cmd = """
@@ -2789,6 +2797,32 @@ object RootUtils {
     fun isServiceScriptInstalled(): Boolean {
         val res = runSu("service-script-check", "[ -f \"$SERVICE_SCRIPT_PATH\" ] && echo 'exists'", timeoutMs = 10_000L)
         return res.ok && res.output.contains("exists")
+    }
+
+    private fun bootScriptTemplate(context: Context): String =
+        context.assets.open("scripts/tailscaled.sh").bufferedReader().use { it.readText() }
+
+    private fun bootScriptDaemonBin(context: Context): String =
+        File(context.applicationInfo.nativeLibraryDir, "libtailscale.so").absolutePath
+
+    /**
+     * The installed boot script against the one this build would install: absent,
+     * current, or outdated (another version, or no version line at all). Reads the
+     * first lines of the file through `su` — `/data/adb` is root's alone.
+     */
+    fun serviceScriptState(context: Context): RootBootScript.State {
+        val marker = "TAILSOCKS_SCRIPT_PRESENT"
+        val res = runSu(
+            "service-script-check",
+            "[ -f \"$SERVICE_SCRIPT_PATH\" ] && { echo '$marker'; head -n ${RootBootScript.HEADER_SEARCH_LINES} \"$SERVICE_SCRIPT_PATH\"; }",
+            timeoutMs = 10_000L,
+            quiet = true
+        )
+        val head = if (res.ok && res.output.contains(marker)) res.output.substringAfter(marker) else null
+        val expected = runCatching {
+            RootBootScript.expectedVersion(bootScriptTemplate(context), context.packageName, bootScriptDaemonBin(context))
+        }.getOrDefault("")
+        return RootBootScript.state(head, expected)
     }
 
     const val CLI_SCRIPT_PATH = "/system/bin/tailscale"
