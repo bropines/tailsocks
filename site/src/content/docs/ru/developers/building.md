@@ -1,0 +1,100 @@
+---
+title: Сборка
+description: Конвейер патчей, шаги сборки, релизная сборка и установка через ADB.
+---
+
+TailSocks использует высокоавтоматизированный и модульный конвейер сборки, исключающий технический долг, связанный с поддержкой громоздкого форка Tailscale.
+
+## Конвейер динамических патчей
+
+Вместо постоянного разрешения конфликтов слияния (merge conflicts) скрипт сборки применяет патч-конвейер:
+
+1. **Загрузка чистого ядра.** Скачивается облегчённый архив стабильного исходного кода Tailscale (версия закреплена в `appctr/TAILSCALE_VERSION`, сейчас `v1.104.1`; архив сверяется с `appctr/TAILSCALE_SHA256`).
+2. **Атомарное внедрение патчей.** Применяется серия модульных атомарных `.patch` файлов (из папки `appctr/patches/`) в алфавитном порядке для адаптации исходников под мобильные функции: поддержка SOCKS5 прокси, нативная файловая система для Taildrop, генерация сертификатов LocalAPI и мониторинг сети Android.
+3. **Агрессивное оптимизирование.** С помощью большого набора тегов сборки Go (`ts_omit_systray`, `ts_omit_kube`, `ts_omit_aws`, `ts_omit_bird`, `ts_omit_drive` и др.) из кода вырезаются неиспользуемые компоненты Linux, серверных систем и корпоративных модулей.
+4. **Результат.** Один `libtailscale.so` на каждую ABI — демон со встроенным CLI (`ts_include_cli`), быстро компилирующийся и минимально расходующий ресурсы в песочнице Android.
+
+## Требования к окружению
+
+- **Операционная система:** Linux или macOS.
+- **Go:** конкретная версия не требуется — сборка использует `GOTOOLCHAIN=auto` и сама скачивает нужный тулчейн Go.
+- **Android SDK:** compileSdk 37, targetSdk 35, minSdk 24.
+- **Android NDK:** 27.x (переменная `ANDROID_NDK_HOME`).
+- **gomobile:** `go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init`.
+- **Gradle:** 8.x и новее, через обёртку `./gradlew`.
+- **Keystore для релиза:** собственный `.jks` и переменные `KEYSTORE_FILE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` (см. ниже).
+
+## Шаги сборки
+
+### Клонирование репозитория
+
+```bash
+git clone --recurse-submodules https://github.com/bropines/tailsocks.git
+cd tailsocks
+```
+
+### Компиляция нативного ядра Go
+
+```bash
+cd appctr
+bash build.sh
+cd ..
+```
+
+Скрипт сборки автоматически скачает нужную версию Tailscale, применит патчи и скомпилирует бинарник PIE (`libtailscale.so`) под четыре архитектуры: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`.
+
+Он собран с апстримовским тегом `ts_include_cli` и потому заодно является CLI: работает как `tailscale`, когда его argv[0] — `tailscale` (ссылка приложения в каталоге данных) или когда задан `TS_BE_CLI=1` (обёртка Root-режима).
+
+:::note
+До 4.9 CLI был отдельным `libtailscale_cli.so`. Один файл вместо двух экономит около 12 МБ на ABI на устройстве. Устаревший `libtailscale_cli.so`, найденный в `jniLibs`, `build.sh` удаляет.
+:::
+
+### Сборка Android APK
+
+**Debug APK** — без keystore, ставится рядом с релизом благодаря суффиксу `.dev`:
+
+```bash
+./gradlew app:assembleDebug
+```
+
+**Release APK** — нужен собственный keystore.
+
+:::caution
+С версии 4.0.0 сборка отказывается подписывать релиз debug-ключом. Такой APK ставится один раз, а потом его нельзя обновить нормально подписанной сборкой: Android отвергает обновление с другим сертификатом, и остаётся только удалять приложение вместе с данными.
+:::
+
+Задайте все четыре переменные, иначе задача `packageRelease` завершится с понятной ошибкой:
+
+```bash
+KEYSTORE_FILE="$PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
+KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
+```
+
+Если keystore ещё нет, создайте его: `keytool -genkeypair -v -keystore tailsocks.jks -alias tailsocks -keyalg RSA -keysize 4096 -validity 10000`.
+
+## Особенности релизной сборки
+
+- **R8-минификация и сжатие ресурсов включены** (`isMinifyEnabled = true`, `isShrinkResources = true`). В проекте намеренно нет JSON через рефлексию: модели сериализуются `kotlinx.serialization` (`core/AppJson.kt`), ресурсы никогда не ищутся по динамическому имени, а сервис AppFunctions создаёт сгенерированные KSP классы `$Aggregated…_Impl` напрямую, а не через рефлексию. Поэтому урезанная сборка не зависит от keep-правил для этих путей.
+- **Проверка JNI (`verifyReleaseNativeMethods`).** TUN-библиотека регистрирует Java-методы по имени внутри `JNI_OnLoad`. Если R8 удалит хотя бы один `external fun`, `System.loadLibrary` упадёт в рантайме (однажды так и было — каждая остановка роняла приложение).
+  - Задача запускается автоматически после `minifyReleaseWithR8` и перед `assembleRelease` / `bundleRelease`. Она собирает все `external fun` из `app/src/main/java`, проверяет, что каждый попал под keep-правило в `seeds.txt` R8 и что ни один native-член не значится в `usage.txt`, иначе сборка падает.
+  - Отдельно: `./gradlew :app:verifyReleaseNativeMethods` после релизной сборки.
+  - При ошибке правьте `app/proguard-rules.pro` — обычный `-keep` для `native <methods>` (не `-keepclasseswithmembernames`).
+- **Лицензии сторонних компонентов (`app/src/main/assets/licenses.json`).** Экран «Лицензии открытого ПО» читает закоммиченный список. `python3 scripts/licenses/generate.py` собирает его из того, что реально попадает в сборку: списков Go-модулей, записанных в `libgojni.so` и `libtailscale.so`, артефактов `releaseRuntimeClasspath` (через `scripts/licenses/shipped-artifacts.init.gradle.kts`) и C-библиотек ndk-build. Тексты лицензий берутся из кэша Go-модулей, POM-файлов и самих артефактов.
+  - Запускайте после `appctr/build.sh` и Gradle-сборки при каждой смене зависимостей. CI делает `--check` и предупреждает, если список устарел.
+  - Тексты, которых нет ни в одном артефакте, лежат в `scripts/licenses/texts/`.
+- **Версионирование.** `versionName` и `versionCode` берутся из `version.properties` (`4.5.2` / `4050200`; отладочная сборка добавляет `-dev`). Хэш коммита — `BuildConfig.GIT_HASH`. Сборщик, который сам обновляет приложение, добавляет `-PselfUpdate=false`. Код должен следовать из имени — релиза или беты (`5.1.0-beta.1` / `5009910`), — иначе Gradle откажется конфигурировать сборку. Правило, два канала и порядок выпуска релиза описаны в разделе [Выпуск релизов](/tailsocks/ru/developers/releasing/).
+
+## Установка и запуск через ADB
+
+Включены ABI-сплиты, поэтому каждая сборка даёт universal APK и по одному на архитектуру (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) в `app/build/outputs/apk/<debug|release>/`.
+
+```bash
+# Debug-сборка
+adb install -r app/build/outputs/apk/debug/app-universal-debug.apk
+
+# Release-сборка
+adb install -r app/build/outputs/apk/release/app-universal-release.apk
+
+# Запуск основного экрана
+adb shell am start -n io.github.bropines.tailscaled/io.github.bropines.tailscaled.ui.MainActivity
+```
