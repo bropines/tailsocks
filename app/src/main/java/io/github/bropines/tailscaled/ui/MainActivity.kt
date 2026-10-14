@@ -466,6 +466,8 @@ fun MainScreen(
     
     var activeAccount by remember { mutableStateOf(AccountManager.getActiveAccount(context)) }
     val accounts = remember { mutableStateOf(AccountManager.getAccounts(context)) }
+    // Which account cannot be deleted; read again whenever the list changes.
+    var primaryId by remember(accounts.value) { mutableStateOf(AccountManager.getPrimaryId(context)) }
     
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var showRenameAccountDialog by remember { mutableStateOf(false) }
@@ -1147,6 +1149,7 @@ fun MainScreen(
         // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
         val sheetTitle = context.getString(R.string.accounts_sheet_title)
         val sheetHelp = context.getString(R.string.accounts_sheet_help)
+        val primaryHelp = context.getString(R.string.accounts_primary_help)
         val sheetEdit = context.getString(R.string.action_edit)
         val sheetDone = context.getString(R.string.accounts_done)
         val sheetAdd = context.getString(R.string.accounts_add)
@@ -1213,7 +1216,7 @@ fun MainScreen(
                 }
 
                 HelpText(
-                    sheetHelp,
+                    if (accountsEditMode) primaryHelp else sheetHelp,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp)
                 )
 
@@ -1230,6 +1233,7 @@ fun MainScreen(
                     items(accounts.value.size) { i ->
                         val account = accounts.value[i]
                         val isActive = account.id == activeAccount.id
+                        val isPrimary = account.id == primaryId
                         val facts = remember(account.id, accountMenuExpanded) {
                             AccountManager.facts(context, account.id)
                         }
@@ -1259,7 +1263,12 @@ fun MainScreen(
                                 accountToRename = account
                                 showRenameAccountDialog = true
                             },
-                            onDelete = if (account.id == "default") null else {
+                            primary = isPrimary,
+                            onMakePrimary = {
+                                AccountManager.setPrimary(context, account.id)
+                                primaryId = AccountManager.getPrimaryId(context)
+                            },
+                            onDelete = if (isPrimary) null else {
                                 { accountToDeleteConfirm = account }
                             }
                         )
@@ -3261,6 +3270,8 @@ private fun AccountRow(
     notConnectedLabel: String,
     onClick: () -> Unit,
     onRename: () -> Unit,
+    primary: Boolean,
+    onMakePrimary: () -> Unit,
     onDelete: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
@@ -3330,6 +3341,23 @@ private fun AccountRow(
 
             if (editing) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // The main account wears its star; any other can take it. The star is a
+                    // button on both, so the remote's way along the row is the same on each.
+                    FilledTonalIconButton(
+                        onClick = { if (!primary) onMakePrimary() },
+                        modifier = Modifier.size(38.dp),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = if (primary) IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) else IconButtonDefaults.filledTonalIconButtonColors()
+                    ) {
+                        Icon(
+                            if (primary) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = context.getString(if (primary) R.string.accounts_primary else R.string.accounts_make_primary),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
                     FilledTonalIconButton(
                         onClick = onRename,
                         modifier = Modifier.size(38.dp),

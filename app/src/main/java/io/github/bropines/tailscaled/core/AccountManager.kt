@@ -52,19 +52,44 @@ object AccountManager {
     private const val PREFS_NAME = "account_manager"
     private const val KEY_ACCOUNTS = "accounts"
     private const val KEY_ACTIVE_ID = "active_account_id"
+    private const val KEY_PRIMARY_ID = "primary_account_id"
+
+    /** The account the app was installed with, and the main one until another is chosen. */
+    const val FIRST_ID = "default"
+
+    /**
+     * The main account among [accounts]: the one cannot be deleted and the app falls back to
+     * when the account in use is. [chosen] while it is still there; otherwise the first account,
+     * and otherwise whichever comes first — a backup restored from before the choice existed,
+     * or a choice whose account was deleted some other way, still names one that exists.
+     */
+    internal fun primaryOf(accounts: List<TailscaleAccount>, chosen: String?): String =
+        accounts.firstOrNull { it.id == chosen }?.id
+            ?: accounts.firstOrNull { it.id == FIRST_ID }?.id
+            ?: accounts.first().id
+
+    fun getPrimaryId(context: Context): String =
+        primaryOf(getAccounts(context), context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_PRIMARY_ID, null))
+
+    /** Makes [id] the main account; the one that was frees up to be deleted. */
+    fun setPrimary(context: Context, id: String) {
+        if (getAccounts(context).none { it.id == id }) return
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_PRIMARY_ID, id).apply()
+    }
 
     fun getAccounts(context: Context): List<TailscaleAccount> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val json = prefs.getString(KEY_ACCOUNTS, null)
-        if (json.isNullOrBlank()) return listOf(TailscaleAccount("default", "Default"))
+        if (json.isNullOrBlank()) return listOf(TailscaleAccount(FIRST_ID, "Default"))
         return runCatching { AppJson.decodeFromString<List<TailscaleAccount>>(json) }
-            .getOrDefault(listOf(TailscaleAccount("default", "Default")))
+            .getOrNull()?.takeIf { it.isNotEmpty() }
+            ?: listOf(TailscaleAccount(FIRST_ID, "Default"))
     }
 
     fun getActiveAccount(context: Context): TailscaleAccount {
         val accounts = getAccounts(context)
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val activeId = prefs.getString(KEY_ACTIVE_ID, "default")
+        val activeId = prefs.getString(KEY_ACTIVE_ID, FIRST_ID)
         return accounts.find { it.id == activeId } ?: accounts.first()
     }
 
@@ -90,11 +115,15 @@ object AccountManager {
     }
 
     fun deleteAccount(context: Context, id: String) {
-        if (id == "default") return
+        val primary = getPrimaryId(context)
+        if (id == primary) return
+        // Read before the list changes: afterwards the deleted id is no longer found, and the
+        // active account would quietly read as whichever came first.
+        val wasActive = getActiveAccount(context).id == id
         val accounts = getAccounts(context).filter { it.id != id }
         saveAccounts(context, accounts)
-        if (getActiveAccount(context).id == id) {
-            setActiveAccount(context, "default")
+        if (wasActive) {
+            setActiveAccount(context, primary)
         }
         
         // Clean up data

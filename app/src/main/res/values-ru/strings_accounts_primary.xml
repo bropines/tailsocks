@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accounts_primary_help">★ — основной аккаунт: его нельзя удалить, и на него приложение переходит, когда удаляют тот, что в работе. Основным можно сделать любой — тогда удалить можно и первый.</string>
+    <string name="accounts_make_primary">Сделать основным</string>
+    <string name="accounts_primary">Основной аккаунт</string>
+</resources>
