@@ -36,7 +36,7 @@ Who may read and who may write is set by the tailnet policy, not in the app.
 
 ### Other devices' shares
 
-**Browse other devices' shares** (the devices icon on top) lists tailnets, devices, their shares and folders. Tap a file to open it:
+**Browse other devices' shares** (the devices icon on top) lists tailnets, devices, their shares and folders. Tap a file and it opens in whatever on the device opens that kind of file — a video or a song in a player, a PDF, a photo or a document in its own app. When nothing takes it, the app says so and can show the file's address.
 
 - A player can seek in a video or a song without downloading it first (Android 8 and newer).
 - **Open files through a link** hands the player an `http://127.0.0.1:…` address on the Taildrive proxy instead.
