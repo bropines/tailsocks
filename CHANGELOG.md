@@ -21,7 +21,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Remote management (experimental, off by default): manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; works in proxy, TUN and Root Mode, inside one tailnet.
 - Remote management covers the connection and the exit node (a change that cuts the link is put back by the device itself), sending a file, permissions seen and requested, and — with Full control switched on at the device — its storage, shared folders, routes and log. Every change shows in a bar on the managed device's screen.
 - Android TV: a "From a phone" tile on the home screen shows the state of remote management.
-- Devices you manage appear on the main screen once one is paired, each with whether it is online.
+- Devices you manage appear on the main screen once one is paired, each with whether it is online; a phone shows the one managed last with a button for the others, and Settings → Appearance can hide them.
+- Any account can be the main one — the one that cannot be deleted — with the star in the accounts list's edit mode.
 - The network check and the diagnostics report warn when the network's MTU is too small for direct connections.
 - Beta versions: a "Receive beta versions" switch in Settings → Appearance & language, off by default; betas are published as pre-releases.
 
@@ -33,6 +34,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - "Sign in" opens a tab over the app even when the default link handler is not a real browser.
 - The Add account dialog's fields take the dialog's width on wide windows.
 - Signing in without an auth key uses the custom login server (Headscale), not Tailscale's; broken since 4.0.0.
+- Deleting the account in use moves to the main account, not to whichever came first.
+- The status card's second line stays on one line where a slightly smaller size fits it.
 
 ## [4.10.2] - 2026-10-13
 
