@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -375,20 +376,32 @@ fun DnsScreen(onBack: () -> Unit) {
                         // Still a target for the remote while the test runs: see the route tests.
                         enabled = !isTestingLocal || tv,
                         shape = MaterialTheme.shapes.small,
+                        // Busy, not dead: it keeps its fill, as the lookup button's does, or the
+                        // indicator (onPrimary) sits on the disabled grey and barely shows.
+                        colors = ButtonDefaults.buttonColors(
+                            disabledContainerColor = MaterialTheme.colorScheme.primary,
+                            disabledContentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                         modifier = Modifier.height(36.dp)
                     ) {
-                        if (isTestingLocal) {
-                            ButtonBusyIndicator(16.dp, color = MaterialTheme.colorScheme.onPrimary)
-                        } else {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                stringResource(R.string.dns_test_btn),
-                                fontSize = (12 + tvBump).sp,
-                                maxLines = 1,
-                                softWrap = false
-                            )
+                        // The label stays laid out, unseen, while the indicator is drawn over it:
+                        // the button keeps its width instead of shrinking to its minimum and back.
+                        Box(contentAlignment = Alignment.Center) {
+                            Row(
+                                modifier = Modifier.alpha(if (isTestingLocal) 0f else 1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    stringResource(R.string.dns_test_btn),
+                                    fontSize = (12 + tvBump).sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                            if (isTestingLocal) ButtonBusyIndicator(16.dp, color = MaterialTheme.colorScheme.onPrimary)
                         }
                     }
                 }
