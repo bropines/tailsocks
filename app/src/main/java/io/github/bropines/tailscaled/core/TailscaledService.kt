@@ -36,6 +36,10 @@ class TailscaledService : Service() {
 
         /** The one ongoing card; TunVpnService goes foreground on it too. */
         const val MAIN_NOTIF_ID = 1
+
+        /** How long after a settings change the tick stays close, and how close. */
+        private const val SETTLE_WINDOW_MS = 40_000L
+        private const val SETTLE_TICK_MS = 1_500L
         private const val MAIN_CHANNEL_ID = "tailscaled_channel"
 
         /**
@@ -441,6 +445,7 @@ class TailscaledService : Service() {
             updateAllWidgets(this@TailscaledService)
         }
 
+        if (System.currentTimeMillis() < settleUntil) interval = minOf(interval, SETTLE_TICK_MS)
         return interval
     }
 
@@ -1691,6 +1696,15 @@ class TailscaledService : Service() {
                 } else {
                     stopTunMode()
                 }
+                // A switch between proxy and TUN relaunches the daemon a few seconds
+                // from here, and what the tick does on a new run — Taildrive's file
+                // server above all — would wait for the next 15-second tick, or the
+                // one after it. Tick closely until the relaunch has settled.
+                settleUntil = System.currentTimeMillis() + SETTLE_WINDOW_MS
+                refreshHandler.post {
+                    refreshHandler.removeCallbacks(refreshRunnable)
+                    refreshHandler.postDelayed(refreshRunnable, SETTLE_TICK_MS)
+                }
                 // The DNS, per-app and coexistence settings all change what the
                 // Root Mode ruleset should look like, and this path never used to
                 // touch it. The re-check compares the inputs and does nothing when
@@ -2143,6 +2157,9 @@ class TailscaledService : Service() {
      * its backend was Running; every other run is applied afresh by the refresh tick.
      */
     @Volatile private var taildriveAppliedForRun = TaildriveRun.NONE
+
+    /** Until when the tick runs every [SETTLE_TICK_MS]: a settings change may be relaunching the daemon. */
+    @Volatile private var settleUntil = 0L
 
     /**
      * Set when a TUN start was requested, cleared once ACTION_STOP has been sent.
