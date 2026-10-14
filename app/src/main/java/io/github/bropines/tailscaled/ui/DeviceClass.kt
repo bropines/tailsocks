@@ -126,13 +126,32 @@ fun rememberCapabilities(): Capabilities {
     return remember(context) { Capabilities.of(context) }
 }
 
-/** Where this feature is to be found on this device. Always [Availability.OFFERED] on a handheld. */
+/**
+ * What the device is, whatever interface it is set to (Settings → Appearance → Interface).
+ * A preview is a handheld: the renderer has no package manager to ask.
+ */
+@Composable
+private fun rememberHardwareClass(): DeviceClass {
+    if (LocalInspectionMode.current) return DeviceClass.HANDHELD
+    val context = LocalContext.current
+    val uiMode = LocalConfiguration.current.uiMode
+    return remember(context, uiMode) { DeviceProfile.hardwareClass(context, uiMode) }
+}
+
+/**
+ * Where this feature is to be found on this device. Always [Availability.OFFERED] in the
+ * handheld interface, but for the file picker of a television drawn as a handheld
+ * ([DeviceProfile.availability]).
+ */
 @Composable
 fun Feature.availability(): Availability {
     val device = LocalDeviceClass.current
+    // What the device is matters to one answer only, the handheld interface's about the picker.
+    val hardware = if (device == DeviceClass.HANDHELD && this == Feature.SYSTEM_FILE_PICKER) rememberHardwareClass() else device
     // The same early answer as DeviceProfile's: a phone is never asked what it has.
-    if (device == DeviceClass.HANDHELD) return Availability.OFFERED
-    return DeviceProfile.availability(this, device, rememberCapabilities())
+    if (device == DeviceClass.HANDHELD && hardware == DeviceClass.HANDHELD) return Availability.OFFERED
+    val caps = rememberCapabilities()
+    return DeviceProfile.availability(this, device, hardware) { caps }
 }
 
 /** Whether this feature keeps its usual place — the question an entry point asks. */

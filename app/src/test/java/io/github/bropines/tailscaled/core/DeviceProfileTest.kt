@@ -146,4 +146,57 @@ class DeviceProfileTest {
         assertEquals(Availability.OFFERED, DeviceProfile.availability(Feature.BROWSER, DeviceClass.TV, browser))
         assertEquals(Availability.HIDDEN, DeviceProfile.availability(Feature.BROWSER, DeviceClass.TV, picker))
     }
+
+    // --- the interface and the device told apart -------------------------------------------------
+
+    private val neverAsked: () -> Capabilities = { throw AssertionError("the system was asked what it has") }
+
+    /** A phone and a tablet: everything, and the system is not asked about anything. */
+    @Test
+    fun aPhoneIsOfferedEverythingAndNeverAskedWhatItHas() {
+        for (feature in Feature.entries) {
+            assertEquals(feature.name, Availability.OFFERED, DeviceProfile.availability(feature, DeviceClass.HANDHELD, DeviceClass.HANDHELD, neverAsked))
+        }
+    }
+
+    /**
+     * A television set to the phone interface: what a phone is offered, but its system has only
+     * a placeholder for a file picker, in whichever interface — so the picker is not offered, and
+     * the app's own file browser takes its place (core/TaildropPick.kt).
+     */
+    @Test
+    fun aTelevisionDrawnAsAPhoneHasAPickerOnlyWhenItsSystemDoes() {
+        val without = DeviceProfile.availability(Feature.SYSTEM_FILE_PICKER, DeviceClass.HANDHELD, DeviceClass.TV) { Capabilities.NONE }
+        assertEquals(Availability.HIDDEN, without)
+        assertEquals(PickerKind.IN_APP, choosePicker(without == Availability.OFFERED) { throw AssertionError("the placeholder was started") })
+        // A browser on the set is no file picker.
+        assertEquals(
+            Availability.HIDDEN,
+            DeviceProfile.availability(Feature.SYSTEM_FILE_PICKER, DeviceClass.HANDHELD, DeviceClass.TV) { Capabilities(browser = true, documents = false) }
+        )
+        // A set with a file manager that answers the picker's intents has a picker.
+        val with = DeviceProfile.availability(Feature.SYSTEM_FILE_PICKER, DeviceClass.HANDHELD, DeviceClass.TV) { Capabilities.ALL }
+        assertEquals(Availability.OFFERED, with)
+        assertEquals(PickerKind.SYSTEM, choosePicker(with == Availability.OFFERED) { true })
+    }
+
+    /** The phone interface stays a phone's in everything else, on a television too. */
+    @Test
+    fun aTelevisionDrawnAsAPhoneIsOtherwiseOfferedWhatAPhoneIs() {
+        for (feature in Feature.entries - Feature.SYSTEM_FILE_PICKER) {
+            assertEquals(feature.name, Availability.OFFERED, DeviceProfile.availability(feature, DeviceClass.HANDHELD, DeviceClass.TV, neverAsked))
+        }
+    }
+
+    /** The television interface is a television's table on any device — a phone set to it included. */
+    @Test
+    fun theTelevisionInterfaceIsTheSameOnAnyDevice() {
+        for (hardware in DeviceClass.entries) for (feature in Feature.entries) for (caps in everyCapability) {
+            assertEquals(
+                "$feature on $hardware with $caps",
+                DeviceProfile.availability(feature, DeviceClass.TV, caps),
+                DeviceProfile.availability(feature, DeviceClass.TV, hardware) { caps }
+            )
+        }
+    }
 }

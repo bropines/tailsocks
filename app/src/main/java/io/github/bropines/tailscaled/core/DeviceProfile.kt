@@ -139,7 +139,8 @@ data class Capabilities(
  *
  * One APK serves phones and televisions, so all of this is decided at run
  * time. A handheld is offered everything, by construction: nothing here can
- * change a phone or a tablet.
+ * change a phone or a tablet. A television drawn as one is offered the same,
+ * less the file picker its system does not have.
  */
 object DeviceProfile {
     /** Fire OS marks its televisions with a feature of its own; it counts as leanback here. */
@@ -222,11 +223,30 @@ object DeviceProfile {
         }
     }
 
-    /** [availability] outside a composition: deep links, shortcuts, services. */
-    fun availability(context: Context, feature: Feature): Availability {
-        val device = deviceClass(context)
-        // A handheld's answer does not depend on what the system has: do not ask it.
-        if (device == DeviceClass.HANDHELD) return Availability.OFFERED
-        return availability(feature, device, Capabilities.of(context))
+    /**
+     * [availability] where the interface and the device are told apart: [device] is the
+     * interface the app is drawn in, [hardware] what the device is — the Interface setting
+     * can draw a television as a phone, and a phone as a television.
+     *
+     * The interface decides, as ever, with one exception: what the system lacks, it lacks in
+     * every interface. A television drawn as a phone is offered everything a phone is and
+     * still has no file picker to start — only a placeholder, which shows a toast and
+     * finishes — so there the picker is offered by what the system has ([Capabilities]),
+     * as in the television's own interface.
+     *
+     * [caps] is asked only where the answer depends on it: a phone is never asked what it has.
+     */
+    fun availability(feature: Feature, device: DeviceClass, hardware: DeviceClass, caps: () -> Capabilities): Availability = when {
+        device == DeviceClass.TV -> availability(feature, device, caps())
+        hardware == DeviceClass.TV && feature == Feature.SYSTEM_FILE_PICKER -> availability(feature, hardware, caps())
+        else -> Availability.OFFERED
     }
+
+    /** What this device is, whatever interface it is set to. */
+    fun hardwareClass(context: Context, uiMode: Int = context.resources.configuration.uiMode): DeviceClass =
+        deviceClass(context, uiMode, DeviceOverride.AUTO)
+
+    /** [availability] outside a composition: deep links, shortcuts, services. */
+    fun availability(context: Context, feature: Feature): Availability =
+        availability(feature, deviceClass(context), hardwareClass(context)) { Capabilities.of(context) }
 }
