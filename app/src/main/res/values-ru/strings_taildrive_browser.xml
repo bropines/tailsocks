@@ -24,7 +24,7 @@
     <string name="taildrive_browser_error_failed">Что-то пошло не так</string>
 
     <string name="taildrive_browser_proxy_off">Прокси Taildrive выключен</string>
-    <string name="taildrive_browser_proxy_off_help">TailSocks передаёт файлы плееру через небольшой прокси на этом устройстве. Включите его, чтобы открывать то, чем делятся другие устройства.</string>
+    <string name="taildrive_browser_proxy_off_help">Файлы открываются и без него. Прокси нужен только чтобы открыть файл по ссылке и чтобы другие устройства в вашей сети получали доступ к общим папкам через это.</string>
     <string name="taildrive_browser_proxy_turn_on">Включить</string>
     <string name="taildrive_browser_proxy_starting">Запускаю прокси…</string>
 

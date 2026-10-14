@@ -65,7 +65,7 @@ import kotlinx.coroutines.withContext
  * clear, which the theme does for a screen and cannot for a window.
  */
 @Composable
-private fun PickerWindow(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+internal fun PickerWindow(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     val parent = rememberParentLocals()
     Dialog(
         onDismissRequest = onDismiss,

@@ -527,6 +527,8 @@ class DriveOpenSpec internal constructor(
     internal val documentId: String? = null,
     /** Whether the local proxy is on and answering: the link road exists only then. */
     val linkReady: Boolean = true,
+    /** The proxy as it was when this was made: why the link road is not there, when it is not. */
+    val proxy: ProxyCondition = if (linkReady) ProxyCondition.READY else ProxyCondition.OFF,
 ) {
     /**
      * The types to ask for, in order: the file's own, then its family (the video wildcard for a video). A typed
@@ -632,7 +634,13 @@ class DriveOpenSpec internal constructor(
          * document road reads as; without it there is no document road. [linkReady] is whether the
          * proxy answers right now.
          */
-        fun of(proxy: DriveProxy, file: DriveLocation, accountId: String? = null, linkReady: Boolean = true): DriveOpenSpec {
+        fun of(
+            proxy: DriveProxy,
+            file: DriveLocation,
+            accountId: String? = null,
+            linkReady: Boolean = true,
+            condition: ProxyCondition = if (linkReady) ProxyCondition.READY else ProxyCondition.OFF,
+        ): DriveOpenSpec {
             val name = file.name.orEmpty()
             val auth = proxy.auth
             return DriveOpenSpec(
@@ -643,7 +651,8 @@ class DriveOpenSpec internal constructor(
                 deviceUrl = proxy.urlFor(file),
                 tailnetUrl = TAILNET_BASE + encodedPath(file),
                 documentId = accountId?.let { documentIdOf(it, file) },
-                linkReady = linkReady
+                linkReady = linkReady,
+                proxy = condition
             )
         }
 
@@ -793,15 +802,21 @@ class TaildriveBrowse(private val retryDelayMs: Long = RETRY_DELAY_MS, private v
         /**
          * What to hand to another app for the file at [file]; reads the proxy settings afresh.
          * Blocking. The document road needs no proxy, and the link road exists while the proxy
-         * answers; when the person asked for the link ([preferLink]) a proxy that is off or not
-         * answering is the reason there is nothing to open, and says so.
+         * answers: a link that was asked for and is not there is no reason to open nothing —
+         * the spec says how the proxy is ([DriveOpenSpec.proxy]), and TaildriveLinkChoice what
+         * to do about it.
          */
-        fun prepareOpen(context: Context, accountId: String, file: DriveLocation, preferLink: Boolean = false): DriveResult<DriveOpenSpec> {
+        fun prepareOpen(context: Context, accountId: String, file: DriveLocation): DriveResult<DriveOpenSpec> {
             val proxy = DriveProxy.read(context, accountId)
-            if (preferLink && !proxy.enabled) return DriveResult.Err(DriveError.ProxyOff)
-            val answering = proxy.enabled && proxy.isListening()
-            if (preferLink && !answering) return DriveResult.Err(DriveError.ProxyNotListening)
-            return DriveResult.Ok(DriveOpenSpec.of(proxy, file, accountId, linkReady = answering))
+            val condition = proxyCondition(proxy)
+            return DriveResult.Ok(DriveOpenSpec.of(proxy, file, accountId, linkReady = condition == ProxyCondition.READY, condition = condition))
+        }
+
+        /** How [proxy] is right now. Blocking: a connect to its address when it is on. */
+        fun proxyCondition(proxy: DriveProxy): ProxyCondition = when {
+            !proxy.enabled -> ProxyCondition.OFF
+            proxy.isListening() -> ProxyCondition.READY
+            else -> ProxyCondition.SILENT
         }
 
         /**

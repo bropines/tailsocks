@@ -1,9 +1,14 @@
 package io.github.bropines.tailscaled.ui
 
 import android.content.Intent
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -28,8 +34,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Deselect
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
@@ -38,24 +48,38 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,7 +99,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,16 +113,34 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.TaildrivePolicyFix
 import io.github.bropines.tailscaled.core.AccountManager
+import io.github.bropines.tailscaled.core.DownloadDestination
+import io.github.bropines.tailscaled.core.DownloadRequest
+import io.github.bropines.tailscaled.core.DownloadSelection
+import io.github.bropines.tailscaled.core.DownloadState
 import io.github.bropines.tailscaled.core.DriveEntry
 import io.github.bropines.tailscaled.core.DriveError
 import io.github.bropines.tailscaled.core.DriveKind
 import io.github.bropines.tailscaled.core.DriveLaunch
+import io.github.bropines.tailscaled.core.DriveLevel
 import io.github.bropines.tailscaled.core.DriveLocation
+import io.github.bropines.tailscaled.core.DrivePathInput
 import io.github.bropines.tailscaled.core.DriveProxy
 import io.github.bropines.tailscaled.core.DriveResult
+import io.github.bropines.tailscaled.core.DriveWalk
+import io.github.bropines.tailscaled.core.LinkNotice
 import io.github.bropines.tailscaled.core.NoAppAdvice
+import io.github.bropines.tailscaled.core.PathFound
+import io.github.bropines.tailscaled.core.ProxyCondition
+import io.github.bropines.tailscaled.core.ReceiveFolder
 import io.github.bropines.tailscaled.core.TaildriveBrowse
+import io.github.bropines.tailscaled.core.TaildriveDownloadFolder
+import io.github.bropines.tailscaled.core.TaildriveDownloads
+import io.github.bropines.tailscaled.core.TaildriveLinkChoice
+import io.github.bropines.tailscaled.core.TaildriveOpenPlan
+import io.github.bropines.tailscaled.core.WalkTotals
+import io.github.bropines.tailscaled.core.Walked
 import io.github.bropines.tailscaled.core.formatFileSize
+import io.github.bropines.tailscaled.core.listEntries
 import io.github.bropines.tailscaled.core.pathLine
 import io.github.bropines.tailscaled.core.tryStartActivity
 import java.text.DateFormat
@@ -110,13 +154,14 @@ import kotlinx.coroutines.withContext
 /*
  * The other devices' Taildrive shares as a page to walk with a remote: devices, their
  * shares, folders, files. The list logic is core/TaildriveBrowse.kt; this file is the page and
- * the states it passes through.
+ * the states it passes through. Downloading is ui/TaildriveDownloadUi.kt and the path under the
+ * title ui/TaildrivePathBar.kt; this page puts them together.
  *
  * Built for a D-pad first. Every row is one focus stop and OK on it does the whole thing — enters a
- * folder, or hands a file to another app; Back climbs one level and leaves at the top. There is
- * no long press, swipe or menu anywhere, so nothing is out of reach of four arrows, OK and Back.
- * Rows are plain Material clickables, so whatever focus indication the theme gives a clickable
- * is what they get.
+ * folder, or hands a file to another app; Back climbs one level and leaves at the top. A file's row
+ * has a second stop, its download button, one press to the right. Selecting several, which a touch
+ * screen starts with a long press, has a button in the bar as well, so nothing is out of reach of
+ * four arrows, OK and Back.
  */
 
 /** How long a page that has just asked for the proxy waits for it to come up. */
@@ -167,16 +212,65 @@ internal class DriveBrowserActions(
     val viaLink: Boolean = false,
     /** Null where the switch is not shown (the previews of states that have no bar to show it in). */
     val onToggleLink: (() -> Unit)? = null,
+    /** A file row's own button. */
+    val onDownload: (DriveEntry) -> Unit = {},
+    /** A long press on a row: selection mode, with that row in it. */
+    val onLongPress: (DriveEntry) -> Unit = {},
+    /** A row pressed in selection mode. */
+    val onToggle: (DriveEntry) -> Unit = {},
+    /** The bar's Select, for a device without a long press. */
+    val onSelect: () -> Unit = {},
+    /** Select all, or clear when all are. */
+    val onSelectAll: () -> Unit = {},
+    val onDownloadSelected: () -> Unit = {},
+    val onLeaveSelection: () -> Unit = {},
+    /** A name of the path pressed: that level. */
+    val onGo: (DriveLocation) -> Unit = {},
+    val onEditPath: () -> Unit = {},
+    val onPathText: (String) -> Unit = {},
+    val onPathGo: () -> Unit = {},
+    val onPathClose: () -> Unit = {},
+    val panel: DownloadPanelActions = DownloadPanelActions(),
 ) {
     companion object {
         val None = DriveBrowserActions({}, {}, {}, {}, {}, {})
     }
 }
 
+/** What the page shows besides the list; the previews pass what their state needs. */
+internal class BrowserExtras(
+    /** The names selected in this folder; null outside selection mode. */
+    val selection: Set<String>? = null,
+    /** How deep the list of devices is: 1 under a single tailnet. */
+    val top: Int = 1,
+    /** The path as a field; null while it is the path's names. */
+    val pathEdit: PathEdit? = null,
+    /** The download under the list and how many wait behind it. */
+    val panel: Pair<DownloadState, Int>? = null,
+    /** The panel's folder is the default already, or was just made it. */
+    val panelKept: Boolean = false,
+    val snackbar: SnackbarHostState? = null,
+    /** The link switch is on and the proxy is not there. */
+    val linkDown: Boolean = false,
+    /** A new value puts the remote back on the list's row. */
+    val refocus: Int = 0,
+)
+
 private val LocationSaver = Saver<DriveLocation, ArrayList<String>>(
     save = { ArrayList(it.segments) },
     restore = { DriveLocation(it) }
 )
+
+/** Selection mode across a rotation: the names, or nothing saved for "not selecting". */
+private val SelectionSaver = Saver<Set<String>?, ArrayList<String>>(
+    save = { it?.let(::ArrayList) },
+    restore = { it.toSet() }
+)
+
+/** The question before a download with folders: what was chosen, and where. */
+private class FolderQuestion(val parent: DriveLocation, val entries: List<DriveEntry>) {
+    val folders: List<String> = entries.filter { it.isFolder }.map { it.name }
+}
 
 /**
  * The page. A full-screen composable, not an Activity: the host puts it where it likes and
@@ -184,10 +278,11 @@ private val LocationSaver = Saver<DriveLocation, ArrayList<String>>(
  *
  * - [onClose] runs when Back (or the arrow) is used at the top level, the list of devices.
  *   Deeper, Back goes one level up and the callback is not called.
- * - [onEnableProxy] runs from the "Turn it on" button of the proxy-off state. It should switch
- *   the Taildrive proxy on for the profile and tell the service to apply it (what
- *   Settings -> Taildrive does); the page then waits a few seconds for the proxy to answer and
- *   carries on by itself. Returning from another screen, a settings page say, also re-checks.
+ * - [onEnableProxy] runs from the "Turn it on" button of the proxy-off state, and wherever the
+ *   page offers the proxy for the link road. It should switch the Taildrive proxy on for the
+ *   profile and tell the service to apply it (what Settings -> Taildrive does); the page then
+ *   waits a few seconds for the proxy to answer and carries on by itself. Returning from another
+ *   screen, a settings page say, also re-checks.
  *
  * [accountId] is the profile to browse as; the active one by default.
  */
@@ -214,6 +309,16 @@ fun TaildriveBrowserPage(
     var starting by remember { mutableStateOf(false) }
     // The person's own switch for the link road (see TaildriveOpenPlan); the document road is the default.
     var viaLink by remember { mutableStateOf(DriveProxy.openViaLink(appContext, account)) }
+    // The proxy as last seen, for the switch's face; null until it has been looked at.
+    var proxy by remember { mutableStateOf<ProxyCondition?>(null) }
+    var askProxy by remember { mutableStateOf(false) }
+    var selection by rememberSaveable(stateSaver = SelectionSaver) { mutableStateOf<Set<String>?>(null) }
+    var question by remember { mutableStateOf<FolderQuestion?>(null) }
+    var pathEdit by remember { mutableStateOf<PathEdit?>(null) }
+    var refocus by remember { mutableIntStateOf(0) }
+    val snackbar = remember { SnackbarHostState() }
+    val folderAsk = rememberDownloadFolderAsk()
+    val downloads by TaildriveDownloads.downloads.collectAsState()
 
     // Every load: is the daemon up and is the policy against it, then the listing. A new key cancels
     // the load in flight, so a slow share never overwrites the folder entered after it. The proxy is
@@ -243,9 +348,16 @@ fun TaildriveBrowserPage(
         location = shown
         phase = next
     }
+    // The proxy, for the link switch's face: looked at with every load, apart from it — a proxy that
+    // is on and silent takes a moment to say so, and the listing does not wait for that.
+    LaunchedEffect(loadKey) {
+        proxy = withContext(Dispatchers.IO) { TaildriveBrowse.proxyCondition(DriveProxy.read(appContext, account)) }
+    }
 
     fun go(to: DriveLocation, focus: String? = null) {
         notice = null
+        selection = null
+        pathEdit = null
         location = to
         focusName = focus
         loadKey++
@@ -256,14 +368,18 @@ fun TaildriveBrowserPage(
         if (parent != null && location.depth > top) go(parent, focus = location.name) else onClose()
     }
     BackHandler(onBack = up)
+    // Back in selection mode leaves it, before it climbs anywhere.
+    BackHandler(enabled = selection != null) { selection = null }
 
     // Back from another app or a settings page: whatever was missing may be there now.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val currentPhase by rememberUpdatedState(phase)
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
+            if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
             val current = currentPhase
-            if (event == Lifecycle.Event.ON_RESUME && current is BrowserPhase.Failed && current.error.isFixableOutside) loadKey++
+            if (current is BrowserPhase.Failed && current.error.isFixableOutside) loadKey++
+            else scope.launch { proxy = withContext(Dispatchers.IO) { TaildriveBrowse.proxyCondition(DriveProxy.read(appContext, account)) } }
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
@@ -278,47 +394,219 @@ fun TaildriveBrowserPage(
         } else null
     }
 
+    val enableProxy: () -> Unit = {
+        starting = true
+        onEnableProxy()
+        loadKey++
+    }
+
+    /** A short line at the bottom; with [action], a button that does it. In the app's language: the page's context has it. */
+    fun say(text: String, action: String? = null, onAction: () -> Unit = {}) {
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(text, actionLabel = action, duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short)
+            if (result == SnackbarResult.ActionPerformed) onAction()
+        }
+    }
+
+    fun linkNotice(notice: LinkNotice) {
+        val text = context.getString(
+            when (notice) {
+                LinkNotice.PROXY_OFF -> R.string.taildrive_link_opened_directly
+                LinkNotice.PROXY_SILENT -> R.string.taildrive_link_opened_directly_silent
+                LinkNotice.PROXY_OFF_NO_SEEK -> R.string.taildrive_link_opened_no_seek
+                LinkNotice.PROXY_SILENT_NO_SEEK -> R.string.taildrive_link_opened_no_seek_silent
+            }
+        )
+        if (notice.offersProxy) say(text, context.getString(R.string.taildrive_link_turn_on_proxy), enableProxy) else say(text)
+    }
+
+    fun setLink(on: Boolean) {
+        viaLink = on
+        DriveProxy.setOpenViaLink(appContext, account, on)
+        say(context.getString(if (on) R.string.taildrive_link_on else R.string.taildrive_link_off))
+    }
+
+    // Downloads: where to, then off they go (core/TaildriveDownloads.kt). The page may be left at once.
+    fun startDownload(parent: DriveLocation, entries: List<DriveEntry>, walked: Walked?) {
+        scope.launch {
+            val where = withContext(Dispatchers.IO) { TaildriveDownloadFolder.destination(appContext) }
+            val begin = { folder: ReceiveFolder, picked: Boolean ->
+                TaildriveDownloads.start(appContext, DownloadRequest(account, parent, entries, folder, picked, walked))
+                Unit
+            }
+            when (where) {
+                is DownloadDestination.Default -> begin(where.folder, false)
+                is DownloadDestination.Ask -> {
+                    if (where.lost) sayFolderLost(context)
+                    folderAsk.ask { begin(it, true) }
+                }
+            }
+        }
+    }
+
+    fun download(entries: List<DriveEntry>) {
+        if (entries.isEmpty()) return
+        if (selection != null) {
+            selection = null
+            // The bar's Download goes with selection mode: the remote goes back to the list.
+            focusName = entries.first().name
+            refocus++
+        }
+        if (DownloadSelection.asks(entries)) question = FolderQuestion(location, entries)
+        else startDownload(location, entries, null)
+    }
+
+    // A typed path: looked for level by level (DrivePathInput), and gone to only when it is there.
+    fun lookFor(text: String) {
+        val tailnet = location.segments.firstOrNull()
+        val base = if (tailnet != null) DriveLocation(listOf(tailnet)) else DriveLocation.ROOT
+        val names = DrivePathInput.parse(text, tailnet)
+        pathEdit = PathEdit(text, looking = true)
+        scope.launch {
+            val found = withContext(Dispatchers.IO) { DrivePathInput.descend(base, names) { browse.listEntries(it) } }
+            if (pathEdit?.text != text) return@launch
+            fun shown(at: DriveLocation) = DrivePathInput.format(at).ifEmpty { context.getString(R.string.taildrive_browser_level_devices) }
+            when (found) {
+                is PathFound.Folder -> go(found.location)
+                is PathFound.File -> go(found.folder, focus = found.name)
+                is PathFound.Missing -> pathEdit = PathEdit(
+                    text,
+                    problem = context.getString(R.string.taildrive_path_missing, found.missing, shown(found.deepest)),
+                    deepest = found.deepest,
+                    deepestLabel = shown(found.deepest)
+                )
+                is PathFound.Failed -> pathEdit = PathEdit(
+                    text,
+                    problem = context.getString(R.string.taildrive_path_failed, shown(found.at)),
+                    deepest = found.at.parent?.takeIf { it.depth >= base.depth },
+                    deepestLabel = found.at.parent?.takeIf { it.depth >= base.depth }?.let(::shown)
+                )
+            }
+        }
+    }
+
+    val listed = (phase as? BrowserPhase.Listed)?.entries.orEmpty()
     val actions = DriveBrowserActions(
         onOpen = { entry ->
             if (entry.isFolder) go(location.child(entry.name))
             else scope.launch {
                 val file = location.child(entry.name)
-                when (val prepared = withContext(Dispatchers.IO) { TaildriveBrowse.prepareOpen(appContext, account, file, viaLink) }) {
-                    // The link was asked for and the proxy is not there: say so, and carry on from here.
-                    is DriveResult.Err -> phase = BrowserPhase.Failed(prepared.error)
-                    is DriveResult.Ok -> {
-                        val spec = prepared.value
-                        notice = when (val launched = spec.launch(context, viaLink)) {
-                            DriveLaunch.Started -> null
-                            DriveLaunch.NoApp -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, advice = spec.noAppAdvice)
-                            // Nothing but a browser takes it: not opened until the person says so.
-                            is DriveLaunch.OnlyBrowser -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, openInBrowser = {
-                                notice = null
-                                (launched.openAnyway() as? DriveLaunch.Failed)?.let { notice = OpenNotice.Failed(entry.name, it.detail) }
-                            })
-                            is DriveLaunch.Failed -> OpenNotice.Failed(entry.name, launched.detail)
-                        }
+                val prepared = withContext(Dispatchers.IO) { TaildriveBrowse.prepareOpen(appContext, account, file) }
+                val spec = (prepared as? DriveResult.Ok)?.value ?: return@launch
+                proxy = spec.proxy
+                // The switch asks for the link; without the proxy the file goes directly, and the page says why.
+                val decision = TaildriveLinkChoice.decide(viaLink, spec.proxy, Build.VERSION.SDK_INT, TaildriveOpenPlan.isMedia(entry.kind))
+                notice = when (val launched = spec.launch(context, decision.useLink)) {
+                    DriveLaunch.Started -> {
+                        decision.notice?.let(::linkNotice)
+                        null
                     }
+                    DriveLaunch.NoApp -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, advice = spec.noAppAdvice)
+                    // Nothing but a browser takes it: not opened until the person says so.
+                    is DriveLaunch.OnlyBrowser -> OpenNotice.NoApp(entry.name, spec.tailnetUrl, openInBrowser = {
+                        notice = null
+                        (launched.openAnyway() as? DriveLaunch.Failed)?.let { notice = OpenNotice.Failed(entry.name, it.detail) }
+                    })
+                    is DriveLaunch.Failed -> OpenNotice.Failed(entry.name, launched.detail)
                 }
             }
         },
         onUp = up,
         onRetry = { loadKey++ },
-        onEnableProxy = {
-            starting = true
-            onEnableProxy()
-            loadKey++
-        },
+        onEnableProxy = enableProxy,
         onDaemonStarted = { loadKey++ },
         onDismissNotice = { notice = null },
         onFixPolicy = fix?.let { intent -> { context.tryStartActivity(intent); Unit } },
         viaLink = viaLink,
         onToggleLink = {
-            viaLink = !viaLink
-            DriveProxy.setOpenViaLink(appContext, account, viaLink)
+            val on = !viaLink
+            // Turning it on with the proxy off asks to turn the proxy on: a link needs it.
+            if (TaildriveLinkChoice.asksToEnable(on, if (DriveProxy.read(appContext, account).enabled) ProxyCondition.READY else ProxyCondition.OFF)) askProxy = true
+            else setLink(on)
         },
+        onDownload = { download(listOf(it)) },
+        onLongPress = { entry -> selection = (selection ?: emptySet()) + entry.name },
+        onToggle = { entry ->
+            val now = selection ?: emptySet()
+            selection = if (entry.name in now) now - entry.name else now + entry.name
+        },
+        onSelect = { selection = emptySet() },
+        onSelectAll = {
+            val all = listed.map { it.name }.toSet()
+            selection = if (selection == all) emptySet() else all
+        },
+        onDownloadSelected = { download(listed.filter { it.name in selection.orEmpty() }) },
+        onLeaveSelection = { selection = null },
+        onGo = { if (it != location) go(it) },
+        onEditPath = { pathEdit = PathEdit(DrivePathInput.format(location)) },
+        onPathText = { pathEdit = PathEdit(it) },
+        onPathGo = { pathEdit?.let { lookFor(it.text) } },
+        onPathClose = { pathEdit = null },
+        panel = DownloadPanelActions(
+            onCancel = TaildriveDownloads::cancel,
+            onClose = TaildriveDownloads::dismiss,
+            onOpenFolder = { state -> TaildriveDownloadFolder.viewIntent(context, state.folder)?.let { context.tryStartActivity(it) } },
+            onKeep = { state -> keepFolder(context, state); refocus++ },
+        ),
     )
-    TaildriveBrowserContent(location, phase, focusName, notice, actions, modifier)
+    val panel = panelOf(downloads)
+    // Read with every recomposition the panel's state brings: a preference, in memory.
+    val kept = panel?.let { remember(it.first.id, it.first.stage, refocus) { isDefaultFolder(appContext, it.first) } } ?: false
+    val extras = BrowserExtras(
+        selection = selection,
+        top = top,
+        pathEdit = pathEdit,
+        panel = panel,
+        panelKept = kept,
+        snackbar = snackbar,
+        linkDown = viaLink && proxy != null && proxy != ProxyCondition.READY,
+        refocus = refocus,
+    )
+    TaildriveBrowserContent(location, phase, focusName, notice, actions, modifier, extras)
+
+    question?.let { q ->
+        var totals by remember(q) { mutableStateOf(WalkTotals()) }
+        var walked by remember(q) { mutableStateOf<Walked?>(null) }
+        // The folders are counted while the question is up; every answer works without waiting for it.
+        LaunchedEffect(q) {
+            val result = withContext(Dispatchers.IO) { DriveWalk.collect(q.parent, q.folders, { browse.listEntries(it) }) { totals = it } }
+            walked = result
+            totals = result.totals
+        }
+        FolderQuestionDialog(
+            folders = q.folders.size,
+            totals = totals,
+            onAll = {
+                question = null
+                startDownload(q.parent, q.entries, walked)
+            },
+            onFilesOnly = if (DownloadSelection.hasFiles(q.entries)) ({
+                question = null
+                startDownload(q.parent, q.entries.filter { !it.isFolder }, null)
+            }) else null,
+            onCancel = { question = null }
+        )
+    }
+    if (askProxy) {
+        val title = stringResource(R.string.taildrive_open_via_link)
+        val text = stringResource(R.string.taildrive_link_needs_proxy)
+        val turnOn = stringResource(R.string.taildrive_link_turn_on)
+        val cancel = stringResource(R.string.action_cancel)
+        AppAlertDialog(
+            onDismissRequest = { askProxy = false },
+            title = { Text(title) },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askProxy = false
+                    setLink(true)
+                    enableProxy()
+                }) { Text(turnOn) }
+            },
+            dismissButton = { TextButton(onClick = { askProxy = false }) { Text(cancel) } }
+        )
+    }
 }
 
 /** Whether the user can put this right somewhere else and come back. */
@@ -330,6 +618,7 @@ private val DriveError.isFixableOutside: Boolean
  * The page for a given state, with nothing live behind it: the previews draw this, and the
  * page above feeds it.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TaildriveBrowserContent(
     location: DriveLocation,
@@ -338,8 +627,15 @@ internal fun TaildriveBrowserContent(
     notice: OpenNotice?,
     actions: DriveBrowserActions,
     modifier: Modifier = Modifier,
+    extras: BrowserExtras = BrowserExtras(),
 ) {
     val layout = rememberWindowLayout()
+    val selection = extras.selection
+    val listed = (phase as? BrowserPhase.Listed)?.entries.orEmpty()
+    // Selecting is for what is inside a share: files and folders, not devices or shares.
+    val selectable = location.level == DriveLevel.FOLDER && listed.isNotEmpty()
+    // Inside a device the line under the title is the path, every name of it a button.
+    val crumbs = selection == null && location.depth > extras.top
     val subtitle = when {
         // The root is the list of devices of the one tailnet, not yet entered while the page loads
         // or fails; it is a list of tailnets only when it has been read and holds several.
@@ -351,30 +647,75 @@ internal fun TaildriveBrowserContent(
     Scaffold(
         modifier = modifier,
         topBar = {
-            AppTopBar(
-                title = stringResource(R.string.taildrive_browser_title),
-                subtitle = subtitle,
-                onBack = actions.onUp,
-                actions = {
-                    actions.onToggleLink?.let { toggle ->
-                        IconToggleButton(checked = actions.viaLink, onCheckedChange = { toggle() }) {
-                            Icon(
-                                Icons.Default.Link,
-                                contentDescription = stringResource(R.string.taildrive_open_via_link),
-                                tint = if (actions.viaLink) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            Column {
+                AppTopBar(
+                    title = if (selection != null) pluralStringResource(R.plurals.taildrive_selected, selection.size, selection.size)
+                    else stringResource(R.string.taildrive_browser_title),
+                    subtitle = subtitle,
+                    subtitleContent = if (crumbs) ({ PathCrumbs(location, extras.top, actions.onGo, actions.onEditPath) }) else null,
+                    onBack = if (selection != null) actions.onLeaveSelection else actions.onUp,
+                    actions = {
+                        // One place for Select and Select all, so the remote that pressed the first is on the second.
+                        if (selection != null || (selectable && isTv)) {
+                            val all = selection != null && selection.size == listed.size
+                            BarAction(
+                                label = stringResource(
+                                    when {
+                                        selection == null -> R.string.taildrive_select
+                                        all -> R.string.taildrive_select_none
+                                        else -> R.string.taildrive_select_all
+                                    }
+                                ),
+                                icon = when {
+                                    selection == null -> Icons.Default.Checklist
+                                    all -> Icons.Default.Deselect
+                                    else -> Icons.Default.SelectAll
+                                },
+                                onClick = if (selection == null) actions.onSelect else actions.onSelectAll
                             )
                         }
+                        if (selection != null) {
+                            TextButton(onClick = actions.onDownloadSelected, enabled = selection.isNotEmpty()) {
+                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.size(8.dp))
+                                Text(stringResource(R.string.taildrive_download))
+                            }
+                        } else {
+                            IconButton(onClick = actions.onEditPath) {
+                                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.taildrive_path_edit))
+                            }
+                            actions.onToggleLink?.let { toggle -> LinkSwitch(actions.viaLink, extras.linkDown, toggle) }
+                        }
                     }
+                )
+                extras.pathEdit?.let { edit ->
+                    PathEditor(
+                        edit,
+                        onText = actions.onPathText,
+                        onGo = actions.onPathGo,
+                        onDeepest = actions.onGo,
+                        onClose = actions.onPathClose,
+                        modifier = Modifier.readableWidth()
+                    )
                 }
-            )
-        }
+            }
+        },
+        bottomBar = {
+            extras.panel?.let { (state, waiting) ->
+                DownloadPanel(
+                    state, waiting, extras.panelKept, actions.panel,
+                    Modifier.navigationBarsPadding().readableWidth().padding(horizontal = layout.margin, vertical = 8.dp)
+                )
+            }
+        },
+        snackbarHost = { extras.snackbar?.let { SnackbarHost(it) } },
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
             ReadableWidth {
                 when (phase) {
                     BrowserPhase.Loading -> Busy(stringResource(R.string.taildrive_browser_loading))
                     BrowserPhase.StartingProxy -> Busy(stringResource(R.string.taildrive_browser_proxy_starting))
-                    is BrowserPhase.Listed -> Entries(location, phase.entries, focusName, actions.onOpen, actions.onRetry)
+                    is BrowserPhase.Listed -> Entries(location, phase.entries, focusName, selection, extras.refocus, actions)
                     is BrowserPhase.Failed -> Failure(phase.error, actions)
                 }
             }
@@ -387,12 +728,56 @@ internal fun TaildriveBrowserContent(
     }
 }
 
+/** A word on a television, where a bare icon says little from the sofa; an icon elsewhere. */
+@Composable
+private fun BarAction(label: String, icon: ImageVector, onClick: () -> Unit) {
+    if (isTv) {
+        TextButton(onClick = onClick) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(label)
+        }
+    } else {
+        IconButton(onClick = onClick) { Icon(icon, contentDescription = label) }
+    }
+}
+
+/**
+ * The link switch, with its name on a long press. On while the proxy is not there ([down]) it
+ * says so: a crossed link, not in the accent colour.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LinkSwitch(on: Boolean, down: Boolean, onToggle: () -> Unit) {
+    val name = stringResource(if (on && down) R.string.taildrive_link_proxy_off_desc else R.string.taildrive_open_via_link)
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+        tooltip = { PlainTooltip { Text(name) } },
+        state = rememberTooltipState()
+    ) {
+        IconToggleButton(checked = on, onCheckedChange = { onToggle() }) {
+            Icon(
+                if (on && down) Icons.Default.LinkOff else Icons.Default.Link,
+                contentDescription = name,
+                tint = if (on && !down) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------------------------
 // The list
 // ---------------------------------------------------------------------------------------------
 
 @Composable
-private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusName: String?, onOpen: (DriveEntry) -> Unit, onRetry: () -> Unit) {
+private fun Entries(
+    location: DriveLocation,
+    entries: List<DriveEntry>,
+    focusName: String?,
+    selection: Set<String>?,
+    refocus: Int,
+    actions: DriveBrowserActions,
+) {
     if (entries.isEmpty()) {
         val devices = location.depth <= 1
         State(
@@ -408,16 +793,19 @@ private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusNam
             // What a list of devices or of a device's shares holds changes on the other devices'
             // side: looking again is the one thing to do here. A folder's own emptiness is final.
             actionLabel = if (location.depth <= 2) stringResource(R.string.action_retry) else null,
-            onAction = if (location.depth <= 2) onRetry else null
+            onAction = if (location.depth <= 2) actions.onRetry else null
         )
         return
     }
 
     val layout = rememberWindowLayout()
+    // Files and folders inside a share can be downloaded; devices and shares are places.
+    val inShare = location.level == DriveLevel.FOLDER
     // The folder just left when going up, so the list is where it was; the first row otherwise.
     val target = remember(entries, focusName) { entries.indexOfFirst { it.name == focusName }.coerceAtLeast(0) }
     // The row asks for the remote as it is placed (see ListStart); a touch screen has none to give.
-    val start = rememberListStart(entries to focusName)
+    // A bar button that went away with selection mode asks again ([refocus]).
+    val start = rememberListStart(Triple(entries, focusName, refocus))
     // The list opens with that row in view, so it is composed, placed and asking in the first
     // frame the rows are there, not after an effect has scrolled to it.
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = if (start.allowed) target else 0)
@@ -437,46 +825,86 @@ private fun Entries(location: DriveLocation, entries: List<DriveEntry>, focusNam
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(entries, key = { it.name }) { entry ->
+            val selecting = selection != null
             EntryRow(
                 entry,
-                onClick = { onOpen(entry) },
+                selected = selection?.contains(entry.name),
+                onClick = { if (selecting) actions.onToggle(entry) else actions.onOpen(entry) },
+                onLongClick = if (inShare) ({ if (selecting) actions.onToggle(entry) else actions.onLongPress(entry) }) else null,
+                onDownload = if (inShare && !selecting && !entry.isFolder) ({ actions.onDownload(entry) }) else null,
                 modifier = if (entry.name == entries[target].name) Modifier.tvListStart(start) else Modifier
             )
         }
     }
 }
 
+/**
+ * A row: its main part is one stop for the D-pad, and OK does what the row says — enters a
+ * folder, opens a file, or in selection mode ([selected] not null) checks it. A file inside a
+ * share has its download button at the end, a stop of its own one press to the right. A long
+ * press ([onLongClick]) starts selection mode where there is one to start.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun EntryRow(entry: DriveEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun EntryRow(
+    entry: DriveEntry,
+    selected: Boolean?,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    onDownload: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     val locale = LocalConfiguration.current.locales[0]
     val meta = remember(entry, locale) { entryMeta(entry, locale) }
-    // One clickable for the whole row: a single stop for the D-pad, and OK does what the row says.
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.medium
+    val source = remember { MutableInteractionSource() }
     Surface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
+        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        color = if (selected == true) colors.secondaryContainer else colors.surfaceContainerHigh
     ) {
-        Row(
-            Modifier.heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            KindIcon(entry.kind)
-            Column(Modifier.weight(1f)) {
-                Text(entry.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (meta != null) {
-                    Text(
-                        meta,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier
+                    .weight(1f)
+                    .tvFocusRing(source, shape)
+                    .clip(shape)
+                    .combinedClickable(
+                        interactionSource = source,
+                        indication = LocalIndication.current,
+                        role = if (selected != null) Role.Checkbox else Role.Button,
+                        onLongClick = onLongClick,
+                        onClick = onClick
                     )
+                    .heightIn(min = 64.dp)
+                    .padding(start = 16.dp, end = if (onDownload != null) 4.dp else 16.dp, top = 10.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                KindIcon(entry.kind)
+                Column(Modifier.weight(1f)) {
+                    Text(entry.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (meta != null) {
+                        Text(
+                            meta,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                when {
+                    // The box shows the state; the row is what is pressed.
+                    selected != null -> Checkbox(checked = selected, onCheckedChange = null)
+                    entry.isFolder -> Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.onSurfaceVariant)
                 }
             }
-            if (entry.isFolder) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onDownload != null) {
+                IconButton(onClick = onDownload, modifier = Modifier.padding(end = 4.dp)) {
+                    Icon(Icons.Default.Download, contentDescription = stringResource(R.string.taildrive_download_file, entry.name), tint = colors.onSurfaceVariant)
+                }
             }
         }
     }

@@ -28,9 +28,9 @@
     <string name="taildrive_browser_error_proxy_help">It is on, but nothing listens on its address yet. It starts with the connection; if another app holds the port, change it in the Taildrive settings.</string>
     <string name="taildrive_browser_error_failed">Something went wrong</string>
 
-    <!-- The local proxy hands files to other apps; without it the page has nothing to offer. -->
+    <!-- The local proxy: what opening a file by link needs, and what other devices on the network use. -->
     <string name="taildrive_browser_proxy_off">The Taildrive proxy is off</string>
-    <string name="taildrive_browser_proxy_off_help">TailSocks passes files to your player through a small proxy on this device. Turn it on to open what other devices share.</string>
+    <string name="taildrive_browser_proxy_off_help">Files open without it. The proxy is needed only to open a file by link, and for other devices on your network to reach the shares through this one.</string>
     <string name="taildrive_browser_proxy_turn_on">Turn it on</string>
     <string name="taildrive_browser_proxy_starting">Starting the proxy…</string>
 

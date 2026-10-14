@@ -35,7 +35,9 @@ import io.github.bropines.tailscaled.R
  * television; leave it null on a screen with nowhere to go back to.
  * [onTitleClick] makes the title a picker, and a caret after the subtitle
  * says so. [colors] is for a bar laid over something else — the QR scanner's
- * camera — and stays the default on every ordinary screen.
+ * camera — and stays the default on every ordinary screen. [subtitleContent]
+ * stands in for the subtitle's text where the line is more than words: the
+ * share browser's path, whose names can be pressed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +48,7 @@ fun AppTopBar(
     onBack: (() -> Unit)? = null,
     onTitleClick: (() -> Unit)? = null,
     colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
+    subtitleContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     TopAppBar(
@@ -67,11 +70,13 @@ fun AppTopBar(
             ) {
                 Text(
                     title,
-                    style = if (subtitle != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                    style = if (subtitle != null || subtitleContent != null) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (subtitle != null) {
+                if (subtitleContent != null) {
+                    subtitleContent()
+                } else if (subtitle != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Weighted so a long subtitle ellipsizes before the caret does.
                         Text(
