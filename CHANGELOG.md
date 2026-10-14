@@ -2,6 +2,18 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Taildrive browser: download a file with the button on its row, or several at once — long press, or Select on a TV; folders download with everything inside, after a question that says how much that is.
+- Taildrive downloads go to a folder chosen once in Settings → Sharing & access, or asked for each time.
+- The path in the Taildrive browser opens any level it names, and takes a typed or pasted path.
+
+### Fixed
+
+- Taildrive: the link switch says what it does, and with the proxy off a file opens directly instead of not at all.
+
 ## [5.0.0] - 2026-10-14
 
 ### Added
