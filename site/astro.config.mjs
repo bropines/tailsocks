@@ -50,6 +50,11 @@ export default defineConfig({
 					items: [{ slug: 'remote-management' }, { slug: 'android-tv' }],
 				},
 				{
+					label: 'Changelog',
+					translations: { ru: 'Список изменений' },
+					items: [{ slug: 'changelog' }],
+				},
+				{
 					label: 'Help',
 					translations: { ru: 'Помощь' },
 					items: [{ slug: 'troubleshooting' }, { slug: 'developers' }],

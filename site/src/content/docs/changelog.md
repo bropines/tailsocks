@@ -1,0 +1,1105 @@
+---
+title: Changelog
+description: What changed in every TailSocks release, newest first.
+sidebar:
+  label: All versions
+editUrl: https://github.com/bropines/tailsocks/edit/main/CHANGELOG.md
+tableOfContents:
+  maxHeadingLevel: 2
+---
+
+The app shows the same list: once after each update, and any time under **What's new** in **About TailSocks** (the ⓘ on the main screen).
+
+## 5.0.1 — 2026-10-14
+
+### Added
+
+- Taildrive browser: download a file with the button on its row, or several at once — long press, or Select on a TV; folders download with everything inside, after a question that says how much that is.
+- Taildrive downloads land in the Taildrop folder by default; Settings → Sharing & access can give them a folder of their own or ask each time.
+- The Taildrive browser's title is its path: any level opens with a tap, and a long press (the pencil on a TV) takes a typed or pasted path.
+
+### Fixed
+
+- Taildrive: the link switch says what it does, and with the proxy off a file opens directly instead of not at all.
+
+## 5.0.0 — 2026-10-14
+
+### Added
+
+- Experimental: Android TV — a home-screen tile with a banner, and the whole app works with a remote — a visible focus frame, screen-edge margins, sheets, text fields and long texts included. Walked on emulators and WSA, not yet on a television.
+- Android TV: sign in by scanning a QR code with a phone, or send an auth key from a phone's scanner — over the local network or a relay, confirmed on the TV by a check code.
+- Sign in on another device: the login link as a QR code, with a share action.
+- A built-in file and folder browser for devices without a system file picker.
+- Taildrop on a TV: files are picked in the app, saved to Download/Taildrop, and an arrival is announced on screen.
+- Taildrive: browse other devices' shares and open any file in the app that opens it — media in a player, with seeking; on a TV shares are added with the built-in browser and the proxy address shows as a QR code.
+- Taildrive says what the tailnet policy lets this device do when nothing lists, and the visual policy editor has a template for sharing between your own devices.
+- Taildrive proxy: one switch lets the local network in, with the password forced on.
+- Settings search: finds any setting in English or Russian, forgives typos, the wrong keyboard layout and transliteration, and opens the page on its row; links `tailsocks://settings/<section>/<row>` and `tailsocks://settings?q=…`.
+- Settings → Appearance & language → Interface switches the TV interface by hand; on a TV rarely used pages live under Settings → Advanced.
+- Android TV: links show their address and a QR code where no browser opens them.
+- What's new reads in Russian for a Russian interface.
+- Experimental: remote management, off by default — manage one device's TailSocks from another over the tailnet, after pairing with a code from its screen; works in proxy, TUN and Root Mode, inside one tailnet.
+- Remote management covers the connection and the exit node (a change that cuts the link is put back by the device itself), sending a file, permissions seen and requested, and — with Full control switched on at the device — its storage, shared folders, routes and log. Every change shows in a bar on the managed device's screen.
+- Android TV: a "From a phone" tile on the home screen shows the state of remote management.
+- Devices you manage appear on the main screen once one is paired, each with whether it is online; a phone shows the one managed last with a button for the others, and Settings → Appearance & language can hide them.
+- Any account can be the main one — the one that cannot be deleted — with the star in the accounts list's edit mode.
+- The network check and the diagnostics report warn when the network's MTU is too small for direct connections.
+- Beta versions: a "Receive beta versions" switch in Settings → Appearance & language, off by default; betas are published as pre-releases.
+
+### Fixed
+
+- Taildrive: a shared file with a plus sign in its name opens.
+- Taildrive: shared files stay readable after a switch between proxy and TUN mode.
+- Taildrive: a file opened in another app reports its real size and type, and a stale first answer is asked again.
+- "Sign in" opens a tab over the app even when the default link handler is not a real browser.
+- The Add account dialog's fields take the dialog's width on wide windows.
+- Signing in without an auth key uses the custom login server (Headscale), not Tailscale's; broken since 4.0.0.
+- Root Mode waits for a daemon that is still starting instead of killing it, and Settings marks an outdated boot script.
+- Deleting the account in use moves to the main account, not to whichever came first.
+- The status card's second line stays on one line where a slightly smaller size fits it.
+- Log lines read on a light theme: values, keys and addresses were nearly white on white.
+- Buttons that work show the app's newer loading indicator, and DNS's Test button stays legible and keeps its width while it checks.
+
+## 4.10.2 — 2026-10-13
+
+### Fixed
+
+- The app no longer crashes when DPI bypass is stopped or restarted.
+- DPI bypass: each start uses only its own flags — earlier options, Force IPv4 included, no longer persist until the app is killed.
+- DPI bypass: empty or refused flags run the defaults instead of cutting the control connection, and the card says what is really running.
+- "Auto-start on Boot" now starts the app after a reboot; only "Keep the connection awake" did before.
+- TUN mode: the notification no longer stays on "Stopping…" after a stop from the app ([#14](https://github.com/bropines/tailsocks/issues/14)).
+
+## 4.10.1 — 2026-10-12
+
+### Fixed
+
+- Connecting no longer hangs on networks that break the control connection on port 80: it goes over port 443, with a switch in Censorship bypass.
+
+## 4.10.0 — 2026-10-12
+
+### Added
+
+- Peers: each device shows how it is reached now — directly with its endpoint, through a peer relay (which node) or DERP (which city); also on the tablet dashboard.
+- Serve: any rule can be published as a Tailscale Service; each service shows whether it answers, waits for approval or is not defined yet.
+- Settings: block incoming connections, LAN access through an exit node, device posture, this phone as a peer relay, and an app connector.
+- Tailnet Lock screen: this device's key and status; a trusted device signs waiting nodes after the phone's unlock.
+- Start from the saved network map before the coordination server answers, with a switch and a cache clear in Censorship bypass.
+- Visual policy editor: a Peer relays page, every posture attribute explained (public IP included), netmap caching and group visibility attributes, declarative sharing shown.
+- TUN carries accepted subnet routes without an exit node.
+
+### Changed
+
+- Tailscale core 1.104.1.
+- The daemon and the CLI are one binary: about 12 MB less on the device, 4–5 MB less per APK.
+- TUN mode runs on the native engine by default; hev-socks5-tunnel stays selectable for compatibility.
+- Taildrop: the devices to send to come first; the inbox is folded to its heading and opens on a tap, with only what is arriving now shown above.
+
+### Fixed
+
+- Native TUN comes up after sign-in, follows always-on VPN, and keeps DNS working with MagicDNS off.
+- Picking an exit node while disconnected no longer raises a VPN, and the VPN no longer makes Wi-Fi look metered.
+- Peers no longer show a relay for a device nothing has been sent to yet.
+- Backups no longer include the network map cache.
+
+## 4.9.1 — 2026-10-11
+
+### Fixed
+
+- Taildrive on Android 10 and older: it asks for the Storage permission itself, and the shared folders open (#13).
+
+## 4.9.0 — 2026-10-10
+
+### Added
+
+- About credits Claude, who helped write the code.
+- Admin console rebuilt: admin profiles, credentials and everything it keeps sealed in the Keystore, every change confirmed and unlocked by its risk, a local log of every change.
+- Admin console opens on "Needs attention"; optional background checks notify of approvals and expiring keys, with Approve and Reject behind the unlock.
+- Admin console: the Devices tab gets search, filters, badges, a full device sheet (routes, IPv4, one-tap copy) and bulk tag changes with a dry run.
+- Admin console: Keys tab (key types, expiry warnings, OAuth clients, reveal with QR) and a Users tab with roles explained, invites and device sharing.
+- Admin console: a policy editor with server validation, diff, risk lint, a lock-out check that names the devices a change costs, conflict-safe saving and revert; DNS, webhooks and tailnet settings completed.
+- Admin console: Headscale servers (0.25–0.30) with registration by QR code or link; the audit log filtered on the server with before → after; Services created, renamed and deleted.
+- Admin console keeps an encrypted copy of its lists and opens on it at once, refreshing in place; nothing is changed from the copy.
+- Admin console: a device with an update links to its page in the Tailscale console, where Start update lives (the API has none).
+- Admin console: a visual policy editor beside the JSON one — rules, SSH, tests, groups, tags, hosts, auto-approval, device attributes, posture and DERP relays as cards; every edit keeps the file's comments and layout and saves through the same checks.
+- Tablets and unfolded foldables: the home screen is a dashboard that fills the window, and Peers, Licenses and the admin console open details beside their lists.
+- Tablets: Settings, Serve, TailCat, Netcheck, DNS, Taildrop, Taildrive, Logs and the console lay their cards out in columns instead of one narrow strip.
+
+### Changed
+
+- TailCat: a link without an address shows what it carries instead of a one-line toast.
+- Admin console: an OAuth client is added with its secret alone; the client ID is read from it.
+
+### Fixed
+
+- Admin console: no crash on Android 9–10; webhooks, user approval and roles, and the keys list work against today's API.
+- Admin console loads much faster: device routes come with the list, the audit log a day at a time, only the tab you stop on.
+- The core learns which network carries the default route again, so it reconnects at once after Wi-Fi ↔ mobile data.
+
+## 4.8.0 — 2026-10-09
+
+### Added
+
+- Taildrop shows files being received: progress, speed and time left at the top of the inbox and in a notification.
+- QR scanner (camera or gallery): TailSocks links open their screen, TailCat codes a filled-in connection; anything else is only shown.
+- TailCat QR codes come as a link any camera opens in TailSocks, or as the command for a computer.
+- QR codes can be rounded or dotted and take the theme's colours; Settings → Appearance picks the style.
+- Taildrop: a long press on Show in folder copies the folder's path, for file managers that take no folder (MT Manager).
+
+### Fixed
+
+- Taildrop: the core counts received bytes again, so incoming files report progress (lost upstream in Tailscale 1.84).
+
+## 4.7.5 — 2026-10-07
+
+### Added
+
+- Taildrop: with a default folder set, received files are saved there right away; the inbox lists them with Open, Show in folder and Hide.
+
+### Fixed
+
+- Taildrop inbox cards show when a file arrived instead of 1 January.
+
+## 4.7.4 — 2026-10-07
+
+### Added
+
+- Files → TailDrop is one list — inbox, send to a device, history — so a swipe goes straight back to TailDrive; tapping a device sends to it.
+- The Taildrop history records sends (failures too) and received files with full details, and has search, filters and CSV export.
+- Console: JSON answers are laid out and their syntax coloured.
+
+### Fixed
+
+- Console: the keyboard no longer shakes the screen.
+- Offline devices of another user or a tag are no longer offered as Taildrop targets.
+
+## 4.7.3 — 2026-10-07
+
+### Added
+
+- Peers: filter tabs (online, offline, mine, tagged, exit nodes) with counts; the search appears on a pull from the top, refresh is the top bar's button.
+- About → Open-source licenses: every component in the app with its license and full text.
+
+### Fixed
+
+- F-Droid can verify the per-ABI APKs again: 4.7.2's launcher icons came out in a different order in its build.
+- The core reports its version as `1.104.0-t<commit>-g<commit>`, in `tailscale version` and the admin console, instead of `1.104.0-ERR-BuildInfo`.
+
+## 4.7.2 — 2026-10-07
+
+### Added
+
+- Twelve more app icons to pick in Settings → Appearance: classic, 8-bit, fox and TailCat, seasonal, discreet.
+
+### Fixed
+
+- This device's own sheet in Peers offered Send file, which ended in a 404 on a user-owned node; the button is dimmed there now.
+
+## 4.7.1 — 2026-10-05
+
+### Added
+
+- Settings → Appearance: interface scale, 80–120% of the system's size.
+
+## 4.7.0 — 2026-10-05
+
+### Added
+
+- Shortcuts on a long press of the app icon: On / off, Exit node, TailCat, Send file.
+- Best exit node: the node Tailscale recommends, at the top of the exit-node pickers and on the widget; Tasker and AppFunctions take `best`.
+- QR codes for TailCat's connect command and connections, for Serve links, and for a peer.
+- Peers: Copy as… — a peer's MagicDNS name, address, ssh command or web address, ready to paste (long press or the peer's sheet).
+- `tailsocks://exitnode` opens the exit-node picker.
+
+### Fixed
+
+- Tasker's SET_EXIT_NODE changes the daemon's exit node, not only the one shown; `none` clears it.
+
+## 4.6.2 — 2026-10-04
+
+### Changed
+
+- The login page opens in a browser tab over the app (Custom Tabs) and closes by itself once the login goes through.
+
+### Fixed
+
+- Settings and permission rows with a folded description could be pressed only at their edges: a tap on the text unfolded it. Now only the ⓘ unfolds there.
+
+## 4.6.1 — 2026-10-03
+
+### Added
+
+- `tailsocks://` links open a screen: Serve, TailCat, Logs on a category, a Settings section, and the rest; `tailsocks://tailcat/add?cmd=…` fills in a new TailCat connection.
+
+### Changed
+
+- Rows in Settings and Permissions leave their text a little more room.
+
+## 4.6.0 — 2026-10-03
+
+### Added
+
+- TailCat, on the Serve & TailCat tile: ports forwarded to tailcat servers, or a SOCKS5 proxy through one — no VPN, no Tailscale account. Started by @seffs in #9.
+- TailCat server: this phone serves its ports, or acts as an exit node, to the client keys it allows; its connect command pastes into another TailSocks.
+- What is switched on in TailCat starts and stops with the core.
+
+### Changed
+
+- Tailscale core 1.104.0.
+- Builds run on JDK 21; the APK is the same as with 17.
+
+## 4.5.3 — 2026-10-01
+
+### Changed
+
+- Each ABI's APK has its own version code, and release file names no longer carry the commit.
+- Release builds are reproducible, so F-Droid can publish the same signed APK as the GitHub release.
+- The GitHub updater turns itself off when F-Droid or Play installed the app, instead of needing a separate build.
+
+### Fixed
+
+- Release builds compiled the core with the build machine's older NDK instead of the one the project pins.
+
+## 4.5.2 — 2026-10-01
+
+### Changed
+
+- The version reads 4.5.2 instead of v4.5.2-hash.release; the commit is shown next to it in About and in the diagnostics.
+- A build without the GitHub updater, for F-Droid: no update check, no download, no permission to install packages.
+
+### Fixed
+
+- Two builds of one commit could pull different versions of a network library the core depends on.
+- "DNS unavailable" no longer turns the card into a connection problem where the app's DNS proxy answers from the fallback servers; it clears once Tailscale's DNS answers again instead of lingering for hours.
+- While Tailscale's DNS does not answer, the DNS proxy stops waiting five seconds on every new name.
+- Tablets: upright, the main screen is one column with a four-wide menu; on its side, the status card lines up with the menu instead of both floating mid-screen.
+
+## 4.5.1 — 2026-09-30
+
+### Fixed
+
+- The live state card no longer lists its own check of the SOCKS5 port as an error.
+- Times in the logs and on the card are the device's, not UTC.
+
+## 4.5.0 — 2026-09-30
+
+### Added
+
+- A live state card opens Settings → Diagnostics: process, intent, backend, health, relays, network, SOCKS5, TUN, recent errors; the issue report carries the same block.
+- A peer row shows how traffic reaches it — directly, through a DERP region or a peer relay — and an offline peer when it was last seen.
+- Peers, DNS, Serve and the admin console offer Start when the service is stopped, and reload once the daemon is up.
+- Empty lists say why: nothing matches the search, the tailnet holds only this device, no logs yet, nothing in the chosen category.
+- A setting for the update check on launch; the About screen still checks by hand.
+- A two-pane layout for landscape, tablets and unfolded foldables: the service on the left, the menu as a grid on the right.
+- Settings on a wide window show the list of sections and the open section side by side.
+- Foldables: held like a book, the main screen and Settings split at the hinge; half open, the status sits above it and the menu below.
+- Lists and forms keep a readable width on tablets instead of stretching a label and its switch to opposite edges.
+
+### Changed
+
+- The main card says what the tailnet is doing — stopped, starting, connecting, connected, a connection problem, sign-in needed, waiting for approval — instead of "Active" whenever the service runs.
+- A banner under the card names the problem and offers its fix: reconnect the relays, or open the DPI bypass.
+- A summary under a connected card: this device and its address, peers online, the exit node, the home relay; Settings → Appearance can turn it off.
+- The exit node is shown by name, not by address.
+- The notification says the same as the card, in the app's language.
+- Network check shows the home relay and its latency instead of guessing a traffic mode; Start waits for the daemon.
+- Taildrive applies a proxy field once, when you leave it, instead of restarting the proxy on every keystroke; the password is masked.
+- Choices in Share, the console history and the admin console open as bottom sheets.
+- Permissions show their state as an icon, missing ones first, and offer Open only where it helps.
+- Menu icons and screen titles match what they open.
+- Every screen shares one top bar: the same title size, the account or count under it in one style, one label for Back.
+- Corners come in three sizes instead of eleven.
+- Translations to other languages go through Hosted Weblate.
+- Release builds pin the NDK and gomobile, strip build paths and verify the Tailscale source archive.
+- Folded explanations open on a tap on the text, not only on the small ⓘ.
+- The connection returns sooner when a mobile link recovers: once Android sees the internet again, the daemon is woken and dead relay connections are dropped.
+
+### Fixed
+
+- Screen readers name every icon button, and the last English labels in Diagnostics are translated.
+- Android 7 showed Android Studio's template robot as the app icon.
+- SOCKS5 credentials take both fields or neither everywhere; a username alone broke TUN and Taildrive.
+- ByeDPI's library is 16 KB page aligned; on a 16 KB device it did not load.
+- One failed packet injection no longer silences all outbound netstack traffic until a restart.
+- Screens opened with an explicit theme drew one frame in the stored one first.
+- The update download fallback pointed at a file no release has had; it opens the release page now.
+- The tunnel notices network changes again: the app wakes the daemon the moment the network moves, instead of leaving it to a ten-minute poll.
+
+## 4.4.4 — 2026-09-29
+
+### Fixed
+
+- Android 10 and older: the app was killed the moment a network appeared. The check for whether a VPN is our own asked `NetworkCapabilities` for its owner uid behind a gate of API 29, but that method arrived in API 30, and the resulting error was thrown on the framework's own callback thread, where nothing catches. ([#11](https://github.com/bropines/tailsocks/issues/11))
+- Two more calls that would have thrown on the Android versions the previous release re-opened: the diagnostics report asked for a long version code (API 28) and the quick-toggle activity started the service the API 26 way. Both are now asked for only where they exist; `lint` no longer reports a single call above the minimum the app claims to support.
+- The served SOCKS5 proxy stops taking the whole daemon down with it: an accept error now backs off and keeps serving instead of ending the server, which the daemon treats as fatal. A client that connects and then says nothing is dropped after ten seconds rather than holding a descriptor for the life of the process.
+
+### Changed
+
+- An outbound dial through the SOCKS5 proxy gets fifteen seconds instead of five — long enough to ride out a relay reconnect, which takes up to ten — and `TS_SOCKS5_DIAL_TIMEOUT` overrides it.
+
+## 4.4.3 — 2026-09-28
+
+### Fixed
+
+- Android 11 and older: the app died the moment the service was started. Go probes whether it can track child processes by pidfd, the app sandbox answers that probe with SIGSYS, and Go's own guard against it does not reach a c-shared library — so the core logged its banner and the process was killed. The probe now happens once, behind a handler of our own, and the core settles on pids. ([#11](https://github.com/bropines/tailsocks/issues/11))
+
+## 4.4.2 — 2026-09-26
+
+### Changed
+
+- The Tailscale core is 1.102.5, up from 1.102.1.
+- Root mode says when device-wide DNS covers IPv4 only: on a kernel with no IPv6 `nat` table there is nowhere to write the v6 redirect, and that now reaches the log and the diagnostics instead of passing in silence.
+
+## 4.4.1 — 2026-09-20
+
+### Fixed
+
+- The report dialog's Copy and Share labels broke across two lines mid-word.
+
+## 4.4.0 — 2026-09-20
+
+### Added
+
+- Report a problem: About builds a diagnostics block — versions, device, the permissions the service depends on, the network, what the tunnel is made of, how much the app has been used — shows it in full before anything leaves the device, and hands it to the clipboard, a share target or GitHub's issue form. About also links the issue list.
+- The exit-node picker marks the fastest of the measured nodes.
+
+### Changed
+
+- Saved logs carry that same diagnostics block instead of the shorter header they had.
+
+## 4.3.0 — 2026-09-20
+
+### Added
+
+- Adding an account takes an auth key, optionally: the profile then registers itself on its first start instead of opening the browser.
+- Peers and the exit-node picker take a Ping all button: every node is measured a few at a time and each row fills in as its answer arrives.
+
+### Changed
+
+- The account switcher says what each account is: where it logs in, whether it has ever signed in, whether it holds an auth key; the active one shows its node name and address. Renaming and deleting live under an Edit switch instead of a long press, and adding an account is a row in the same list.
+- Taildrive in the Files app: a share whose node cannot serve it is marked "Unavailable" with the reason under its name, and a folder that fails to list shows the reason instead of an empty list — on Windows and macOS that is the Tailscale app not running.
+
+### Fixed
+
+- Login with an auth key: a profile that had never registered stayed unauthenticated — the key reached the daemon, the request to log in did not.
+- A new account logged in through the browser stayed logged in: returning to the app used to run the profile's one-time reset again, logging it out and wiping its state.
+- An account that logs in with an auth key no longer re-registers its node every time the app is opened; a live session is left alone, as it already was without a key.
+- Bottom sheets opened at half height and settled a frame later, which read as a jump — the exit-node picker, the device picker in Files, the share sheet and the settings pickers.
+- Long node names travel across their row instead of wrapping onto a second line and changing the height of the row and the sheet around it.
+
+## 4.2.3 — 2026-09-12
+
+### Fixed
+
+- The in-app updater removes the APKs it downloaded once they are installed or superseded; five releases had left 118 MB in the app's storage.
+
+## 4.2.2 — 2026-09-12
+
+### Changed
+
+- Settings: the long explanations are written as a summary line plus bullet points — Root mode, TUN engine, extra arguments, watchdog, the Root banners; folded they show the summary, unfolded the points.
+- Local proxies: with LAN access on, the SagerNet link is copied for a chosen client — this device, Wi‑Fi/LAN or tailnet — instead of falling back to 127.0.0.1 when there is no Wi‑Fi address.
+- Local proxies: with LAN access on, the addresses are listed under the switch — one block per network (Wi‑Fi/LAN, tailnet) with the host on its own line and a chip per port; a tap copies the host or host:port.
+
+## 4.2.1 — 2026-09-12
+
+### Changed
+
+- Explanations fold everywhere — settings rows, tunnel-mode cards, Root banners, field hints, first start: two lines at most, an ⓘ when there is more; tap it or long-press the row to unfold in place.
+
+## 4.2.0 — 2026-09-12
+
+### Added
+
+- TUN: an experimental native engine — tailscaled owns the VpnService device instead of hev-socks5-tunnel, so MagicDNS, split DNS and the exit node come straight from the daemon (MTU 1280). Opt-in under Settings → TUN; hev stays the default.
+- TUN: a start-up probe reports what a child tailscaled can do with the VPN fd (interface name, flags, MTU) — the groundwork the native engine rests on.
+- Serve: rules can be paused and resumed; a paused rule leaves the daemon but stays in the list, greyed, per profile.
+- DNS proxy: answers are cached for their TTL (10 s floor, 1 h cap, 30 s for negative answers) and flushed with the other DNS caches or when split-DNS routes change, so repeated lookups no longer cross the SOCKS tunnel.
+
+### Changed
+
+- Serve: a rule card has an on/off switch and a row of actions (delete, publish, copy link, edit) instead of an overflow menu; the node card folds to its name and three capability glyphs, tap to expand.
+- Logs: every DNS query at debug level — name, type, client, the address it is answered from, cached or not, time taken; the clear button slides its three scopes out beside it instead of opening a menu.
+- Excluded apps: packages no longer installed are shown greyed and can be removed; in the "bypassed" view an app switched off stays visible until the screen is left, so a slip can be undone.
+- One ongoing notification instead of two: the TUN service shares the main card, which reads "Active · TUN" while the tunnel is up.
+- The DNS rescue log says whether the fallback resolver was reached through the tunnel (exit node) or directly.
+
+### Fixed
+
+- The DNS proxy replies from the address a query was sent to. With LAN access on it listened on 0.0.0.0 and answered a loopback alias from 127.0.0.1, which resolvers with a connected socket (AdGuard) dropped — Chrome's "DNS probe finished: bad config".
+- TUN: the "Excluded IP ranges" setting is applied behind an exit node (Android 13+); it was read and ignored, so LAN traffic went through the exit node.
+- TUN: changes to excluded apps, excluded ranges, the IPv6 route or the TUN address rebuild the device at once instead of waiting for the next TUN restart.
+- TUN: switching from one exit node to another keeps the tunnel up in both engines; the device is rebuilt only when the default route comes or goes. On the native engine an exit-node change no longer reverts to the previous node.
+- TUN: with the native engine and the node's addresses known from the last run, the VPN comes up before the daemon, so connecting launches it once instead of a userspace start followed by a relaunch.
+
+## 4.1.2 — 2026-09-08
+
+### Added
+
+- Serve: services are defined in the tailnet and this node approved as their host from the app (Admin API, behind the device credential); each service shows whether it is published, with a step-by-step publish log.
+- Serve: a rule can take several ports; paths, self-signed backends and TLS-terminated TCP under Advanced.
+- Logs: the app's own logcat as an optional source.
+- Console: `netcheck` prints a report.
+
+### Changed
+
+- Serve & Funnel rebuilt: a node card (certificate, Funnel ports, services), one list of rules with Public/Tailnet tags and target health, an editor in plain words.
+- Logs: merged by date with day dividers, long entries fold, one Clear by source; the daemon's lines are TAILSCALE in both modes, ROOT keeps the routing decisions.
+- Console: compact input bar, history as a menu, highlighted commands and errors, copy output, delete presets.
+
+### Fixed
+
+- Logs in Root Mode showed yesterday's lines under today's.
+- The ERROR filter missed daemon errors and the app's own error lines.
+- Console commands in Root Mode failed after a reinstall; the CLI link is refreshed on attach.
+- Admin API through a SOCKS5 proxy with a password: requests go through the Go bridge's proxy clients; the JDK handshake sent an empty password.
+- Long exit-node names wrapped mid-word.
+- The LAN hint named the cellular address; it names the Wi-Fi one and the Tailscale IP.
+- Saved logs carry the date on every app line.
+
+## 4.1.1 — 2026-09-07
+
+### Added
+
+- Report the real OS to the coordination server — a per-profile choice, made in onboarding or when adding an account; off by default.
+- A notification when the coordination server refuses a node because its OS changed.
+
+### Fixed
+
+- Root Mode after a reboot: the boot-started daemon now has the proxies, the SOCKS5 password, the tunnel mode, the active profile and the same file permissions as an app-started one.
+- "Ignore other VPNs" no longer reverts to on after a reboot.
+- The SOCKS5 password is enforced in Root Mode.
+- A crashed daemon is no longer treated as a manual Stop, so auto-reconnect and the background revival act on it.
+
+## 4.1.0 — 2026-09-07
+
+Mostly the interface. Material 3 Expressive throughout, the peer sheet rebuilt around
+cards, and the parts of Taildrop that had been reporting the wrong thing.
+
+### Changed
+
+- **The interface moved to Material 3 Expressive.** Every place that spun a progress ring now draws Material's own loading indicator, and the peer sheet's page-turn springs are the theme's motion scheme rather than numbers copied out of it — with one adjustment: the swipe animates raw pixels, so the spring is told that half a pixel of residual counts as arrived, or the page would sit visibly still for another sixth of a second before the peer under it actually changed.
+- **The peer details sheet was rebuilt.** Under the node's name there is now a line of status — online, what it runs, whether it is reached directly or through a relay, and the last round trip — and under the buttons a block that puts the measured latency next to the path it was measured along, this device's address to the peer's. The properties below it are grouped under headings instead of being one flat list of twenty-seven rows, the rows worth pasting somewhere carry a copy icon and the rest no longer pretend to, and the whole sheet scrolls as one, so the list is still reachable in landscape and at a large font scale. Send File is now refused only when the daemon would refuse it; a device the control plane merely calls offline keeps a live button with a note beside it, because that bit lags and the transfer itself finds out.
+- **The peer properties no longer contradict the status line.** A relay row is shown only while there is no direct endpoint, which is what `tailscale status` does and what the status line above already says.
+- **Received files: the same name twice, Root Mode, and the open Inbox.** A file sent again under a name the user had already deleted is announced like any other arrival; it used to be swallowed because the daemon reuses the bare name and the app remembered it. In Root Mode the daemon now starts with `umask 022`, so a received file is readable by the app the moment it lands rather than after the daemon stops (some `su` shells run with 077, which left "File received" opening into a permission error). And while the Inbox page is on screen the list simply refreshes — no notification for a file the user is already looking at.
+- **Swiping between peers shows the peer you are swiping to.** The sheet used to move only
+  the peer you were leaving and swap in the next one after you let go, so the drag showed an
+  empty edge. Both pages now travel together, the release carries the same motion through at
+  the speed your finger left, and the ends of the list push back instead of doing nothing.
+- **Ping is the connection card.** Tap the card, the indicator runs inside it, the figure
+  lands where the caption was; the separate button is gone. On this device's own entry there
+  is no action, and the card says so rather than showing a dead figure.
+- **The back gesture works inside Settings.** A section used to close instantly, with no
+  feedback — deliberately, from a time when the animation looked clumsy. It now recedes under
+  your finger and uncovers the category list, and letting go halfway brings it back. Moving
+  between screens is still the system's own animation, untouched.
+- **About was rebuilt.** It led with nothing: the version, the update state, the licence and
+  five links were one column of identical text buttons. What you open it for is at the top
+  now, and everyone credited is still credited.
+- **Waiting for a login is no longer cut short.** The daemon gets 40 seconds to answer instead
+  of 20, and the control plane 120 instead of 45, before an attempt is abandoned. Both are
+  ceilings, not delays — on a fast network nothing changes; on a throttled one the first
+  attempt stops being the one that fails.
+
+### Added
+
+- **The exit node is visible in the peer list.** The one carrying your traffic wears a filled
+  badge, one that merely offers to be an exit node a dim icon; the data was there all along and
+  nothing showed it.
+- **Latency in the exit-node picker.** Each node has its own measurement, on its own tap
+  target, so checking one never gets in the way of choosing another.
+- **A peer's Tailscale version, when it can be known.** The daemon cannot say: the status
+  carries no such field and the control plane strips it from every peer's Hostinfo. The Admin
+  API does know, so with a token configured the row is filled from there — and with no token,
+  no match, or no answer, the row is not written at all rather than reading "Unknown".
+- **Files announce themselves.** A finished transfer refreshes the list and raises a
+  notification naming the sender, using the mechanism the daemon has always offered for this
+  mode. Nothing announced an arrival before.
+
+### Fixed
+
+- **Sending a file reported failure on success.** The receiving peer answers `{}` and the
+  daemon passes that body through; three screens compared it to `OK`, so every successful
+  transfer looked like an error. Success and failure are now decided by the peer's HTTP
+  status, and a refusal arrives with the reason the peer gave.
+- **Partial downloads were listed as if they had arrived.** Opening one gave a truncated file;
+  deleting one took it out from under the daemon mid-transfer.
+- **Send pickers offered peers that would refuse.** They now carry the daemon's own verdict,
+  and the peer sheet explains a refusal on the button itself. For a tagged device or another
+  user's that explanation is now accurate: the two capabilities involved can only be issued by
+  Tailscale — the console rejects any grant naming its own domain — so the answer is to leave
+  personal devices untagged, not to write an ACL rule that cannot exist.
+- **Pinging this very device reported a failure.** There is no peer to answer; the card says
+  so instead.
+- **A poll that could never return anything.** Every five seconds the app asked the daemon for
+  received files, in the one mode where the daemon writes them straight to disk and always
+  answers empty. Removed, along with a save path nothing called.
+- **An empty node id was papered over with a hostname** the daemon then rejected, turning a
+  clear error into a confusing one.
+- **The build's own guards did not guard.** The check that refuses a release built from a
+  stale Go bridge decided from the text of the command you typed, so Android Studio's Run
+  button walked past it. The check that R8 kept the JNI methods could not see the heaviest
+  case — a whole class removed. The AAR metadata check was switched off with no reason
+  recorded; the reason is now written where the switch is. And `build.sh` skipped patching
+  whenever the source tree already existed, which is how a tree patched by an older patch set
+  kept building here while CI, always starting clean, built something else — it stamps the
+  patch set now and re-patches when it moves.
+- **The daemon carried code no phone runs.** Nine features that cannot execute on Android are
+  no longer compiled in, and the tunnel library is no longer built twice per architecture as a
+  program nothing launches. The daemon is about half a megabyte smaller per architecture.
+
+## 4.0.0 — 2026-09-06
+
+Root Mode was rebuilt. Two changes alter how a device behaves and are worth reading first:
+
+- Root Mode now steps aside when another VPN app holds the device: the tailnet stays reachable from every app, but the exit node and system-wide MagicDNS are left to that app instead of being taken from it. When that app keeps some of its own apps outside its tunnel, TailSocks carries those apps — exit node and accepted subnet routes included.
+- After a reboot, with "Keep the connection awake" off, there is no exit node and no device-wide MagicDNS until TailSocks is opened — the node is up and the tailnet is reachable, but nothing else on the device goes through it. The boot script now installs only what it can make safe that early.
+
+### Changed
+
+- **Root Mode no longer takes the device away from another VPN app.** While another client holds Android's VPN slot, TailSocks keeps tailnet reachability only: the node stays connected, tailnet addresses and MagicDNS names work from every app, and the local SOCKS5 and HTTP proxies keep their exit-node egress for whatever is pointed at them. "Take the device anyway" (Tunnel mode) forces the old, full ruleset back, and the confirmation names what that costs the other app.
+- **Root Mode shares the phone instead of only stepping aside.** Apps the other client leaves outside its own tunnel are carried by TailSocks — they follow the exit node and the accepted subnet routes, while that client's own apps stay in its tunnel untouched — and the split is re-read whenever it changes which apps it carries. The other VPN app itself is never carried, and the device keeps MagicDNS except for the queries made for the other tunnel. The dashboard, the Logs screen and Check Routing say which case the device is in.
+- **Root Mode after a reboot no longer claims the device it cannot make room on.** The boot script runs before Android's package service exists, so it cannot install the local-network carve-outs, the excluded apps or any awareness of another VPN app; it now installs tailnet reachability only, and the app installs the rest the moment it connects. With "Keep the connection awake" (Settings → Background & permissions) on, the gap after a reboot is a few seconds.
+- **Root Mode's device-wide DNS redirect is armed only while MagicDNS is answering.** Sending every app on the phone to a resolver that has stopped answering left the device with no DNS at all; the redirect is now taken off after a few silent checks and goes back on by itself when MagicDNS answers again, and every transition is explained in the ROOT tab of the Logs screen.
+- **Public IPv6 through the TUN tunnel is now something to turn on.** TUN mode used to advertise IPv6 the SOCKS side could not deliver, so sites hung instead of falling back to IPv4; tailnet IPv6 still works unconditionally, and "Route all IPv6 through the tunnel" (Tunnel mode) covers the rest of the internet only when enabled — which is worth doing only with an exit node that really carries IPv6.
+- **Turning on VPN (TUN) mode asks first.** Enabling TUN silently revoked Android's VPN slot from whatever held it — an ad blocker there simply went dark; it now confirms, says when another VPN is running, and states the reverse too (the next app to take the slot disconnects TailSocks).
+- **Settings were rebuilt from six tabs into a list of eleven sections**, and the tunnel mode became three rows — Proxy, VPN (TUN), Root — instead of a tab strip. Diagnostic and sharing screens now open from the section they belong to: Taildrive shares, Serve & Funnel, DNS diagnostics, Logs, Terminal, Netcheck and the Admin Console.
+- **The peer details sheet turns pages instead of guessing.** A horizontal swipe used to move nothing until the finger came up; the neighbouring device now slides in alongside the one on screen from the first millimetre of the drag, follows the finger back if the swipe is taken back, and the arrows on either side say when there is nothing to turn to.
+- **About was rebuilt around the one question it answers first.** The app version, the core version, the update state and the update button are one block at the top — the version being fetched stays on screen while it downloads, and the check says so while it runs — What's new and the project's GitHub page are buttons rather than lines of text, and the people this build stands on are a list where each name opens the page its work lives on.
+- **The profile backup file now carries the app-wide settings too** — proxy addresses, control-plane proxy and DPI bypass, TUN and Root Mode options, recovery and appearance. Files written by earlier versions still restore and a setting the file does not mention keeps its current value; the automation secret, the API token, the node keys and device-bound entries are still never written to it.
+
+### Added
+
+- **Apps can be excluded from Root Mode.** The Excluded apps list now governs both tunnel modes: apps on it leave through Wi-Fi, mobile data or another VPN app as if Root Mode were off, and can still reach the tailnet by address. DNS is the exception — Android's resolver makes the query under its own identity, so an excluded app's lookups still go to MagicDNS unless the app resolves for itself (Chrome, DoH/DoT clients, CLI tools). On a kernel without the iptables `-m owner` match the per-app DNS exclusions are not installed at all, which the ROOT tab of the Logs screen says; routing is unaffected.
+- **System-wide DNS via MagicDNS** (Tunnel mode → Root) can now be turned off, so a DNS filtering app can keep the system resolver. It is the one switch that covers every app on the device, including the ones the per-app exclusion list cannot reach, and it is no longer the way out of a conflict with another VPN app — that case is handled on its own now.
+- **Check Routing**: a button in Diagnostics & developer that shows the live routing and firewall state of `tailscale0` — where each excluded app's packets go, where the local network goes, whether another VPN app holds the device — and failures now appear in the ROOT tab of the Logs screen instead of failing silently.
+- **Run as exit node**: a switch in Account & connection that offers this device to the tailnet as an exit node for other devices' internet traffic.
+- **LAN Access**: a switch in Local proxies that opens the SOCKS5 proxy, the HTTP proxy and the local DNS server to the local network (`0.0.0.0`) instead of this device only, so other devices can route through the tailnet. It shows the address to connect to and warns when the SOCKS5 proxy has no password.
+- **Auto-reconnect and background revival**: optionally restart the daemon when the connection does not come up or drops (with an attempt limit), and check every 15 minutes that the service is still alive. The revival check asks for the "Alarms & reminders" permission when it is turned on; without it the check still runs, only later.
+- **A refused restart is no longer invisible.** When the system stops the service and then refuses to let it back, a notification says so and reconnects in one tap; on the next launch a dialog explains it and offers the ROM's autostart settings, with "Later" and "Don't ask" as answers.
+- **Permissions screen** (Settings → Background & permissions → Permissions): every optional permission in one list — autostart, Alarms & reminders, battery optimization, notifications, installing unknown apps — each with why it matters, whether it is granted, and a button to the system screen that grants it. Autostart is the one Android refuses to report, so it is shown as unknown rather than guessed at.
+- **Smaller additions**: the first launch after an update shows this changelog's newest section (it can be turned off in Settings and reopened from About), a Generate button next to the automation secret creates a random 32-character token, and backups now record which version produced them — backups made by earlier versions still restore, while an archive from a newer app version is refused instead of overwriting the profile with data it cannot read.
+
+### Fixed
+
+- **Root Mode's routing was rebuilt.** Exit nodes and subnet routes accepted with `--accept-routes` work in Root Mode and the permanent `router config failed` health warning is gone; the rules no longer collide with the table numbers and firewall marks Android uses for its own networks, no longer accumulate duplicates on every start, and are removed completely on stop, including leftovers from earlier versions. What each rule does is documented in `docs/ROOT.md`, and Check Routing shows the live set.
+- **A Root Mode exit node no longer takes the local network with it** — the router, a NAS, a printer, adb over Wi-Fi. "Excluded IP Ranges" (Tunnel mode), a VPN (TUN) setting until this release, now also decides which subnets fall through to Android's own rules and leave by the physical interface, so a local network outside its defaults has to be listed there; link-local always falls through.
+- **Root Mode no longer captures what was never meant for it.** A mobile network handing out a CGNAT address, and another VPN client whose relay has one, were pulled into `tailscale0` with no way out; both fall through to Android's own rules again. Packets merely forwarded through the phone from a tethered device were captured too — the rules now match only what this device sends itself.
+- **The root daemon's own traffic was swallowed by another VPN client**, which on one phone took the device's networking down while the daemon reconnected in a loop. The daemon now marks its sockets as protected, the way every VPN app does; "Ignore other VPNs" (Tunnel mode → Root) turns that off for the opposite case — deliberately running this tunnel inside another client, at the cost of double encapsulation.
+- **Turning Root Mode off no longer costs the session.** The daemon state directory was left owned by root, so a later non-root daemon could not read the app's own state: it started from nothing and asked for a login while the node was still registered — an empty peer list on a working tailnet. The directory is handed back to the app the moment the root daemon is stopped.
+- **Root Mode broke names outside the tailnet.** The system-wide redirect also captured the resolver's own upstream queries and the daemon's fallback resolvers, so nothing outside the tailnet resolved; both are excluded now, and the redirect is not installed at all when "Accept DNS" is off.
+- **Root Mode: freezes, false state and unreadable logs.** Stopping or restarting no longer blocks the interface, a daemon that fails to start is reported as failed instead of running, and the Root settings page no longer stutters while it checks for root. The daemon log is parsed, trimmed and no longer yanked to the bottom while it is being read, and Copy caps what it hands to the clipboard at what Android can carry — Save still exports the whole log.
+- **DNS correctness**: internal tailnet names are no longer leaked to public resolvers, AAAA lookups no longer return bogus addresses, split-DNS servers with a port or a DoH URL are no longer mangled, and Split DNS to a resolver hosted on the tailnet works in both TUN and Root modes instead of timing out.
+- **DNS no longer dies when the exit node refuses to answer it.** A node replies `403 Forbidden` for a few seconds around every exit-node switch, which used to leave the phone with no working DNS at all; a failed lookup is now retried against the app's own fallback resolvers (never for split-DNS or tailnet names), and `TS_DNS_RESCUE=0` switches that off.
+- **Connection stability**: the app no longer discards a working session and demands a browser sign-in on the first attempt, a file-descriptor leak that eventually stopped the proxy is closed, a restart no longer kills the daemon it just started, and a drop in deep sleep is noticed when the device wakes instead of at the next check.
+- **Start and stop mean what they say.** The app stops contacting the daemon before it starts and after it stops, a manual stop can no longer be lost to a crash and undone by the watchdog, and overlapping stop and start requests resolve to whichever was asked for last.
+- **Keep the connection awake never did anything.** The switch (called "Keep running in background" before the settings were rebuilt) was saved in one place and read from three others, so the wake lock was never held — which is what kept the connection dying overnight. It now holds for the whole session, and the service comes back after an app update whether or not the switch is on.
+- **Settings that need the rules rebuilt now rebuild them.** Switching tunnel mode, LAN access or the Root DNS redirect sat in preferences until the connection was toggled by hand — turning Root Mode on from proxy mode left the old daemon running. Root Mode's rules are also re-applied when the excluded-apps list changes and when an app is installed or removed, not only when the connection is made.
+- **Crashes**: fixed a Web UI crash, a foreground-service crash when applying settings while stopped, a use-after-close when stopping the TUN tunnel, and a crash on Stop in the minified build that hit even users who never touch TUN mode.
+- **Updates and the Quick Settings tile**: the in-app updater can hand its download to the package installer again, home-screen widgets refresh right after an update, and the tile no longer shows a state it will not act on (a tap could disconnect when the tile looked disconnected) — it updates live, keeps its icon on every skin, and opens the app when the system refuses a background start.
+- **The "Extra arguments" field never did anything** — whatever was typed was handed to the Go bridge and dropped. The flags are parsed and applied on top of the app's own settings now (`--accept-routes`, `--accept-dns`, `--shields-up`, `--ssh`, `--exit-node-allow-lan-access`, `--report-posture`, `--hostname`, `--login-server` and more, each negatable with `--no-…` or `=false`), and anything unusable is named in the Logs screen instead of vanishing. Advertised routes, tags and exit-node advertising remain the exception: the app rewrites those from its own fields (Run as exit node, Advertise Routes, Advertise Tags).
+- **Account and daemon settings**: spaces and line breaks no longer reach the control plane as part of the device name, a control-plane proxy behind a hostname resolves again, its username and password are percent-encoded (a `/`, `?`, `#` or `%` used to make the app connect without the proxy), and the DNS test and exported debug report no longer show defaults that were never in use.
+- **Taildrive and Taildrop**: browsing another node's Taildrive shares from the system Files app works in proxy mode again (an upstream upgrade had silently blanked it) and with a password-protected SOCKS5 proxy, shares are registered once the backend is running instead of being refused at every start, Taildrop transfers stream to disk without the 30-second cut-off, and sending a file to an offline device reports the failure instead of "Sent!".
+- **Serve, Funnel and automation**: the 14 Gemini AppFunctions execute again, Serve TCP targets can be entered, and editing a Serve rule keeps its PROXY setting.
+- **Interface**: the status card now reads "Active + Root" instead of looking like plain proxy mode, an exit node can be cleared even when the peer list is empty, dialogs follow the app language rather than the system's and more of the interface is translated, the back gesture reveals the real previous screen instead of a fake one — inside Settings it drags the open section away and brings the category list back underneath it, and letting go halfway puts the section back — the Terminal no longer grows without limit in a long session, and several labels, headers and buttons no longer collide with their own controls.
+
+### Security
+
+- **Automation was open to any app.** The Tasker/broadcast receiver honoured commands with no token by default, so any installed app could disable the VPN or reroute traffic; it now requires a secret token before acting on anything.
+- **Root Mode ran untrusted names as root.** A tailnet peer's self-reported name was pasted into a root shell every minute; peer names and settings fields are treated as untrusted now, and Root Mode publishes into `/etc/hosts` only names inside the tailnet's MagicDNS zone — a peer calling itself `accounts.google.com` used to take over that domain for every app.
+- **Root Mode's boot script and SELinux handling were hardened.** The proxy environment is written by root into `/data/adb/tailsocks/` and parsed rather than executed, the script no longer searches the device for a library to run as root, and the phone's SELinux policy is no longer rewritten at every start and boot — a single narrow rule is added only if the daemon socket is actually refused. Stopping the root daemon no longer risks other apps' processes, and installing the CLI binary no longer leaves `/system` writable.
+- **Opening a received file no longer opens the whole data folder.** The link handed to a viewer or the installer could point at any file the app stores, including the node private keys and the proxy password; received Taildrop files moved into a folder of their own (older files are moved there on first start), and only that folder and the update download can be linked to.
+- **Everything that comes in from outside is now allow-listed**: backup restore accepts only preference files, daemon state and the sent-files history; ByeDPI accepts only desync and tuning flags, so ones that bind the proxy to another address, fork, or read and write files are dropped and named in the log — including flags arriving through automation, AppFunctions or a restored backup; and files shared into the app are saved under a sanitised name. Proxy credentials no longer leak to unrelated servers, unencrypted HTTP is allowed only towards Taildrive inside the tunnel, and the API token and node keys are excluded from cloud backup and device-to-device transfer.
+
+## 3.5.4 — 2026-08-13
+
+### Fixed
+- Fixed text alignment and vertical clipping in search and input fields across screens and dialogs with single-line nowrap layout and compact sizing.
+- Modernized borders of device name and Split Routes info blocks on the DNS page using rounded corners (8.dp).
+- Fixed DNS server latency testing to perform real end-to-end network resolution.
+- Restored native Back-to-Home minimize animation on the main dashboard screen.
+
+## 3.5.3 — 2026-08-13
+
+### Added
+- Added built-in local DNS server health test with latency measurement.
+
+### Changed
+- Re-designed and modernized the DNS page with premium status cards.
+- Delegated back gestures to standard system-native transitions, resolving UI freezes and revealing the actual previous screen.
+- Reduced the height and padding of search input fields across the entire application.
+- Simplified Serve and Funnel rules page by removing the logs tab and log polling background loop.
+- Added automatic configuration refresh on opening Serve and Funnel screens.
+
+## 3.5.2 — 2026-08-13
+
+### Fixed
+- Fixed settings full backup and restore permission denied issues when Root Mode is active.
+
+## 3.5.1 — 2026-08-13
+
+### Fixed
+- Fixed compilation errors in Go core when building under Android targets with Tailscale v1.102.1.
+
+## 3.5.0 — 2026-08-13
+
+### Added
+- **Settings Restructuring**: Reorganized settings tabs into an intuitive flow (`App`, `Network`, `TS-Core`, `Root Mode`, `DPI Bypass`, `Profile`), grouping TUN and proxy controls under Network, and service advertisements under TS-Core.
+- **Root TUN Migration**: Enabling Root Mode while TUN mode is active automatically migrates the connection to native Linux kernel TUN (`tailscale0`).
+
+### Fixed
+- **Root Mode Native TUN (`tailscale0`)**: Enabled Linux kernel router support in Go core, allowing Root Mode to create native `tailscale0` network interfaces without occupying Android VPN slot (`tun0`).
+- **Root Mode SELinux Sockets**: Fixed a crash/timeout issue on physical Android devices where SELinux Enforcing mode blocked connection between the app interface and the Root daemon socket.
+- **Root Mode System-Wide DNS & Loop Bypass**: Fixed a critical DNS loop issue where native daemon requests to Split DNS servers inside the Tailnet (like custom DNS servers) were recursively hijacked by our own system-wide DNS redirection rules, causing DNS timeouts and queue blocks. Added explicit routing bypass for the CGNAT IP range (`100.64.0.0/10`) to allow direct resolution.
+- **Root Mode Deferral of DNS Interception**: Deferred system-wide DNS redirection until the daemon reaches a fully authenticated `Running` state, resolving `err name not resolved` issues in the browser when attempting to log in on startup.
+- **Root Mode IPTables Cleanups**: Fixed accumulation of duplicate iptables rules by ensuring aggressive cleaning loops run on every service state transition.
+
+## 3.4.0 — 2026-08-13
+
+### Added
+- **Predictive Back Gestures**: Added smooth predictive back animations across all app screens.
+- **Modern Segmented Control & Navigation**: Redesigned tab selectors and chips with smooth sliding animations and log category color coding.
+- **TailFiles & Taildrive Upgrades**: Reorganized Files screen into clean sub-tabs with swipe gestures, and added full storage sharing and folder selector options for Taildrive.
+- **Internal HTTP Proxy Master Toggle**: Added a master switch in settings to easily enable or disable the internal HTTP proxy.
+- **Onboarding & Proxy Improvements**: Added port randomizer buttons, proxy authentication settings, and automatic hostname generation.
+- **Uninstall Data Retention**: Added support for preserving user settings and profile data when uninstalling the app on supported Android versions.
+- **Netcheck Controls**: Added a direct service start button when the daemon is stopped.
+
+### Fixed
+- **Root Mode Stability & Fixes**: Fixed Root authentication, resolved WSA startup ANR freezes, ensured smooth transition to Running state, included Root logs in log exports, auto-restarted daemon on mode toggle, and automatically cleaned up autostart scripts when Root mode is disabled.
+- **Taildrive WebDAV Proxy**: Fixed WebDAV proxy connection errors when sharing drives.
+- **UI & Layout Fixes**: Fixed text truncation and layout overflow in DNS lookup fields.
+- **Localization**: Fully restored Russian translation coverage across all new screens and features.
+- **Log Noise Reduction**: Demoted repetitive background status logs to reduce log spam.
+
+## 3.3.0 — 2026-08-11
+
+### Added
+- **Android AppFunctions API Support (On-Device AI Agent Integration for Gemini)**:
+  - Integrated `androidx.appfunctions:1.0.0-alpha10` with KSP compiler (`com.google.devtools.ksp:2.2.21-2.0.4`) to expose TailSocks tools to Android 16+ on-device AI assistants.
+  - Implemented `TailSocksFunctions` providing `@AppFunction` entry points: `getStatus`, `getAvailableExitNodes`, `getTailnetPeers`, `getAccounts`, `connect`, `disconnect`, `toggle`, `selectExitNode`, `clearExitNode`, `switchAccount`, `setByeDpi`, `setTunMode`, `setAllowLanAccess`, and `setMagicDns`.
+  - Added `TailSocksAppFunctionService` registered in `AndroidManifest.xml` with `BIND_APP_FUNCTION_SERVICE` permission.
+
+### Fixed
+- **App Update Installer Foreground Dialog Fix**:
+  - Replaced legacy `Intent(ACTION_VIEW)` with Android `PackageInstaller.Session` API in `MainActivity.kt` and `Utils.kt`.
+  - Resolves issue where launching an APK update collapsed the app to background without showing the system installation dialog.
+
+## 3.2.0 — 2026-08-11
+
+### Added
+- **New Pure SVG Vector Icons & Adaptive Launcher Icon**:
+  - Refactored app launcher icons to clean modern SVG vectors with adaptive icon support (`ic_launcher_background`, `ic_launcher_foreground`, and `ic_launcher_monochrome` for Android 13+ themed icons).
+  - Added dedicated Quick Settings Tile vector drawable (`ic_qs_tile.xml`) containing only the sock and tail without grid/background for clean rendering on Xiaomi / MIUI / HyperOS and stock Android control panels.
+  - Stored original clean SVG source file and layer SVGs in `assets/icons/`.
+
+## 3.1.8-beta — 2026-08-06
+
+### Added
+- **Refactored Native Root Mode (`su`)**:
+  - Dual-engine architecture supporting seamless switching between hybrid userspace mode and native system root daemon with direct TUN routing (`tailscale0`).
+  - Autostart boot script for Magisk / KernelSU / APatch (`service.d/tailscaled.sh`) extracted to app assets with dynamic account state directory resolution (`files/states/`).
+  - Atomic Go core patch `12-socket-permissions.patch`: `tailscaled` daemon creates `tailscaled.sock` with `0666` permissions natively on startup without external watcher scripts or `chmod` loops.
+  - Daemon liveness probe via real `LocalSocket` probe (`isDaemonAlive`).
+- **Auto-Update of Root & CLI Scripts on App Upgrade**: Added `MY_PACKAGE_REPLACED` broadcast handler in `BootReceiver` and `AndroidManifest.xml`. Upgrading the TailSocks APK automatically refreshes `service.d/tailscaled.sh` and CLI overlay `/product/bin/tailscale` from updated app assets without user intervention.
+- **Instant Mountable `/product/bin/tailscale` CLI Overlay**: `RootUtils.setTailscaleCliInstalled` mounts the CLI wrapper into `tmpfs` `/product/bin` with SELinux context `u:object_r:system_file:s0` and removes leftover Magisk `disable` flags. The `tailscale` CLI command under `su` works instantly in any shell without rebooting.
+- **Added Root Mode Settings**:
+  - Dedicated Root Mode settings tab (EXPERIMENTAL).
+  - Script path display, "Reinstall Autostart", and "Clear Logs" action buttons.
+  - Automatic root daemon log rotation on startup (>2 MB → retains last 500 lines).
+
+### Fixed
+- **Taildrive Layout & Scrolling**: Refactored `TaildriveActivity` layout to a single `LazyColumn`. Fixed a bug where expanding the Taildrive Proxy settings card covered the shared folders list and blocked vertical scrolling down.
+- **Unified IPN Bus, Core & DNS Architecture**:
+  - Extracted IPN Bus streaming listener into dedicated `appctr/bus.go` module.
+  - Aggregated network map (`NetMap`), daemon state (`State`), peer nodes, `MagicDNS` domain, and Split DNS routes into thread-safe in-memory `busState`.
+  - Eliminated HTTP polling spam to `/localapi/v0/status`: `GetBackendState()` and `GetSelfDNSName()` read state directly from `busState` without network requests.
+  - Implemented exponential backoff (`2s -> 4s -> 8s -> max 30s`) in `IPNBusListener` for transient daemon restarts.
+  - Removed dead `dnsCache` and redundant `syncNetMapFromBus()` extra HTTP stream.
+  - Fixed `State` field type (`*int`) and `BusHealth.Warnings` schema (`map[string]struct` per Tailscale core `health.State` spec).
+  - Added direct fallback querying of `/localapi/v0/dns-config` in `GetDnsStatusJSON()` to load splits before receiving the first `NetMap`.
+  - Fixed handling of Split DNS routes with empty resolver lists (mapped to `100.100.100.100` MagicDNS).
+  - Removed redundant DNS cache reset on Refresh button press in `DnsActivity.kt`.
+- **WSA & Outbound Proxy DNS Fixes**:
+  - Implemented `TS_STATIC_HOSTS` override and pre-resolution of Outbound Proxy domain to IP via direct UDP DNS (`1.1.1.1`): resolves Outbound Proxy DNS deadlock on Android/WSA while preserving original TLS SNI.
+  - Exported `TS_DNS_FALLBACK="1.1.1.1,8.8.8.8"` for reliable external daemon DNS queries.
+
+## 3.1.7 — 2026-08-05
+### Added
+- **Tailscale Core Upgrade (`v1.102.1`)**: Updated `tailscaled` daemon core to Tailscale `v1.102.1` across all 4 native architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) with atomic Go bridge patches.
+- **Glance DataStore Widgets**:
+  - **Service Toggle Widget (2×2)**: Compact Material 3 card displaying profile name, status (`● Running` / `○ Stopped`), active Exit Node IP, and instant ON/OFF toggle.
+  - **Vertical Exit Node Selector Widget (2×3 / 2×4)**: Dynamic list of available Exit Nodes with one-tap switching and `● Direct / Off` routing control.
+  - **Refresh Button (`↻`)**: Manual header control for instant background daemon status and netmap synchronization.
+- **MIUI & HyperOS Widget Picker Previews**: Added RemoteViews XML preview layouts (`widget_preview_service.xml`, `widget_preview_exit_node.xml`) using compliant `<FrameLayout>` weight spacers to ensure accurate widget picker previews on Xiaomi HyperOS and MIUI launchers.
+
+### Fixed
+- **Sub-30ms Reactive Widget State**: Configured widget action callbacks to update Glance DataStore (`currentState<Preferences>()`) first before disk I/O, delivering instant reactive button feedback.
+- **Exit Node Double-Selection Bug**: Fixed selection logic matching by enforcing strict primary IP verification (`node.ip == exitNodeIp`).
+- **Persistent Exit Node Caching**: Added persistent accumulation of discovered exit nodes to prevent temporary list loss during daemon startup or netmap sync.
+
+## 3.1.6 — 2026-07-25
+### Fixed
+- Fixed in-app APK auto-updater requesting root permissions on rooted devices by explicitly targeting the system `PackageInstaller` (`com.google.android.packageinstaller` / `com.android.packageinstaller`), bypassing third-party root package manager intent interceptors.
+- Added APK update caching and download verification: prevents re-downloading already cached valid APKs for the target release version, cleans incomplete `.tmp` files on network error, and validates downloaded package integrity before launching installation.
+
+## 3.1.5 — 2026-07-25
+### Added
+- Added **Admin API Control Server Proxy Auto-Resolution**: Admin API requests (`api.tailscale.com`) now automatically inherit the active Control Server Proxy (CP Proxy / ByeDpi / HTTP / SOCKS5) by default (`CONTROL_PLANE` mode) to prevent `403 Forbidden` and blocked DNS errors in restricted regions.
+- Migrated **Admin API HTTP Engine to OkHttp**: Refactored `TailscaleApiClient` to `OkHttpClient` with pre-emptive HTTP `Proxy-Authorization` headers, SOCKS5 authentication, and automatic connection fallback.
+- Added **Haptic Feedback**: Integrated tactile vibration responses (`HapticFeedbackType.LongPress`) across UI long-press interactions (account cards, console presets).
+- Implemented **Daemon Readiness Checkpoint**: Added explicit `waitForDaemonReady()` check before initializing auxiliary services (Taildrive, Tags, Routes, TUN mode) to prevent startup race conditions.
+- Updated **Tailscale Core**: Bumped Tailscale core to official release **`v1.98.9`** across all 4 architectures with host Go toolchain compatibility fixes.
+- Added **In-App Updater**: Integrated direct APK updater and downloader with progress UI, ABI-aware release asset parsing, and `FileProvider` package installer.
+- Added **Russian Documentation Localization**: Created complete Russian documentation for `readme`, `ARCHITECTURE`, `AUTOMATION`, `BUILDING`, `SERVE_FUNNEL_GUIDE`, `ADGUARD`, and `ROADMAP`.
+
+### Fixed
+- Fixed `unexpected end of stream` errors on HTTP/HTTPS proxies with authentication by sending pre-emptive `Proxy-Authorization` headers on CONNECT requests.
+- Preserved active login sessions across daemon restarts and account switches by avoiding redundant LocalAPI login mutations on authenticated profiles.
+- Fixed Headscale/ControlURL authorization routing during unauthenticated session initialization.
+- Updated developer credits in About dialog (App Developer & Patch Developer: Bropines, Anet Patch: Asutorufa).
+
+## 3.1.4 — 2026-07-24
+### Added
+- Added **Native Root Mode (`su`)**: Supports running Tailscale daemon with root privileges for direct TUN routing and Magisk/KernelSU autostart service.
+- Created **Go LocalAPI SDK (`appctr/api.go`)**: Added a strongly-typed `LocalClient` struct covering 100% of LocalAPI v0 endpoints and migrated all Go subsystems (`auth`, `drive`, `taildrop`, `status`) to it.
+- Created **Kotlin LocalAPI Clients**: Implemented `LocalApiClient.kt` (direct Unix `LocalSocket`) and `KotlinGoApiClient.kt` (JNI bridge).
+- Redesigned **Account Picker UI**: Long-pressing account cards smoothly reveals inline **Rename** and **Delete** actions in 100% full-width layout. Fixed navigation bar padding and sheet height (`skipPartiallyExpanded = true`).
+
+### Fixed
+- Fixed Headscale/ControlURL authorization routing during unauthenticated session initialization.
+- Preserved active login sessions across account switches and daemon restarts by avoiding redundant LocalAPI login mutations on already authenticated profiles.
+- Enforced per-account preference isolation (`appctr_${id}`) for Exit Node selections.
+- Added custom login server input field directly to the Add Account dialog.
+
+## 3.1.3 — 2026-07-22
+### Added
+- Added `TaskerReceiver` and Broadcast Intent filters (`CONNECT`, `DISCONNECT`, `TOGGLE`, `RESTART`, `GET_STATUS`, `SET_EXIT_NODE`, `SWITCH_ACCOUNT`, `SET_BYEDPI`, `SET_TUN`) to enable Tasker, MacroDroid, and third-party background automation integration.
+- Added Tasker & Automation Security settings card under Settings with master enable switch and optional security secret token authentication (`secret` parameter validation).
+- Implemented real-time status event broadcasting (`io.github.bropines.tailscaled.STATUS_CHANGED`) providing `running`, `status`, `account`, `exit_node`, `tun_enabled`, and `byedpi_enabled` metrics for automation listeners.
+- Created comprehensive Tasker and MacroDroid automation guide in `docs/AUTOMATION.md`.
+
+## 3.1.2 — 2026-07-02
+### Changed
+- Replaced app launcher icon with a new optimized design (reduced SVG size by 33%).
+- Updated adaptive icon background and foreground layers.
+- Preserved the old logo assets in the repository files.
+
+## 3.1.1 — 2026-06-11
+### Security
+- Fixed a partial path validation bypass vulnerability in `TailsocksFileProvider` by enforcing trailing slash validation on parent directories during child document validation.
+
+## 3.1.0 — 2026-06-09
+### Added
+- Integrated native JNI implementation of ByeDPI C-library to bypass deep packet inspection (DPI) on the Tailscale control plane without spawning separate processes.
+- Implemented randomized IPv4 loopback binding (random IP address in `127.2.2.2/8` and random port) for ByeDPI startup, protecting the local proxy from simple port scanning on the device.
+- Added a dedicated "DPI Bypass" settings tab, displaying real-time status and active loopback IP/Port of ByeByeDPI proxy.
+- Added HTTPS proxy support, parsing of proxy URI links, and one-click export/copy of current proxy configuration under Settings.
+- Added `LoggedOut` state to the dashboard showing a custom card when the daemon needs authorization, offering direct shortcuts to DPI bypass/proxy settings and hints for Auth Key / OAuth login.
+- Added a Compose-based `FirstStartActivity` onboarding experience to guide users through initial setup, permissions, ByeByeDPI activation, and Auth Key/OAuth login options (with explicit warning that standard browser login might block/button might not load immediately).
+- Auto-exclude 6 popular Russian service packages from the TUN interface by default to prevent issues with state/banking/media services when VPN is active.
+- Added support for custom proxy presets in settings and onboarding slides to easily save, apply, and delete proxy configurations.
+- Added localized warning banner under ByeByeDPI settings to explain that it overrides Control Proxy configurations.
+- Added compact authentication status cards on the dashboard with collapsible input fields for Auth Keys.
+- Added "Force IPv4 (Disable IPv6)" option to DPI Bypass settings tab, passing the `-X` flag to JNI ByeDPI to resolve and connect only via IPv4 and prevent handshake/checksum errors on IPv6 endpoints (e.g. controlplane.tailscale.com).
+- Added ConnectionIssueCard to guide previously logged-in users to configure proxy/bypass parameters when coordination server is unreachable.
+- Made dashboard shortcut menu cards (Console, Peers, Logs, Settings) always visible for improved accessibility and debugging.
+- Redesigned Outbound Proxy settings: renamed HTTP Proxy configuration to HTTP Proxy (Internal), added helper descriptions, and aligned options to support username/password authentication similar to SOCKS5.
+
+### Fixed
+- Fixed `tailscaled` daemon crashes (exit status 2) by removing the unsupported `--login-server` command-line argument and passing the custom Control plane URL via LocalAPI preferences (`ControlURL`).
+- Fixed peer ping duration parsing to isolate only the numeric ms value, resolving incorrect values on hostnames containing "ms" (e.g., "ams-node").
+- Replaced the text "Parse" button with a Paste icon button that reads the clipboard (or uses field content) for instant import.
+- Deferred dashboard NeedsLogin/NoState status transitions by 10 seconds to prevent temporary network state flicker.
+- Fixed StatusCard state mapping during connection issues to display the service as ACTIVE instead of STOPPED while the daemon is running.
+- Fixed proxy URI parser to automatically strip fragment/hash suffixes (e.g. #tags) before processing.
+
+## 3.0.2 — 2026-06-06
+### Fixed
+- Fixed release builds on GitHub Actions where the `hev-socks5-tunnel` submodule was not checked out, causing `libhev-socks5-tunnel.so` to be missing from the packaged APK and rendering TUN mode unavailable.
+- Prevented application crash on account switch or startup when `libhev-socks5-tunnel.so` is missing by wrapping `System.loadLibrary` in a try-catch block and checking load status.
+
+## 3.0.1 — 2026-06-06
+### Fixed
+- Fixed app crash (`ForegroundServiceDidNotStartInTimeException`) when starting or stopping the service by ensuring startForeground is called for all execution paths in TailscaledService.onStartCommand.
+
+## 3.0.0-beta — 2026-06-06
+### Added
+- Added TUN Mode status indicator and traffic routing details banner on the main dashboard.
+- Added ability to customize the TUN interface IPv4 gateway address (with subnet prefix length support) under the Network settings tab.
+- Added full IPv6 routing support in TUN Mode (binding fd00::1 to the interface and routing fd7a:115c:a1e0::/48 Tailscale IP range) with a dedicated switch to completely disable IPv6 routing when necessary.
+- Implemented automatic exclusion of all TailSocks-related package variants from the TUN VPN tunnel to prevent routing loops, hiding them from the Excluded Apps settings screen to simplify configuration.
+- Integrated remote Taildrive share mounting directly into Android Storage Access Framework (SAF) via DocumentsProvider (dynamically resolving the active account to immediately show remote shares in the root folder, bypassing unnecessary account folders), tunneling WebDAV traffic transparently through the SOCKS5 proxy.
+- Added support for dynamic creation, deletion, renaming, moving, and read/write streaming of files within Taildrive directories without caching to disk.
+- Added experimental TUN Mode VPN integration based on high-performance native C library `hev-socks5-tunnel`.
+- Implemented full tunnel and split tunnel routing modes, automatically switched based on the active Exit Node selection (similar to the official Tailscale app).
+- Added support for per-app VPN exclusions (disallowed applications list).
+- Added support for customizable IP/CIDR range bypass exclusions.
+- Added native JNI bindings configuration via ndk-build and externalNativeBuild.
+- Integrated transparent trampoline `TunPermissionActivity` to request system VPN permission.
+- Integrated TUN mode configuration UI under the Network settings tab.
+
+### Changed
+- Updated Exit Node selector UI in settings profile tab to use Material 3 Cards with OS-specific icons, aligning it with the main dashboard layout.
+
+### Fixed
+- Fixed app crash and restart (`MissingForegroundServiceTypeException`) on Android 14+ when enabling TUN mode by declaring specialUse FGS type in manifest and startForeground calls.
+- Fixed UI settings visibility allowing users to configure TUN bypass preferences (excluded IPs and apps) prior to enabling the VPN.
+- Fixed application hang/freeze (ANR) on TUN mode deactivation by closing the TUN file descriptor first to unblock native read/writes and running the JNI `TProxyStopService` asynchronously in a background thread.
+- Fixed empty/incomplete app list in the excluded apps picker on Android 11+ by requesting the `QUERY_ALL_PACKAGES` permission and updating the query filter to include system applications with launch intents (e.g., Chrome, YouTube).
+- Fixed DNS SERVFAIL errors when Exit Node is disabled by passing TS_DNS_FALLBACK env var with fallback DNS servers to the daemon.
+- Fixed WebDAV custom HTTP methods (PROPFIND, MKCOL, MOVE) throwing ProtocolException on Android by implementing a reflection-based method override.
+- Fixed WebDAV proxy authentication failure (SOCKS authentication failed) by registering a global Authenticator with the active SOCKS5 proxy credentials.
+- Fixed Taildrive directory traversal SecurityException (not a descendant of root) in Android SAF by overriding `isChildDocument` in `TailsocksFileProvider`.
+- Fixed Android network security policy blocking Taildrive HTTP traffic to `100.100.100.100` by enabling cleartext HTTP traffic in the manifest.
+
+## 2.3.1-beta — 2026-06-06
+### Changed
+- admin: Implement in-memory caching for API audit logs
+- ui: Replace TabRows with chip-based swipeable pagers and add syntax highlighting in logs
+
+## 2.3.0-beta — 2026-06-02
+### Added
+- Added premium Material 3 dashboard interface for Network Diagnostics (Netcheck), displaying structured cards for protocol capabilities, NAT type, and public IP/port details.
+- Added sorted DERP latency list with visual latency meter quality bars, nearest/preferred region markers, and region name resolution.
+- Enriched JNI netcheck payload in Go bridge with full DERP map regions metadata mapped from tailcfg.DERPMap.
+- Added in-memory caching for API audit logs in Admin Console to prevent redundant queries across activity sessions.
+
+## 2.2.1-beta — 2026-06-02
+### Fixed
+- Fixed localization desync in biometric prompts, system toasts, and non-Compose dialogs by overriding `attachBaseContext` in all Activities to apply the user-selected locale.
+
+## 2.2.0-beta — 2026-06-02
+### Added
+- Added Crowdin-compatible localization system, extracting hardcoded strings from both the core UI and the Admin Console into standard Android XML resources.
+- Added comprehensive Russian translations (values-ru/strings.xml) and set up the Crowdin integration configuration (`crowdin.yml`).
+- Added in-app language selection interface (chips) and configuration logic with dynamic recreation.
+- Added automatic status bar and navigation bar system color styling to match the current theme.
+
+### Fixed
+- Fixed language selection chips in SettingsActivity to update the highlighted state instantly when clicked.
+- Fixed console activity status bar and navigation bar solid white background bug by removing Scaffold systemBarsPadding and implementing proper edge-to-edge drawing.
+- Fixed system status bar color styling not applying when a custom locale is set by resolving the Activity using findActivity() in TailSocksTheme.
+- Fixed rememberLauncherForActivityResult crash by proxying activity owners in LocaleContextWrapper and explicitly providing LocalActivityResultRegistryOwner in TailSocksTheme.
+- Fixed startActivity crash when launching settings with a custom locale context wrapper.
+- Fixed layout alignment, center-aligned status description on main screen, and corrected various text wraps.
+- Corrected Serve & Funnel translation to original English terms.
+
+## 2.1.4-beta — 2026-06-02
+### Added
+- Added comprehensive Tailscale public Admin API (api.tailscale.com/api/v2) integration to manage tailnet resources.
+- Integrated profile-specific Admin API credential storage mapped to tailnet domains for shared credentials across profiles.
+- Implemented a dedicated "Admin Console" dashboard with multiple tabs: Devices, DNS, Users, Services, Webhooks, Audit Logs, Web Links, and Settings.
+- Added biometric authentication lock screen (fingerprint/face with device credential fallback) upon entering the Admin Console.
+- Added interactive User Management (suspension, restoration, manual approval, deletion, and role configuration) inside the Users tab.
+- Added Device Key Expiry controls and advertised subnet routing / Exit Node activation toggles inside the Device Detail sheet.
+- Added visual ACL-parsed tag selector chips to the Edit Device Tags dialog.
+- Added 60-second in-memory caching and request throttling to avoid redundant API network queries during navigation.
+- Added Split DNS (Domain-specific Nameservers) and DNS Search Paths management under the DNS tab.
+- Added Tailnet settings management (Device Approval, User Approval, Auto-updates, Default Key Expiry duration, Network Flow Logging, Regional Routing, Posture Identity Collection).
+- Added Users list tab showing roles (Owner, Admin, Member), statuses, and device counts.
+- Added OAuth Client Credentials integration to automatically fetch and refresh short-lived API access tokens in the background.
+- Added Proxy settings (Direct, Local SOCKS5, Custom SOCKS5) to route API traffic (including routing via the active VPN / Exit Node).
+- Added a shortcut button in the main screen's top app bar for immediate access to the Admin Console.
+- Added interactive Tailscale Webhooks management (list, create, delete, and test pinging endpoints).
+- Added Tailscale Virtual Services tracking and device-bound approvals/disapprovals.
+- Added confirmation dialog before applying user role changes.
+- Added Configuration Audit Logs viewer tab with range selector (1–30 days), action filters (CREATE, UPDATE, DELETE), keyword search, and 60-second cache throttling.
+- Added Web Links tab consolidating secure-only web administration actions (Billing, SSO/IdP, ACLs, Tailnet Lock, Apps, Domain Rename).
+- Added customizable device sorting modes (by Name A-Z, Name Z-A, Last Seen, Update Available).
+- Added virtual services manual approval explanatory banner inside the Services tab.
+- Added Auth Keys management relocated to a secure, on-demand sub-panel inside the Settings section.
+- Added pending client update indicator badges (blue dot) to device list items and info card to device detail sheets.
+- Integrated HorizontalPager with swipe gesture support and synchronized FilterChip tab bar for Admin Console navigation.
+- Reimplemented device detail sheet rows as individual copyable blocks wrapped inside SelectionContainers.
+
+### Changed
+- Restructured the entire Kotlin codebase into modular `admin`, `core`, `models`, and `ui` packages.
+- Split the monolithic `AdminApiActivity.kt` into 8 separate focused UI files under the `admin` package.
+- Compacted the User Role selection picker to a 2-column grid of styled cards.
+- Added horizontal padding to long node names and user login names in detail sheets to prevent screen edge clipping.
+- Replaced text-based "Update" badge in device list with a small blue dot indicator next to the status marker.
+- Replaced the gear proxy icon in the TopAppBar with a router icon.
+- Lifted audit logs state to `AdminApiDashboardScreen` to preserve data across tab switches.
+
+### Fixed
+- Fixed false positive expired key indicator badges when key expiry is disabled on devices.
+
+## 2.1.3-beta — 2026-05-31
+### Added
+- Added native ARM 32-bit (`armeabi-v7a`) compilation and packaging support to the build system for compatibility with older EMUI/Android architectures.
+- Added native Intel x86 and x86_64 compilation and packaging support to the build system for compatibility with emulators and x86-based Android devices.
+
+## 2.1.2-beta — 2026-05-31
+### Added
+- Added secure, high-performance WebDAV reverse-proxy helper in Taildrive to map the remote Quad100 (`100.100.100.100:8080`) gateway to a custom local port (default `33445`).
+- Added robust Basic Authentication support to the local WebDAV proxy with a cryptographically secure, random password generator on first-time enable.
+- Integrated absolute WebDAV `Destination` and `Host` header rewriting inside the reverse proxy to guarantee seamless rename, copy, and move operations from external file managers.
+- Supported customizable local proxy IP addresses (e.g. `127.99.33.1` or any custom loopback address) in Taildrive proxy configuration.
+- Fixed MagicDNS name resolution lookup inside the DNS diagnostic tool by automatically appending the tailnet suffix to short names.
+- Fixed Tailnet-internal DNS fallback routing in userspace mode by forwarding queries to CGNAT IP addresses over SOCKS5 TCP tunnels instead of direct UDP.
+- Redesigned AMOLED mode as a separate toggle to allow pure black theme when auto-switching via System theme.
+- Migrated legacy `amoled` theme preference to `dark` theme with `amoled_mode` enabled.
+
+## 2.1.1-beta — 2026-05-28
+### Added
+- Added remote ProfilePicURL synchronization from LocalAPI status with automatic background caching.
+- Added native circular avatar bitmap rendering in account switcher, falling back to color-coded provider badges (GitHub, Google, Headscale).
+- Added OS-themed visual icons and custom card design for peer items in the Share overlay sheet.
+
+### Changed
+- Renamed the "Style" settings tab to "APP" to better reflect its purpose.
+- Redesigned the "Send to..." file sharing overlay sheet into a modern contoured layout with an explicit bordered account selector.
+- Redesigned the peer details bottom sheet by integrating real-time ping latency directly into the primary ping button and restoring the classic paper plane send icon.
+- Upgraded cards in details and share overlays to outlined container cards using `surfaceContainerLow` for pristine contrast on AMOLED themes.
+- Unified peer OS icon and color-coded styling across device lists, taildrop, and details dialogs.
+
+### Fixed
+- Fixed DNS caching when switching profiles/accounts by flushing split DNS cache, nodes cache, and resetting MagicDNS suffix.
+- Fixed direct WebDAV connectivity to Taildrive at `100.100.100.100:8080` in userspace-networking mode by implementing loopback routing of self-addressed packets in netstack when a fake TUN device is used.
+- Fixed `unexpected end of stream` errors when opening remote peer shares by routing remote peer WebDAV traffic through the `tsdial.Dialer` while keeping local loopback traffic routed normally.
+- Fixed outbound TCP/UDP Source IP selection in netstack by automatically binding outgoing connections to the node's local Tailscale IP.
+
+## 2.1.0-beta — 2026-05-28
+### Added
+- Added experimental Taildrive support utilizing the WebDAV file server integrated into the Tailscale Go core.
+- Added `MANAGE_EXTERNAL_STORAGE` permission (All Files Access) to allow sharing any folder from the device storage.
+- Added dedicated Taildrive management screen (`TaildriveActivity`) to toggle the file server and manage shares.
+- Added a Taildrive entry card to the main dashboard.
+- Registered physical path mappings for Storage Access Framework (SAF) folder selections.
+- Redesigned the entire Settings screen using modern scrollable tabs (Style, Network, Core, Profile) to completely eliminate long scroll pages.
+- Implemented a custom styling and theme engine supporting System, Light, Dark, and Amoled (pure black) modes.
+- Added 7 beautiful color presets (Default, Lavender, Emerald, Sapphire, Amber, Monochrome, TokioNight) with live visual color previews in Settings.
+- Support for Material You dynamic colors on Android 12+ devices.
+
+### Fixed
+- Fixed a 404 Not Found issue (empty directories in Windows File Explorer) by performing case-insensitive matching on the requested share names in the WebDAV file server, aligning with the daemon's lowercased share registration.
+
+## 2.0.9-beta — 2026-05-28
+### Added
+- Added custom tags (`--advertise-tags`) and subnet routes (`--advertise-routes`) configuration to the profile settings screen.
+- Real-time display of actually applied device tags fetched from the LocalAPI status response in the settings screen.
+- Interactive tag suggestion chips inside the configuration dialog showing all unique active tags found across network hosts.
+- Added peer tags indicator to the network devices list and details modal.
+- Added swipe and button-based horizontal navigation to switch between peers in the details modal.
+
+### Changed
+- Made the peer details modal header more compact by reducing paddings, button heights, and title font sizes to fit more info on screen.
+- Restricted the maximum content height of the peer details bottom sheet to 70% of the screen height (using heightIn on the inner Column) to prevent it from covering the entire screen while remaining anchored to the bottom.
+- Refactored `TailsocksFileProvider` (DocumentsProvider) to expose only the `taildrop` folder for each account, preventing unauthorized access to other private application files and configs.
+
+## 2.0.8-beta — 2026-05-25
+### Added
+- Reimplemented Home Screen widgets using Jetpack Glance (Material 3 styling with dynamic colors).
+- Introduced 4 new Glance widgets: Service Toggle (2x1), Exit Node Toggle (2x1), detailed Stats Dashboard (3x3), and Serve & Funnel status (2x1) with a "Purge Rules" shortcut.
+- Support for immediate manual state refresh by clicking on the background of any widget.
+- Added native initial/preview layouts to resolve widget preview and load inflation failures on HyperOS devices.
+
+## 2.0.7-beta — 2026-05-25
+### Changed
+- Omit `HTTP_PROXY` and `HTTPS_PROXY` environment variables when SOCKS5 proxy is used to avoid routing conflicts.
+- Inject `NO_PROXY` environment variable containing the proxy host/IP to prevent connection loops.
+- Modularize Tailscale source patches into separate atomic patch files.
+- Add `recreate_patches.sh` utility to automatically generate atomic patches.
+- Update `build.sh` to apply all patches in alphabetical order using `patch -p1`.
+
+### Fixed
+- Fixed SOCKS5 proxy support in userspace-networking mode on Android by ensuring `wrapDialer` is called even when network namespace (`netns`) routing is disabled.
+
+## 2.0.6-beta — 2026-05-24
+### Added
+- Persistent command history in Terminal console stored locally in `console_cmd_history.dat` (decoupled from clear screen action).
+- Support for inserting preset commands into terminal input by long-pressing preset buttons.
+- Native LocalAPI Let's Encrypt TLS certificate pair export in Serve & Funnel screen.
+
+### Changed
+- Moved text wrapping and console clearing buttons to the TopAppBar.
+- Removed deprecated Auto-Refresh switch from Global Flags Settings.
+
+### Fixed
+- Serve/Funnel HTTP 404 error by replacing wildcard asterisk host key with node's FQDN in serve-config.
+- Serve/Funnel HTTP 404 error when exporting TLS certificates by enabling the `/cert` endpoint compilation on Android.
+
+## 2.0.5-beta — 2026-05-23
+### Added
+- Active account name display in Quick Settings tile subtitle.
+- Account switcher bottom sheet triggered directly from Quick Settings tile settings.
+- Battery optimization warning card on main screen with direct settings shortcut.
+- TCP-based backend health monitoring in Serve & Funnel screens.
+- Serve & Funnel log viewer tab filtering requests.
+- Account dropdown selection and refresh button in Share screen.
+
+### Refactored
+- Extracted Go HTTP local client and state helpers, removed unused aliases.
+- Replaced tailscale up CLI call with LocalAPI /start.
+
+### Fixed
+- Version name calculation in Gradle and CI builds by fetching full git history with tags.
+- Suffix tolerance in the application update checker version comparison.
+- Restricted CI build triggers to execute only on Go, Kotlin, and Actions file changes.
+
+## 2.0.4-beta — 2026-05-18
+### Added
+- Quick Exit Node switcher on the main dashboard.
+- Forced settings synchronization on Go core startup.
+- Detailed system info in log exports.
+
+### Fixed
+- Exit Node routing (switched to StableID).
+- Consolidated `debug` and `dev` build types.
+- Flattened CI artifact structure.
+
+## 2.0.0-beta — 2026-05-07
+### Added
+- **Major Serve & Funnel Overhaul**: Completely redesigned the architecture for exposing services.
+- **Enhanced Serve UI**: Introduced a chip-based interface for managing handlers, protocols, and host mappings.
+- **Wildcard Host Mapping**: Support for `*` hostnames in node-scoped rules.
+- **Improved State Management**: Reimplemented LocalAPI synchronization with a two-step "reset-then-apply" pattern to ensure configuration consistency.
+- **Auto-generated Links**: The UI now automatically constructs and allows copying of service URLs based on the current configuration.
+
+### Fixed
+- **Serve Persistence**: Resolved issues where Serve configurations would desync or fail to persist after daemon restarts.
+- **Funnel Visibility**: Fixed a bug preventing Funnel status from being correctly reflected in the UI.
+- **TCPPortHandler Serialization**: Corrected the protocol field mapping for raw TCP handlers.
+
+## 1.11.0 — 2026-05-07
+### Added
+- **Advertise Services on Android**: Enabled support for publishing Tailscale Services (`svc:`) and Serve/Funnel configurations to the coordination server.
+- **C2N Protocol**: Re-enabled Client-to-Node (C2N) protocol in the core build to support remote service discovery.
+- **Immediate Hostinfo Update**: Added a trigger to update Hostinfo (ServicesHash) immediately after Serve configuration changes via LocalAPI.
+
+### Fixed
+- **Android Netmon**: Fixed a potential panic and incorrect IP masking in the network monitoring layer for Android 10+.
+- **SOCKS5 Support**: Enabled SOCKS support in the Tailscale core specifically for the Android environment.
+- **Taildrop FS**: Improved robustness of Taildrop file operations on Android to avoid JNI panics by using a dedicated Go-based filesystem provider.
+- **VIP Service Advertisement (Critical)**: Fixed `SetServeConfig` to send `PATCH /prefs` with `AdvertiseServices` + `AdvertiseServicesSet: true` after every service-scoped configuration update. Previously, the daemon's `vipServicesFromPrefsLocked` had no knowledge of the service from the Prefs side, causing the coordination server to receive an incomplete `/vip-services` response and never activating the VIP DNS entry. This mirrors the exact behavior of the official `tailscale serve --service=svc:*` CLI command.
+- **AdvertiseServices Two-Step Sync**: The `AdvertiseServices` PATCH now uses a reset-then-apply pattern (Step A: clear with `[]`; Step B: apply new list), mirroring the same pattern used in `SetServeConfig`. This prevents stale `svc:` entries from persisting across renames or deletions.
+- **ServeConfig HostPort Key Inconsistency**: Fixed a bug where node-scoped rules were rendered using `":port"` keys but saved using `"*:port"`, causing them to appear reset to default after a refresh. All keys are now normalized to `"*:port"` for node-scoped and `"fqdn:port"` for service-scoped rules.
+- **Robust ServeConfig ETag Handling**: Improved the Go bridge to fetch a fresh ETag via `GET` if the `POST` reset response doesn't provide one, ensuring consistent `If-Match` headers and preventing silent apply failures.
+- **ServeConfig Payload Sanitization**: Stripped Tailsocks-specific `etag` field from the JSON payload sent to the daemon. Re-enabled `Services` field transmission as it is required for VIP service advertisement in this version.
+- **Serve Rule Edit Logic**: Fixed UI desync in `ServeActivity.kt` where editing a rule would create a duplicate instead of updating the existing one. Added `oldPort` and `oldServiceName` tracking to ensure the previous rule is correctly deleted before applying the update.
+
+### Changed
+- **Code Language**: All Russian-language comments across the `appctr/` Go package have been translated to English for consistency and maintainability.
+
+## 1.10.0 — 2026-05-06
+### Added
+- **Full CLI Elimination:** The application now controls the Tailscale daemon lifecycle exclusively via the native LocalAPI (`/start`, `/logout`, `/prefs`). External binary calls are reduced to 0 for standard operations.
+- **Tailscale Serve & Funnel:** Comprehensive UI for exposing local ports to the Tailnet or the public internet. Supports both raw TCP and Web (HTTPS) modes.
+- **Tailscale Virtual Services:** Support for creating named services (e.g., `svc:webapp`) with dedicated TailVIPs and DNS names, managed directly from the Android UI.
+- **Smart Link Generator:** Integrated DNS resolver in the Serve UI that automatically builds and copies ready-to-use URLs for hosted services, including automatic `https` switching for Funnel.
+- **Rule Lifecycle Management:** Added ability to temporarily disable/enable rules without deleting them, and full editing support for existing configurations.
+- **Modular Go Core:** Massive refactoring of the `appctr` module. Separated logic into `localapi.go`, `status.go`, `netcheck.go`, `dns.go`, and `taildrop.go` for better maintainability.
+
+### Fixed
+- **Optimized Settings Sync:** `ApplySettings` now uses high-speed `PATCH` requests to LocalAPI instead of restarting the configuration via CLI. This results in instant UI responsiveness and cleaner logs.
+- **Reliable DNS Sync:** Increased IPN Bus Listener mask to `4095` to capture all network topology changes in real-time.
+- **Profile-Specific Exit Nodes:** Fixed "phantom" exit nodes when switching accounts. Settings are now strictly isolated and force-cleared via API during profile transitions.
+- **Diagnostics Reliability:** Rewrote `BackendState` detection to use robust JSON parsing, fixing intermittent "Unknown" state errors.
+- **Native Logout:** Replaced the legacy CLI reset mechanism with a clean, native API logout dialog.
+- **Stability Guard:** Added panic recovery in Go-JNI bridge to prevent the entire Android app from crashing during unexpected network events (e.g., server port scans).
+
+## 1.9.0 — 2026-04-25
+### Added
+- **Native Local API Integration:** Replaced major CLI calls (`status`, `netcheck`, `dns query`) with high-performance HTTP requests to the `tailscaled` Unix socket.
+...
