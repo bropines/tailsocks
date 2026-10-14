@@ -46,7 +46,7 @@
 
 ---
 
-TailSocks runs a full [Tailscale](https://tailscale.com/) node on your Android phone and lets you choose how it reaches the rest of the device: as a **local SOCKS5/HTTP proxy** that needs no VPN permission and coexists with any other VPN, as a **system-wide VPN** (TUN, split or full tunnel), or — on rooted devices — through a **real kernel interface** with policy routing. Everything Tailscale offers is there: [exit nodes](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), several accounts, Headscale, and a built-in DPI bypass for the control plane where Tailscale is blocked.
+TailSocks runs a full [Tailscale](https://tailscale.com/) node on your Android phone (or, experimentally, Android TV) and lets you choose how it reaches the rest of the device: as a **local SOCKS5/HTTP proxy** that needs no VPN permission and coexists with any other VPN, as a **system-wide VPN** (TUN, split or full tunnel), or — on rooted devices — through a **real kernel interface** with policy routing. Everything Tailscale offers is there: [exit nodes](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), several accounts, Headscale, and a built-in DPI bypass for the control plane where Tailscale is blocked.
 
 It tells you what is actually going on: whether the tailnet is connected, still connecting or cut off from its relays, which of your devices are reachable directly and which only through a relay — and offers the one action that helps.
 
@@ -75,13 +75,14 @@ It tells you what is actually going on: whether the tailnet is connected, still 
 | **[Tailscale Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve) ©** | Expose local ports to your Tailnet or the public internet. TCP & HTTPS modes, TLS certificate export. |
 | **[Tailscale Services (`svc:`)](https://tailscale.com/kb/1438/virtual-ip) ©** | Create named virtual services with dedicated VIPs and DNS names, managed from native UI. |
 | **[Taildrop™](https://tailscale.com/kb/1106/taildrop) ©** | Send & receive files between Tailnet devices. Inbox hub, system Share Sheet integration, DocumentsProvider. |
-| **[Taildrive™](https://tailscale.com/kb/1369/taildrive) ©** | Share local folders over WebDAV. SAF integration, remote share mounting, SOCKS5-proxied access. Cross-platform path case-insensitivity fixes. |
+| **[Taildrive™](https://tailscale.com/kb/1369/taildrive) ©** | Share local folders over WebDAV (SAF integration, SOCKS5-proxied access, one switch to open the proxy to the LAN with a password forced on). Browse other devices' shares and open their files in a player, with seeking; says what the tailnet policy allows when nothing lists. |
 
 ### Management & Administration
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-Account Isolation** | Strict per-profile data separation — independent state dirs, preferences, keypairs, and Taildrop folders. |
+| **Multi-Account Isolation** | Strict per-profile data separation — independent state dirs, preferences, keypairs, and Taildrop folders. Any account can be made the main one, the one that cannot be deleted. |
+| **Remote management (experimental)** | Manage another device's TailSocks from this one over the tailnet, after pairing with a code from its screen: connection and exit node, files, permissions, and — with *Full control* switched on at that device — its storage, shared folders, routes and log. Off by default; every change shows on the managed device's screen, and managed devices appear on the main screen. |
 | **Tailscale Admin API** | Full `api.tailscale.com/v2` integration — manage devices, DNS, users, services, webhooks, ACLs, and audit logs. |
 | **Biometric Lock** | Admin Console protected by fingerprint/face authentication. |
 | **Auth Keys** | Generate, view, and revoke authentication keys from inside the app. |
@@ -94,11 +95,14 @@ It tells you what is actually going on: whether the tailnet is connected, still 
 |---------|-------------|
 | **Honest Dashboard** | A status card with six states — stopped, starting, connecting, connected, a connection problem, sign-in needed — a banner naming what is wrong with a one-tap fix (reconnect the relays, open the DPI bypass), and a summary of the tailnet: this device, how many peers are online, the exit node by name, the home relay. |
 | **Adaptive Layout** | Two panes wherever there is room — landscape, tablets, foldables (laid out around the hinge, including the half-open tabletop posture); lists and forms hold a readable width on large screens. |
+| **Android TV (experimental)** | The same APK installs on a television: a launcher tile with a banner, the whole app on a remote with a visible focus frame, a built-in file and folder browser, Taildrop and Taildrive. Walked on emulators, not yet on a real television. |
+| **Signing in without a keyboard** | The login link as a QR code on a television, or *Sign in on another device* on a phone; on a television an auth key can also be sent from a phone's scanner, over the local network or a relay, confirmed by a check code. |
+| **Settings Search** | Finds any setting in English or Russian, forgiving typos, the wrong keyboard layout and transliteration; `tailsocks://settings/<section>/<row>` links open the page on its row ([Automation guide](docs/AUTOMATION.md)). |
 | **Material 3 Theming** | System, Light, Dark, AMOLED Black modes. 7 color presets + Material You dynamic colors. |
-| **Localization** | English and Russian, as standard Android string resources. |
-| **Home Screen Widgets** | Jetpack Glance widgets — Service Toggle, Exit Node, Stats Dashboard, Serve status. |
+| **Localization** | English and Russian, as standard Android string resources; other languages come from [Hosted Weblate](docs/TRANSLATING.md). |
+| **Home Screen Widgets** | Jetpack Glance widgets — Service Toggle and Exit Node. |
 | **Quick Settings Tile** | System Quick Settings tile with active profile display and account switching. |
-| **Network Diagnostics** | Native netcheck with DERP latency visualization, NAT type detection, and public IP reporting. |
+| **Network Diagnostics** | Native netcheck with DERP latency visualization, NAT type detection, public IP reporting, and a warning when the network's MTU is too small for direct connections. |
 | **Background Reliability** | Optional auto-reconnect with an attempt limit, a 15-minute watchdog that revives a service killed in the background, and a session-long wake lock (*Keep the connection awake*, which also decides whether the service starts after a reboot). A manual Stop is always final. See [Background behaviour](#-background-behaviour). |
 
 ---
@@ -164,7 +168,7 @@ TailSocks is built as a hybrid multi-layer system:
 
 ### Upstream Patches
 
-TailSocks maintains 20 minimal atomic patches in [`appctr/patches/`](appctr/patches/) to inject capabilities not exposed via LocalAPI:
+TailSocks maintains 22 minimal atomic patches in [`appctr/patches/`](appctr/patches/) to inject capabilities not exposed via LocalAPI:
 
 | Patch | Purpose |
 |-------|---------|
@@ -188,6 +192,8 @@ TailSocks maintains 20 minimal atomic patches in [`appctr/patches/`](appctr/patc
 | `18-android-vpn-tun` | `--tun=android-vpn`: the daemon runs the tunnel on the descriptor Android's VpnService opened (the native TUN engine) |
 | `19-android-vpn-netstack` | In that mode, dial peers through netstack and claim replies to the daemon's own flows |
 | `20-socks5-resilience` | Keep the served SOCKS5 proxy up: back off on accept errors, bound the handshake, ride out a relay reconnect |
+| `21-netmon-wake-pollers` | Wake every polling network monitor in the process at once, so TailCat's clients notice a network change |
+| `22-android-remote-port` | Keep the remote-management port in netstack while that feature is on, so it also works with a real TUN |
 
 ---
 
@@ -195,7 +201,7 @@ TailSocks maintains 20 minimal atomic patches in [`appctr/patches/`](appctr/patc
 
 ### Download
 
-Grab the latest APK from the [Releases](https://github.com/bropines/tailsocks/releases/latest) page, or use the download buttons at the top of this README.
+Grab the latest APK from the [Releases](https://github.com/bropines/tailsocks/releases/latest) page, or use the download buttons at the top of this README. The same APK installs on Android TV: the launcher shows TailSocks with a banner.
 
 Betas of the next version come out as GitHub pre-releases: the app offers them once *Receive beta versions* is on (Settings → Appearance & language), Obtainium once *Include prereleases* is on for it — otherwise both stay on stable releases.
 
