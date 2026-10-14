@@ -11,7 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Sign in on another device: the login link as a QR code, with a share action.
 - A built-in file and folder browser for devices without a system file picker.
 - Taildrop on a TV: files are picked in the app, saved to Download/Taildrop, and an arrival is announced on screen.
-- Taildrive: browse other devices' shares and open their files in a player, with seeking; on a TV shares are added with the built-in browser and the proxy address shows as a QR code.
+- Taildrive: browse other devices' shares and open any file in the app that opens it — media in a player, with seeking; on a TV shares are added with the built-in browser and the proxy address shows as a QR code.
 - Taildrive says what the tailnet policy lets this device do when nothing lists, and the visual policy editor has a template for sharing between your own devices.
 - Taildrive proxy: one switch lets the local network in, with the password forced on.
 - Settings search: finds any setting in English or Russian, forgives typos, the wrong keyboard layout and transliteration, and opens the page on its row; links `tailsocks://settings/<section>/<row>` and `tailsocks://settings?q=…`.
