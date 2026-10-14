@@ -541,7 +541,8 @@ fun TaildriveBrowserPage(
         onLeaveSelection = { selection = null },
         onGo = { if (it != location) go(it) },
         onEditPath = { pathEdit = PathEdit(DrivePathInput.format(location)) },
-        onPathText = { pathEdit = PathEdit(it) },
+        // Typing goes into an open field only: a keyboard may still report a last change as it closes.
+        onPathText = { if (pathEdit != null) pathEdit = PathEdit(it) },
         onPathGo = { pathEdit?.let { lookFor(it.text) } },
         onPathClose = { pathEdit = null },
         panel = DownloadPanelActions(
@@ -639,16 +640,16 @@ internal fun TaildriveBrowserContent(
     val listed = (phase as? BrowserPhase.Listed)?.entries.orEmpty()
     // Selecting is for what is inside a share: files and folders, not devices or shares.
     val selectable = location.level == DriveLevel.FOLDER && listed.isNotEmpty()
-    // Inside a device the line under the title is the path, every name of it a button.
-    val crumbs = selection == null && location.depth > extras.top
-    val subtitle = when {
-        // The root is the list of devices of the one tailnet, not yet entered while the page loads
-        // or fails; it is a list of tailnets only when it has been read and holds several.
-        location.isRoot && phase is BrowserPhase.Listed -> stringResource(R.string.taildrive_browser_level_tailnets)
-        location.depth <= 1 -> stringResource(R.string.taildrive_browser_level_devices)
-        // The tailnet's own name is the same on every row and longer than the rest of the line.
-        else -> pathLine(location.segments.drop(1), if (layout.isPhone) 34 else 80)
-    }
+    // What the title line says where there is no path yet. The root is the list of devices of the
+    // one tailnet, not yet entered while the page loads or fails; it is a list of tailnets only when
+    // it has been read and holds several.
+    val level = stringResource(
+        if (location.isRoot && phase is BrowserPhase.Listed) R.string.taildrive_browser_level_tailnets
+        else R.string.taildrive_browser_level_devices
+    )
+    // Selection mode: its count is the title, and the path a plain line under it. The tailnet's own
+    // name is the same on every row and longer than the rest of the line.
+    val selectionPath = if (location.depth <= extras.top) level else pathLine(location.segments.drop(1), if (layout.isPhone) 34 else 80)
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -656,8 +657,18 @@ internal fun TaildriveBrowserContent(
                 AppTopBar(
                     title = if (selection != null) pluralStringResource(R.plurals.taildrive_selected, selection.size, selection.size)
                     else stringResource(R.string.taildrive_browser_title),
-                    subtitle = subtitle,
-                    subtitleContent = if (crumbs) ({ PathCrumbs(location, extras.top, actions.onGo, actions.onEditPath) }) else null,
+                    subtitle = if (selection != null) selectionPath else null,
+                    // Otherwise the path is the title: its names to press, or the field in their place.
+                    titleContent = if (selection == null) ({
+                        PathTitle(
+                            location, extras.top, level, extras.pathEdit,
+                            onGo = actions.onGo,
+                            onEdit = actions.onEditPath,
+                            onText = actions.onPathText,
+                            onSubmit = actions.onPathGo,
+                            onClose = actions.onPathClose,
+                        )
+                    }) else null,
                     onBack = if (selection != null) actions.onLeaveSelection else actions.onUp,
                     actions = {
                         // One place for Select and Select all, so the remote that pressed the first is on the second.
@@ -686,23 +697,16 @@ internal fun TaildriveBrowserContent(
                                 Text(stringResource(R.string.taildrive_download))
                             }
                         } else {
-                            IconButton(onClick = actions.onEditPath) {
+                            // A handheld asks for the field with a long press on the path; a remote has no
+                            // long press to spare, so a television has the pencil.
+                            if (isTv && extras.pathEdit == null) IconButton(onClick = actions.onEditPath) {
                                 Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.taildrive_path_edit))
                             }
                             actions.onToggleLink?.let { toggle -> LinkSwitch(actions.viaLink, extras.linkDown, toggle) }
                         }
                     }
                 )
-                extras.pathEdit?.let { edit ->
-                    PathEditor(
-                        edit,
-                        onText = actions.onPathText,
-                        onGo = actions.onPathGo,
-                        onDeepest = actions.onGo,
-                        onClose = actions.onPathClose,
-                        modifier = Modifier.readableWidth()
-                    )
-                }
+                extras.pathEdit?.let { edit -> PathProblem(edit, onDeepest = actions.onGo) }
             }
         },
         bottomBar = {
