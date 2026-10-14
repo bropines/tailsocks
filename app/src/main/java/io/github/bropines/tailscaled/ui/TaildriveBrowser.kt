@@ -249,6 +249,8 @@ internal class BrowserExtras(
     val panel: Pair<DownloadState, Int>? = null,
     /** The panel's folder is the default already, or was just made it. */
     val panelKept: Boolean = false,
+    /** Something on the device opens the panel's folder. */
+    val panelOpenable: Boolean = false,
     val snackbar: SnackbarHostState? = null,
     /** The link switch is on and the proxy is not there. */
     val linkDown: Boolean = false,
@@ -316,6 +318,7 @@ fun TaildriveBrowserPage(
     var question by remember { mutableStateOf<FolderQuestion?>(null) }
     var pathEdit by remember { mutableStateOf<PathEdit?>(null) }
     var refocus by remember { mutableIntStateOf(0) }
+    var keptKey by remember { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
     val folderAsk = rememberDownloadFolderAsk()
     val downloads by TaildriveDownloads.downloads.collectAsState()
@@ -347,10 +350,8 @@ fun TaildriveBrowserPage(
         // The root was asked for and the tailnet's devices came back: that is where we are now.
         location = shown
         phase = next
-    }
-    // The proxy, for the link switch's face: looked at with every load, apart from it — a proxy that
-    // is on and silent takes a moment to say so, and the listing does not wait for that.
-    LaunchedEffect(loadKey) {
+        // The proxy, for the link switch's face: after the listing, which does not wait for it — a
+        // proxy that is on and silent takes a moment to say so — and after any wait for it to start.
         proxy = withContext(Dispatchers.IO) { TaildriveBrowse.proxyCondition(DriveProxy.read(appContext, account)) }
     }
 
@@ -545,20 +546,24 @@ fun TaildriveBrowserPage(
         onPathClose = { pathEdit = null },
         panel = DownloadPanelActions(
             onCancel = TaildriveDownloads::cancel,
-            onClose = TaildriveDownloads::dismiss,
+            // The panel goes, and its Close with it: the remote goes back to the list.
+            onClose = { TaildriveDownloads.dismiss(it); refocus++ },
             onOpenFolder = { state -> TaildriveDownloadFolder.viewIntent(context, state.folder)?.let { context.tryStartActivity(it) } },
-            onKeep = { state -> keepFolder(context, state); refocus++ },
+            onKeep = { state -> keepFolder(context, state); keptKey++ },
         ),
     )
     val panel = panelOf(downloads)
-    // Read with every recomposition the panel's state brings: a preference, in memory.
-    val kept = panel?.let { remember(it.first.id, it.first.stage, refocus) { isDefaultFolder(appContext, it.first) } } ?: false
+    // Read again whenever the panel's download moves on, or its folder was just kept: a preference, in memory.
+    val kept = panel?.let { remember(it.first.id, it.first.stage, keptKey) { isDefaultFolder(appContext, it.first) } } ?: false
+    // A file manager to open the folder in: none on a television.
+    val openable = panel?.let { remember(it.first.folder) { TaildriveDownloadFolder.viewIntent(context, it.first.folder) != null } } ?: false
     val extras = BrowserExtras(
         selection = selection,
         top = top,
         pathEdit = pathEdit,
         panel = panel,
         panelKept = kept,
+        panelOpenable = openable,
         snackbar = snackbar,
         linkDown = viaLink && proxy != null && proxy != ProxyCondition.READY,
         refocus = refocus,
@@ -704,7 +709,8 @@ internal fun TaildriveBrowserContent(
             extras.panel?.let { (state, waiting) ->
                 DownloadPanel(
                     state, waiting, extras.panelKept, actions.panel,
-                    Modifier.navigationBarsPadding().readableWidth().padding(horizontal = layout.margin, vertical = 8.dp)
+                    Modifier.navigationBarsPadding().readableWidth().padding(horizontal = layout.margin, vertical = 8.dp),
+                    openable = extras.panelOpenable
                 )
             }
         },

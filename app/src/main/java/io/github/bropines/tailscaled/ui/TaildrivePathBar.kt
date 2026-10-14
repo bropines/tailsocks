@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,7 +75,7 @@ internal fun PathCrumbs(location: DriveLocation, top: Int, onGo: (DriveLocation)
     val devices = DriveLocation(location.segments.take(top))
     Row(modifier.horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) {
         Crumb(onClick = { onGo(devices) }, label = stringResource(R.string.taildrive_browser_level_devices)) {
-            Icon(Icons.Default.Devices, contentDescription = null, tint = colors.primary, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.Devices, contentDescription = stringResource(R.string.taildrive_browser_level_devices), tint = colors.primary, modifier = Modifier.size(16.dp))
         }
         for (i in top until location.depth) {
             val last = i == location.depth - 1
@@ -108,7 +109,7 @@ private fun Crumb(onClick: () -> Unit, label: String?, content: @Composable () -
             .tvFocusRing(source, shape)
             .clip(shape)
             .clickable(interactionSource = source, indication = androidx.compose.foundation.LocalIndication.current, role = Role.Button, onClickLabel = label, onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = 6.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) { content() }
 }
@@ -160,7 +161,7 @@ internal fun PathEditor(
                         label = label,
                         placeholder = placeholder,
                         isError = edit.problem != null,
-                        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
                         modifier = Modifier.weight(1f).then(escape).tvInitialFocus()
                     )
                 } else {
@@ -175,12 +176,14 @@ internal fun PathEditor(
                         placeholder = { Text(placeholder) },
                         singleLine = true,
                         isError = edit.problem != null,
-                        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Go),
+                        // A path, not words: no suggestions or corrections over the names.
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false, imeAction = ImeAction.Go),
                         keyboardActions = KeyboardActions(onGo = { onGo() }),
                         modifier = Modifier.weight(1f).focusRequester(field).then(escape)
                     )
                 }
-                TextButton(onClick = onGo, enabled = !edit.looking) { Text(stringResource(R.string.taildrive_path_go)) }
+                // Not disabled while it looks: a disabled button drops the remote to the first stop of the screen.
+                TextButton(onClick = { if (!edit.looking) onGo() }) { Text(stringResource(R.string.taildrive_path_go)) }
                 IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_close)) }
             }
             when {

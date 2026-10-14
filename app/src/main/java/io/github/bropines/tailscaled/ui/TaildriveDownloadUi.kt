@@ -22,6 +22,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -209,11 +214,34 @@ internal fun failureReason(reason: DownloadFailReason): String = stringResource(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun DownloadPanel(state: DownloadState, waiting: Int, kept: Boolean, actions: DownloadPanelActions, modifier: Modifier = Modifier) {
+internal fun DownloadPanel(
+    state: DownloadState,
+    waiting: Int,
+    kept: Boolean,
+    actions: DownloadPanelActions,
+    modifier: Modifier = Modifier,
+    /** Something on the device opens the folder. */
+    openable: Boolean = actions.onOpenFolder != null,
+) {
     val colors = MaterialTheme.colorScheme
+    // A button pressed here that goes away with what it did — Cancel, the offer to keep the folder —
+    // hands the remote to Close, rather than let it fall to the first stop of the screen.
+    var handOver by remember(state.id) { mutableStateOf(false) }
+    val close = remember { FocusRequester() }
+    if (!state.stage.active && handOver && !LocalInspectionMode.current) LaunchedEffect(state.stage, kept) {
+        withFrameNanos { }
+        runCatching { close.requestFocus() }
+        handOver = false
+    }
+    val panelActions = DownloadPanelActions(
+        onCancel = { handOver = true; actions.onCancel(it) },
+        onClose = actions.onClose,
+        onOpenFolder = actions.onOpenFolder.takeIf { openable },
+        onKeep = { handOver = true; actions.onKeep(it) },
+    )
     Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = colors.surfaceContainerHigh, tonalElevation = 2.dp) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (state.stage.active) Running(state, waiting, actions) else Over(state, kept, actions)
+            if (state.stage.active) Running(state, waiting, panelActions) else Over(state, kept, panelActions, close)
         }
     }
 }
@@ -221,6 +249,7 @@ internal fun DownloadPanel(state: DownloadState, waiting: Int, kept: Boolean, ac
 @Composable
 private fun Running(state: DownloadState, waiting: Int, actions: DownloadPanelActions) {
     val colors = MaterialTheme.colorScheme
+    val single = state.files <= 1 && !state.counting
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Default.Download, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -231,10 +260,15 @@ private fun Running(state: DownloadState, waiting: Int, actions: DownloadPanelAc
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                if (state.files > 0) stringResource(
-                    if (state.counting) R.string.taildrive_download_file_of_counting else R.string.taildrive_download_file_of,
-                    state.currentNumber, state.files
-                ) else stringResource(R.string.taildrive_download_counting),
+                when {
+                    // One file: its name says more than "file 1 of 1".
+                    single -> state.current ?: ""
+                    state.files > 0 -> stringResource(
+                        if (state.counting) R.string.taildrive_download_file_of_counting else R.string.taildrive_download_file_of,
+                        state.currentNumber, state.files
+                    )
+                    else -> stringResource(R.string.taildrive_download_counting)
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.onSurfaceVariant,
                 maxLines = 1,
@@ -257,8 +291,8 @@ private fun Running(state: DownloadState, waiting: Int, actions: DownloadPanelAc
             Text(stringResource(R.string.taildrop_speed_format, formatFileSize(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
         }
     }
-    // The file it is on, and its own bar.
-    state.current?.let { name ->
+    // The file it is on, and its own bar; for a single file the whole is the file.
+    if (!single) state.current?.let { name ->
         Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Bar(state.currentFraction, secondary = true)
     }
@@ -279,7 +313,7 @@ private fun Bar(fraction: Float?, secondary: Boolean = false) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Over(state: DownloadState, kept: Boolean, actions: DownloadPanelActions) {
+private fun Over(state: DownloadState, kept: Boolean, actions: DownloadPanelActions, close: FocusRequester) {
     val colors = MaterialTheme.colorScheme
     val good = state.stage == DownloadStage.DONE && state.saved > 0
     val title = when {
@@ -319,7 +353,7 @@ private fun Over(state: DownloadState, kept: Boolean, actions: DownloadPanelActi
         if (state.saved > 0) actions.onOpenFolder?.let { open ->
             TextButton(onClick = { open(state) }) { Text(stringResource(R.string.taildrive_download_open_folder)) }
         }
-        TextButton(onClick = { actions.onClose(state.id) }) { Text(stringResource(R.string.action_close)) }
+        TextButton(onClick = { actions.onClose(state.id) }, modifier = Modifier.focusRequester(close)) { Text(stringResource(R.string.action_close)) }
     }
 }
 

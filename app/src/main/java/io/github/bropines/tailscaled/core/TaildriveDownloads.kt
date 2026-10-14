@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -402,6 +403,8 @@ object TaildriveDownloads {
             throw e
         } catch (e: Exception) {
             file?.let(sink::discard)
+            // A cancel closes the file under the read, which then fails like a broken connection: it is the cancel.
+            if (!currentCoroutineContext().isActive) throw CancellationException("cancelled")
             val reason = failReason(e)
             Log.w(TAG, "a file was not saved: ${e.javaClass.simpleName} -> $reason")
             synchronized(tally.lock) { tally.failures += DownloadFailure(item.path.joinToString("/"), reason) }
