@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -414,7 +413,7 @@ internal fun ManageButton(
 ) {
     val content: @Composable () -> Unit = {
         if (working) {
-            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            ButtonBusyIndicator(18.dp)
             Spacer(Modifier.width(8.dp))
         } else if (icon != null) {
             Icon(icon, null, Modifier.size(18.dp))

@@ -528,7 +528,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         // The one way to reload: a pull at the top of the list brings out the
                         // search instead, so this button also shows that a load is running.
                         IconButton(onClick = { loadPeers() }, enabled = !isRefreshing || tv) {
-                            if (isRefreshing) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                            if (isRefreshing) ButtonBusyIndicator(24.dp)
                             else Icon(Icons.Default.Refresh, stringResource(R.string.action_refresh))
                         }
                     }

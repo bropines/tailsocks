@@ -56,7 +56,6 @@ import androidx.compose.material.icons.filled.NoPhotography
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -601,7 +600,7 @@ private fun Viewfinder(
 
 @Composable
 private fun GalleryLabel(reading: Boolean) {
-    if (reading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+    if (reading) ButtonBusyIndicator(18.dp)
     else Icon(Icons.Default.PhotoLibrary, null, modifier = Modifier.size(18.dp))
     Spacer(Modifier.width(8.dp))
     Text(stringResource(R.string.qr_scan_gallery))
