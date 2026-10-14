@@ -7,8 +7,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 
 - Taildrive browser: download a file with the button on its row, or several at once — long press, or Select on a TV; folders download with everything inside, after a question that says how much that is.
-- Taildrive downloads go to a folder chosen once in Settings → Sharing & access, or asked for each time.
-- The path in the Taildrive browser opens any level it names, and takes a typed or pasted path.
+- Taildrive downloads land in the Taildrop folder by default; Settings → Sharing & access can give them a folder of their own or ask each time.
+- The Taildrive browser's title is its path: any level opens with a tap, and a long press (the pencil on a TV) takes a typed or pasted path.
 
 ### Fixed
 
