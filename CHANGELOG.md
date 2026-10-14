@@ -34,6 +34,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - "Sign in" opens a tab over the app even when the default link handler is not a real browser.
 - The Add account dialog's fields take the dialog's width on wide windows.
 - Signing in without an auth key uses the custom login server (Headscale), not Tailscale's; broken since 4.0.0.
+- Root Mode waits for a daemon that is still starting instead of killing it, and Settings marks an outdated boot script.
 - Deleting the account in use moves to the main account, not to whichever came first.
 - The status card's second line stays on one line where a slightly smaller size fits it.
 - Log lines read on a light theme: values, keys and addresses were nearly white on white.
