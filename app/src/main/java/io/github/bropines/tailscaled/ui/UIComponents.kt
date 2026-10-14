@@ -274,7 +274,10 @@ internal suspend fun pingAll(
  * PeerData.getDetailsList() is free to grow a field without this file, and an unplaced row
  * must still be shown.
  */
-private enum class PeerDetailGroup { ADDRESSES, ROUTE, DEVICE, CAPABILITIES, TRAFFIC, TIMING, OTHER }
+internal enum class PeerDetailGroup { ADDRESSES, ROUTE, DEVICE, CAPABILITIES, TRAFFIC, TIMING, OTHER }
+
+/** The cards a details page starts with open: none, but in a preview, which cannot press a key. */
+internal val LocalPeerCardsOpen = staticCompositionLocalOf<Set<PeerDetailGroup>> { emptySet() }
 
 /** Which card each row of PeerData.getDetailsList() belongs on. Keyed on the row's
  *  [PeerDetailId], not on its label: the label is display text and may yet be translated. */
@@ -1228,7 +1231,8 @@ fun PeerDetailsModal(
     var pingResult by remember(peer.id) { mutableStateOf<String?>(null) }
     // Which cards are open. Not keyed on the peer: both pages of a turn draw the same set,
     // so the arriving peer lands with the cards the finger left open and nothing jumps.
-    var expandedGroups by remember { mutableStateOf(emptySet<PeerDetailGroup>()) }
+    val cardsOpenAtFirst = LocalPeerCardsOpen.current
+    var expandedGroups by remember { mutableStateOf(cardsOpenAtFirst) }
     val onToggleGroup: (PeerDetailGroup) -> Unit = { group ->
         expandedGroups = if (group in expandedGroups) expandedGroups - group else expandedGroups + group
     }
