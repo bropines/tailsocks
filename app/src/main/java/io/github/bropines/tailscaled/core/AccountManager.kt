@@ -145,6 +145,7 @@ object AccountManager {
         // The tokens of the devices this profile managed (RemoteManage): node ids mean
         // nothing outside its tailnet. The devices keep their side until it is revoked there.
         RemoteManage.tokens(context).removeProfile(id)
+        ManagedLast.forget(context, id)
     }
 
     fun renameAccount(context: Context, id: String, newName: String) {

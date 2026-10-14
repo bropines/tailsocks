@@ -8,4 +8,6 @@
         <item quantity="other">%d устройства</item>
     </plurals>
     <string name="managed_all_count">Все устройства · %d</string>
+    <string name="settings_managed_on_main_title">Управляемые устройства на главном</string>
+    <string name="settings_managed_on_main_desc">То, которым управляли последним, и кнопка к остальным. Появляется, когда это устройство чем-то управляет.</string>
 </resources>

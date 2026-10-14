@@ -1,11 +1,10 @@
 package io.github.bropines.tailscaled.ui
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -49,6 +48,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -77,7 +77,9 @@ import kotlinx.coroutines.withContext
  * Its form is the main screen's. A dashboard has tiles under its cards, the tile the menu
  * already has for a row of its own (WideMenuCard). Where that row is taken — a television,
  * by the tile of the other direction: who manages this device (ui/RemoteTile.kt) — one tile
- * stands beside that one. A phone has pills, as light as the summary's, that open something.
+ * stands beside that one. A phone has a pill, as light as the summary's, that opens something:
+ * the device managed last, and a small button beside it for the others. Settings → Appearance
+ * hides all of it.
  */
 
 // ─── What is shown ───────────────────────────────────────────────────────────────────────────
@@ -129,6 +131,35 @@ internal fun managedNow(stored: List<RemoteDeviceRow>, peers: List<PeerData>?): 
 private fun List<RemoteDeviceRow>.inOrder(): List<RemoteDeviceRow> =
     sortedWith(compareBy<RemoteDeviceRow> { it.presence.ordinal }.thenBy { it.name.lowercase() })
 
+/**
+ * [devices] — in managedNow's order — with the one the main screen names first moved to the
+ * front: the device managed [last] while it is there; otherwise the first that is there; and
+ * with none there, the one managed last again, then simply the first.
+ */
+internal fun managedFirst(devices: List<RemoteDeviceRow>, last: String?): List<RemoteDeviceRow> {
+    val there = devices.filter { it.presence == RemotePresence.ONLINE }
+    val lead = there.firstOrNull { it.nodeId == last }
+        ?: there.firstOrNull()
+        ?: devices.firstOrNull { it.nodeId == last }
+        ?: return devices
+    return listOf(lead) + (devices - lead)
+}
+
+/** Which device each profile managed last, by StableNodeID: a page that opens for one notes it. */
+internal object ManagedLast {
+    private const val PREFS = "managed_on_main"
+
+    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    fun get(context: Context, profileId: String): String? = prefs(context).getString(profileId, null)
+
+    fun note(context: Context, profileId: String, nodeId: String) {
+        if (get(context, profileId) != nodeId) prefs(context).edit().putString(profileId, nodeId).apply()
+    }
+
+    fun forget(context: Context, profileId: String) = prefs(context).edit().remove(profileId).apply()
+}
+
 // ─── What the main screen holds of it ────────────────────────────────────────────────────────
 
 /** The managed devices as the main screen draws them, and what a press on one does. */
@@ -145,17 +176,19 @@ internal class ManagedDevices(
 /**
  * The devices [profileId] manages, for the main screen, with the page a press opens — the one
  * the peer's details and the Settings list open — and the sheet that lists them all. [peers] is
- * the main screen's own list of the tailnet, null while it has none. The pairings are read again
- * each time the screen is shown, when a page opened here is left (a device may have been
- * forgotten in it) and whenever one of [keys] changes: a page of someone else's that pairs.
+ * the main screen's own list of the tailnet, null while it has none. With [shown] off (Settings →
+ * Appearance) there are none to draw. The pairings are read again each time the screen is shown,
+ * when a page opened here is left (a device may have been forgotten in it) and whenever one of
+ * [keys] changes: a page of someone else's that pairs.
  *
  * Call it in the screen's own composition: its page and its sheet take the language from there.
  */
 @Composable
-internal fun rememberManagedDevices(profileId: String, peers: List<PeerData>?, vararg keys: Any?): ManagedDevices {
+internal fun rememberManagedDevices(profileId: String, peers: List<PeerData>?, shown: Boolean, vararg keys: Any?): ManagedDevices {
     val demo = LocalDemo.current
     val live = demo == null && !LocalInspectionMode.current
     var stored by remember(profileId) { mutableStateOf(demo?.managed.orEmpty()) }
+    var last by remember(profileId) { mutableStateOf<String?>(null) }
     var opened by remember { mutableStateOf<RemoteDeviceRow?>(null) }
     var listOpen by remember { mutableStateOf(false) }
     // A page was opened from an entry here: on a television the remote comes back to that entry.
@@ -172,6 +205,7 @@ internal fun rememberManagedDevices(profileId: String, peers: List<PeerData>?, v
             if (opened != null) return@LaunchedEffect
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 val fresh = withContext(Dispatchers.IO) {
+                    last = ManagedLast.get(context, profileId)
                     runCatching { storedPairings(RemoteManage.tokens(context), profileId) }.getOrDefault(emptyList())
                 }
                 val left = fromEntry
@@ -199,7 +233,7 @@ internal fun rememberManagedDevices(profileId: String, peers: List<PeerData>?, v
         }
     }
 
-    val devices = remember(stored, peers) { managedNow(stored, peers) }
+    val devices = remember(stored, peers, last) { managedFirst(managedNow(stored, peers), last) }
 
     opened?.let { device ->
         RemoteManagePage(
@@ -218,8 +252,8 @@ internal fun rememberManagedDevices(profileId: String, peers: List<PeerData>?, v
             onDismiss = { listOpen = false },
         )
     }
-    return remember(devices) {
-        ManagedDevices(devices, open = { fromEntry = true; opened = it }, openAll = { listOpen = true }, first = first)
+    return remember(devices, shown) {
+        ManagedDevices(if (shown) devices else emptyList(), open = { fromEntry = true; opened = it }, openAll = { listOpen = true }, first = first)
     }
 }
 
@@ -333,45 +367,55 @@ internal fun RowScope.ManagedTileCells(managed: ManagedDevices, places: Int) {
     }
 }
 
-// ─── A phone: pills ──────────────────────────────────────────────────────────────────────────
-
-/** How many pills a phone shows before the last becomes the way to all: three fit in two lines. */
-private const val PILL_PLACES = 3
+// ─── A phone: a pill ─────────────────────────────────────────────────────────────────────────
 
 /**
- * The managed devices as pills, in the summary's shape (ConnectionSummaryRow) and with what the
- * summary's have not: an arrow, for these open something. Each is a device by name, with the
- * peers list's dot when it is there and a grey one when it is not. Past three the last pill
- * leads to all of them. Nothing while there is no device.
+ * One device as a pill, in the summary's shape (ConnectionSummaryRow) and with what the
+ * summary's have not: an arrow, for it opens something. It is the device managedFirst names —
+ * the one managed last while it is there — by name, with the peers list's dot when it is there
+ * and a grey one when it is not. The others are behind a small round button beside it that
+ * opens the list of them all. Nothing while there is no device.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ManagedPills(managed: ManagedDevices, modifier: Modifier = Modifier) {
-    if (managed.devices.isEmpty()) return
-    val entries = managedOnMain(managed.devices, PILL_PLACES)
+    val lead = managed.devices.firstOrNull() ?: return
     val manage = stringResource(R.string.remote_manage_button)
-    // No gap between the lines: a pill's own touch target leaves one.
-    FlowRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-        entries.shown.forEachIndexed { i, device ->
-            key(device.nodeId) {
-                ManagedPill(
-                    icon = remoteGlyph(device.tv),
-                    text = device.name,
-                    presence = device.presence,
-                    onClick = { managed.open(device) },
-                    modifier = (if (i == 0) Modifier.focusRequester(managed.first) else Modifier)
-                        .semantics { onClick(label = manage, action = null) },
-                )
-            }
-        }
-        if (entries.more) {
+    Row(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        key(lead.nodeId) {
             ManagedPill(
-                icon = Icons.Default.Devices,
-                text = stringResource(R.string.managed_all_count, entries.total),
-                presence = RemotePresence.UNKNOWN,
-                onClick = managed.openAll,
-                modifier = if (entries.shown.isEmpty()) Modifier.focusRequester(managed.first) else Modifier,
+                icon = remoteGlyph(lead.tv),
+                text = lead.name,
+                presence = lead.presence,
+                onClick = { managed.open(lead) },
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .focusRequester(managed.first)
+                    .semantics { onClick(label = manage, action = null) },
             )
+        }
+        val others = managed.devices.size - 1
+        if (others > 0) {
+            val label = stringResource(R.string.managed_all_count, managed.devices.size)
+            val colors = MaterialTheme.colorScheme
+            Surface(
+                onClick = managed.openAll,
+                shape = CircleShape,
+                color = colors.surfaceContainerHigh,
+                modifier = Modifier.semantics { contentDescription = label },
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.heightIn(min = 36.dp).padding(horizontal = 10.dp)
+                ) {
+                    Icon(Icons.Default.Devices, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("+$others", style = MaterialTheme.typography.labelLarge, color = colors.onSurface, maxLines = 1)
+                }
+            }
         }
     }
 }

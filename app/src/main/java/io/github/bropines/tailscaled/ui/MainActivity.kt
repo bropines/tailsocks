@@ -608,6 +608,7 @@ fun MainScreen(
     // right size everything, menu included, fits without scrolling, and the
     // summary's extra rows push the last menu row off it.
     var showConnectionSummary by remember { mutableStateOf(GlobalSettings.isConnectionSummaryShown(context)) }
+    var showManagedOnMain by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
@@ -707,7 +708,7 @@ fun MainScreen(
     }
     // The devices this one manages, when it manages any (ui/ManagedOnMain.kt): read off the peer
     // list above, and again when the page a scanned code opened — which may have paired — is left.
-    val managed = rememberManagedDevices(activeAccount.id, tailnetPeers.takeIf { proxyState != "STOPPED" }, scannedPairing == null)
+    val managed = rememberManagedDevices(activeAccount.id, tailnetPeers.takeIf { proxyState != "STOPPED" }, showManagedOnMain, scannedPairing == null)
     // Where the menu has the tile of the other direction — who manages this device — they stand
     // beside it, in its row, while a tile there is two cards wide. A handheld has no such tile,
     // and they have a place of their own: tiles under a dashboard's cards, pills on a phone.
@@ -901,6 +902,7 @@ fun MainScreen(
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 showConnectionSummary = GlobalSettings.isConnectionSummaryShown(context)
+                showManagedOnMain = GlobalSettings.isManagedOnMainShown(context)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
                 dnsHasFallback = GlobalSettings.dnsHasFallback(context)
@@ -2546,7 +2548,6 @@ fun StatusCard(
                     state == "NEEDS_APPROVAL" -> stringResource(R.string.notif_awaiting_approval_text)
                     else -> stringResource(if (touchWording) R.string.tap_to_start else R.string.tv_home_start)
                 },
-                textAlign = TextAlign.Center,
                 // 0.8, not 0.6: the subtitle carries the mode and the problem,
                 // and at 0.6 it fell below readable contrast on the container.
                 modifier = Modifier.alpha(0.8f),

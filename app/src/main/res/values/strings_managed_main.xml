@@ -14,4 +14,7 @@
     </plurals>
     <!-- Phone pill: the same entry, with how many there are -->
     <string name="managed_all_count">All devices · %d</string>
+    <!-- Settings → Appearance: the switch for all of it -->
+    <string name="settings_managed_on_main_title">Managed devices on the main screen</string>
+    <string name="settings_managed_on_main_desc">The device you managed last, and a button for the others. Shown once this device manages another one.</string>
 </resources>

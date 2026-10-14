@@ -16,7 +16,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.DeviceClass
 
 /*
- * The devices this one manages, on the main screen (ui/ManagedOnMain.kt): a phone's pills, the
+ * The devices this one manages, on the main screen (ui/ManagedOnMain.kt): a phone's pill, the
  * tiles of a tablet's and a television's dashboard, with no device, one, three, and more than
  * have a place. The pairings are made up; whether each is online is read off the demo tailnet,
  * as in the app. The None ones must be the main screen as it is without any of this.
@@ -49,7 +49,8 @@ private fun managing(vararg devices: RemoteDeviceRow) = DemoTailnet.data.copy(st
 private fun Main(data: DemoData, device: DeviceClass? = null) =
     AdaptiveShowcase(data, device = device) { MainScreen(showAccountSwitcher = remember { mutableStateOf(false) }) }
 
-// A phone: pills under the summary, and under the cards where the two stand side by side.
+// A phone: one pill under the summary — under the cards where the two stand side by side — and
+// a small button beside it for the others.
 
 @PreviewTest @ManagedPhoneSizes @Composable
 fun ManagedPhoneNone() = Main(managing())
@@ -60,7 +61,6 @@ fun ManagedPhoneOne() = Main(managing(living))
 @PreviewTest @ManagedPhoneSizes @Composable
 fun ManagedPhoneThree() = Main(managing(living, bedroom, tablet))
 
-/** More than have a place: two of them and the way to all. */
 @PreviewTest @ManagedPhoneSizes @Composable
 fun ManagedPhoneFive() = Main(managing(living, bedroom, tablet, *more.toTypedArray()))
 

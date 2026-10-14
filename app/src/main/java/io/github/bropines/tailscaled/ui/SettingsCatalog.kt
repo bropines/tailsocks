@@ -180,6 +180,7 @@ object SettingsCatalog {
         row("amoled", SettingsPage.APPEARANCE, R.string.settings_amoled_black_title, R.string.settings_amoled_black_desc, R.string.search_kw_amoled, look, feature = theme, aside = SettingsPage.THEME)
         row("show_changelog", SettingsPage.APPEARANCE, R.string.settings_show_changelog_title, R.string.settings_show_changelog_desc, R.string.search_kw_show_changelog, look)
         row("connection_summary", SettingsPage.APPEARANCE, R.string.settings_connection_summary_title, R.string.settings_connection_summary_desc, R.string.search_kw_connection_summary, look)
+        row("managed_on_main", SettingsPage.APPEARANCE, R.string.settings_managed_on_main_title, R.string.settings_managed_on_main_desc, R.string.search_kw_managed_on_main, look)
         row("update_check", SettingsPage.APPEARANCE, R.string.settings_update_check_title, R.string.settings_update_check_desc, R.string.search_kw_update_check, look, needs = Need.SELF_UPDATE)
         row("update_beta", SettingsPage.APPEARANCE, R.string.settings_update_beta_title, R.string.settings_update_beta_desc, R.string.search_kw_update_beta, look, needs = Need.SELF_UPDATE)
 

@@ -34,6 +34,7 @@
     <string name="search_kw_dynamic_color">material you, monet, цвета обоев, системные цвета, динамическая тема</string>
     <string name="search_kw_amoled">амолед, oled, чёрная тема, чёрный фон, чисто чёрный</string>
     <string name="search_kw_show_changelog">что нового, список изменений, чейнджлог, changelog, новости обновления</string>
+    <string name="search_kw_managed_on_main">главный экран, удалённое управление, управляемые устройства, телевизор, тв, скрыть, кнопки</string>
     <string name="search_kw_connection_summary">главный экран, карточка статуса, дашборд, узлы в сети, компактный</string>
     <string name="search_kw_update_check">обновления, обновление, новая версия, автообновление, github</string>
 

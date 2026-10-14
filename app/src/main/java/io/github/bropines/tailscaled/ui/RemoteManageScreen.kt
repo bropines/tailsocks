@@ -313,6 +313,8 @@ private fun RemoteManageHost(
         )
     }
     DisposableEffect(controller) { onDispose { controller.stop() } }
+    // The main screen names the device managed last first (ui/ManagedOnMain.kt).
+    LaunchedEffect(peerId) { withContext(Dispatchers.IO) { ManagedLast.note(app, AccountManager.getActiveAccount(app).id, peerId) } }
 
     val reasons = remember(context) { TaildropReasonStrings.from(context) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle

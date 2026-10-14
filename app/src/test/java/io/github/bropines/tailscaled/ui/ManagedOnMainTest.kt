@@ -172,4 +172,27 @@ class ManagedOnMainTest {
         pair(BEDROOM, "bedroom-tv")
         assertEquals(listOf("bedroom-tv"), shown(peers).shown.map { it.name })
     }
+
+    @Test
+    fun theDeviceManagedLastComesFirstWhileItIsThere() {
+        val a = RemoteDeviceRow("nA", "attic-tv", presence = RemotePresence.ONLINE)
+        val b = RemoteDeviceRow("nB", "bedroom-tv", presence = RemotePresence.ONLINE)
+        val c = RemoteDeviceRow("nC", "cellar-tv", presence = RemotePresence.OFFLINE)
+        val inOrder = listOf(a, b, c)
+
+        // Nothing managed yet: the first that is there.
+        assertEquals(listOf(a, b, c), managedFirst(inOrder, null))
+        // Managed last and there: it leads, the rest keep their order.
+        assertEquals(listOf(b, a, c), managedFirst(inOrder, "nB"))
+        // Managed last but away: the first that is there leads instead.
+        assertEquals(listOf(a, b, c), managedFirst(inOrder, "nC"))
+        // A device no longer paired: as if none were managed.
+        assertEquals(listOf(a, b, c), managedFirst(inOrder, "nGONE"))
+
+        // Nobody there: the one managed last, then simply the first.
+        val away = listOf(a, b, c).map { it.copy(presence = RemotePresence.OFFLINE) }
+        assertEquals(listOf("nC", "nA", "nB"), managedFirst(away, "nC").map { it.nodeId })
+        assertEquals(listOf("nA", "nB", "nC"), managedFirst(away, null).map { it.nodeId })
+        assertTrue(managedFirst(emptyList(), "nA").isEmpty())
+    }
 }

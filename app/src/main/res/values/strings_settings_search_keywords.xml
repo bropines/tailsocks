@@ -40,6 +40,7 @@
     <string name="search_kw_dynamic_color">material you, monet, wallpaper colours, system colours, dynamic theme</string>
     <string name="search_kw_amoled">amoled, oled, pure black, true black, black theme, black background</string>
     <string name="search_kw_show_changelog">changelog, what\'s new, release notes, update notes, news</string>
+    <string name="search_kw_managed_on_main">main screen, home screen, remote management, managed devices, pills, hide, television, tv</string>
     <string name="search_kw_connection_summary">main screen, home screen, status card, dashboard, peers online, compact</string>
     <string name="search_kw_update_check">updates, update, new version, github release, auto update</string>
 

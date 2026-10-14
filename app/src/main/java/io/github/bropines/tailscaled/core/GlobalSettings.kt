@@ -493,6 +493,10 @@ object GlobalSettings {
     /** The row under a connected status card: device, peers online, exit node, relay. */
     fun isConnectionSummaryShown(context: Context): Boolean = getBoolean(context, "show_connection_summary", true)
     fun setConnectionSummaryShown(context: Context, shown: Boolean) = setBoolean(context, "show_connection_summary", shown)
+
+    /** The devices this one manages, on the main screen (ui/ManagedOnMain.kt). */
+    fun isManagedOnMainShown(context: Context): Boolean = getBoolean(context, "show_managed_on_main", true)
+    fun setManagedOnMainShown(context: Context, shown: Boolean) = setBoolean(context, "show_managed_on_main", shown)
     /**
      * Ask GitHub for a newer release on launch; see UPDATE_CHECK_DEFAULT. Never
      * where the updater is off (UpdateChannel) — a store installed the app —
@@ -566,7 +570,7 @@ object GlobalSettings {
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
         "root_vpn_bypass",
         // Appearance
-        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary",
+        "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary", "show_managed_on_main",
         "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE
     )
 

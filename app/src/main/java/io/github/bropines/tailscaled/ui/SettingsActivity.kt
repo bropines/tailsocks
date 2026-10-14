@@ -2557,6 +2557,16 @@ fun SettingsScreen(
                 GlobalSettings.setConnectionSummaryShown(context, it)
                 connectionSummaryShown = it
             }
+            var managedOnMainShown by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_managed_on_main_title),
+                stringResource(R.string.settings_managed_on_main_desc),
+                Icons.Default.SettingsRemote,
+                managedOnMainShown
+            ) {
+                GlobalSettings.setManagedOnMainShown(context, it)
+                managedOnMainShown = it
+            }
             if (UpdateChannel.selfUpdate(context)) {
                 var updateCheckOnLaunch by remember { mutableStateOf(GlobalSettings.isUpdateCheckOnLaunch(context)) }
                 SettingsSwitchItem(
