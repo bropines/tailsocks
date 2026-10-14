@@ -32,6 +32,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Taildrive: a file opened in another app reports its real size and type, and a stale first answer is asked again.
 - "Sign in" opens a tab over the app even when the default link handler is not a real browser.
 - The Add account dialog's fields take the dialog's width on wide windows.
+- Signing in without an auth key uses the custom login server (Headscale), not Tailscale's; broken since 4.0.0.
 
 ## [4.10.2] - 2026-10-13
 
