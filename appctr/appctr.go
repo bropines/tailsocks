@@ -487,7 +487,7 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 		prefs["CorpDNSSet"] = true
 		controlURL := opt.LoginServer
 		if controlURL == "" {
-			controlURL = "https://controlplane.tailscale.com"
+			controlURL = defaultControlURL
 		}
 		prefs["ControlURL"] = controlURL
 		prefs["ControlURLSet"] = true
@@ -613,6 +613,13 @@ func ApplySettings(opt *StartOptions) {
 	}
 
 	if GetLoginURL() != "" {
+		// A login in progress is kept from every change but the one that makes
+		// it pointless: its link is for a server the user has just replaced.
+		if old != nil && old.LoginServer != opt.LoginServer {
+			slog.Info("Login server changed while a login was in progress, performing full restart")
+			Start(opt)
+			return
+		}
 		slog.Info("Login in progress, ignoring ApplySettings to protect session")
 		return
 	}

@@ -165,6 +165,14 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 		if !sleepCtx(ctx, 500*time.Millisecond) {
 			return
 		}
+		// What the daemon holds now is the client of a profile with no login
+		// server of its own, new or just logged out: the default one's.
+		if !controlServerFits(opt) {
+			slog.Info("LocalAPI: starting the backend for the login server in the settings", "server", controlServerOf(opt.LoginServer))
+			if !startBackendFor(ctx, opt) {
+				return
+			}
+		}
 		slog.Info("LocalAPI: triggering interactive login for new session")
 		_ = LoginInteractive()
 		return
@@ -182,17 +190,23 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 
 	// Let the daemon reach its own verdict instead of guessing from an early state.
 	//
-	// tailscaled always begins in NoState. It only decides between Starting (a
-	// saved session it can resume) and NeedsLogin (nothing to resume) once its
-	// backend has been started and it has reached the control plane — behind a
-	// control-plane proxy that easily takes several seconds. Treating that window
-	// as "not logged in" and calling LoginInteractive regenerates the node key
-	// and logs the device out of a perfectly good session.
+	// tailscaled starts its backend by itself as it comes up, from the prefs the
+	// profile has stored (cmd/tailscaled: lb.Start once the prefs are valid).
 	//
-	// NoState also means the backend was never started at all, which is the
-	// normal situation for a profile that has not been used yet. A bare Start
-	// (no UpdatePrefs, so nothing is overwritten) makes the daemon commit to
-	// NeedsLogin or Starting; only then is a login decision possible.
+	// A profile with a saved session is then in NoState until the control plane
+	// has answered — behind a control-plane proxy that easily takes several
+	// seconds. Treating that window as "not logged in" and calling
+	// LoginInteractive regenerates the node key and logs the device out of a
+	// perfectly good session. A backend found in NoState is sent one bare Start
+	// (no UpdatePrefs, so nothing is overwritten), and then the daemon's verdict
+	// is waited for.
+	//
+	// A profile without a session is in NeedsLogin at once — on a control client
+	// built for the login server the profile has stored, which on a new profile
+	// is the default one whatever the settings say. So NeedsLogin, and a login
+	// link that is already out, are trusted only when that server is the one the
+	// options name; otherwise the backend is first started again from the
+	// options (nextRegisterStep).
 	var statusResp struct {
 		BackendState string `json:"BackendState"`
 		AuthURL      string `json:"AuthURL"`
@@ -205,7 +219,7 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 	const stateSettleTimeout = 120 * time.Second
 	deadline := time.Now().Add(stateSettleTimeout)
 	needsLogin := false
-	startNudged := false
+	started := false
 	lastLogged := ""
 
 	for time.Now().Before(deadline) {
@@ -224,45 +238,55 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 				slog.Info("Daemon startup state", "backend_state", statusResp.BackendState, "has_auth_url", statusResp.AuthURL != "")
 			}
 
-			switch statusResp.BackendState {
-			case "Running", "Starting":
-				slog.Info("Account has an active session, preserving it", "backend_state", statusResp.BackendState)
+			look := registerLook{
+				state:      statusResp.BackendState,
+				authURL:    statusResp.AuthURL != "",
+				serverFits: true,
+				started:    started,
+			}
+			// Asked only where the answer decides something: of a daemon that
+			// waits for a login, before this attempt has started it itself.
+			if look.state == "NeedsLogin" && !started {
+				look.serverFits = controlServerFits(opt)
+				if ctx.Err() != nil {
+					return
+				}
+			}
+
+			switch nextRegisterStep(look) {
+			case registerLeave:
+				switch look.state {
+				case "Running", "Starting":
+					slog.Info("Account has an active session, preserving it", "backend_state", look.state)
+				case "NeedsLogin":
+					slog.Info("Daemon already produced an auth URL, nothing to trigger")
+				}
 				return
-			case "Stopped":
+			case registerResume:
 				// Logged in but paused. Ask it to run; logging in again would
 				// throw away a working node key for no reason.
 				slog.Info("Account is logged in but stopped, requesting WantRunning")
 				requestWantRunning()
 				return
-			case "NeedsLogin":
-				if statusResp.AuthURL != "" {
-					slog.Info("Daemon already produced an auth URL, nothing to trigger")
+			case registerStart:
+				started = true
+				if look.state == "NeedsLogin" {
+					slog.Info("The daemon waits for a login on another server than the settings name, starting the backend for that one",
+						"server", controlServerOf(opt.LoginServer), "had_auth_url", look.authURL)
+				} else {
+					slog.Info("Backend has not been started yet, sending Start")
+				}
+				if !startBackendFor(ctx, opt) {
 					return
 				}
+			case registerLogin:
 				needsLogin = true
-			case "NoState":
-				if !startNudged {
-					startNudged = true
-					slog.Info("Backend has not been started yet, sending Start")
-					applyPreStartPrefs(opt)
-					if ctx.Err() != nil {
-						return
-					}
-					_ = StartDaemon("{}")
-					if ctx.Err() != nil {
-						return
-					}
-					requestWantRunning()
-				}
 			}
 			if needsLogin {
 				break
 			}
-			if statusResp.AuthURL != "" {
-				return
-			}
 		}
-		if !sleepCtx(ctx, 500*time.Millisecond) {
+		if !sleepCtx(ctx, registerPollInterval) {
 			return
 		}
 	}
@@ -282,6 +306,140 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 	_ = LoginInteractive()
 }
 
+// registerPollInterval is how often the keyless registration looks at the
+// daemon while it waits for it to decide. A variable for the tests.
+var registerPollInterval = 500 * time.Millisecond
+
+// defaultControlURL is the coordination server of a profile that names none
+// (ipn.DefaultControlURL).
+const defaultControlURL = "https://controlplane.tailscale.com"
+
+// controlServerOf is the control server a login-server value stands for, in a
+// form two of them can be compared in: the default for an empty value and for
+// upstream's other name of it (ipn.IsLoginServerSynonym), the URL without
+// surrounding space or a closing slash otherwise. For comparing only — the
+// daemon is sent the value as it was typed.
+func controlServerOf(loginServer string) string {
+	s := strings.TrimRight(strings.TrimSpace(loginServer), "/")
+	if s == "" || s == "https://login.tailscale.com" {
+		return defaultControlURL
+	}
+	return s
+}
+
+// controlServerFits reports whether the daemon's ControlURL pref names the
+// server opt asks for. A new profile's is empty, a logged-out one's is empty
+// again, and a profile whose login server was changed in the settings still
+// holds the old one — in each case the control client the daemon built at its
+// own start is for a server the user did not ask for. Prefs that cannot be read
+// answer true: the caller restarts the backend on a false, and that is not done
+// on a guess.
+func controlServerFits(opt *StartOptions) bool {
+	raw, err := GetPrefsJSON()
+	if err != nil || len(raw) == 0 {
+		return true
+	}
+	var prefs struct {
+		ControlURL string `json:"ControlURL"`
+	}
+	if json.Unmarshal([]byte(raw), &prefs) != nil {
+		return true
+	}
+	return controlServerOf(prefs.ControlURL) == controlServerOf(opt.LoginServer)
+}
+
+// registerStep is what the keyless registration does after one look at the
+// daemon.
+type registerStep int
+
+const (
+	registerWait   registerStep = iota // the daemon has not decided: look again
+	registerLeave                      // a session is alive, or a login link is out: nothing to do
+	registerResume                     // logged in but paused: ask it to run
+	registerStart                      // start the backend from the options, then look again
+	registerLogin                      // ask for the interactive login
+)
+
+// registerLook is what one look at the daemon shows.
+type registerLook struct {
+	state   string // BackendState
+	authURL bool   // a login link is out
+	// serverFits: the daemon's ControlURL pref names the server the options ask
+	// for (controlServerFits). It decides only while the daemon waits for a
+	// login.
+	serverFits bool
+	// started: this attempt has sent its Start, so the control client is the
+	// one built from the options.
+	started bool
+}
+
+// nextRegisterStep decides the next step of the keyless registration.
+//
+// A session — Running, Starting, Stopped — is never started over and never
+// logged in again, whatever server it is on: both would cost a working node
+// key, and moving a signed-in profile to another server is not this routine's
+// business. A daemon that waits for a login is first put on the server the
+// options name, once per attempt; only then is its login link trusted or a
+// login asked for, so neither can come from the server the daemon happened to
+// start on.
+func nextRegisterStep(l registerLook) registerStep {
+	switch l.state {
+	case "Running", "Starting":
+		return registerLeave
+	case "Stopped":
+		return registerResume
+	case "NeedsLogin":
+		if !l.serverFits && !l.started {
+			return registerStart
+		}
+		if l.authURL {
+			return registerLeave
+		}
+		return registerLogin
+	case "NoState":
+		// The backend was never started, or is still on its way to the control
+		// plane: one Start, then the daemon's own verdict.
+		if !l.started {
+			return registerStart
+		}
+	}
+	if l.authURL {
+		return registerLeave
+	}
+	return registerWait
+}
+
+// startBackendFor has the daemon build its control client anew from opt, in the
+// order Login keeps and for its reasons: the prefs the client is made from,
+// then Start, then WantRunning. It reports false when the run was released on
+// the way.
+func startBackendFor(ctx context.Context, opt *StartOptions) bool {
+	applyPreStartPrefs(opt)
+	if ctx.Err() != nil {
+		return false
+	}
+	if err := StartDaemon("{}"); err != nil {
+		slog.Warn("Could not start the backend", "err", err)
+	} else {
+		// Start dropped the previous client and its login link with it. The
+		// bus does not say so, and the link kept here would go on being shown
+		// — and would turn the WantRunning below into a silent no-op.
+		forgetAuthURL()
+	}
+	if ctx.Err() != nil {
+		return false
+	}
+	requestWantRunning()
+	return ctx.Err() == nil
+}
+
+// forgetAuthURL drops the login link from the bus snapshot.
+func forgetAuthURL() {
+	busStateMu.Lock()
+	busState.AuthURL = ""
+	busStateMu.Unlock()
+}
+
 // applyPreStartPrefs pushes the options the daemon has to hold *before* Start
 // through the masked PATCH /prefs endpoint. Start's UpdatePrefs replaces the
 // entire prefs object, so it must never be used to carry a partial set.
@@ -293,24 +451,35 @@ func registerMachineWithAuthKey(ctx context.Context, opt *StartOptions) {
 // at the next Start. A custom login server applied after Start would send the
 // auth key to the default coordination server instead.
 //
+// The control server is always in it, the default one by name when the options
+// have none: the profile may hold a server the user has since cleared, and a
+// Start would build the client for that one.
+//
+// It goes straight to the daemon, past PatchPrefsJSON's guard. That guard keeps
+// a settings sync from disturbing a login in progress; what follows this patch
+// is a Start, which ends that login anyway — and a skipped patch would start
+// the new client on the old server.
+//
 // WantRunning is deliberately not in this set — see requestWantRunning.
 func applyPreStartPrefs(opt *StartOptions) {
+	controlURL := opt.LoginServer
+	if controlURL == "" {
+		controlURL = defaultControlURL
+	}
 	prefs := map[string]interface{}{
-		"RouteAll":    opt.AcceptRoutes,
-		"RouteAllSet": true,
-		"CorpDNS":     opt.AcceptDNS,
-		"CorpDNSSet":  true,
+		"RouteAll":      opt.AcceptRoutes,
+		"RouteAllSet":   true,
+		"CorpDNS":       opt.AcceptDNS,
+		"CorpDNSSet":    true,
+		"ControlURL":    controlURL,
+		"ControlURLSet": true,
 	}
 	if opt.Hostname != "" {
 		prefs["Hostname"] = opt.Hostname
 		prefs["HostnameSet"] = true
 	}
-	if opt.LoginServer != "" {
-		prefs["ControlURL"] = opt.LoginServer
-		prefs["ControlURLSet"] = true
-	}
 	payload, _ := json.Marshal(prefs)
-	if err := PatchPrefsJSON(string(payload)); err != nil {
+	if _, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(payload))); err != nil {
 		slog.Warn("Could not apply startup preferences", "err", err)
 	}
 }
