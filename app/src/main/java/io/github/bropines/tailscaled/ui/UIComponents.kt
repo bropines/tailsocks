@@ -74,6 +74,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -2890,25 +2891,50 @@ private suspend fun awaitDaemonAnswering() = withContext(Dispatchers.IO) {
 
 private val DAEMON_STARTING_STATES = setOf("", "NoState", "Starting", "Error")
 
+/**
+ * The colours of a highlighted log line. They were pastels picked for a dark page, and on a light
+ * one a value such as `false` or `Running` was near-white on white: each has a darker twin that
+ * keeps its hue and reads on a light background.
+ */
+private class LogPalette(light: Boolean, val text: Color) {
+    val timestamp = if (light) Color(0xFF616161) else Color(0xFF757575)
+    val error = if (light) Color(0xFFC62828) else Color(0xFFEF5350)
+    val core = if (light) Color(0xFF1565C0) else Color(0xFF42A5F5)
+    val tailscale = if (light) Color(0xFF2E7D32) else Color(0xFF66BB6A)
+    val root = if (light) Color(0xFF7B1FA2) else Color(0xFFBA68C8)
+    val logcat = if (light) Color(0xFF00695C) else Color(0xFF26A69A)
+    val other = if (light) Color(0xFFB35300) else Color(0xFFFFA726)
+    val address = if (light) Color(0xFF00695C) else Color(0xFF80DEEA)
+    val key = if (light) Color(0xFF9A4F00) else Color(0xFFFFCC80)
+    val valueGood = if (light) Color(0xFF2E7D32) else Color(0xFFA5D6A7)
+    val valueBad = if (light) Color(0xFFC62828) else Color(0xFFEF9A9A)
+    val valueNumber = if (light) Color(0xFF5E35B1) else Color(0xFFB39DDB)
+    val value = if (light) text else Color(0xFFEEEEEE)
+    val wordGood = if (light) Color(0xFF2E7D32) else Color(0xFF81C784)
+    val wordBad = if (light) Color(0xFFC62828) else Color(0xFFE57373)
+}
+
+/** A log line with its parts coloured; [defaultColor] is the page's text colour, and tells a light page from a dark one. */
 fun highlightLogMessage(
     timestamp: String,
     category: String,
     message: String,
     defaultColor: Color
 ): AnnotatedString {
+    val palette = LogPalette(light = defaultColor.luminance() < 0.5f, text = defaultColor)
     return buildAnnotatedString {
-        withStyle(style = SpanStyle(color = Color(0xFF757575))) {
+        withStyle(style = SpanStyle(color = palette.timestamp)) {
             append(timestamp)
             append(" ")
         }
 
         val catColor = when (category) {
-            "ERROR" -> Color(0xFFEF5350)
-            "CORE" -> Color(0xFF42A5F5)
-            "TAILSCALE" -> Color(0xFF66BB6A)
-            "ROOT" -> Color(0xFFBA68C8)
-            "LOGCAT" -> Color(0xFF26A69A)
-            else -> Color(0xFFFFA726)
+            "ERROR" -> palette.error
+            "CORE" -> palette.core
+            "TAILSCALE" -> palette.tailscale
+            "ROOT" -> palette.root
+            "LOGCAT" -> palette.logcat
+            else -> palette.other
         }
         withStyle(style = SpanStyle(color = catColor, fontWeight = FontWeight.Bold)) {
             append("[")
@@ -2941,26 +2967,26 @@ fun highlightLogMessage(
             val start = match.range.first
             val end = match.range.last + 1
             
-            appendWithKeywords(text.substring(lastIdx, start), defaultColor, successKeywords, errorKeywords)
+            appendWithKeywords(text.substring(lastIdx, start), palette, successKeywords, errorKeywords)
             
             val matchText = match.value
             if (ipRegex.matches(matchText) || ipv6Regex.matches(matchText)) {
-                withStyle(style = SpanStyle(color = Color(0xFF80DEEA), fontWeight = FontWeight.Medium)) {
+                withStyle(style = SpanStyle(color = palette.address, fontWeight = FontWeight.Medium)) {
                     append(matchText)
                 }
             } else {
                 val parts = matchText.split("=", limit = 2)
                 if (parts.size == 2) {
-                    withStyle(style = SpanStyle(color = Color(0xFFFFCC80))) {
+                    withStyle(style = SpanStyle(color = palette.key)) {
                         append(parts[0])
                         append("=")
                     }
                     val valText = parts[1]
                     val valColor = when {
-                        valText.lowercase() in successKeywords -> Color(0xFFA5D6A7)
-                        valText.lowercase() in errorKeywords -> Color(0xFFEF9A9A)
-                        valText.all { it.isDigit() || it == '.' || it == ':' || it == 'm' || it == 's' } -> Color(0xFFB39DDB)
-                        else -> Color(0xFFEEEEEE)
+                        valText.lowercase() in successKeywords -> palette.valueGood
+                        valText.lowercase() in errorKeywords -> palette.valueBad
+                        valText.all { it.isDigit() || it == '.' || it == ':' || it == 'm' || it == 's' } -> palette.valueNumber
+                        else -> palette.value
                     }
                     withStyle(style = SpanStyle(color = valColor)) {
                         append(valText)
@@ -2973,17 +2999,18 @@ fun highlightLogMessage(
         }
         
         if (lastIdx < text.length) {
-            appendWithKeywords(text.substring(lastIdx), defaultColor, successKeywords, errorKeywords)
+            appendWithKeywords(text.substring(lastIdx), palette, successKeywords, errorKeywords)
         }
     }
 }
 
 private fun AnnotatedString.Builder.appendWithKeywords(
     text: String,
-    defaultColor: Color,
+    palette: LogPalette,
     successKeywords: Set<String>,
     errorKeywords: Set<String>
 ) {
+    val defaultColor = palette.text
     val wordRegex = """\b[a-zA-Z_]+\b""".toRegex()
     var lastIdx = 0
     val matches = wordRegex.findAll(text).toList()
@@ -3001,8 +3028,8 @@ private fun AnnotatedString.Builder.appendWithKeywords(
         val word = match.value
         val lowerWord = word.lowercase()
         val wordColor = when {
-            lowerWord in successKeywords -> Color(0xFF81C784)
-            lowerWord in errorKeywords -> Color(0xFFE57373)
+            lowerWord in successKeywords -> palette.wordGood
+            lowerWord in errorKeywords -> palette.wordBad
             else -> defaultColor
         }
         withStyle(style = SpanStyle(color = wordColor, fontWeight = if (wordColor != defaultColor) FontWeight.Bold else FontWeight.Normal)) {
