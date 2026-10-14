@@ -44,10 +44,6 @@ import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -1656,7 +1652,7 @@ private fun PeerDetailsPage(
     val cards = remember(page, strings, path) { peerCards(peer, strings, page.version, page.isSelf, path) }
     val taildrop = remember(page, strings) { peerTaildropStatus(peer, page.isSelf, strings) }
     // The page's parts. A sheet lists them one under another; a pane wide enough for it
-    // keeps the header across the top and stands the cards in a staggered grid under it.
+    // keeps the header across the top and stands the cards in columns under it.
     val identity: @Composable () -> Unit = {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
@@ -1905,20 +1901,32 @@ private fun PeerDetailsPage(
             }
         }
     } else {
-        // Staggered, not a grid of rows: one card opening pushes down only its own column.
-        LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Fixed(columns),
+        // Columns of their own, not a staggered grid: a grid put each card where the columns were
+        // shortest, so a card that opened re-dealt the others, and they changed column under the
+        // eye (and under the remote). Here a card's column is its place in the list
+        // (peerCardColumn); one opening pushes down only the cards under it.
+        LazyColumn(
             modifier = modifier,
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp)
         ) {
-            item(key = "identity", span = StaggeredGridItemSpan.FullLine) { identity() }
-            item(key = "status-strip", span = StaggeredGridItemSpan.FullLine) { statusStrip() }
-            item(key = "actions", span = StaggeredGridItemSpan.FullLine) { actions() }
-            item(key = "connection", span = StaggeredGridItemSpan.FullLine) {
+            item(key = "identity") { identity() }
+            item(key = "status-strip") { statusStrip() }
+            item(key = "actions") { actions() }
+            item(key = "connection") {
                 connection(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp))
             }
-            items(cards, key = { it.group.name }) { card ->
-                infoCard(card, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp))
+            item(key = "cards") {
+                Row(Modifier.fillMaxWidth()) {
+                    dealPeerCards(cards, columns).forEach { column ->
+                        Column(Modifier.weight(1f)) {
+                            column.forEach { card ->
+                                key(card.group) {
+                                    infoCard(card, Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp))
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
