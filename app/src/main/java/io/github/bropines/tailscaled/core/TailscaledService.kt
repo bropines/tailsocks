@@ -1826,18 +1826,17 @@ class TailscaledService : Service() {
                     // daemon, it adds the one allow rule and retries. Without it
                     // a healthy daemon started by the boot script looks dead and
                     // gets killed and restarted below.
-                    val daemonAlive = RootUtils.allowSocketConnect(options.socketPath)
-                    val statusJson = if (daemonAlive) {
-                        kotlinx.coroutines.runBlocking { LocalApiClient { options.socketPath }.getStatus().getOrNull() }
-                    } else null
+                    RootUtils.allowSocketConnect(options.socketPath)
+                    // A daemon that is still coming up — the boot script's, or one
+                    // that outlived the app — is waited for rather than killed:
+                    // see RootAdoption. No daemon process means no wait at all.
+                    val adoption = RootUtils.awaitRootDaemon(options.socketPath) { stale() }
+                    if (stale()) {
+                        Log.i(TAG, "Start abandoned while the root daemon was being waited for")
+                        return@Thread
+                    }
 
-                    val isRunningValid = statusJson != null && !statusJson.contains("\"BackendState\":\"NoState\"")
-
-                    if (isRunningValid) {
-                        if (stale()) {
-                            Log.i(TAG, "Start abandoned before attaching to the root daemon")
-                            return@Thread
-                        }
+                    if (adoption == RootAdoption.Step.ADOPT) {
                         Log.i(TAG, "Root daemon is already running. Attaching to existing socket with full options.")
                         // The daemon keeps whatever the boot script gave it, but the
                         // env file that script reads next boot is brought up to date
@@ -1846,8 +1845,10 @@ class TailscaledService : Service() {
                         RootUtils.writeRootEnvFile(this@TailscaledService, rootDaemonSpec(options))
                         Appctr.attachExternal(options)
                     } else {
-                        if (socketFile.exists()) {
-                            Log.w(TAG, "Root daemon socket is stale or unconfigured. Stopping leftover daemon and restarting.")
+                        // GIVE_UP: a daemon that never answered, socket or not —
+                        // it is killed before another is started beside it.
+                        if (adoption == RootAdoption.Step.GIVE_UP || socketFile.exists()) {
+                            Log.w(TAG, "Root daemon is gone or did not answer ($adoption). Stopping what is left of it and restarting.")
                             RootUtils.stopRootDaemon(options.socketPath)
                             RootUtils.handStateBackToApp(this@TailscaledService)
                         }

@@ -303,8 +303,12 @@ object RootUtils {
      * the pipe buffer (an `iptables -S` dump, for instance) would otherwise block
      * forever, and the shell is killed if `su` never returns — an ungranted root
      * prompt must not hang the caller.
+     *
+     * [quiet] keeps a successful run's output out of the ROOT log: a routine read
+     * whose answer the caller interprets would otherwise fill the tab with dumps.
+     * Failures are logged either way.
      */
-    private fun runSu(tag: String, script: String, timeoutMs: Long = 20_000L): SuResult {
+    private fun runSu(tag: String, script: String, timeoutMs: Long = 20_000L, quiet: Boolean = false): SuResult {
         return try {
             val process = Runtime.getRuntime().exec("su")
             val output = StringBuilder()
@@ -361,7 +365,7 @@ object RootUtils {
                 rootLog("ERROR", "$tag failed (exit $exitCode)${if (text.isEmpty()) "" else ": $text"}")
             } else {
                 Log.d(TAG, "[$tag] exit=0 output=$text")
-                if (text.isNotEmpty()) rootLog("INFO", "$tag: $text")
+                if (text.isNotEmpty() && !quiet) rootLog("INFO", "$tag: $text")
             }
             SuResult(exitCode, text)
         } catch (e: Exception) {
@@ -393,6 +397,72 @@ object RootUtils {
         } catch (e: Exception) {
             Log.d(TAG, "probeSocket: connect failed: ${e.message}")
             e
+        }
+    }
+
+    /**
+     * One look at the daemon a start may adopt: a connect, then the status with a
+     * read timeout. LocalAPI holds a request until the daemon's backend exists,
+     * so without the timeout a daemon on its way up parked the start thread for
+     * as long as it took — and one that never got there, for good.
+     */
+    fun probeDaemon(socketPath: String): RootAdoption.Probe {
+        val error = probeSocket(socketPath)
+        // Denied by policy means it is there; allowSocketConnect, run before the
+        // first probe, is what repairs that, and the status read below fails the
+        // same way until it has.
+        if (error != null && !isPolicyDenial(error)) return RootAdoption.Probe.ABSENT
+        return RootAdoption.classify(localApiGet(socketPath, "/localapi/v0/status", RootAdoption.PROBE_TIMEOUT_MS))
+    }
+
+    /**
+     * Whether a daemon process for this socket exists, as root sees it. Matched by
+     * its `--socket=` argument like [stopRootDaemon]; the app cannot see a root
+     * process in /proc. False when the root shell itself fails — a start then
+     * goes ahead as it always did.
+     */
+    fun isDaemonProcessAlive(socketPath: String): Boolean {
+        val pat = shQuote("--socket=$socketPath")
+        val res = runSu("daemon-alive-check", "pgrep -f -- $pat >/dev/null 2>&1 && echo alive\n", timeoutMs = 10_000L, quiet = true)
+        return res.ok && res.output.contains("alive")
+    }
+
+    /**
+     * Waits for a daemon that exists to answer, within [RootAdoption.BUDGET_MS],
+     * and says what the start does with it ([RootAdoption.next]). A daemon that
+     * answers at once costs one probe; no daemon process costs one root shell.
+     * [cancelled] is asked between probes, so a Stop does not wait out the
+     * budget; that is the one case that returns [RootAdoption.Step.WAIT].
+     */
+    fun awaitRootDaemon(socketPath: String, cancelled: () -> Boolean): RootAdoption.Step {
+        var probe = probeDaemon(socketPath)
+        if (probe == RootAdoption.Probe.READY) return RootAdoption.Step.ADOPT
+        val started = android.os.SystemClock.elapsedRealtime()
+        var alive = isDaemonProcessAlive(socketPath)
+        var aliveCheckedAt = started
+        if (alive) rootLog("INFO", "A root daemon for this app is running but not answering yet ($probe); waiting for it")
+        while (true) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            val step = RootAdoption.next(probe, alive, now - started)
+            if (step != RootAdoption.Step.WAIT || cancelled()) {
+                val waited = now - started
+                when {
+                    step == RootAdoption.Step.ADOPT && waited > 0 ->
+                        rootLog("INFO", "The root daemon answered after ${waited} ms; adopting it")
+                    step == RootAdoption.Step.START_FRESH && waited > RootAdoption.PROBE_INTERVAL_MS ->
+                        rootLog("INFO", "The root daemon went away while it was being waited for (${waited} ms)")
+                    step == RootAdoption.Step.GIVE_UP ->
+                        rootLog("WARN", "The root daemon did not answer within ${waited} ms ($probe); replacing it")
+                }
+                return step
+            }
+            Thread.sleep(RootAdoption.PROBE_INTERVAL_MS)
+            probe = probeDaemon(socketPath)
+            val checked = android.os.SystemClock.elapsedRealtime()
+            if (probe != RootAdoption.Probe.READY && checked - aliveCheckedAt >= RootAdoption.PROCESS_RECHECK_MS) {
+                alive = isDaemonProcessAlive(socketPath)
+                aliveCheckedAt = checked
+            }
         }
     }
 
@@ -1863,8 +1933,10 @@ object RootUtils {
      * Returns the response body, or null when anything at all went wrong — the
      * callers treat "no answer" and "a bad answer" alike.
      */
-    private fun localApiGet(context: Context, path: String, timeoutMs: Int = 3_000): String? {
-        val socketPath = File(context.filesDir, "tailscaled.sock").absolutePath
+    private fun localApiGet(context: Context, path: String, timeoutMs: Int = 3_000): String? =
+        localApiGet(File(context.filesDir, "tailscaled.sock").absolutePath, path, timeoutMs)
+
+    private fun localApiGet(socketPath: String, path: String, timeoutMs: Int): String? {
         return try {
             LocalSocket().use { socket ->
                 socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
