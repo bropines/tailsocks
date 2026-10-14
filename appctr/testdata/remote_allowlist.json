@@ -269,6 +269,19 @@
     "share_added",
     "share_removed"
   ],
+  "denials": [
+    "wrong_token",
+    "user_changed",
+    "class_lost",
+    "op_needs_full",
+    "op_not_allowed",
+    "setting_unknown",
+    "setting_only_at_device",
+    "setting_needs_full",
+    "action_unknown",
+    "permission_unknown",
+    "file_outside_storage"
+  ],
   "guardSeconds": 60,
   "guardSettle": 5
 }

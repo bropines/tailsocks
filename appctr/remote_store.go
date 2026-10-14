@@ -201,6 +201,13 @@ func (s *remoteStore) decode(raw []byte) error {
 	if len(d.Audit) > remoteAuditMax {
 		d.Audit = d.Audit[len(d.Audit)-remoteAuditMax:]
 	}
+	// A refusal used to be logged as a sentence; the app has words for the
+	// reason's name only.
+	for i := range d.Audit {
+		if d.Audit[i].Op == "denied" {
+			d.Audit[i].Detail = remoteDenialOfSentence(d.Audit[i].Detail)
+		}
+	}
 	s.data = d
 	return nil
 }

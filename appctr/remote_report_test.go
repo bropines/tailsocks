@@ -473,7 +473,7 @@ func TestRemoteOneWay(t *testing.T) {
 	}
 	found := false
 	for _, ev := range r.m.actions() {
-		found = found || (ev.Op == "denied" && (strings.HasPrefix(ev.Detail, "only at the device: ") || strings.HasPrefix(ev.Detail, "full control is off: ")))
+		found = found || (ev.Op == "denied" && (strings.HasPrefix(ev.Detail, "setting_only_at_device: ") || strings.HasPrefix(ev.Detail, "setting_needs_full: ")))
 	}
 	if !found {
 		t.Errorf("the refusal is not in the log: %+v", r.m.actions())

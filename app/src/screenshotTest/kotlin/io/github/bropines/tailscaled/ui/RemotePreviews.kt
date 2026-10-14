@@ -96,7 +96,7 @@ private val ipad = RemotePairedDevice(
 private val log = listOf(
     RemoteEvent(NOW_S - 130, "nP9pixelCNTRL", "pixel-9-pro", "owner", "exit_node", "exit-frankfurt", true),
     RemoteEvent(NOW_S - 600, "nP9pixelCNTRL", "pixel-9-pro", "owner", "setting", "accept_routes=true", true),
-    RemoteEvent(NOW_S - 2_000, "nB7annCNTRL", "ann-iphone", "guest", "denied", "settings.set: not for a guest", false),
+    RemoteEvent(NOW_S - 2_000, "nB7annCNTRL", "ann-iphone", "guest", "denied", "op_not_allowed: settings.set", false),
     RemoteEvent(NOW_S - 4_000, "nP9pixelCNTRL", "pixel-9-pro", "owner", "action", "reconnect (no answer from the app yet)", false),
     RemoteEvent(NOW_S - 9_000, "nP9pixelCNTRL", "pixel-9-pro", "owner", "file_deleted", "holiday.mp4", true),
     RemoteEvent(NOW_S - 10_800, "nB7annCNTRL", "ann-iphone", "guest", "paired", "", true),

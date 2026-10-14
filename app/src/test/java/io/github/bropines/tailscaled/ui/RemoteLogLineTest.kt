@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.File
 
@@ -28,6 +29,9 @@ class RemoteLogLineTest {
     private data class ListedSetting(val key: String = "", val writable: Boolean = false)
 
     @Serializable
+    private data class ListedOp(val op: String = "", val full: Boolean = false)
+
+    @Serializable
     private data class Allowlist(
         val settings: List<ListedSetting> = emptyList(),
         val actions: List<String> = emptyList(),
@@ -36,6 +40,10 @@ class RemoteLogLineTest {
         val identifyResults: List<String> = emptyList(),
         /** The lines the device also says on its own screen. */
         val notices: List<String> = emptyList(),
+        /** Every operation, and whether it takes full control. */
+        val ops: List<ListedOp> = emptyList(),
+        /** Every reason a refusal is logged with. */
+        val denials: List<String> = emptyList(),
     )
 
     private val listed: Allowlist = AppJson.decodeFromString(File("../appctr/testdata/remote_allowlist.json").readText())
@@ -143,6 +151,67 @@ class RemoteLogLineTest {
         for (remark in RemoteAccessWords.remarks.keys) assertInWords("action", "${listed.actions.first()} $remark")
     }
 
+    /**
+     * A refusal is logged with a reason's name and what it was about, and nothing of the
+     * bridge's own is left in the line: «Отказано: the device no longer qualifies as guest»
+     * was one, when the reason was a sentence.
+     */
+    @Test
+    fun everyReasonForARefusalIsInWords() {
+        assertTrue("the reasons the bridge refuses with", listed.denials.size >= 11 && listed.ops.any { it.full })
+        for (why in listed.denials) {
+            when (why) {
+                "wrong_token", "user_changed" -> assertInWords("denied", why)
+                "class_lost" -> for (was in listOf("guest", "owner")) assertInWords("denied", "$why: $was")
+                // An operation, which has words here: any of them may be refused, those that take full control for that as well.
+                "op_not_allowed" -> for (op in listed.ops) assertInWords("denied", "$why: ${op.op}")
+                "op_needs_full" -> for (op in listed.ops.filter { it.full }) assertInWords("denied", "$why: ${op.op}")
+                // A setting with the value asked for.
+                "setting_only_at_device", "setting_needs_full" -> for (key in changeable - RemoteDeviceKeys.EXIT_NODE) {
+                    for (value in listOf("true", "false", "", "10.0.0.0/8,192.168.5.0/24")) assertInWords("denied", "$why: $key=$value")
+                }
+                // The rest name what the other device sent, as it sent it: the name is its own, the words around it the app's.
+                "setting_unknown", "action_unknown", "permission_unknown", "file_outside_storage" -> assertInWords("denied", "$why: 42")
+                else -> fail("the bridge refuses with \"$why\", and nothing here says what that is about")
+            }
+        }
+    }
+
+    @Test
+    fun aRefusalSaysWhy() {
+        assertEquals("Refused: guests are not let in now", en("denied", "class_lost: guest", ok = false))
+        assertEquals("Отказано: гостей сейчас не пускают", ru("denied", "class_lost: guest", ok = false))
+        assertEquals(
+            "Отказано: оно сопряжено как владелец, но владельцем больше не считается — нужно сопрячь заново",
+            ru("denied", "class_lost: owner")
+        )
+        assertEquals("Refused: its pairing key is not the one this device gave it", en("denied", "wrong_token"))
+        assertEquals("Отказано: устройство теперь в другом аккаунте", ru("denied", "user_changed"))
+        // What was asked for is named the way the page's own list of what a device may do names it.
+        assertEquals("Refused: it is not allowed to change settings", en("denied", "op_not_allowed: settings.set"))
+        assertEquals("Отказано: ему нельзя менять настройки", ru("denied", "op_not_allowed: settings.set"))
+        assertEquals("Отказано: ему нельзя посмотреть отчёт диагностики", ru("denied", "op_not_allowed: diag.report"))
+        assertEquals(
+            "Refused: full control is off, and it takes that to see the name of every file in this device's storage",
+            en("denied", "op_needs_full: storage.list")
+        )
+        assertEquals(
+            "Отказано: полный доступ выключен, а без него нельзя открыть общий доступ к новой папке",
+            ru("denied", "op_needs_full: shares.add")
+        )
+        assertEquals(
+            "Refused: starting after a reboot (off) — this way round it is changed only at the device itself",
+            en("denied", "setting_only_at_device: auto_start=false")
+        )
+        assertEquals(
+            "Отказано: раздаваемые подсети (10.0.0.0/8) — полный доступ выключен",
+            ru("denied", "setting_needs_full: advertise_routes=10.0.0.0/8")
+        )
+        // A name the other device made up is shown as it came, signs and all.
+        assertEquals("Refused: no such setting to change remotely: login_server", en("denied", "setting_unknown: login_server"))
+        assertEquals("Отказано: файл вне памяти устройства: a: b (1).txt", ru("denied", "file_outside_storage: a: b (1).txt"))
+    }
+
     @Test
     fun aRequestsCardAndNotificationNameEveryPermissionThatCanBeAskedFor() {
         for (id in listed.askable) {
@@ -182,6 +251,7 @@ class RemoteLogLineTest {
     fun theWordsAreInBothLanguages() {
         everyChangeSaidOnTheScreenIsInWords()
         everyOtherLineOfTheLogIsInWords()
+        everyReasonForARefusalIsInWords()
         assertTrue("strings read: ${used.size}", used.size > 40)
         for (name in used) {
             assertTrue("$name has no English", name in english.text)
@@ -244,5 +314,8 @@ class RemoteLogLineTest {
         assertEquals("Setting: something_new (on)", en("setting", "something_new=true"))
         assertEquals("Action: polish_the_screen", en("action", "polish_the_screen"))
         assertEquals("something_new", en("something_new", "accept_routes=true"))
+        // The same for a refusal: a reason, or an operation, that this build has no words for.
+        assertEquals("Refused: polish_the_screen: 42", en("denied", "polish_the_screen: 42"))
+        assertEquals("Refused: it is not allowed screen.polish", en("denied", "op_not_allowed: screen.polish"))
     }
 }

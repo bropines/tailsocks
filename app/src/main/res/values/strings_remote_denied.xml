@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Recent remote changes": why a paired device was refused. Each of these follows "Refused: ". -->
+    <string name="remote_denied_wrong_token">its pairing key is not the one this device gave it</string>
+    <string name="remote_denied_user_changed">the device belongs to another account now</string>
+    <string name="remote_denied_class_lost_owner">it paired as an owner and is not one any more: it has to pair again</string>
+    <string name="remote_denied_class_lost_guest">guests are not let in now</string>
+    <!-- %1$s: what was asked for, as one of the two below words it: "to see the settings", "to change settings" -->
+    <string name="remote_denied_op_needs_full">full control is off, and it takes that %1$s</string>
+    <string name="remote_denied_op_not_allowed">it is not allowed %1$s</string>
+    <!-- %1$s: something that is seen, "the settings" -->
+    <string name="remote_denied_to_see">to see %1$s</string>
+    <!-- %1$s: something that is done, "change settings" -->
+    <string name="remote_denied_to_do">to %1$s</string>
+    <!-- %1$s: a setting and the value asked for, "MagicDNS (off)" -->
+    <string name="remote_denied_setting_only_at_device">%1$s — this way round it is changed only at the device itself</string>
+    <string name="remote_denied_setting_needs_full">%1$s — full control is off</string>
+    <!-- %1$s: a name as the other device sent it -->
+    <string name="remote_denied_setting_unknown">no such setting to change remotely: %1$s</string>
+    <string name="remote_denied_action_unknown">no such action to run remotely: %1$s</string>
+    <string name="remote_denied_permission_unknown">no such permission to ask for remotely: %1$s</string>
+    <string name="remote_denied_file_outside_storage">a file outside this device\'s storage: %1$s</string>
+</resources>

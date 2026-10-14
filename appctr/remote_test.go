@@ -560,7 +560,25 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	r.m.loadFacts()
 	r.start()
 	t.Cleanup(func() { r.m.configure(false, "") })
+	// Whatever a test had refused is in the log under a reason's name: the app
+	// has words for those and shows anything else as it is (remoteDenial).
+	t.Cleanup(func() {
+		for _, ev := range r.m.actions() {
+			if name, _, _ := strings.Cut(ev.Detail, ": "); ev.Op == "denied" && !rtIsDenialName(name) {
+				t.Errorf("a refusal went into the log in the bridge's own words: %q", ev.Detail)
+			}
+		}
+	})
 	return r
+}
+
+func rtIsDenialName(name string) bool {
+	for _, n := range remoteDenialNames {
+		if n == name {
+			return true
+		}
+	}
+	return false
 }
 
 // start switches the endpoint on and gives it a listener on a free port.

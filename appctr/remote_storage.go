@@ -336,7 +336,7 @@ func (m *remoteManager) handleStorageSend(rq *remoteRequest) (int, any) {
 		if missing {
 			return http.StatusNotFound, remoteError{Error: "not_found"}
 		}
-		m.noteDenied(rq.caller, rq.class, "a file outside the storage: "+remoteClean(filepath.Base(got.Path), 60))
+		m.noteDenied(rq.caller, rq.class, remoteDeniedFile, remoteClean(filepath.Base(got.Path), 60))
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "not a file on this device's storage"}
 	}
 	fi, err := os.Lstat(got.Path)

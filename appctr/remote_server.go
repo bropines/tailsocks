@@ -202,11 +202,11 @@ func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		if ok, needsFull := m.may(route.op, class); !ok {
 			if needsFull {
 				// The caller's, at a level the device is not at.
-				m.noteDenied(caller, class, route.op+": full control is off")
+				m.noteDenied(caller, class, remoteDeniedOpLevel, route.op)
 				remoteWrite(w, http.StatusForbidden, remoteNeedsFull)
 				return
 			}
-			m.noteDenied(caller, class, route.op+": not for a "+class.String())
+			m.noteDenied(caller, class, remoteDeniedOp, route.op)
 			remoteWrite(w, http.StatusForbidden, remoteError{Error: "forbidden"})
 			return
 		}
@@ -290,7 +290,7 @@ func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string)
 			// The node is paired and something on it presented a token that
 			// is not the one issued: another app guessing, or the app after
 			// the pairing was replaced.
-			m.noteDeniedLocked(c, remoteClassOf(p.Class), "wrong token")
+			m.noteDeniedLocked(c, remoteClassOf(p.Class), remoteDeniedToken, "")
 		}
 		return remoteNobody, 0, false
 	}
@@ -298,13 +298,13 @@ func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string)
 	switch {
 	case p.UserID != c.UserID:
 		// The node changed hands since it paired.
-		m.noteDeniedLocked(c, class, "the device belongs to another user now")
+		m.noteDeniedLocked(c, class, remoteDeniedUser, "")
 		return remoteNobody, 0, false
 	case now < class:
 		// It paired as an owner and is no longer one — it was tagged, or this
 		// node was — or guests are no longer let in at all. Pairing again
 		// settles what it is now.
-		m.noteDeniedLocked(c, class, "the device no longer qualifies as "+class.String())
+		m.noteDeniedLocked(c, class, remoteDeniedClass, class.String())
 		return remoteNobody, 0, false
 	}
 	p.LastUsed = m.clock.Now().Unix()
@@ -318,16 +318,103 @@ func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string)
 // log: the log is short and every line is a write to flash.
 const remoteDeniedEvery = 10 * time.Minute
 
-func (m *remoteManager) noteDenied(c remoteCaller, class remoteClass, why string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.noteDeniedLocked(c, class, why)
+// remoteDenial is why a request was refused, as a "denied" line of the action
+// log says it: the line's detail is the reason's name and, after ": ", what the
+// refusal was about — an operation, a setting with the value asked for, a name
+// as it came. A name and never a sentence: the app puts the line in words in
+// the language of its screen (ui/RemoteLogLine.kt), and a sentence written here
+// would be shown as it is. testdata/remote_allowlist.json holds both halves to
+// this list.
+type remoteDenial int
+
+const (
+	remoteDeniedToken        remoteDenial = iota // a paired node presented a token that is not the one issued
+	remoteDeniedUser                             // the node belongs to another user than when it paired
+	remoteDeniedClass                            // + the class it paired as and no longer is
+	remoteDeniedOpLevel                          // + the operation: it takes full control, which is off
+	remoteDeniedOp                               // + the operation: not for a caller of this class
+	remoteDeniedSetting                          // + the key as it came: not a setting that is written from afar
+	remoteDeniedSettingOnly                      // + key=value: that way round, only at the device
+	remoteDeniedSettingLevel                     // + key=value: it takes full control, which is off
+	remoteDeniedAction                           // + the name as it came: not an action
+	remoteDeniedPermission                       // + the name as it came: not a permission that can be asked for
+	remoteDeniedFile                             // + the file's name: the app named a file outside the storage
+	remoteDenialCount
+)
+
+var remoteDenialNames = [remoteDenialCount]string{
+	remoteDeniedToken:        "wrong_token",
+	remoteDeniedUser:         "user_changed",
+	remoteDeniedClass:        "class_lost",
+	remoteDeniedOpLevel:      "op_needs_full",
+	remoteDeniedOp:           "op_not_allowed",
+	remoteDeniedSetting:      "setting_unknown",
+	remoteDeniedSettingOnly:  "setting_only_at_device",
+	remoteDeniedSettingLevel: "setting_needs_full",
+	remoteDeniedAction:       "action_unknown",
+	remoteDeniedPermission:   "permission_unknown",
+	remoteDeniedFile:         "file_outside_storage",
 }
 
-func (m *remoteManager) noteDeniedLocked(c remoteCaller, class remoteClass, why string) {
+// detail is the "denied" line's detail for this reason and what it was about.
+func (d remoteDenial) detail(about string) string {
+	if about == "" {
+		return remoteDenialNames[d]
+	}
+	return remoteDenialNames[d] + ": " + about
+}
+
+// remoteDenialOfSentence rewrites the detail of a "denied" line from before the
+// reasons had names — an English sentence — the way it is written now; any
+// other detail comes back as it is. The store passes its lines through this
+// when it is read, so the log of an older version (4.10.2 and before) is put in
+// words like a new one.
+func remoteDenialOfSentence(detail string) string {
+	switch detail {
+	case "wrong token":
+		return remoteDeniedToken.detail("")
+	case "the device belongs to another user now":
+		return remoteDeniedUser.detail("")
+	}
+	for _, old := range []struct {
+		prefix string
+		why    remoteDenial
+	}{
+		{"the device no longer qualifies as ", remoteDeniedClass},
+		{"setting not on the list: ", remoteDeniedSetting},
+		{"only at the device: ", remoteDeniedSettingOnly},
+		{"full control is off: ", remoteDeniedSettingLevel},
+		{"action not on the list: ", remoteDeniedAction},
+		{"permission not on the list: ", remoteDeniedPermission},
+		{"a file outside the storage: ", remoteDeniedFile},
+	} {
+		if about, ok := strings.CutPrefix(detail, old.prefix); ok {
+			return old.why.detail(about)
+		}
+	}
+	// The two that began with the operation. Only for a name that is one: a
+	// line written now may end the same way by what it is about.
+	isOp := func(op string) bool { _, ok := remoteDefaultPolicy().Rights[op]; return ok }
+	if op, ok := strings.CutSuffix(detail, ": full control is off"); ok && isOp(op) {
+		return remoteDeniedOpLevel.detail(op)
+	}
+	if op, _, ok := strings.Cut(detail, ": not for a "); ok && isOp(op) {
+		return remoteDeniedOp.detail(op)
+	}
+	return detail
+}
+
+func (m *remoteManager) noteDenied(c remoteCaller, class remoteClass, reason remoteDenial, about string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.noteDeniedLocked(c, class, reason, about)
+}
+
+func (m *remoteManager) noteDeniedLocked(c remoteCaller, class remoteClass, reason remoteDenial, about string) {
 	if m.store == nil {
 		return
 	}
+	why := reason.detail(about)
 	now := m.clock.Now().Unix()
 	a := m.store.data.Audit
 	for i := len(a) - 1; i >= 0; i-- {
@@ -961,7 +1048,7 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 	s, ok := remoteSettingFor(in.Key)
 	if !ok || !s.writable {
 		// The app is not asked: a key that is not on the list does not exist.
-		m.noteDenied(rq.caller, rq.class, "setting not on the list: "+remoteClean(in.Key, 40))
+		m.noteDenied(rq.caller, rq.class, remoteDeniedSetting, remoteClean(in.Key, 40))
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "not a remote setting"}
 	}
 	if !remoteValueFits(s, in.Value) {
@@ -975,10 +1062,10 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 	switch remoteSettingRefusal(s, value, m.fullControl()) {
 	case "only":
 		// The app is not asked: from afar this switch goes one way.
-		m.noteDenied(rq.caller, rq.class, "only at the device: "+s.key+"="+value)
+		m.noteDenied(rq.caller, rq.class, remoteDeniedSettingOnly, s.key+"="+value)
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "that way round, only at the device"}
 	case "full":
-		m.noteDenied(rq.caller, rq.class, "full control is off: "+s.key+"="+value)
+		m.noteDenied(rq.caller, rq.class, remoteDeniedSettingLevel, s.key+"="+value)
 		return http.StatusForbidden, remoteNeedsFull
 	}
 	detail := s.key + "=" + value
@@ -1007,7 +1094,7 @@ func (m *remoteManager) handleAction(rq *remoteRequest) (int, any) {
 		return http.StatusBadRequest, remoteError{Error: "bad_request"}
 	}
 	if !remoteActionKnown(in.Action) {
-		m.noteDenied(rq.caller, rq.class, "action not on the list: "+remoteClean(in.Action, 40))
+		m.noteDenied(rq.caller, rq.class, remoteDeniedAction, remoteClean(in.Action, 40))
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "not a remote action"}
 	}
 	if in.Action == remoteActionRelays {

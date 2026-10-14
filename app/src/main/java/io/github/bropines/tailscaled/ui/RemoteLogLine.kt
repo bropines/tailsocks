@@ -38,25 +38,59 @@ internal fun remoteEventLine(op: String, detail: String, ok: Boolean, text: (Int
         else -> "$line $remark"
     }
 
-    // A node's, a file's or a share's name, or a refusal's reason: the detail is the bridge's
-    // and is never taken apart — a name may hold any sign. Only a remark of the bridge's own
-    // at its end is taken off it and said in words.
+    // A node's, a file's or a share's name: the detail is the bridge's and is never taken
+    // apart — a name may hold any sign. Only a remark of the bridge's own at its end is taken
+    // off it and said in words.
     fun named(@StringRes title: Int): String {
         val remark = words.remarks.keys.firstOrNull { detail.endsWith(" $it") } ?: return titled(title, detail)
         return remarked(titled(title, detail.removeSuffix(" $remark")), remark)
     }
 
     // "accept_routes=true" as "accepting subnet routes (on)"; the exit node, which the log names without a value, alone.
-    fun changed(): String {
-        val what = word(parts.name, words.changed)
-        val value = when (parts.value) {
+    fun changed(of: RemoteLogDetail = parts): String {
+        val what = word(of.name, words.changed)
+        val value = when (of.value) {
             null -> return what
             "true" -> text(R.string.remote_log_on)
             "false" -> text(R.string.remote_log_off)
             "" -> text(R.string.remote_log_none)
-            else -> parts.value
+            else -> of.value
         }
         return noted(what, value)
+    }
+
+    // A refusal. The detail is the reason's name from the bridge's list (its remoteDenial) and,
+    // after ": ", what the refusal was about: an operation or a setting, which have words
+    // here, or a name the other device sent, which is its own and is shown as it came. A
+    // reason this app has no words for is shown as the bridge wrote it.
+    fun denied(): String {
+        val why = detail.substringBefore(": ")
+        val about = detail.substringAfter(": ", "")
+        // What was asked for, as it reads after "not allowed": "to see the settings", "to change settings".
+        fun asked(): String = when (about) {
+            in words.seen -> filled(R.string.remote_denied_to_see, word(about, words.seen))
+            in words.done -> filled(R.string.remote_denied_to_do, word(about, words.done))
+            else -> about
+        }
+        val reason = when (why) {
+            "wrong_token" -> text(R.string.remote_denied_wrong_token)
+            "user_changed" -> text(R.string.remote_denied_user_changed)
+            "class_lost" -> when (about) {
+                "owner" -> text(R.string.remote_denied_class_lost_owner)
+                "guest" -> text(R.string.remote_denied_class_lost_guest)
+                else -> detail
+            }
+            "op_needs_full" -> filled(R.string.remote_denied_op_needs_full, asked())
+            "op_not_allowed" -> filled(R.string.remote_denied_op_not_allowed, asked())
+            "setting_only_at_device" -> filled(R.string.remote_denied_setting_only_at_device, changed(remoteLogDetail(about)))
+            "setting_needs_full" -> filled(R.string.remote_denied_setting_needs_full, changed(remoteLogDetail(about)))
+            "setting_unknown" -> filled(R.string.remote_denied_setting_unknown, about)
+            "action_unknown" -> filled(R.string.remote_denied_action_unknown, about)
+            "permission_unknown" -> filled(R.string.remote_denied_permission_unknown, about)
+            "file_outside_storage" -> filled(R.string.remote_denied_file_outside_storage, about)
+            else -> detail
+        }
+        return titled(R.string.remote_op_denied, reason)
     }
 
     // A change the device put back by itself: because nobody confirmed it, in the bridge's two wordings of that, or in its own words otherwise.
@@ -82,7 +116,7 @@ internal fun remoteEventLine(op: String, detail: String, ok: Boolean, text: (Int
         "browse" -> text(R.string.remote_log_browse)
         "exit_node" -> named(R.string.remote_op_exit_node)
         "file_deleted" -> named(R.string.remote_op_file_deleted)
-        "denied" -> named(R.string.remote_op_denied)
+        "denied" -> denied()
         "share_added" -> named(R.string.remote_log_share_added)
         "share_removed" -> named(R.string.remote_log_share_removed)
         "file_sent" -> named(R.string.remote_log_file_sent)

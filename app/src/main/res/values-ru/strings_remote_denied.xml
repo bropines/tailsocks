@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Recent remote changes": why a paired device was refused. Each of these follows "Refused: ". -->
+    <string name="remote_denied_wrong_token">ключ сопряжения не тот, что выдало это устройство</string>
+    <string name="remote_denied_user_changed">устройство теперь в другом аккаунте</string>
+    <string name="remote_denied_class_lost_owner">оно сопряжено как владелец, но владельцем больше не считается — нужно сопрячь заново</string>
+    <string name="remote_denied_class_lost_guest">гостей сейчас не пускают</string>
+    <!-- %1$s: what was asked for, as one of the two below words it: "to see the settings", "to change settings" -->
+    <string name="remote_denied_op_needs_full">полный доступ выключен, а без него нельзя %1$s</string>
+    <string name="remote_denied_op_not_allowed">ему нельзя %1$s</string>
+    <!-- %1$s: something that is seen, "the settings" -->
+    <string name="remote_denied_to_see">посмотреть %1$s</string>
+    <!-- %1$s: something that is done, "change settings" -->
+    <string name="remote_denied_to_do">%1$s</string>
+    <!-- %1$s: a setting and the value asked for, "MagicDNS (off)" -->
+    <string name="remote_denied_setting_only_at_device">%1$s — в эту сторону меняется только на самом устройстве</string>
+    <string name="remote_denied_setting_needs_full">%1$s — полный доступ выключен</string>
+    <!-- %1$s: a name as the other device sent it -->
+    <string name="remote_denied_setting_unknown">такой настройки для удалённого управления нет: %1$s</string>
+    <string name="remote_denied_action_unknown">такого действия для удалённого управления нет: %1$s</string>
+    <string name="remote_denied_permission_unknown">такое разрешение удалённо не запрашивается: %1$s</string>
+    <string name="remote_denied_file_outside_storage">файл вне памяти устройства: %1$s</string>
+</resources>

@@ -68,6 +68,9 @@ type rtAllowList struct {
 	// Notices is which lines of the action log the device also says on its
 	// own screen: the app must have words for each (remote_app.go).
 	Notices []string `json:"notices"`
+	// Denials is every reason a "denied" line of the action log can name: the
+	// app must have words for each (remoteDenial).
+	Denials []string `json:"denials"`
 	// The guard's two knobs, in seconds.
 	GuardSeconds int64 `json:"guardSeconds"`
 	GuardSettle  int64 `json:"guardSettle"`
@@ -108,6 +111,7 @@ func rtCurrentAllowList() rtAllowList {
 		Caps:         append([]string(nil), remoteCaps...),
 		Never:        append([]string(nil), remoteNever...),
 		Notices:      rtSortedKeys(remoteNoticeOps),
+		Denials:      append([]string(nil), remoteDenialNames[:]...),
 		GuardSeconds: int64(p.GuardTTL / time.Second),
 		GuardSettle:  int64(p.GuardSettle / time.Second),
 	}
@@ -126,6 +130,95 @@ func rtCurrentAllowList() rtAllowList {
 		l.Ops = append(l.Ops, rtAllowedOp{Op: op, Class: p.Rights[op].String(), Full: p.Full[op]})
 	}
 	return l
+}
+
+// A refusal is logged under a name the app has words for, never as a sentence
+// of the bridge's: every reason has a name of its own, a key and not a phrase.
+func TestRemoteDenialNames(t *testing.T) {
+	seen := map[string]bool{}
+	for d, name := range remoteDenialNames {
+		if name == "" {
+			t.Errorf("reason %d has no name", d)
+		}
+		if seen[name] {
+			t.Errorf("two reasons are named %q", name)
+		}
+		seen[name] = true
+		if strings.Trim(name, "abcdefghijklmnopqrstuvwxyz_") != "" {
+			t.Errorf("%q is not a key", name)
+		}
+	}
+	if got := remoteDeniedToken.detail(""); got != "wrong_token" {
+		t.Errorf("a reason alone: %q", got)
+	}
+	if got := remoteDeniedSettingOnly.detail("auto_start=false"); got != "setting_only_at_device: auto_start=false" {
+		t.Errorf("a reason and what it was about: %q", got)
+	}
+}
+
+// What versions up to 4.10.2 wrote into the log, sentence by sentence, and what
+// each is read as now. A line written now is left alone.
+func TestRemoteDenialOfSentence(t *testing.T) {
+	for old, want := range map[string]string{
+		"wrong token":                                      "wrong_token",
+		"the device belongs to another user now":           "user_changed",
+		"the device no longer qualifies as guest":          "class_lost: guest",
+		"the device no longer qualifies as owner":          "class_lost: owner",
+		"storage.list: full control is off":                "op_needs_full: storage.list",
+		"settings.set: not for a guest":                    "op_not_allowed: settings.set",
+		"setting not on the list: login_server":            "setting_unknown: login_server",
+		"only at the device: auto_start=false":             "setting_only_at_device: auto_start=false",
+		"full control is off: advertise_routes=10.0.0.0/8": "setting_needs_full: advertise_routes=10.0.0.0/8",
+		"action not on the list: stop":                     "action_unknown: stop",
+		"permission not on the list: vpn":                  "permission_unknown: vpn",
+		"a file outside the storage: a: b (1).txt":         "file_outside_storage: a: b (1).txt",
+	} {
+		got := remoteDenialOfSentence(old)
+		if got != want {
+			t.Errorf("%q is read as %q, want %q", old, got, want)
+		}
+		if name, _, _ := strings.Cut(got, ": "); !rtIsDenialName(name) {
+			t.Errorf("%q is read as %q, which names no reason", old, got)
+		}
+		if again := remoteDenialOfSentence(got); again != got {
+			t.Errorf("%q, read again, is %q", got, again)
+		}
+	}
+	// What a line is about may look like the end of an old sentence.
+	for _, now := range []string{
+		"setting_unknown: x: full control is off",
+		"file_outside_storage: notes: not for a guest",
+		"action_unknown: wrong token",
+	} {
+		if got := remoteDenialOfSentence(now); got != now {
+			t.Errorf("%q was taken for an old sentence: %q", now, got)
+		}
+	}
+}
+
+// The log of an older version is read with its refusals named.
+func TestRemoteStoreReadsOldDenials(t *testing.T) {
+	d := remoteStoreData{Version: remoteStoreVersion, Self: "nSELF", Audit: []remoteEvent{
+		{Time: 1, NodeID: "nA", Name: "phone", Class: "guest", Op: "denied", Detail: "the device no longer qualifies as guest"},
+		{Time: 2, NodeID: "nA", Name: "phone", Class: "owner", Op: "setting", Detail: "accept_dns=true", OK: true},
+		{Time: 3, NodeID: "nB", Name: "tablet", Class: "owner", Op: "denied", Detail: "op_needs_full: storage.list"},
+	}}
+	raw, _ := json.Marshal(d)
+	path := filepath.Join(t.TempDir(), "remote", "p.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := openRemoteStore(path, newRemoteFakeClock())
+	var got []string
+	for _, ev := range s.data.Audit {
+		got = append(got, ev.Detail)
+	}
+	if want := "class_lost: guest|accept_dns=true|op_needs_full: storage.list"; strings.Join(got, "|") != want {
+		t.Errorf("read back %q, want %q", strings.Join(got, "|"), want)
+	}
 }
 
 // The allow-lists are exactly the file both halves are tested against;

@@ -357,7 +357,7 @@ func (m *remoteManager) handleAskPermission(rq *remoteRequest) (int, any) {
 	}
 	if !remoteAskable[in.Permission] {
 		// The app is not asked: a name that is not on the list does not exist.
-		m.noteDenied(rq.caller, rq.class, "permission not on the list: "+remoteClean(in.Permission, 40))
+		m.noteDenied(rq.caller, rq.class, remoteDeniedPermission, remoteClean(in.Permission, 40))
 		return http.StatusForbidden, remoteError{Error: "forbidden", Message: "not a permission that can be asked for"}
 	}
 	if !m.asks.allow(rq.caller.NodeID) {
