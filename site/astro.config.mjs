@@ -27,7 +27,12 @@ export default defineConfig({
 				{
 					label: 'Start',
 					translations: { ru: 'Начало' },
-					items: [{ slug: 'getting-started' }, { slug: 'connection-modes' }],
+					items: [
+						{ slug: 'getting-started' },
+						{ slug: 'connection-modes' },
+						{ slug: 'root-mode' },
+						{ slug: 'root-mode-internals' },
+					],
 				},
 				{
 					label: 'Features',
@@ -43,6 +48,11 @@ export default defineConfig({
 					label: 'Experimental',
 					translations: { ru: 'Экспериментальное' },
 					items: [{ slug: 'remote-management' }, { slug: 'android-tv' }],
+				},
+				{
+					label: 'Changelog',
+					translations: { ru: 'Список изменений' },
+					items: [{ slug: 'changelog' }],
 				},
 				{
 					label: 'Help',

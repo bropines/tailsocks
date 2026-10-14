@@ -36,22 +36,206 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 
 Где строка живёт, решает устройство: на телевизоре Root-режим и тема лежат в «Дополнительно», и ссылка всё равно их найдёт.
 
-### Разделы и строки
+## Все настройки
 
-Строки — это id из каталога настроек приложения ([`SettingsCatalog.kt`](https://github.com/bropines/tailsocks/blob/main/app/src/main/java/io/github/bropines/tailscaled/ui/SettingsCatalog.kt)).
+Каждая страница и каждая строка — так, как их называет приложение. Пометка под строкой говорит, когда её бывает не видно; тогда ссылка откроет строку, которая её включает.
 
-| Раздел | Строки |
+<!-- settings-table:start -->
+
+### Оформление и язык
+
+`tailsocks://settings/appearance`
+
+| Настройка | Ссылка |
 |---|---|
-| `appearance` | `theme_mode`, `language`, `ui_scale`, `interface`, `palette`, `app_icon`, `qr_style`, `dynamic_color`, `amoled`, `show_changelog`, `connection_summary`, `managed_on_main`, `update_check`, `update_beta` |
-| `account` | `login_server`, `auth_key`, `device_name`, `exit_node`, `exit_node_lan`, `accept_routes`, `advertise_exit_node`, `honest_hostinfo`, `shields_up`, `posture`, `tailnet_lock`, `advertise_routes`, `advertise_tags`, `relay`, `relay_port`, `app_connector`, `logout` |
-| `tunnel` | `mode_proxy`, `mode_vpn`, `mode_root`, `tun_engine`, `tun_uses_socks`, `tun_ipv6`, `tun_address`, `tun_excluded_cidrs`, `tun_excluded_apps`, `root_tun`, `root_service`, `root_cli`, `root_vpn_bypass`, `root_take_device`, `root_kill_daemon` |
-| `proxies` | `socks5_address`, `socks5_username`, `socks5_password`, `sagernet_link`, `http_enable`, `http_address`, `lan_access` |
-| `dns` | `magicdns`, `dns_proxy_address`, `root_dns_redirect`, `dns_fallbacks`, `doh_fallback`, `dns_screen` |
-| `bypass` | `control_proxy`, `byedpi`, `byedpi_flags`, `byedpi_ipv6`, `control_port`, `netmap_cache`, `netmap_cache_clear` |
-| `sharing` | `taildrop_folder`, `taildrive`, `serve`, `web_ui`, `web_ui_address` |
-| `background` | `permissions`, `autostart`, `auto_reconnect`, `auto_reconnect_attempts`, `watchdog`, `keep_awake` |
-| `backup` | `backup_full`, `restore_full`, `profile_export`, `profile_import` |
-| `automation` | `automation_enable`, `automation_token`, `admin_console` |
-| `diagnostics` | `live_state`, `detailed_logs`, `extra_args`, `root_daemon_info`, `logs`, `console`, `netcheck`, `show_onboarding` |
-| `advanced` | `remote_management` |
-| `theme`, `root` | страницы темы и Root-режима, где бы устройство их ни держало |
+| Тема оформления<br><small>На телевизоре: Дополнительно → Тема и иконка</small> | `tailsocks://settings/appearance/theme_mode` |
+| Язык приложения | `tailsocks://settings/appearance/language` |
+| Масштаб интерфейса | `tailsocks://settings/appearance/ui_scale` |
+| Интерфейс | `tailsocks://settings/appearance/interface` |
+| Цветовая палитра<br><small>Доступна, пока динамические цвета выключены · На телевизоре: Дополнительно → Тема и иконка</small> | `tailsocks://settings/appearance/palette` |
+| Иконка приложения<br><small>На телевизоре: Дополнительно → Тема и иконка</small> | `tailsocks://settings/appearance/app_icon` |
+| QR-коды | `tailsocks://settings/appearance/qr_style` |
+| Динамические цвета<br><small>Android 12 и новее · На телевизоре: Дополнительно → Тема и иконка</small> | `tailsocks://settings/appearance/dynamic_color` |
+| AMOLED черный<br><small>На телевизоре: Дополнительно → Тема и иконка</small> | `tailsocks://settings/appearance/amoled` |
+| Показывать «Что нового» после обновления | `tailsocks://settings/appearance/show_changelog` |
+| Сводка подключения | `tailsocks://settings/appearance/connection_summary` |
+| Управляемые устройства на главном | `tailsocks://settings/appearance/managed_on_main` |
+| Проверять обновления при запуске<br><small>Нет, если приложение поставлено из F-Droid или другого магазина</small> | `tailsocks://settings/appearance/update_check` |
+| Получать бета-версии<br><small>Нет, если приложение поставлено из F-Droid или другого магазина</small> | `tailsocks://settings/appearance/update_beta` |
+
+### Аккаунт и подключение
+
+`tailsocks://settings/account`
+
+| Настройка | Ссылка |
+|---|---|
+| Сервер авторизации (Headscale) | `tailsocks://settings/account/login_server` |
+| Ключ авторизации | `tailsocks://settings/account/auth_key` |
+| Имя устройства | `tailsocks://settings/account/device_name` |
+| Выходной узел (Exit Node) | `tailsocks://settings/account/exit_node` |
+| Доступ к локальной сети | `tailsocks://settings/account/exit_node_lan` |
+| Принимать маршруты подсетей | `tailsocks://settings/account/accept_routes` |
+| Быть выходным узлом | `tailsocks://settings/account/advertise_exit_node` |
+| Сообщать настоящую ОС | `tailsocks://settings/account/honest_hostinfo` |
+| Блокировать входящие подключения | `tailsocks://settings/account/shields_up` |
+| Сообщать о состоянии устройства | `tailsocks://settings/account/posture` |
+| Tailnet Lock | `tailsocks://settings/account/tailnet_lock` |
+| Анонсируемые маршруты | `tailsocks://settings/account/advertise_routes` |
+| Анонсируемые теги | `tailsocks://settings/account/advertise_tags` |
+| Быть ретранслятором (peer relay) | `tailsocks://settings/account/relay` |
+| UDP-порт ретранслятора<br><small>Появляется, когда включён ретранслятор</small> | `tailsocks://settings/account/relay_port` |
+| Коннектор приложений (app connector) | `tailsocks://settings/account/app_connector` |
+| Выйти и сбросить узел | `tailsocks://settings/account/logout` |
+
+### Режим туннеля
+
+`tailsocks://settings/tunnel`
+
+| Настройка | Ссылка |
+|---|---|
+| Прокси | `tailsocks://settings/tunnel/mode_proxy` |
+| VPN (TUN) | `tailsocks://settings/tunnel/mode_vpn` |
+| Root<br><small>На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/mode_root` |
+| Движок TUN<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_engine` |
+| Отдаёт трафик в локальный SOCKS5<br><small>Появляется с движком hev-socks5-tunnel</small> | `tailsocks://settings/tunnel/tun_uses_socks` |
+| Весь IPv6 через туннель<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_ipv6` |
+| Адрес TUN-интерфейса<br><small>Появляется с движком hev-socks5-tunnel</small> | `tailsocks://settings/tunnel/tun_address` |
+| Исключенные подсети IP<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_excluded_cidrs` |
+| Исключенные приложения<br><small>Появляется в режимах VPN (TUN) и Root</small> | `tailsocks://settings/tunnel/tun_excluded_apps` |
+| Нативный Linux TUN (tailscale0)<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_tun` |
+| Автозапуск Magisk/KernelSU службы (ЭКСПЕРИМЕНТАЛЬНО)<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_service` |
+| Установить консольную утилиту Tailscale CLI (ЭКСПЕРИМЕНТАЛЬНО)<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_cli` |
+| Игнорировать чужие VPN<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_vpn_bypass` |
+| Всё равно занять устройство<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_take_device` |
+| Завершать Root-демон при остановке<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_kill_daemon` |
+
+### Локальные прокси
+
+`tailsocks://settings/proxies`
+
+| Настройка | Ссылка |
+|---|---|
+| Адрес SOCKS5 | `tailsocks://settings/proxies/socks5_address` |
+| Имя пользователя SOCKS5 | `tailsocks://settings/proxies/socks5_username` |
+| Пароль SOCKS5 | `tailsocks://settings/proxies/socks5_password` |
+| Копировать ссылку SagerNet<br><small>Нет на телевизоре</small> | `tailsocks://settings/proxies/sagernet_link` |
+| Включить HTTP-прокси | `tailsocks://settings/proxies/http_enable` |
+| Адрес HTTP-прокси<br><small>Появляется, когда включён HTTP-прокси</small> | `tailsocks://settings/proxies/http_address` |
+| Открыть прокси в локальную сеть | `tailsocks://settings/proxies/lan_access` |
+
+### DNS
+
+`tailsocks://settings/dns`
+
+| Настройка | Ссылка |
+|---|---|
+| Использовать MagicDNS | `tailsocks://settings/dns/magicdns` |
+| Адрес DNS-прокси | `tailsocks://settings/dns/dns_proxy_address` |
+| Системный DNS через MagicDNS<br><small>Появляется в режиме Root с нативным TUN</small> | `tailsocks://settings/dns/root_dns_redirect` |
+| Резервные DNS | `tailsocks://settings/dns/dns_fallbacks` |
+| DoH URL резервного DNS | `tailsocks://settings/dns/doh_fallback` |
+| DNS<br><small>На телевизоре: Дополнительно</small> | `tailsocks://settings/dns/dns_screen` |
+
+### Обход блокировок
+
+`tailsocks://settings/bypass`
+
+| Настройка | Ссылка |
+|---|---|
+| Прокси Control Plane | `tailsocks://settings/bypass/control_proxy` |
+| Включить обход ByeByeDPI | `tailsocks://settings/bypass/byedpi` |
+| Флаги ByeByeDPI | `tailsocks://settings/bypass/byedpi_flags` |
+| Принудительный IPv4 (Отключить IPv6) | `tailsocks://settings/bypass/byedpi_ipv6` |
+| Только порт 443 | `tailsocks://settings/bypass/control_port` |
+| Запускаться по сохранённой карте сети | `tailsocks://settings/bypass/netmap_cache` |
+| Очистить кэш карты сети | `tailsocks://settings/bypass/netmap_cache_clear` |
+
+### Общий доступ
+
+`tailsocks://settings/sharing`
+
+| Настройка | Ссылка |
+|---|---|
+| Папка для Taildrop | `tailsocks://settings/sharing/taildrop_folder` |
+| Загрузки Taildrive | `tailsocks://settings/sharing/taildrive_download_folder` |
+| Общие папки Taildrive | `tailsocks://settings/sharing/taildrive` |
+| Serve & Funnel<br><small>На телевизоре: Дополнительно</small> | `tailsocks://settings/sharing/serve` |
+| Включить Веб-интерфейс | `tailsocks://settings/sharing/web_ui` |
+| Адрес Веб-интерфейса<br><small>Появляется, когда включён веб-интерфейс</small> | `tailsocks://settings/sharing/web_ui_address` |
+
+### Работа в фоне и разрешения
+
+`tailsocks://settings/background`
+
+| Настройка | Ссылка |
+|---|---|
+| Разрешения | `tailsocks://settings/background/permissions` |
+| Автозапуск при загрузке | `tailsocks://settings/background/autostart` |
+| Автопереподключение | `tailsocks://settings/background/auto_reconnect` |
+| Попыток перезапуска (0 — без лимита)<br><small>Появляется, когда включено автопереподключение</small> | `tailsocks://settings/background/auto_reconnect_attempts` |
+| Восстанавливать службу в фоне | `tailsocks://settings/background/watchdog` |
+| Держать соединение активным | `tailsocks://settings/background/keep_awake` |
+
+### Резервные копии
+
+`tailsocks://settings/backup`
+
+На телевизоре эта страница — в разделе «Дополнительно».
+
+| Настройка | Ссылка |
+|---|---|
+| Полный бэкап (зашифрованный) | `tailsocks://settings/backup/backup_full` |
+| Восстановить из полного бэкапа | `tailsocks://settings/backup/restore_full` |
+| Экспортировать профиль | `tailsocks://settings/backup/profile_export` |
+| Импортировать профиль | `tailsocks://settings/backup/profile_import` |
+
+### Автоматизация и API
+
+`tailsocks://settings/automation`
+
+На телевизоре эта страница — в разделе «Дополнительно».
+
+| Настройка | Ссылка |
+|---|---|
+| Разрешить внешнюю автоматизацию | `tailsocks://settings/automation/automation_enable` |
+| Секретный токен (обязателен)<br><small>Появляется, когда разрешена внешняя автоматизация</small> | `tailsocks://settings/automation/automation_token` |
+| Админ-панель<br><small>Нет на телевизоре</small> | `tailsocks://settings/automation/admin_console` |
+
+### Диагностика и разработчику
+
+`tailsocks://settings/diagnostics`
+
+На телевизоре эта страница — в разделе «Дополнительно».
+
+| Настройка | Ссылка |
+|---|---|
+| Состояние сейчас | `tailsocks://settings/diagnostics/live_state` |
+| Подробные логи | `tailsocks://settings/diagnostics/detailed_logs` |
+| Дополнительные аргументы | `tailsocks://settings/diagnostics/extra_args` |
+| Служебная информация о демоне (ЭКСПЕРИМЕНТАЛЬНО)<br><small>Появляется в режиме Root</small> | `tailsocks://settings/diagnostics/root_daemon_info` |
+| Логи<br><small>На телевизоре: Дополнительно</small> | `tailsocks://settings/diagnostics/logs` |
+| Консоль<br><small>На телевизоре: Дополнительно</small> | `tailsocks://settings/diagnostics/console` |
+| Проверка сети | `tailsocks://settings/diagnostics/netcheck` |
+| Показать приветственный экран | `tailsocks://settings/diagnostics/show_onboarding` |
+
+### Дополнительно
+
+`tailsocks://settings/advanced`
+
+| Настройка | Ссылка |
+|---|---|
+| Удалённое управление | `tailsocks://settings/advanced/remote_management` |
+
+### Тема и иконка
+
+`tailsocks://settings/theme`
+
+Отдельная страница есть только на телевизоре, в разделе «Дополнительно». На других устройствах её строки — на странице «Оформление и язык», и ссылка откроет её.
+
+### Root-режим
+
+`tailsocks://settings/root`
+
+Отдельная страница есть только на телевизоре, в разделе «Дополнительно». На других устройствах её строки — на странице «Режим туннеля», и ссылка откроет её.
+
+<!-- settings-table:end -->

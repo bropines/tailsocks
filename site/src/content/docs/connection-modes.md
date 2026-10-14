@@ -53,32 +53,12 @@ Settings → Tunnel mode → **TUN Mode Settings**:
 
 ## Root (experimental)
 
-On a rooted device the daemon runs through `su` on a real kernel interface, `tailscale0`, with policy routing. Android's VPN slot stays free.
+On a rooted device (Magisk, KernelSU, APatch) the daemon runs through `su` on a real kernel interface, `tailscale0`, with policy routing. Android's VPN slot stays free.
 
-Choose **Root** in Settings → Tunnel mode (on a TV: Settings → Advanced → Root mode). The card **Root Mode & System Service (EXPERIMENTAL)** holds its switches:
+Choose **Root** in Settings → Tunnel mode (on a TV: Settings → Advanced → Root mode). Its switches are on the card **Root Mode & System Service (EXPERIMENTAL)**: the kernel interface, a boot script, a `tailscale` command for root shells.
 
-- **Native Linux TUN (tailscale0)** — the kernel interface. Off, the daemon runs via `su` in proxy mode.
-- **Autostart Magisk/KernelSU Service (EXPERIMENTAL)** — the boot script in `/data/adb/service.d/`.
-- **Install Tailscale CLI Utility (EXPERIMENTAL)** — a `tailscale` command for Termux and root shells.
-- **Ignore other VPNs** — the daemon marks its own connections so another VPN cannot swallow them. Leave it on.
-- **Take the device anyway** — see below.
-- **Terminate Root Daemon on Stop** — on by default. Off, Stop only detaches the app and the daemon keeps running.
+- With an exit node the whole device goes through it, except **Excluded Apps**; **System-wide DNS via MagicDNS** (Settings → DNS) sends every app's DNS to MagicDNS.
+- Next to another VPN app it yields: tailnet addresses, MagicDNS names and the local proxies keep working, and the apps that VPN leaves out ride the exit node.
+- After a reboot the boot script brings the tailnet back; the exit node and system-wide DNS return when the app runs.
 
-**System-wide DNS via MagicDNS** (Settings → DNS) sends the whole device's DNS to MagicDNS. **Excluded Apps** are taken off the exit node, but their names still resolve through MagicDNS.
-
-### Next to another VPN
-
-Root Mode yields to a VPN app that holds Android's VPN slot:
-
-- Tailnet addresses, MagicDNS names and the local proxies keep working for every app.
-- If that VPN takes every app, the exit node and system-wide DNS are off while it runs. The status card says *Tailnet only — another VPN holds the device*.
-- If it leaves some apps outside its tunnel, TailSocks carries exactly those, exit node and MagicDNS included: *Carrying the apps another VPN leaves out*.
-- **Take the device anyway** takes the default route and DNS back. That VPN's apps lose their tunnel. Off by default, and it asks first.
-
-To have the tailnet inside the other VPN, point its outbound at the SOCKS5 proxy.
-
-### After a reboot
-
-The boot script starts the daemon and installs tailnet reachability only. The exit node and system-wide MagicDNS come when the app runs. To have them right after boot, turn on **Auto-start on Boot** (Settings → Background & permissions): the app then starts by itself if it was running before the reboot.
-
-**Check Routing** (Settings → Diagnostics & developer → **Daemon Runtime Information (EXPERIMENTAL)**) shows the rules in place and why. The full reference is the [Root guide](https://github.com/bropines/tailsocks/blob/main/docs/ROOT.md).
+Everything about it — setting it up, living next to another VPN, the boot script, troubleshooting — is on [Root Mode](/tailsocks/root-mode/).

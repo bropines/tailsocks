@@ -36,22 +36,206 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 
 The device decides where a row lives: on a TV, Root mode and the theme are under Advanced, and a link still finds them.
 
-### Sections and rows
+## Every setting
 
-The rows are the ids of the app's settings catalogue ([`SettingsCatalog.kt`](https://github.com/bropines/tailsocks/blob/main/app/src/main/java/io/github/bropines/tailscaled/ui/SettingsCatalog.kt)).
+Every page and every row, as the app names them. A note under a row says when it is not always there; its link then opens the row that brings it.
 
-| Section | Rows |
+<!-- settings-table:start -->
+
+### Appearance & language
+
+`tailsocks://settings/appearance`
+
+| Setting | Link |
 |---|---|
-| `appearance` | `theme_mode`, `language`, `ui_scale`, `interface`, `palette`, `app_icon`, `qr_style`, `dynamic_color`, `amoled`, `show_changelog`, `connection_summary`, `managed_on_main`, `update_check`, `update_beta` |
-| `account` | `login_server`, `auth_key`, `device_name`, `exit_node`, `exit_node_lan`, `accept_routes`, `advertise_exit_node`, `honest_hostinfo`, `shields_up`, `posture`, `tailnet_lock`, `advertise_routes`, `advertise_tags`, `relay`, `relay_port`, `app_connector`, `logout` |
-| `tunnel` | `mode_proxy`, `mode_vpn`, `mode_root`, `tun_engine`, `tun_uses_socks`, `tun_ipv6`, `tun_address`, `tun_excluded_cidrs`, `tun_excluded_apps`, `root_tun`, `root_service`, `root_cli`, `root_vpn_bypass`, `root_take_device`, `root_kill_daemon` |
-| `proxies` | `socks5_address`, `socks5_username`, `socks5_password`, `sagernet_link`, `http_enable`, `http_address`, `lan_access` |
-| `dns` | `magicdns`, `dns_proxy_address`, `root_dns_redirect`, `dns_fallbacks`, `doh_fallback`, `dns_screen` |
-| `bypass` | `control_proxy`, `byedpi`, `byedpi_flags`, `byedpi_ipv6`, `control_port`, `netmap_cache`, `netmap_cache_clear` |
-| `sharing` | `taildrop_folder`, `taildrive`, `serve`, `web_ui`, `web_ui_address` |
-| `background` | `permissions`, `autostart`, `auto_reconnect`, `auto_reconnect_attempts`, `watchdog`, `keep_awake` |
-| `backup` | `backup_full`, `restore_full`, `profile_export`, `profile_import` |
-| `automation` | `automation_enable`, `automation_token`, `admin_console` |
-| `diagnostics` | `live_state`, `detailed_logs`, `extra_args`, `root_daemon_info`, `logs`, `console`, `netcheck`, `show_onboarding` |
-| `advanced` | `remote_management` |
-| `theme`, `root` | the theme and Root mode pages, wherever the device keeps them |
+| Interface Theme<br><small>On a TV: under Advanced → Theme and icon</small> | `tailsocks://settings/appearance/theme_mode` |
+| App Language | `tailsocks://settings/appearance/language` |
+| Interface scale | `tailsocks://settings/appearance/ui_scale` |
+| Interface | `tailsocks://settings/appearance/interface` |
+| Color Palette<br><small>Shown while dynamic colours are off · On a TV: under Advanced → Theme and icon</small> | `tailsocks://settings/appearance/palette` |
+| App icon<br><small>On a TV: under Advanced → Theme and icon</small> | `tailsocks://settings/appearance/app_icon` |
+| QR codes | `tailsocks://settings/appearance/qr_style` |
+| Dynamic Colors<br><small>Android 12 and newer · On a TV: under Advanced → Theme and icon</small> | `tailsocks://settings/appearance/dynamic_color` |
+| AMOLED Black<br><small>On a TV: under Advanced → Theme and icon</small> | `tailsocks://settings/appearance/amoled` |
+| Show what's new after updates | `tailsocks://settings/appearance/show_changelog` |
+| Connection summary | `tailsocks://settings/appearance/connection_summary` |
+| Managed devices on the main screen | `tailsocks://settings/appearance/managed_on_main` |
+| Check for updates on launch<br><small>Not when F-Droid or another store installed the app</small> | `tailsocks://settings/appearance/update_check` |
+| Receive beta versions<br><small>Not when F-Droid or another store installed the app</small> | `tailsocks://settings/appearance/update_beta` |
+
+### Account & connection
+
+`tailsocks://settings/account`
+
+| Setting | Link |
+|---|---|
+| Login Server (Headscale) | `tailsocks://settings/account/login_server` |
+| Auth Key | `tailsocks://settings/account/auth_key` |
+| Device name | `tailsocks://settings/account/device_name` |
+| Exit Node | `tailsocks://settings/account/exit_node` |
+| Allow LAN access | `tailsocks://settings/account/exit_node_lan` |
+| Accept subnet routes | `tailsocks://settings/account/accept_routes` |
+| Run as exit node | `tailsocks://settings/account/advertise_exit_node` |
+| Report the real OS | `tailsocks://settings/account/honest_hostinfo` |
+| Block incoming connections | `tailsocks://settings/account/shields_up` |
+| Report device posture | `tailsocks://settings/account/posture` |
+| Tailnet Lock | `tailsocks://settings/account/tailnet_lock` |
+| Advertise Routes | `tailsocks://settings/account/advertise_routes` |
+| Advertise Tags | `tailsocks://settings/account/advertise_tags` |
+| Act as a peer relay | `tailsocks://settings/account/relay` |
+| Relay UDP port<br><small>Shown once the peer relay is on</small> | `tailsocks://settings/account/relay_port` |
+| App connector | `tailsocks://settings/account/app_connector` |
+| Log Out & Reset Node | `tailsocks://settings/account/logout` |
+
+### Tunnel mode
+
+`tailsocks://settings/tunnel`
+
+| Setting | Link |
+|---|---|
+| Proxy | `tailsocks://settings/tunnel/mode_proxy` |
+| VPN (TUN) | `tailsocks://settings/tunnel/mode_vpn` |
+| Root<br><small>On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/mode_root` |
+| TUN engine<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_engine` |
+| Forwards into the local SOCKS5 proxy<br><small>Shown with the hev-socks5-tunnel engine</small> | `tailsocks://settings/tunnel/tun_uses_socks` |
+| Route all IPv6 through the tunnel<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_ipv6` |
+| TUN Address<br><small>Shown with the hev-socks5-tunnel engine</small> | `tailsocks://settings/tunnel/tun_address` |
+| Excluded IP Ranges<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_excluded_cidrs` |
+| Excluded Apps<br><small>Shown in VPN (TUN) and Root modes</small> | `tailsocks://settings/tunnel/tun_excluded_apps` |
+| Native Linux TUN (tailscale0)<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_tun` |
+| Autostart Magisk/KernelSU Service (EXPERIMENTAL)<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_service` |
+| Install Tailscale CLI Utility (EXPERIMENTAL)<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_cli` |
+| Ignore other VPNs<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_vpn_bypass` |
+| Take the device anyway<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_take_device` |
+| Terminate Root Daemon on Stop<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_kill_daemon` |
+
+### Local proxies
+
+`tailsocks://settings/proxies`
+
+| Setting | Link |
+|---|---|
+| SOCKS5 Address | `tailsocks://settings/proxies/socks5_address` |
+| SOCKS5 Username | `tailsocks://settings/proxies/socks5_username` |
+| SOCKS5 Password | `tailsocks://settings/proxies/socks5_password` |
+| Copy SagerNet Link<br><small>Not on a TV</small> | `tailsocks://settings/proxies/sagernet_link` |
+| Enable HTTP Proxy | `tailsocks://settings/proxies/http_enable` |
+| HTTP Proxy Address<br><small>Shown once the HTTP proxy is on</small> | `tailsocks://settings/proxies/http_address` |
+| Expose proxies to local network | `tailsocks://settings/proxies/lan_access` |
+
+### DNS
+
+`tailsocks://settings/dns`
+
+| Setting | Link |
+|---|---|
+| Use MagicDNS | `tailsocks://settings/dns/magicdns` |
+| DNS Proxy Address | `tailsocks://settings/dns/dns_proxy_address` |
+| System-wide DNS via MagicDNS<br><small>Shown in Root mode with the native TUN on</small> | `tailsocks://settings/dns/root_dns_redirect` |
+| DNS Fallbacks | `tailsocks://settings/dns/dns_fallbacks` |
+| DoH Fallback URL | `tailsocks://settings/dns/doh_fallback` |
+| DNS<br><small>On a TV: under Advanced</small> | `tailsocks://settings/dns/dns_screen` |
+
+### Censorship bypass
+
+`tailsocks://settings/bypass`
+
+| Setting | Link |
+|---|---|
+| Control Plane Proxy | `tailsocks://settings/bypass/control_proxy` |
+| Enable ByeByeDPI Bypass | `tailsocks://settings/bypass/byedpi` |
+| ByeByeDPI Flags | `tailsocks://settings/bypass/byedpi_flags` |
+| Force IPv4 (Disable IPv6) | `tailsocks://settings/bypass/byedpi_ipv6` |
+| Port 443 only | `tailsocks://settings/bypass/control_port` |
+| Start from the saved network map | `tailsocks://settings/bypass/netmap_cache` |
+| Clear the network map cache | `tailsocks://settings/bypass/netmap_cache_clear` |
+
+### Sharing & access
+
+`tailsocks://settings/sharing`
+
+| Setting | Link |
+|---|---|
+| Taildrop Storage Folder | `tailsocks://settings/sharing/taildrop_folder` |
+| Taildrive downloads | `tailsocks://settings/sharing/taildrive_download_folder` |
+| Taildrive Shares | `tailsocks://settings/sharing/taildrive` |
+| Serve & Funnel<br><small>On a TV: under Advanced</small> | `tailsocks://settings/sharing/serve` |
+| Enable Web UI | `tailsocks://settings/sharing/web_ui` |
+| Web UI Address<br><small>Shown once the web interface is on</small> | `tailsocks://settings/sharing/web_ui_address` |
+
+### Background & permissions
+
+`tailsocks://settings/background`
+
+| Setting | Link |
+|---|---|
+| Permissions | `tailsocks://settings/background/permissions` |
+| Auto-start on Boot | `tailsocks://settings/background/autostart` |
+| Auto-reconnect | `tailsocks://settings/background/auto_reconnect` |
+| Restart attempts (0 = unlimited)<br><small>Shown once auto-reconnect is on</small> | `tailsocks://settings/background/auto_reconnect_attempts` |
+| Revive service in background | `tailsocks://settings/background/watchdog` |
+| Keep the connection awake | `tailsocks://settings/background/keep_awake` |
+
+### Backup & restore
+
+`tailsocks://settings/backup`
+
+On a TV this page is under Advanced.
+
+| Setting | Link |
+|---|---|
+| Full backup (encrypted) | `tailsocks://settings/backup/backup_full` |
+| Restore full backup | `tailsocks://settings/backup/restore_full` |
+| Export this profile | `tailsocks://settings/backup/profile_export` |
+| Import a profile | `tailsocks://settings/backup/profile_import` |
+
+### Automation & API
+
+`tailsocks://settings/automation`
+
+On a TV this page is under Advanced.
+
+| Setting | Link |
+|---|---|
+| Allow External Automation | `tailsocks://settings/automation/automation_enable` |
+| Security Secret Token (required)<br><small>Shown once external automation is allowed</small> | `tailsocks://settings/automation/automation_token` |
+| Admin Console<br><small>Not on a TV</small> | `tailsocks://settings/automation/admin_console` |
+
+### Diagnostics & developer
+
+`tailsocks://settings/diagnostics`
+
+On a TV this page is under Advanced.
+
+| Setting | Link |
+|---|---|
+| Live state | `tailsocks://settings/diagnostics/live_state` |
+| Detailed Logs | `tailsocks://settings/diagnostics/detailed_logs` |
+| Extra Arguments | `tailsocks://settings/diagnostics/extra_args` |
+| Daemon Runtime Information (EXPERIMENTAL)<br><small>Shown in Root mode</small> | `tailsocks://settings/diagnostics/root_daemon_info` |
+| Logs<br><small>On a TV: under Advanced</small> | `tailsocks://settings/diagnostics/logs` |
+| Console<br><small>On a TV: under Advanced</small> | `tailsocks://settings/diagnostics/console` |
+| Network check | `tailsocks://settings/diagnostics/netcheck` |
+| Show Onboarding Screen | `tailsocks://settings/diagnostics/show_onboarding` |
+
+### Advanced
+
+`tailsocks://settings/advanced`
+
+| Setting | Link |
+|---|---|
+| Remote management | `tailsocks://settings/advanced/remote_management` |
+
+### Theme and icon
+
+`tailsocks://settings/theme`
+
+A page of its own only on a TV, under Advanced. Elsewhere its rows are on Appearance & language, and this link opens that.
+
+### Root mode
+
+`tailsocks://settings/root`
+
+A page of its own only on a TV, under Advanced. Elsewhere its rows are on Tunnel mode, and this link opens that.
+
+<!-- settings-table:end -->
