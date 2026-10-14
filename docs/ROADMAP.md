@@ -157,10 +157,12 @@ State as of 2026-10-14, at 5.0.0.
   2. Sign-in by QR to completion on a television, and a key sent from a phone over the local
      network. The relay path is verified: the author sent a key from his phone to WSA on
      2026-10-14, the check codes matched and the device signed in.
-  3. Remote management as a **guest**: a device of another user in the same tailnet, or a
-     shared-in node. Pairing from another tailnet is impossible by design.
-  4. Pairing with a managed device in Root Mode (the endpoint answers there; the pairing
-     itself was not run).
+  3. Remote management as a **guest** on real devices: a device of another user in the same
+     tailnet, or a shared-in node. Walked on emulators with a second Headscale user
+     (2026-10-14); pairing from another tailnet is impossible by design.
+  4. ~~Pairing with a managed device in Root Mode~~ — done 2026-10-14: the POCO paired with the
+     Redmi in Root Mode (kernel TUN) by code, opened its page, and a guarded switch applied and
+     was put back.
   5. A share's video in a real player. MT Manager's player said "Unexpected runtime error" on
      the first open and then played and seeked; the provider was hardened after that report —
      try VLC and a large file with its index at the end.
