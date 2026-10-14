@@ -258,8 +258,6 @@ State as of 2026-10-14, at 5.0.0.
       paths now refresh the links, and the CLI runner falls back to `libtailscale_cli.so` itself.
       `netcheck` additionally needs a netlink RIB dump the CLI cannot get as an app process (in
       any mode), so the bare command is answered by the in-process netcheck of the Netcheck screen.
-- [ ] **The five loading indicators inside buttons** are still the old ones — the new component
-      stops being legible at 14 dp. Look at it on a device and decide.
 - [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it
       is still the latest — no stable release exists yet. When one appears it is one line in
       `gradle/libs.versions.toml`.
