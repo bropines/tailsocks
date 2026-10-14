@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrive_download">Скачать</string>
+    <string name="taildrive_download_file">Скачать %1$s</string>
+    <string name="taildrive_select">Выбрать</string>
+    <string name="taildrive_select_all">Выбрать все</string>
+    <string name="taildrive_select_none">Снять выбор</string>
+    <plurals name="taildrive_selected">
+        <item quantity="one">Выбран %d</item>
+        <item quantity="few">Выбрано %d</item>
+        <item quantity="many">Выбрано %d</item>
+        <item quantity="other">Выбрано %d</item>
+    </plurals>
+
+    <string name="taildrive_download_folders_title">В выборе есть папки</string>
+    <string name="taildrive_download_folders_body">Они скачаются со всем содержимым: %1$s — %2$s.</string>
+    <string name="taildrive_download_folders_body_counting">Они скачаются со всем содержимым: %1$s — %2$s</string>
+    <plurals name="taildrive_download_folders">
+        <item quantity="one">%d папка</item>
+        <item quantity="few">%d папки</item>
+        <item quantity="many">%d папок</item>
+        <item quantity="other">%d папки</item>
+    </plurals>
+    <plurals name="taildrive_download_files">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
+    <string name="taildrive_download_counting">считаю…</string>
+    <string name="taildrive_download_counting_so_far">пока %1$s, считаю…</string>
+    <string name="taildrive_download_all">Скачать всё</string>
+    <string name="taildrive_download_files_only">Только файлы</string>
+
+    <string name="taildrive_download_pick_title">Куда сохранить</string>
+    <string name="taildrive_download_pick_confirm">Сохранить сюда</string>
+    <string name="taildrive_download_folder_lost">Папка для загрузок больше недоступна. Выберите, куда сохранить.</string>
+
+    <string name="taildrive_download_channel">Загрузки Taildrive</string>
+    <string name="taildrive_download_to">Скачивание в %1$s</string>
+    <string name="taildrive_download_file_of">Файл %1$d из %2$d</string>
+    <string name="taildrive_download_file_of_counting">Файл %1$d из %2$d, подсчёт ещё идёт</string>
+    <plurals name="taildrive_download_waiting">
+        <item quantity="one">Ещё %d в очереди</item>
+        <item quantity="few">Ещё %d в очереди</item>
+        <item quantity="many">Ещё %d в очереди</item>
+        <item quantity="other">Ещё %d в очереди</item>
+    </plurals>
+    <plurals name="taildrive_download_saved">
+        <item quantity="one">Сохранён %1$d файл в %2$s</item>
+        <item quantity="few">Сохранено %1$d файла в %2$s</item>
+        <item quantity="many">Сохранено %1$d файлов в %2$s</item>
+        <item quantity="other">Сохранено %1$d файла в %2$s</item>
+    </plurals>
+    <string name="taildrive_download_nothing_saved">Ничего не скачано</string>
+    <string name="taildrive_download_cancelled">Скачивание отменено</string>
+    <string name="taildrive_download_stopped">Taildrive остановлен, и скачивание прервалось.</string>
+    <plurals name="taildrive_download_missing">
+        <item quantity="one">Не скачано: %d</item>
+        <item quantity="few">Не скачано: %d</item>
+        <item quantity="many">Не скачано: %d</item>
+        <item quantity="other">Не скачано: %d</item>
+    </plurals>
+    <string name="taildrive_download_reason_not_found">не найден</string>
+    <string name="taildrive_download_reason_denied">нет доступа</string>
+    <string name="taildrive_download_reason_timeout">нет ответа</string>
+    <string name="taildrive_download_reason_network">связь прервалась</string>
+    <string name="taildrive_download_reason_incomplete">пришёл не целиком</string>
+    <string name="taildrive_download_reason_write">не удалось записать сюда</string>
+    <string name="taildrive_download_reason_unlisted">папку не удалось прочитать</string>
+    <string name="taildrive_download_open_folder">Открыть папку</string>
+    <string name="taildrive_download_keep">Всегда сохранять сюда</string>
+    <string name="taildrive_download_keep_help">Загрузки будут сохраняться в эту папку без вопроса. Изменить это можно в Настройках → Общий доступ → Загрузки Taildrive.</string>
+    <string name="taildrive_download_kept">Теперь загрузки сохраняются в %1$s</string>
+
+    <string name="taildrive_download_folder_title">Загрузки Taildrive</string>
+    <string name="taildrive_download_folder_ask">Спрашивать каждый раз. Файлы из общих папок других устройств сохраняются туда, куда вы укажете при скачивании.</string>
+    <string name="taildrive_download_folder_set_format">%1$s. Сюда сохраняются файлы, скачанные из общих папок других устройств.</string>
+    <string name="taildrive_download_folder_dialog_body">Файлы из общих папок других устройств сохраняются в %1$s.</string>
+    <string name="taildrive_download_folder_change">Изменить</string>
+    <string name="taildrive_download_folder_reset">Спрашивать каждый раз</string>
+    <string name="search_sum_taildrive_download_folder">Куда сохраняются файлы, скачанные из общих папок Taildrive</string>
+    <string name="search_kw_taildrive_download_folder">папка загрузок, скачивание, загрузки, куда сохранять, общие папки, спрашивать каждый раз</string>
+
+    <string name="taildrive_path_edit">Ввести путь</string>
+    <string name="taildrive_path_field">Путь</string>
+    <string name="taildrive_path_placeholder">устройство/папка/…</string>
+    <string name="taildrive_path_go">Перейти</string>
+    <string name="taildrive_path_looking">Ищу…</string>
+    <string name="taildrive_path_missing">В %2$s нет «%1$s»</string>
+    <string name="taildrive_path_go_to">Перейти в %1$s</string>
+    <string name="taildrive_path_failed">Не удалось прочитать %1$s</string>
+
+    <string name="taildrive_link_on">Файлы открываются по ссылке — для плеера, который не берёт их напрямую, или для перемотки на Android 7</string>
+    <string name="taildrive_link_off">Файлы открываются напрямую</string>
+    <string name="taildrive_link_needs_proxy">Для ссылок нужен прокси Taildrive. Включить?</string>
+    <string name="taildrive_link_turn_on">Включить</string>
+    <string name="taildrive_link_proxy_off_desc">Открывать файлы по ссылке — прокси выключен</string>
+    <string name="taildrive_link_opened_directly">Прокси выключен — открыл напрямую</string>
+    <string name="taildrive_link_opened_directly_silent">Прокси не отвечает — открыл напрямую</string>
+    <string name="taildrive_link_opened_no_seek">Прокси выключен — открыл напрямую, а для перемотки нужен прокси</string>
+    <string name="taildrive_link_opened_no_seek_silent">Прокси не отвечает — открыл напрямую, а для перемотки он нужен</string>
+    <string name="taildrive_link_turn_on_proxy">Включить прокси</string>
+</resources>

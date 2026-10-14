@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The share browser's downloads, its path bar and its link switch (ui/TaildriveBrowser.kt,
+     ui/TaildriveDownloadUi.kt, ui/TaildrivePathBar.kt, core/TaildriveDownloads.kt), and the
+     download folder of Settings (ui/TaildriveDownloadSetting.kt). -->
+<resources>
+    <!-- A row's button, the bar's button in selection mode. -->
+    <string name="taildrive_download">Download</string>
+    <!-- Content description of a file row's button. -->
+    <string name="taildrive_download_file">Download %1$s</string>
+    <!-- The bar's way into selection mode where there is no long press: a television. -->
+    <string name="taildrive_select">Select</string>
+    <string name="taildrive_select_all">Select all</string>
+    <string name="taildrive_select_none">Clear selection</string>
+    <plurals name="taildrive_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+
+    <!-- Asked before a download that holds folders. The numbers fill in as the folders are walked. -->
+    <string name="taildrive_download_folders_title">The selection has folders</string>
+    <string name="taildrive_download_folders_body">They download with everything inside: %1$s — %2$s.</string>
+    <!-- The same while the folders are still being counted: %2$s ends in an ellipsis. -->
+    <string name="taildrive_download_folders_body_counting">They download with everything inside: %1$s — %2$s</string>
+    <plurals name="taildrive_download_folders">
+        <item quantity="one">%d folder</item>
+        <item quantity="other">%d folders</item>
+    </plurals>
+    <plurals name="taildrive_download_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <string name="taildrive_download_files_size" translatable="false">%1$s, %2$s</string>
+    <string name="taildrive_download_counting">counting…</string>
+    <string name="taildrive_download_counting_so_far">%1$s so far, counting…</string>
+    <string name="taildrive_download_all">Download all</string>
+    <string name="taildrive_download_files_only">Files only</string>
+
+    <!-- Choosing where a download goes. -->
+    <string name="taildrive_download_pick_title">Where to save</string>
+    <string name="taildrive_download_pick_confirm">Save here</string>
+    <string name="taildrive_download_folder_lost">The download folder is not available any more. Choose where to save.</string>
+
+    <!-- A download as it runs and ends: the page's panel and the notification. -->
+    <string name="taildrive_download_channel">Taildrive downloads</string>
+    <string name="taildrive_download_to">Downloading to %1$s</string>
+    <string name="taildrive_download_file_of">File %1$d of %2$d</string>
+    <string name="taildrive_download_file_of_counting">File %1$d of %2$d so far</string>
+    <plurals name="taildrive_download_waiting">
+        <item quantity="one">%d more waiting</item>
+        <item quantity="other">%d more waiting</item>
+    </plurals>
+    <plurals name="taildrive_download_saved">
+        <item quantity="one">Saved %1$d file to %2$s</item>
+        <item quantity="other">Saved %1$d files to %2$s</item>
+    </plurals>
+    <string name="taildrive_download_nothing_saved">Nothing was downloaded</string>
+    <string name="taildrive_download_cancelled">Download cancelled</string>
+    <string name="taildrive_download_stopped">Taildrive stopped, so the download was cut short.</string>
+    <plurals name="taildrive_download_missing">
+        <item quantity="one">%d not downloaded</item>
+        <item quantity="other">%d not downloaded</item>
+    </plurals>
+    <string name="taildrive_download_failure" translatable="false">%1$s — %2$s</string>
+    <string name="taildrive_download_reason_not_found">not found</string>
+    <string name="taildrive_download_reason_denied">no access</string>
+    <string name="taildrive_download_reason_timeout">no answer in time</string>
+    <string name="taildrive_download_reason_network">the connection broke</string>
+    <string name="taildrive_download_reason_incomplete">arrived incomplete</string>
+    <string name="taildrive_download_reason_write">could not be written here</string>
+    <string name="taildrive_download_reason_unlisted">the folder could not be read</string>
+    <string name="taildrive_download_open_folder">Open folder</string>
+    <!-- After a download into a folder chosen for it. -->
+    <string name="taildrive_download_keep">Always save here</string>
+    <string name="taildrive_download_keep_help">Downloads will go to this folder without asking. Settings → Sharing &amp; access → Taildrive downloads changes that.</string>
+    <string name="taildrive_download_kept">Downloads now go to %1$s</string>
+
+    <!-- Settings → Sharing & access → Storage. -->
+    <string name="taildrive_download_folder_title">Taildrive downloads</string>
+    <string name="taildrive_download_folder_ask">Ask every time. Files you download from other devices\' shares go where you choose for each download.</string>
+    <string name="taildrive_download_folder_set_format">%1$s. Files you download from other devices\' shares are saved here.</string>
+    <string name="taildrive_download_folder_dialog_body">Downloads from other devices\' shares go to %1$s.</string>
+    <string name="taildrive_download_folder_change">Change</string>
+    <string name="taildrive_download_folder_reset">Ask every time</string>
+    <!-- What the settings search knows the row by (ui/SettingsCatalog.kt). -->
+    <string name="search_sum_taildrive_download_folder">Where files downloaded from Taildrive shares are saved</string>
+    <string name="search_kw_taildrive_download_folder">download folder, downloads, save location, where downloads go, shares, ask every time</string>
+
+    <!-- The path under the title: its names open their level; the field takes a typed one. -->
+    <string name="taildrive_path_edit">Type a path</string>
+    <string name="taildrive_path_field">Path</string>
+    <string name="taildrive_path_placeholder">device/share/folder</string>
+    <string name="taildrive_path_go">Go</string>
+    <string name="taildrive_path_looking">Looking…</string>
+    <string name="taildrive_path_missing">There is no “%1$s” in %2$s</string>
+    <string name="taildrive_path_go_to">Go to %1$s</string>
+    <string name="taildrive_path_failed">%1$s could not be read</string>
+
+    <!-- The bar's link switch: what it does, said when it is pressed. -->
+    <string name="taildrive_link_on">Files open through a link — for a player that does not take them directly, or seeking on Android 7</string>
+    <string name="taildrive_link_off">Files open directly</string>
+    <string name="taildrive_link_needs_proxy">Links need the Taildrive proxy. Turn it on?</string>
+    <string name="taildrive_link_turn_on">Turn on</string>
+    <!-- Content description and tooltip of the switch while it is on and the proxy is not there. -->
+    <string name="taildrive_link_proxy_off_desc">Open files through a link — the proxy is off</string>
+    <string name="taildrive_link_opened_directly">Proxy is off — opened directly</string>
+    <string name="taildrive_link_opened_directly_silent">Proxy is not answering — opened directly</string>
+    <string name="taildrive_link_opened_no_seek">Proxy is off — opened directly, and seeking needs the proxy</string>
+    <string name="taildrive_link_opened_no_seek_silent">Proxy is not answering — opened directly, and seeking needs it</string>
+    <string name="taildrive_link_turn_on_proxy">Turn on proxy</string>
+</resources>
