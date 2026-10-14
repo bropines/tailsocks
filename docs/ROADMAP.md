@@ -280,10 +280,20 @@ State as of 2026-10-14, at 5.0.0.
       scanner bot asked for — `x/crypto` is still what upstream pins. The next step up is the
       stable line that carries `feature/androidbin`; see issue #10.
 - [x] **An English easter egg (4.4.0).** The status card's long press carries its own set in each language, written separately rather than translated.
-- Deferred, not implemented — recorded so they are not lost again:
-  - Re-apply the ruleset after a netd restart flushes it; nothing reacts to that today.
-  - Do not kill a daemon that is still starting when the app adopts it — there is a single probe today.
-  - A version header in the installed boot script, and an "outdated" state in Settings.
+- [x] **Root Mode: a daemon that is still starting is adopted, not killed (5.0.0).** A start
+      waits up to 15 s for a daemon process that exists but does not answer yet; measured on
+      the Redmi (adopted after 6.2 s where 4.10 killed it after 0.2 s).
+- [x] **Root Mode: the boot script carries a version (5.0.0),** and Settings marks an outdated
+      copy next to Reinstall.
+- [ ] **Root Mode after netd restarts — written, held back from 5.0.0.** Measured on the Redmi:
+      `stop netd; start netd` takes our ip rules, the `mangle OUTPUT` jump and the FORWARD pair
+      within two seconds, and leaves the DNS hooks pointing at nothing; a netd that dies
+      restarts the whole framework. The fix — the tick checks the ruleset once a minute in one
+      kept-open root shell and puts it back, and a BOOT_COMPLETED in the same kernel boot
+      resumes the service — is on the local branch `root-netd-hold`. Held because the second
+      real netd restart with it ended in a kernel panic inside APatch's `apd` (a list poisoned
+      twice, 2026-10-14); whether our su use has a part in it is not known. A candidate for a
+      5.1 beta, after a few more runs.
 
 ### Audit of the second project
 
