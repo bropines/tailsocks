@@ -1,0 +1,47 @@
+/*
+ * The accent is the app's default theme (ui/theme/Theme.kt, DefaultLight /
+ * DefaultDark — Material 3 purple), which is also the purple of the logo.
+ */
+
+/* Dark theme (Starlight's default). */
+:root {
+	--sl-color-accent-low: #2b2145;
+	--sl-color-accent: #8b6fd6;
+	--sl-color-accent-high: #d0bcff;
+	--sl-color-black: #141218;
+}
+
+/* Light theme. */
+:root[data-theme='light'] {
+	--sl-color-accent-low: #eaddff;
+	--sl-color-accent: #6750a4;
+	--sl-color-accent-high: #381e72;
+	--sl-color-black: #fef7ff;
+}
+
+/* The fox sock is a square icon with its own rounded corners; keep it a sensible size. */
+.site-title img {
+	border-radius: 22%;
+}
+
+/* Splash page: the logo in the hero stays an icon, not a poster. */
+.hero > img {
+	max-width: 12rem;
+	border-radius: 22%;
+}
+
+/* Screenshots: never wider than the column, a soft corner like a phone. */
+.sl-markdown-content img.shot {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	border-radius: 0.75rem;
+}
+
+.sl-markdown-content img.shot-wide {
+	margin-block: 2rem 1rem;
+}
+
+.sl-markdown-content img.shot-narrow {
+	max-width: min(100%, 22rem);
+}

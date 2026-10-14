@@ -1,0 +1,55 @@
+---
+title: TailSocks
+description: An unofficial Tailscale client for Android — a proxy, a VPN, or root routing.
+template: splash
+hero:
+  tagline: An unofficial Tailscale client for Android and Android TV. It runs a full Tailscale node on the device and lets you choose how the rest of it reaches your tailnet — a local proxy, a VPN, or root routing.
+  image:
+    file: ../../assets/logo.svg
+    alt: TailSocks, the fox sock
+  actions:
+    - text: Download APK
+      link: https://github.com/bropines/tailsocks/releases/latest
+      icon: download
+    - text: Get it on Obtainium
+      link: https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks
+      variant: secondary
+      icon: external
+    - text: Getting started
+      link: /tailsocks/getting-started/
+      variant: minimal
+      icon: right-arrow
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import hero from '../../assets/shots/en/hero.webp';
+
+<CardGrid>
+	<LinkCard
+		title="Getting started"
+		description="Install on a phone or a TV, sign in, add accounts."
+		href="/tailsocks/getting-started/"
+	/>
+	<LinkCard
+		title="Connection modes"
+		description="Proxy without VPN permission, a system VPN, or Root Mode."
+		href="/tailsocks/connection-modes/"
+	/>
+	<LinkCard
+		title="Files"
+		description="Taildrop between devices, Taildrive shared folders."
+		href="/tailsocks/files/"
+	/>
+	<LinkCard
+		title="Blocked networks"
+		description="Port 443, the DPI bypass and a proxy for the control connection."
+		href="/tailsocks/censorship/"
+	/>
+</CardGrid>
+
+<Image src={hero} alt="TailSocks: the peers, the main screen and the network check" class="shot shot-wide" width={1200} loading="eager" />
+
+Everything Tailscale offers is there: exit nodes, MagicDNS, Taildrop, Taildrive, Serve and Funnel, several accounts, Headscale. The app says what is going on — connected, connecting, cut off from the relays — and offers the one action that helps.
+
+*Not affiliated with Tailscale Inc. Tailscale, Taildrop, Taildrive, MagicDNS and Funnel are trademarks of Tailscale Inc.*

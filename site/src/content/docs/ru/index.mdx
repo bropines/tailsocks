@@ -1,0 +1,55 @@
+---
+title: TailSocks
+description: Неофициальный клиент Tailscale для Android — прокси, VPN или root-маршрутизация.
+template: splash
+hero:
+  tagline: Неофициальный клиент Tailscale для Android и Android TV. Он запускает на устройстве полноценный узел Tailscale и даёт выбрать, как остальное устройство попадёт в ваш тейлнет, — через локальный прокси, VPN или root-маршрутизацию.
+  image:
+    file: ../../../assets/logo.svg
+    alt: TailSocks, лисий носок
+  actions:
+    - text: Скачать APK
+      link: https://github.com/bropines/tailsocks/releases/latest
+      icon: download
+    - text: Установить через Obtainium
+      link: https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks
+      variant: secondary
+      icon: external
+    - text: С чего начать
+      link: /tailsocks/ru/getting-started/
+      variant: minimal
+      icon: right-arrow
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Image } from 'astro:assets';
+import hero from '../../../assets/shots/ru/hero.webp';
+
+<CardGrid>
+	<LinkCard
+		title="Начало работы"
+		description="Установка на телефон и телевизор, вход, несколько аккаунтов."
+		href="/tailsocks/ru/getting-started/"
+	/>
+	<LinkCard
+		title="Режимы подключения"
+		description="Прокси без разрешения VPN, системный VPN или Root-режим."
+		href="/tailsocks/ru/connection-modes/"
+	/>
+	<LinkCard
+		title="Файлы"
+		description="Taildrop между устройствами и общие папки Taildrive."
+		href="/tailsocks/ru/files/"
+	/>
+	<LinkCard
+		title="Обход блокировок"
+		description="Порт 443, обход DPI и прокси для канала управления."
+		href="/tailsocks/ru/censorship/"
+	/>
+</CardGrid>
+
+<Image src={hero} alt="TailSocks: узлы, главный экран и проверка сети" class="shot shot-wide" width={1200} loading="eager" />
+
+Всё, что умеет Tailscale, на месте: выходные узлы, MagicDNS, Taildrop, Taildrive, Serve и Funnel, несколько аккаунтов, Headscale. Приложение говорит, что происходит на самом деле — подключено, ещё подключается, отрезано от реле, — и предлагает то действие, которое поможет.
+
+*Проект не связан с Tailscale Inc. Tailscale, Taildrop, Taildrive, MagicDNS и Funnel — товарные знаки Tailscale Inc.*
