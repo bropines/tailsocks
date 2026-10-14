@@ -2301,6 +2301,11 @@ private fun PeerConnectionCard(
  * and closes the fold on the scheme's spatial spring — the card grows to show its rows and
  * shrinks back — with the chevron turning to say which way it will go. A card with nothing to
  * fold (one row, which is the lead) is a statement and does not react.
+ *
+ * On a television the card is only a surface. A card that is one target as a whole hides the
+ * targets inside it from the remote, which then reaches neither the lead's button nor a row. So
+ * there the header is one stop (OK folds and unfolds; resting on it unfolds the explanation), the
+ * lead's button is a stop beside it, and each row that acts is a stop under it.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -2329,6 +2334,152 @@ private fun PeerInfoCard(
     // IPv4 address, the version, the endpoint and the relay region are the four leads, and
     // the address is the one thing this sheet is most often opened to copy.
     val copyableLead = card.leadRow?.takeIf { it.id in PEER_COPYABLE_DETAILS }
+    val tv = isTv
+    val helpOpen = remember(card.help) { mutableStateOf(false) }
+
+    // The parts of the header, the same on a phone and on a television.
+    val heading: @Composable RowScope.() -> Unit = {
+        PeerCardIcon(
+            icon = icon,
+            shape = card.group.iconShape(),
+            containerColor = tint.copy(alpha = 0.16f),
+            tint = tint
+        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            // Two lines, not one: a timestamp lead ("2025-08-01 12:00:00") does not fit
+            // one line of titleLarge beside the icon and the chevron on a narrow
+            // phone, and wrapping it after the date reads better than cutting the
+            // seconds off.
+            Text(
+                card.lead,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontFamily = if (card.leadMonospace) FontFamily.Monospace else FontFamily.Default,
+                fontSize = if (card.leadMonospace) 18.sp else MaterialTheme.typography.titleLarge.fontSize,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                card.leadCaption,
+                style = MaterialTheme.typography.labelMedium,
+                color = LocalContentColor.current.copy(alpha = 0.75f)
+            )
+        }
+    }
+    val leadButton: @Composable () -> Unit = {
+        if (copyableLead != null) {
+            PeerLeadCopyButton(
+                copied = copied == copyableLead.id,
+                strings = strings,
+                onCopy = { onCopyDetail(copyableLead) },
+                showIcon = if (copyableLead.id in PEER_QR_DETAILS) Icons.Default.QrCode2 else Icons.Default.Fullscreen
+            )
+        }
+    }
+    val chevronIcon: @Composable () -> Unit = {
+        Icon(
+            Icons.Default.ExpandMore,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = chevron },
+            tint = LocalContentColor.current.copy(alpha = 0.6f)
+        )
+    }
+    val help: @Composable () -> Unit = {
+        if (card.help != null) {
+            // Under the heading's column, the width of the card: beside the chevron two
+            // lines would hold half as much. Only the ⓘ unfolds it — a tap anywhere else
+            // on the card is the card's fold.
+            HelpText(
+                card.help,
+                modifier = Modifier.padding(start = PEER_CARD_ICON_BOX + 14.dp, top = 8.dp),
+                color = LocalContentColor.current.copy(alpha = 0.75f),
+                expanded = helpOpen,
+                inClickableRow = foldable
+            )
+        }
+    }
+    val fold: @Composable ColumnScope.() -> Unit = {
+        if (foldable) {
+            // The rows are composed only while open or animating, so a closed card is as
+            // cheap as its header, and two peers' worth of closed cards are cheap during
+            // a turn.
+            AnimatedVisibility(
+                visible = open,
+                enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) +
+                    expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
+                exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) +
+                    shrinkVertically(MaterialTheme.motionScheme.defaultSpatialSpec())
+            ) {
+                Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    HorizontalDivider(
+                        // The rows' ring sits wider than the card's padding of a phone.
+                        modifier = if (tv) Modifier.padding(horizontal = 8.dp) else Modifier,
+                        color = LocalContentColor.current.copy(alpha = 0.08f)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    card.rows.forEach { row ->
+                        PeerDetailRow(
+                            row = row,
+                            copied = copied == row.id,
+                            strings = strings,
+                            onCopy = onCopyDetail
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (tv) {
+        PeerSheetCard(
+            onClick = null,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = modifier
+        ) {
+            // The padding is the stops': each rings itself inside the card, and the text in it
+            // stands where a phone's does.
+            Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) {
+                Row {
+                    val headerInset = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)
+                    if (foldable) {
+                        ExplainedRow(
+                            onClick = onToggle,
+                            help = helpOpen,
+                            modifier = Modifier.weight(1f).semantics { stateDescription = stateWords },
+                            color = Color.Transparent
+                        ) {
+                            Column(Modifier.fillMaxWidth().then(headerInset)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    heading()
+                                    Spacer(Modifier.width(8.dp))
+                                    chevronIcon()
+                                }
+                                help()
+                            }
+                        }
+                    } else {
+                        Column(Modifier.weight(1f).then(headerInset)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) { heading() }
+                            help()
+                        }
+                    }
+                    // Beside the header and not in it: a stop inside a stop is out of the
+                    // remote's reach. Level with the heading's middle, as on a phone.
+                    if (copyableLead != null) Box(Modifier.padding(top = 18.dp)) { leadButton() }
+                }
+                fold()
+            }
+        }
+        return
+    }
+
     PeerSheetCard(
         onClick = if (foldable) onToggle else null,
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -2338,94 +2489,18 @@ private fun PeerInfoCard(
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                PeerCardIcon(
-                    icon = icon,
-                    shape = card.group.iconShape(),
-                    containerColor = tint.copy(alpha = 0.16f),
-                    tint = tint
-                )
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    // Two lines, not one: a timestamp lead ("2025-08-01 12:00:00") does not fit
-                    // one line of titleLarge beside the icon and the chevron on a narrow
-                    // phone, and wrapping it after the date reads better than cutting the
-                    // seconds off.
-                    Text(
-                        card.lead,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = if (card.leadMonospace) FontFamily.Monospace else FontFamily.Default,
-                        fontSize = if (card.leadMonospace) 18.sp else MaterialTheme.typography.titleLarge.fontSize,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        card.leadCaption,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = LocalContentColor.current.copy(alpha = 0.75f)
-                    )
-                }
+                heading()
                 if (copyableLead != null) {
                     Spacer(Modifier.width(4.dp))
-                    PeerLeadCopyButton(
-                        copied = copied == copyableLead.id,
-                        strings = strings,
-                        onCopy = { onCopyDetail(copyableLead) },
-                        showIcon = if (copyableLead.id in PEER_QR_DETAILS) Icons.Default.QrCode2 else Icons.Default.Fullscreen
-                    )
+                    leadButton()
                 }
                 if (foldable) {
                     Spacer(Modifier.width(8.dp))
-                    Icon(
-                        Icons.Default.ExpandMore,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = chevron },
-                        tint = LocalContentColor.current.copy(alpha = 0.6f)
-                    )
+                    chevronIcon()
                 }
             }
-            if (card.help != null) {
-                // Under the heading's column, the width of the card: beside the chevron two
-                // lines would hold half as much. Only the ⓘ unfolds it — a tap anywhere else
-                // on the card is the card's fold.
-                HelpText(
-                    card.help,
-                    modifier = Modifier.padding(start = PEER_CARD_ICON_BOX + 14.dp, top = 8.dp),
-                    color = LocalContentColor.current.copy(alpha = 0.75f),
-                    inClickableRow = foldable
-                )
-            }
-            if (foldable) {
-                // The rows are composed only while open or animating, so a closed card is as
-                // cheap as its header, and two peers' worth of closed cards are cheap during
-                // a turn.
-                AnimatedVisibility(
-                    visible = open,
-                    enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) +
-                        expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
-                    exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) +
-                        shrinkVertically(MaterialTheme.motionScheme.defaultSpatialSpec())
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-                        HorizontalDivider(color = LocalContentColor.current.copy(alpha = 0.08f))
-                        Spacer(Modifier.height(4.dp))
-                        card.rows.forEach { row ->
-                            PeerDetailRow(
-                                row = row,
-                                copied = copied == row.id,
-                                strings = strings,
-                                onCopy = onCopyDetail
-                            )
-                        }
-                    }
-                }
-            }
+            help()
+            fold()
         }
     }
 }
@@ -2512,7 +2587,9 @@ private fun PeerDetailRow(
                 ) { onCopy(row) }
                 else Modifier
             )
-            .padding(horizontal = 6.dp, vertical = 8.dp),
+            // Wider on a television: its ring is 4dp inside the row, and the text stands
+            // where it did with the card around it as the stop.
+            .padding(horizontal = if (isTv) 14.dp else 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
