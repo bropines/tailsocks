@@ -78,7 +78,9 @@ object TaildriveDownloadFolder {
     fun sameAsTaildrop(taildrop: ReceiveFolder?): ReceiveFolder? =
         DownloadPlace.of(DownloadMode.SAME_AS_TAILDROP, taildrop, taildropDefault(), null)
 
-    private fun taildropDefault(): ReceiveFolder? = TaildropFolder.defaultDir()?.let { ReceiveFolder.Dir(FileBrowse.clean(it), isDefault = true) }
+    /** Download/Taildrop; null where the platform names no storage — the preview renderer has none to name. */
+    private fun taildropDefault(): ReceiveFolder? =
+        runCatching { TaildropFolder.defaultDir() }.getOrNull()?.let { ReceiveFolder.Dir(FileBrowse.clean(it), isDefault = true) }
 
     /**
      * Takes the system picker's grant on [tree] for good: a download outlives the screen that
