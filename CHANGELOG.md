@@ -9,6 +9,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Remote management: a guest can be given an owner's rights for 15 minutes up to a day, confirmed at the device with its lock; a guest can ask for them, and Settings can turn this off.
 - Policy editor: a "TailSocks remote management" template — choose who manages whose devices; it writes the rule for port 28115 and a test.
 - Policy tab: copy the policy, or copy or share it for an AI agent together with the network's map, behind fingerprint or screen lock.
+- Remote management: pull the page down to read the device again.
 
 ### Fixed
 
