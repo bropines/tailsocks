@@ -54,6 +54,8 @@ import io.github.bropines.tailscaled.core.tryStartActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URLEncoder
+import io.github.bropines.tailscaled.BuildConfig
+import android.os.Build
 
 private const val ISSUES_NEW = "https://github.com/bropines/tailsocks/issues/new"
 
@@ -201,16 +203,21 @@ private fun shareReport(context: Context, text: String) {
 }
 
 /**
- * GitHub's new-issue form, pre-filled. The body is capped: a URL long enough to carry a
- * whole log is one the browser drops on the floor, and a truncated report that arrives
- * beats a complete one that does not.
+ * GitHub's bug form (.github/ISSUE_TEMPLATE/bug_report.yml), pre-filled by its field ids: the
+ * version, the device and the report. An issue form ignores `body`, and the repository takes
+ * no blank issues, so the old `?body=` link landed on the template chooser with nothing filled.
+ * The report is capped: a URL long enough to carry a whole log is one the browser drops on the
+ * floor, and a truncated report that arrives beats a complete one that does not.
  */
 private fun openIssueForm(context: Context, body: String): Boolean {
     val trimmed = if (body.length > BODY_LIMIT) body.take(BODY_LIMIT) + "\n… truncated, paste the rest" else body
+    fun q(value: String) = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    val device = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
     val url = ISSUES_NEW +
-        "?labels=bug" +
-        "&title=" + URLEncoder.encode("", "UTF-8") +
-        "&body=" + URLEncoder.encode(trimmed, "UTF-8").replace("+", "%20")
+        "?template=bug_report.yml" +
+        "&version=" + q(BuildConfig.VERSION_NAME) +
+        "&device=" + q(device) +
+        "&diagnostics=" + q(trimmed)
     return context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) ||
         context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ISSUES_NEW)))
 }
