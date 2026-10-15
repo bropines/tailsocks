@@ -174,6 +174,19 @@ class VisualSupportTest {
         assertEquals(listOf("autogroup:nonroot"), sshUsers.map { it.value })
     }
 
+    @Test
+    fun aHeadscaleUserIsWrittenWithItsAt() {
+        // Headscale reads a bare word as a host ("host not defined"); its local users are `name@`.
+        val devices = listOf(ApiDevice(id = "1", name = "tab.hs.local", user = "tester"))
+        val users = listOf(ApiUser(id = "u1", loginName = "tester"), ApiUser(id = "u2", loginName = "bob@example.com"))
+        val hs = SelectorRules.options(SelectorSlot.ACL_SRC, model, headscale = true, users, devices)
+        assertEquals(1, hs.first { it.value == "tester@" }.devices)
+        assertTrue(hs.any { it.value == "bob@example.com" })
+        assertFalse(hs.any { it.value == "tester" })
+        val ts = SelectorRules.options(SelectorSlot.ACL_SRC, model, headscale = false, users, devices)
+        assertTrue(ts.any { it.value == "tester" })
+    }
+
     // ---- coverage ----
 
     @Test

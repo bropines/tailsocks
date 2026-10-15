@@ -202,6 +202,14 @@ object SelectorRules {
     }
 
     /**
+     * How a policy names [login]. Headscale reads a bare word as a host and wants a user as
+     * `name@` — its local users have no domain — so a login without an '@' gets one there;
+     * an e-mail (an OIDC user) and every Tailscale login stand as they are.
+     */
+    internal fun userSelector(login: String, headscale: Boolean): String =
+        if (headscale && '@' !in login) "$login@" else login
+
+    /**
      * What a picker for [slot] offers, in the order it shows them: autogroups, then the file's
      * groups, tags (from tagOwners, and tags devices carry that tagOwners lacks — marked
      * undefined), hosts and IP sets, then users from [users]. [devices] fills in device counts.
@@ -232,7 +240,7 @@ object SelectorRules {
         model.ipsets.forEach { add(SelectorOption(it.name, SelectorKind.IPSET)) }
         model.postures.forEach { add(SelectorOption(it.name, SelectorKind.POSTURE)) }
         users.filter { it.loginName.isNotBlank() }.forEach { u ->
-            add(SelectorOption(u.loginName, SelectorKind.USER, devices.count { !it.isTagged && it.user.equals(u.loginName, ignoreCase = true) }))
+            add(SelectorOption(userSelector(u.loginName, headscale), SelectorKind.USER, devices.count { !it.isTagged && it.user.equals(u.loginName, ignoreCase = true) }))
         }
         return out
     }
