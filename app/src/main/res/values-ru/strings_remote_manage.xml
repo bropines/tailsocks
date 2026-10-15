@@ -50,8 +50,8 @@
     <string name="rmanage_paired_since">Сопряжено %1$s</string>
     <string name="rmanage_fact_paired">Сопряжено</string>
     <string name="rmanage_problem_offline_since">%1$s не в сети. Последний раз был в сети %2$s.</string>
-    <string name="rmanage_problem_left">%1$s больше нет в этом tailnet: возможно, устройство удалили или на нём вошли в другой аккаунт.</string>
-    <string name="rmanage_one_tailnet">Управлять можно только устройствами своего tailnet.</string>
+    <string name="rmanage_problem_left">Это устройство больше не видит %1$s: возможно, его удалили или на нём вошли в другой аккаунт, или поменялись правила доступа tailnet.</string>
+    <string name="rmanage_one_tailnet">Управлять можно только тем, что это устройство видит: устройством того же tailnet, и только если правила доступа (ACL) пускают к нему отсюда. Устройство, к которому правила не пускают, этому вообще не показывается.</string>
     <string name="rmanage_start_own">Запустить TailSocks</string>
     <string name="rmanage_starting_own">Запускаю TailSocks на этом устройстве…</string>
 

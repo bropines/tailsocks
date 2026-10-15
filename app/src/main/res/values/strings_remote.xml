@@ -100,7 +100,7 @@
     <string name="remote_pair_err_not_code">That is not a pairing code.</string>
 
     <string name="remote_problem_not_connected">TailSocks on this device is not connected.</string>
-    <string name="remote_problem_no_peer">%1$s is not in this tailnet.</string>
+    <string name="remote_problem_no_peer">This device does not see %1$s.</string>
     <string name="remote_problem_offline">%1$s is offline.</string>
     <string name="remote_problem_not_accepting">%1$s is online but does not accept management now: it was switched off there, or its mode cannot be reached.</string>
     <string name="remote_problem_revoked">%1$s no longer accepts this pairing: it was revoked there.</string>

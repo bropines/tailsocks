@@ -106,7 +106,7 @@
     <string name="remote_pair_err_not_code">Это не код сопряжения.</string>
 
     <string name="remote_problem_not_connected">TailSocks на этом устройстве не подключён.</string>
-    <string name="remote_problem_no_peer">%1$s нет в этом tailnet.</string>
+    <string name="remote_problem_no_peer">Это устройство не видит %1$s.</string>
     <string name="remote_problem_offline">%1$s не в сети.</string>
     <string name="remote_problem_not_accepting">%1$s в сети, но сейчас не принимает управление: его там выключили, или в текущем режиме до устройства не достучаться.</string>
     <string name="remote_problem_revoked">%1$s больше не принимает это сопряжение: его там отозвали.</string>
