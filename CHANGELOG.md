@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Security
+
+- In proxy mode, devices of the tailnet that the policy let reach this one could use its local proxies — SOCKS5, HTTP, DNS and the Taildrive proxy — as if they ran on it. They are now closed to the tailnet; a proxy that other devices are meant to use opens again under Settings → Local proxies → Reachable from the tailnet.
+
 ### Added
 
 - Remote management: a guest can be given an owner's rights for 15 minutes up to a day, confirmed at the device with its lock; a guest can ask for them, and Settings can turn this off.
