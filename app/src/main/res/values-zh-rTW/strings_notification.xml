@@ -6,4 +6,5 @@
   problem, Sign-in needed, the health titles) the card reuses those, so the two
   never disagree; only what the card says and the screen does not lives here.
 --><resources>
-    </resources>
+    <string name="notif_channel_status">連線狀態</string>
+</resources>
