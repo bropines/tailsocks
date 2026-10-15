@@ -1,7 +1,16 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.RemoteAccess
@@ -46,13 +55,13 @@ private val running = RemoteState(
 private const val GUEST_OPS = """"status","exit_nodes","exit_node.set","settings","files","unpair","confirm","identify""""
 private const val ACTIONS = """"actions":["reconnect","reconnect_relays","receive_folder_default","save_received"]"""
 private const val PERMISSIONS = """"permissions":["storage","notifications","battery","alarms","install","autostart"]"""
-private const val NEVER = """"never":["stop","sign_out","account","credentials","control_proxy","root_mode","grant_permission","full_control_on"]"""
+private const val NEVER = """"never":["stop","sign_out","account","credentials","control_proxy","root_mode","grant_permission","full_control_on","files_on"]"""
 private const val CONNECTION = """{"key":"accept_dns","guard":"optional"},{"key":"accept_routes","guard":"optional"},""" +
     """{"key":"exit_node_lan_access","guard":"optional"},{"key":"tun_mode","guard":"always"},""" +
     """{"key":"auto_reconnect","only":"true"},{"key":"auto_start","only":"true"},{"key":"keep_awake","only":"true"}"""
 
 private fun basicAccess(guests: Boolean = true) = RemoteAccess.of(
-    """{"level":"basic","guests":$guests,"guest":{"ops":[$GUEST_OPS]},
+    """{"level":"basic","guests":$guests,"files":true,"guest":{"ops":[$GUEST_OPS]},
         "owner":{"ops":["status","exit_nodes","exit_node.set","settings","settings.set","action","files","files.delete","unpair",
                         "permission.request","folders","confirm","identify","shares.remove"],
                  "settings":[$CONNECTION,
@@ -66,7 +75,7 @@ private fun basicAccess(guests: Boolean = true) = RemoteAccess.of(
 )
 
 private val fullAccess = RemoteAccess.of(
-    """{"level":"full","guests":true,"guest":{"ops":[$GUEST_OPS]},
+    """{"level":"full","guests":true,"files":true,"guest":{"ops":[$GUEST_OPS]},
         "owner":{"ops":["status","exit_nodes","exit_node.set","settings","settings.set","action","files","files.delete","unpair",
                         "permission.request","folders","confirm","identify","shares.remove","shares.add","storage.list","storage.send",
                         "diag.report","diag.log"],
@@ -75,6 +84,25 @@ private val fullAccess = RemoteAccess.of(
                              {"key":"full_control","only":"false"}],
                  $ACTIONS,$PERMISSIONS},
         "full":{"ops":[]},
+        $NEVER}"""
+)
+
+/**
+ * The bridge's document with network access to files off: the files' operations and the two
+ * Taildrive switches are nobody's, listed apart, at either level.
+ */
+private fun closedAccess(full: Boolean) = RemoteAccess.of(
+    """{"level":"${if (full) "full" else "basic"}","guests":true,"files":false,"guest":{"ops":[$GUEST_OPS]},
+        "owner":{"ops":["status","exit_nodes","exit_node.set","settings","settings.set","action","files","files.delete","unpair",
+                        "permission.request","confirm","identify"],
+                 "settings":[$CONNECTION,
+                             ${if (full) """{"key":"advertise_exit_node"},{"key":"advertise_routes"},"""
+                               else """{"key":"advertise_exit_node","only":"false","needs":"full"},{"key":"advertise_routes","needs":"full"},"""}
+                             {"key":"full_control","only":"false"}],
+                 $ACTIONS,$PERMISSIONS},
+        "full":{"ops":[]${if (full) "" else ""","settings":[{"key":"advertise_exit_node"},{"key":"advertise_routes"}]"""}},
+        "withFiles":{"ops":["folders","shares.remove","shares.add","storage.list","storage.send","diag.report","diag.log"],
+                     "settings":[{"key":"taildrive_enabled"},{"key":"taildrive_proxy_enabled"}]},
         $NEVER}"""
 )
 
@@ -123,9 +151,10 @@ private fun managed(
     guests: Boolean = true,
     tagged: Boolean = false,
     accessOpen: Boolean = true,
+    files: Boolean = true,
 ) = RemoteManagedUi(
     enabled = true, state = running, reach = RemoteReach.READY, devices = devices, now = NOW, tagged = tagged,
-    fullControl = fullControl, guests = guests, access = access, accessOpen = accessOpen,
+    fullControl = fullControl, guests = guests, access = access, accessOpen = accessOpen, files = files,
 )
 
 private val off = RemoteManagedUi(
@@ -215,3 +244,43 @@ fun RemoteManagedNewLogTv() = Managed(logged, tv = true)
 /** One of the page's switches could not be stored. */
 @PreviewTest @ManagedPhone @Composable
 fun RemoteManagedSwitchNotSaved() = Managed(basic.copy(accessOpen = false, notice = RemoteNotice.NO_FULL, devices = emptyList()))
+
+// ─── Network access to files ────────────────────────────────────────────────────────────────
+
+private val filesClosed = managed(closedAccess(full = false), files = false)
+private val fullFilesClosed = managed(closedAccess(full = true), fullControl = true, files = false)
+
+/** Files closed at the basic level: the switch off, and what it keeps closed listed apart. */
+@PreviewTest @ManagedPhoneTall @Composable
+fun RemoteManagedFilesClosed() = Managed(filesClosed)
+
+@PreviewTest @ManagedTv @Composable
+fun RemoteManagedFilesClosedTv() = Managed(filesClosed, tv = true)
+
+/** Full control on and the files closed: routes and the exit node are an owner's, the files nobody's. */
+@PreviewTest @ManagedPhoneTall @Composable
+fun RemoteManagedFullFilesClosed() = Managed(fullFilesClosed)
+
+@PreviewTest @ManagedTv @Composable
+fun RemoteManagedFullFilesClosedTv() = Managed(fullFilesClosed, tv = true)
+
+/** The lock could not be asked, so the files stayed closed. */
+@PreviewTest @ManagedPhone @Composable
+fun RemoteManagedFilesLockFailed() = Managed(filesClosed.copy(accessOpen = false, notice = RemoteNotice.FILES_LOCK, devices = emptyList()))
+
+@Composable
+private fun FilesQuestion(locked: Boolean, tv: Boolean = false) = AdaptiveShowcase(null, device = if (tv) DeviceClass.TV else null) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+            RemoteFilesQuestion(locked, Modifier.widthIn(max = 560.dp))
+        }
+    }
+}
+
+/** The question before the files are opened, on a phone with a screen lock: the lock comes next. */
+@PreviewTest @ManagedPhone @Composable
+fun RemoteManagedFilesQuestion() = FilesQuestion(locked = true)
+
+/** The same on a television with no lock: the answer is the only confirmation, and it says so. */
+@PreviewTest @ManagedTv @Composable
+fun RemoteManagedFilesQuestionTv() = FilesQuestion(locked = false, tv = true)
