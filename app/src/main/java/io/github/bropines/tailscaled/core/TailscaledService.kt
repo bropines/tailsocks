@@ -2075,8 +2075,8 @@ class TailscaledService : Service() {
             remoteNoElevation = !RemoteElevate.isAllowed(this@TailscaledService)
             // And the files: closed to every paired device unless opened on this device.
             remoteFiles = RemoteLevel.isFilesOpen(this@TailscaledService)
-            // The local proxies the tailnet may use, for the daemon's list beside its socket,
-            // with their ports as these options set them (TailnetReach).
+            // What the tailnet may reach on this device's address, for the daemon's policy beside
+            // its socket, with the app's ports as these options set them (TailnetReach).
             TailnetReach.sync(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds

@@ -225,6 +225,9 @@ class TailcatService : Service() {
         val id = intent?.getStringExtra(EXTRA_ID)
         worker.execute {
             try {
+                // A connection's ports are the app's own: closed to the tailnet while it is switched
+                // on, another app's again once it is off (TailnetReach).
+                TailnetReach.sync(this)
                 when (intent?.action) {
                     ACTION_START -> if (id != null) startConnection(id)
                     ACTION_RESTART -> if (id != null) {
