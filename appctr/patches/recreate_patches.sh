@@ -171,11 +171,12 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # Upstream netstack hands a tailnet connection to the node's own address that
 # nothing took first (Serve, the peerAPI, quad-100) to the same port on
 # 127.0.0.1, which in userspace networking opened every loopback listener of
-# the device — the app's SOCKS5, HTTP, DNS and Taildrive proxies — to the
-# tailnet. Impl.GuardLoopback refuses those flows (a RST, a dropped UDP flow)
-# unless the port is allowed: the remote-management port while 22's switch is
-# on, and what the app lists in files/tailnet-open. The one call from
-# newNetstack travels in 19 (whole-file diff).
+# the device — the app's SOCKS5, HTTP, DNS and Taildrive proxies among them —
+# to the tailnet. Impl.GuardLoopback refuses those flows (a RST, a dropped UDP
+# flow) the app's policy in files/tailnet-reach does not allow: by default the
+# app's own listeners the person did not open, in strict mode every port but
+# those opened; the remote-management port follows 22's switch in both. The
+# one call from newNetstack travels in 19 (whole-file diff).
 {
     diff -N -u /dev/null tailscale_src/wgengine/netstack/loopback_guard.go || true
     diff -N -u /dev/null tailscale_src/wgengine/netstack/loopback_guard_test.go || true

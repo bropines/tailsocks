@@ -1,6 +1,6 @@
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/loopback_guard.go	2026-10-15 13:08:38.940732396 +0300
-@@ -0,0 +1,97 @@
++++ tailscale_src/wgengine/netstack/loopback_guard.go	2026-10-15 15:02:55.557974162 +0300
+@@ -0,0 +1,99 @@
 +package netstack
 +
 +// TailSocks: which tailnet flows netstack may hand to localhost.
@@ -35,7 +35,9 @@
 +//
 +// With the guard such a flow reaches localhost only when it is addressed to
 +// one of this node's own addresses and allow approves its protocol and
-+// destination port. Every other one is refused: TCP with a RST, UDP by
++// destination port — on Android every port but the app's own listeners by
++// default, only the ones opened in strict mode (cmd/tailscaled
++// android_loopback.go). Every other one is refused: TCP with a RST, UDP by
 +// dropping the flow. Flows the default path does not send to localhost —
 +// subnet routes, an exit node's traffic, 4via6, the service IP — are left to
 +// it as they are, and so is everything handled before the hook.
@@ -99,8 +101,8 @@
 +	return false
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/loopback_guard_test.go	2026-10-15 13:08:20.059226428 +0300
-@@ -0,0 +1,486 @@
++++ tailscale_src/wgengine/netstack/loopback_guard_test.go	2026-10-15 15:02:11.977975550 +0300
+@@ -0,0 +1,566 @@
 +package netstack
 +
 +// TailSocks: GuardLoopback — what a tailnet flow may reach on localhost.
@@ -128,12 +130,13 @@
 +	"tailscale.com/wgengine/filter"
 +)
 +
-+// The app's listeners, as they are by default.
++// The app's listeners, as they are by default, and another app's server.
 +const (
 +	guardSOCKS5   = 48115 // SOCKS5, without a password unless one is set
 +	guardRemote   = 28115 // remote management, while its switch is on
 +	guardDrive    = 33445 // the Taildrive proxy
 +	guardDNSProxy = 1053  // the DNS proxy, UDP
++	guardADB      = 5555  // adb over the network: not the app's
 +)
 +
 +var (
@@ -145,16 +148,32 @@
 +	guardWeb    = netip.MustParseAddr("203.0.113.5")  // past this node as an exit node
 +)
 +
-+// guardAllow is what the daemon builds from the app's switches: the
-+// remote-management port while remote management is on, and the ports the
-+// person opened to the tailnet.
++// guardAllow stands in for the daemon's policy (cmd/tailscaled/android_loopback.go):
++// the remote-management port while remote management is on, and then either
++// every port but the ones listed — the app's own listeners the person did not
++// open (default mode) — or only the ones listed, those the person opened
++// (strict mode).
 +type guardAllow struct {
 +	remote atomic.Bool
 +	asked  atomic.Int32
 +
-+	mu   sync.Mutex
-+	open map[ipproto.Proto]map[uint16]bool
++	mu     sync.Mutex
++	strict bool
++	listed map[ipproto.Proto]map[uint16]bool // default: closed; strict: open
 +}
++
++// appDefault is default mode as the app writes it on a fresh install: its
++// SOCKS5, DNS and Taildrive proxies closed, everything else served.
++func appDefault() *guardAllow {
++	a := new(guardAllow)
++	a.list(ipproto.TCP, guardSOCKS5)
++	a.list(ipproto.TCP, guardDrive)
++	a.list(ipproto.UDP, guardDNSProxy)
++	return a
++}
++
++// strictMode is strict mode with nothing opened.
++func strictMode() *guardAllow { return &guardAllow{strict: true} }
 +
 +func (a *guardAllow) allow(proto ipproto.Proto, port uint16) bool {
 +	a.asked.Add(1)
@@ -163,19 +182,35 @@
 +	}
 +	a.mu.Lock()
 +	defer a.mu.Unlock()
-+	return a.open[proto][port]
++	return a.listed[proto][port] == a.strict
 +}
 +
-+func (a *guardAllow) openPort(proto ipproto.Proto, port uint16) {
++func (a *guardAllow) list(proto ipproto.Proto, port uint16) {
 +	a.mu.Lock()
 +	defer a.mu.Unlock()
-+	if a.open == nil {
-+		a.open = map[ipproto.Proto]map[uint16]bool{}
++	if a.listed == nil {
++		a.listed = map[ipproto.Proto]map[uint16]bool{}
 +	}
-+	if a.open[proto] == nil {
-+		a.open[proto] = map[uint16]bool{}
++	if a.listed[proto] == nil {
++		a.listed[proto] = map[uint16]bool{}
 +	}
-+	a.open[proto][port] = true
++	a.listed[proto][port] = true
++}
++
++func (a *guardAllow) unlist(proto ipproto.Proto, port uint16) {
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	delete(a.listed[proto], port)
++}
++
++// openPort opens a port the way the app does in either mode: off the closed
++// list in default mode, onto the open list in strict.
++func (a *guardAllow) openPort(proto ipproto.Proto, port uint16) {
++	if a.strict {
++		a.list(proto, port)
++	} else {
++		a.unlist(proto, port)
++	}
 +}
 +
 +func selfNetmap() *netmap.NetworkMap {
@@ -186,78 +221,102 @@
 +}
 +
 +func TestGuardLoopbackDecides(t *testing.T) {
-+	a := new(guardAllow)
-+	a.remote.Store(true)
-+	impl := makeNetstack(t, func(impl *Impl) {
-+		impl.GuardLoopback(a.allow)
-+	})
-+	impl.UpdateNetstackIPs(selfNetmap())
 +	via := mustVia99(t, "10.1.2.3")
-+
 +	tests := []struct {
-+		name   string
-+		proto  ipproto.Proto
-+		dst    netip.AddrPort
-+		refuse bool
++		name  string
++		proto ipproto.Proto
++		dst   netip.AddrPort
++		// Refused in default mode (the app's own listeners closed) and in
++		// strict mode (nothing opened).
++		refuseDefault, refuseStrict bool
 +	}{
-+		{"socks5", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardSOCKS5), true},
-+		{"socks5-ipv6", ipproto.TCP, netip.AddrPortFrom(guardSelf6, guardSOCKS5), true},
-+		{"taildrive-proxy", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardDrive), true},
-+		{"remote-management", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardRemote), false},
-+		{"remote-management-ipv6", ipproto.TCP, netip.AddrPortFrom(guardSelf6, guardRemote), false},
-+		{"dns-proxy", ipproto.UDP, netip.AddrPortFrom(guardSelf4, guardDNSProxy), true},
++		{"socks5", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardSOCKS5), true, true},
++		{"socks5-ipv6", ipproto.TCP, netip.AddrPortFrom(guardSelf6, guardSOCKS5), true, true},
++		{"taildrive-proxy", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardDrive), true, true},
++		{"remote-management", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardRemote), false, false},
++		{"remote-management-ipv6", ipproto.TCP, netip.AddrPortFrom(guardSelf6, guardRemote), false, false},
++		{"dns-proxy", ipproto.UDP, netip.AddrPortFrom(guardSelf4, guardDNSProxy), true, true},
++		// Another app's server: served as upstream serves it, unless strict.
++		{"adb", ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardADB), false, true},
++		{"adb-ipv6", ipproto.TCP, netip.AddrPortFrom(guardSelf6, guardADB), false, true},
++		{"udp-another-app", ipproto.UDP, netip.AddrPortFrom(guardSelf4, 21027), false, true},
 +		// Remote management is TCP; the same number in UDP is not it.
-+		{"udp-remote-port", ipproto.UDP, netip.AddrPortFrom(guardSelf4, guardRemote), true},
++		{"udp-remote-port", ipproto.UDP, netip.AddrPortFrom(guardSelf4, guardRemote), false, true},
 +		// Upstream forwards TCP to any Tailscale IP to localhost, not only to
 +		// the node's own: an exit node's or a subnet router's peer could ask.
-+		{"another-nodes-address", ipproto.TCP, netip.AddrPortFrom(guardOther, guardRemote), true},
++		// Never this device's to open, in either mode.
++		{"another-nodes-address", ipproto.TCP, netip.AddrPortFrom(guardOther, guardRemote), true, true},
++		{"another-nodes-address-adb", ipproto.TCP, netip.AddrPortFrom(guardOther, guardADB), true, true},
 +		// What the default path does not send to localhost is not the guard's.
-+		{"subnet-route", ipproto.TCP, netip.AddrPortFrom(guardSubnet, guardSOCKS5), false},
-+		{"exit-node", ipproto.TCP, netip.AddrPortFrom(guardWeb, 443), false},
-+		{"4via6", ipproto.TCP, netip.AddrPortFrom(via, 80), false},
-+		{"service-ip", ipproto.TCP, netip.AddrPortFrom(tsaddr.TailscaleServiceIP(), 8080), false},
-+		{"service-ip-v6", ipproto.TCP, netip.AddrPortFrom(tsaddr.TailscaleServiceIPv6(), 53), false},
-+		{"udp-subnet-route", ipproto.UDP, netip.AddrPortFrom(guardSubnet, guardDNSProxy), false},
++		{"subnet-route", ipproto.TCP, netip.AddrPortFrom(guardSubnet, guardSOCKS5), false, false},
++		{"exit-node", ipproto.TCP, netip.AddrPortFrom(guardWeb, 443), false, false},
++		{"4via6", ipproto.TCP, netip.AddrPortFrom(via, 80), false, false},
++		{"service-ip", ipproto.TCP, netip.AddrPortFrom(tsaddr.TailscaleServiceIP(), 8080), false, false},
++		{"service-ip-v6", ipproto.TCP, netip.AddrPortFrom(tsaddr.TailscaleServiceIPv6(), 53), false, false},
++		{"udp-subnet-route", ipproto.UDP, netip.AddrPortFrom(guardSubnet, guardDNSProxy), false, false},
 +		// forwardUDP dials another Tailscale IP as it is, not on localhost.
-+		{"udp-another-nodes-address", ipproto.UDP, netip.AddrPortFrom(guardOther, guardDNSProxy), false},
-+		{"udp-service-ip", ipproto.UDP, netip.AddrPortFrom(tsaddr.TailscaleServiceIP(), 53), false},
++		{"udp-another-nodes-address", ipproto.UDP, netip.AddrPortFrom(guardOther, guardDNSProxy), false, false},
++		{"udp-service-ip", ipproto.UDP, netip.AddrPortFrom(tsaddr.TailscaleServiceIP(), 53), false, false},
 +	}
 +	src := netip.AddrPortFrom(guardPeer, 1234)
-+	for _, tt := range tests {
-+		t.Run(tt.name, func(t *testing.T) {
-+			var refused bool
-+			switch tt.proto {
-+			case ipproto.TCP:
-+				h, intercept := impl.GetTCPHandlerForFlow(src, tt.dst)
-+				if h != nil {
-+					t.Error("the guard handed out a handler; it only refuses")
-+				}
-+				refused = intercept
-+			case ipproto.UDP:
-+				h, intercept := impl.GetUDPHandlerForFlow(src, tt.dst)
-+				if h != nil {
-+					t.Error("the guard handed out a handler; it only refuses")
-+				}
-+				refused = intercept
++	refused := func(t *testing.T, impl *Impl, proto ipproto.Proto, dst netip.AddrPort) bool {
++		t.Helper()
++		if proto == ipproto.UDP {
++			h, intercept := impl.GetUDPHandlerForFlow(src, dst)
++			if h != nil {
++				t.Error("the guard handed out a handler; it only refuses")
 +			}
-+			if refused != tt.refuse {
-+				t.Errorf("%v %v: refused = %v, want %v", tt.proto, tt.dst, refused, tt.refuse)
-+			}
-+		})
++			return intercept
++		}
++		h, intercept := impl.GetTCPHandlerForFlow(src, dst)
++		if h != nil {
++			t.Error("the guard handed out a handler; it only refuses")
++		}
++		return intercept
 +	}
 +
-+	// The switch is asked for every flow: off, the port closes at once.
-+	a.remote.Store(false)
-+	if _, refused := impl.GetTCPHandlerForFlow(src, netip.AddrPortFrom(guardSelf4, guardRemote)); !refused {
-+		t.Error("remote management switched off, and its port is still open")
-+	}
-+	// What the person opened opens, in its own protocol only.
-+	a.openPort(ipproto.TCP, guardSOCKS5)
-+	if _, refused := impl.GetTCPHandlerForFlow(src, netip.AddrPortFrom(guardSelf4, guardSOCKS5)); refused {
-+		t.Error("SOCKS5 opened to the tailnet, and it is still refused")
-+	}
-+	if _, refused := impl.GetUDPHandlerForFlow(src, netip.AddrPortFrom(guardSelf4, guardSOCKS5)); !refused {
-+		t.Error("opening SOCKS5's TCP port opened its UDP port too")
++	for _, mode := range []string{"default", "strict"} {
++		t.Run(mode, func(t *testing.T) {
++			a := appDefault()
++			if mode == "strict" {
++				a = strictMode()
++			}
++			a.remote.Store(true)
++			impl := makeNetstack(t, func(impl *Impl) {
++				impl.GuardLoopback(a.allow)
++			})
++			impl.UpdateNetstackIPs(selfNetmap())
++			for _, tt := range tests {
++				t.Run(tt.name, func(t *testing.T) {
++					want := tt.refuseDefault
++					if mode == "strict" {
++						want = tt.refuseStrict
++					}
++					if got := refused(t, impl, tt.proto, tt.dst); got != want {
++						t.Errorf("%v %v: refused = %v, want %v", tt.proto, tt.dst, got, want)
++					}
++				})
++			}
++
++			// The switch is asked for every flow: off, the port closes at once.
++			a.remote.Store(false)
++			if !refused(t, impl, ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardRemote)) {
++				t.Error("remote management switched off, and its port is still open")
++			}
++			// What the person opened opens, in its own protocol only.
++			a.openPort(ipproto.TCP, guardSOCKS5)
++			if refused(t, impl, ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardSOCKS5)) {
++				t.Error("SOCKS5 opened to the tailnet, and it is still refused")
++			}
++			if mode == "strict" && !refused(t, impl, ipproto.UDP, netip.AddrPortFrom(guardSelf4, guardSOCKS5)) {
++				t.Error("opening SOCKS5's TCP port opened its UDP port too")
++			}
++			// In strict mode another app's port is the person's to list.
++			a.openPort(ipproto.TCP, guardADB)
++			if refused(t, impl, ipproto.TCP, netip.AddrPortFrom(guardSelf4, guardADB)) {
++				t.Error("adb opened to the tailnet, and it is still refused")
++			}
++		})
 +	}
 +}
 +
@@ -350,6 +409,7 @@
 +func TestGuardLoopbackAcceptTCP(t *testing.T) {
 +	tests := []struct {
 +		name     string
++		strict   bool // strict mode; default mode closes the app's own listeners
 +		remoteOn bool
 +		open     uint16 // a TCP port opened to the tailnet
 +		dst      netip.AddrPort
@@ -359,17 +419,30 @@
 +		{name: "socks5-ipv6-is-reset", dst: netip.AddrPortFrom(guardSelf6, guardSOCKS5)},
 +		{name: "taildrive-proxy-is-reset", dst: netip.AddrPortFrom(guardSelf4, guardDrive)},
 +		{name: "socks5-opened-is-forwarded", open: guardSOCKS5, dst: netip.AddrPortFrom(guardSelf4, guardSOCKS5), dialAddr: "127.0.0.1:48115"},
++		{name: "strict-socks5-opened-is-forwarded", strict: true, open: guardSOCKS5, dst: netip.AddrPortFrom(guardSelf4, guardSOCKS5), dialAddr: "127.0.0.1:48115"},
++		// Another app's server is served as upstream serves it...
++		{name: "adb-is-forwarded", dst: netip.AddrPortFrom(guardSelf4, guardADB), dialAddr: "127.0.0.1:5555"},
++		{name: "adb-ipv6-is-forwarded", dst: netip.AddrPortFrom(guardSelf6, guardADB), dialAddr: "127.0.0.1:5555"},
++		// ...unless strict mode closes it, and the person opens it again.
++		{name: "strict-adb-is-reset", strict: true, dst: netip.AddrPortFrom(guardSelf4, guardADB)},
++		{name: "strict-adb-opened-is-forwarded", strict: true, open: guardADB, dst: netip.AddrPortFrom(guardSelf4, guardADB), dialAddr: "127.0.0.1:5555"},
 +		{name: "remote-on-is-forwarded", remoteOn: true, dst: netip.AddrPortFrom(guardSelf4, guardRemote), dialAddr: "127.0.0.1:28115"},
 +		{name: "remote-on-ipv6-is-forwarded", remoteOn: true, dst: netip.AddrPortFrom(guardSelf6, guardRemote), dialAddr: "127.0.0.1:28115"},
++		{name: "strict-remote-on-is-forwarded", strict: true, remoteOn: true, dst: netip.AddrPortFrom(guardSelf4, guardRemote), dialAddr: "127.0.0.1:28115"},
 +		{name: "remote-off-is-reset", dst: netip.AddrPortFrom(guardSelf4, guardRemote)},
-+		// Upstream would have dialed 127.0.0.1:28115 for it.
++		// Upstream would have dialed 127.0.0.1 for these.
 +		{name: "another-nodes-address-is-reset", remoteOn: true, dst: netip.AddrPortFrom(guardOther, guardRemote)},
++		{name: "another-nodes-address-adb-is-reset", dst: netip.AddrPortFrom(guardOther, guardADB)},
 +		{name: "subnet-route-is-dialed", dst: netip.AddrPortFrom(guardSubnet, guardSOCKS5), dialAddr: "192.0.2.1:48115"},
 +		{name: "exit-node-traffic-is-dialed", dst: netip.AddrPortFrom(guardWeb, 443), dialAddr: "203.0.113.5:443"},
++		{name: "strict-exit-node-traffic-is-dialed", strict: true, dst: netip.AddrPortFrom(guardWeb, 443), dialAddr: "203.0.113.5:443"},
 +	}
 +	for _, tt := range tests {
 +		t.Run(tt.name, func(t *testing.T) {
-+			a := new(guardAllow)
++			a := appDefault()
++			if tt.strict {
++				a = strictMode()
++			}
 +			a.remote.Store(tt.remoteOn)
 +			if tt.open != 0 {
 +				a.openPort(ipproto.TCP, tt.open)
@@ -459,7 +532,7 @@
 +		}
 +	}()
 +
-+	a := new(guardAllow)
++	a := appDefault()
 +	impl := guardedNetstack(t, a, serveBackend.Addr())
 +	dial, dialed := recordingDialer(t)
 +	impl.forwardDialFunc = dial
@@ -520,13 +593,22 @@
 +	defer backend.Close()
 +	port := uint16(backend.LocalAddr().(*net.UDPAddr).Port)
 +
-+	for _, open := range []bool{false, true} {
-+		name := map[bool]string{false: "closed-is-dropped", true: "opened-is-forwarded"}[open]
-+		t.Run(name, func(t *testing.T) {
-+			a := new(guardAllow)
-+			if open {
-+				a.openPort(ipproto.UDP, port)
-+			}
++	tests := []struct {
++		name   string
++		policy func() *guardAllow
++		open   bool
++	}{
++		// The port as one of the app's own, closed in default mode.
++		{"default-closed-is-dropped", func() *guardAllow { a := appDefault(); a.list(ipproto.UDP, port); return a }, false},
++		// The port as another app's: served.
++		{"default-other-app-is-forwarded", appDefault, true},
++		{"strict-is-dropped", strictMode, false},
++		{"strict-opened-is-forwarded", func() *guardAllow { a := strictMode(); a.openPort(ipproto.UDP, port); return a }, true},
++	}
++	for _, tt := range tests {
++		open := tt.open
++		t.Run(tt.name, func(t *testing.T) {
++			a := tt.policy()
 +			impl := makeNetstack(t, func(impl *Impl) {
 +				impl.ProcessLocalIPs = true
 +				impl.ProcessSubnets = true
@@ -588,8 +670,8 @@
 +	return uint16(c.LocalAddr().(*net.UDPAddr).Port)
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_loopback.go	2026-10-15 13:10:01.139206940 +0300
-@@ -0,0 +1,182 @@
++++ tailscale_src/cmd/tailscaled/android_loopback.go	2026-10-15 14:56:55.802035427 +0300
+@@ -0,0 +1,284 @@
 +//go:build !ts_omit_netstack
 +
 +package main
@@ -600,27 +682,44 @@
 +// Upstream netstack hands every connection to the node's addresses that
 +// nothing else took — not Serve, not the peerAPI, not quad-100 — to the same
 +// port on 127.0.0.1. In userspace networking (proxy mode, the hev engine,
-+// Root Mode without its interface) that opened every loopback listener of the
-+// device to the tailnet: the app's SOCKS5 and HTTP proxies, which ask no
-+// password unless one is set, its DNS proxy, its Taildrive proxy (the shares
-+// this device may open, read under its identity), other apps' local servers.
-+// netstack.Impl.GuardLoopback closes that down to an allow list, built here
-+// from what the app says:
++// Root Mode without its interface) that serves every loopback listener of the
++// device to the tailnet. For other apps' servers that is what any Tailscale
++// node in userspace networking does, and what people use: adb over the
++// network, an SSH server, Syncthing. For the app's own listeners it is a hole:
++// its SOCKS5 and HTTP proxies ask no password unless one is set, its DNS
++// proxy resolves the tailnet's names, its Taildrive proxy opens the shares
++// this device may open under its identity, its Web UI and TailCat's forwards
++// are its own too.
 +//
-+//   - the remote-management port, while its switch is on — the switch and the
-+//     look at it are android_remote.go's;
-+//   - the ports the person opened to the tailnet (Settings → Local proxies →
-+//     Reachable from the tailnet), one "tcp <port>" or "udp <port>" per line
-+//     in tailnet-open beside the daemon's socket, which the app keeps
-+//     (core/TailnetReach.kt). No file: nothing is open.
++// netstack.Impl.GuardLoopback refuses what the policy here does not allow.
++// The policy is the app's, a file beside the daemon's socket that
++// core/TailnetReach.kt keeps, one statement a line:
 +//
-+// Both are followed without a restart. Everything else to the node's own
-+// addresses is refused, whatever listens on 127.0.0.1.
++//	mode default            refuse only the ports listed as closed
++//	mode strict             refuse every port but those listed as open
++//	close tcp 48115         a port refused in default mode
++//	open udp 1234           a port allowed in strict mode
++//
++// Blank lines and lines starting with # are skipped; an open line means
++// nothing in default mode, nor a close line in strict mode. The app writes
++// "close" for each of its own listeners the person did not open to the
++// tailnet, so by default those are refused and everything else is forwarded
++// as upstream does; "strict" is the person's choice to close the rest too.
++//
++// No file, one that cannot be read, or one without a mode the daemon knows (a
++// race at start, an app from before the file): default mode with the app's
++// listeners at their default ports closed, failsafeClosed. Whatever the file
++// says, the remote-management port is its switch's: allowed while it is on,
++// refused while it is off — the switch and the look at it are
++// android_remote.go's, and that port is the bridge's own listener.
++//
++// Both are followed without a restart.
 +
 +import (
 +	"bufio"
 +	"bytes"
 +	"errors"
++	"fmt"
 +	"io/fs"
 +	"os"
 +	"path/filepath"
@@ -636,36 +735,95 @@
 +)
 +
 +const (
-+	// tailnetOpenName is the app's list of opened ports, beside the socket.
-+	tailnetOpenName = "tailnet-open"
++	// tailnetReachName is the app's policy, beside the socket.
++	tailnetReachName = "tailnet-reach"
 +
-+	// tailnetOpenTTL is how long the datapath trusts its last read of the
-+	// list, as remoteSwitchTTL does the switch.
-+	tailnetOpenTTL = time.Second
++	// tailnetReachTTL is how long the datapath trusts its last read of the
++	// policy, as remoteSwitchTTL does the switch.
++	tailnetReachTTL = time.Second
 +)
 +
-+// openPort is a port of the node's addresses, in one protocol.
-+type openPort struct {
++// failsafeClosed is what default mode closes when the app's policy cannot be
++// read: the app's own listeners at their default ports (GlobalSettings,
++// DriveProxy): SOCKS5, the HTTP proxy and the Web UI (both 8080), the DNS
++// proxy (UDP only), the Taildrive proxy, and remote management, which the
++// switch decides whenever there is one to look at. Sorted.
++var failsafeClosed = []reachPort{
++	{ipproto.TCP, 8080},
++	{ipproto.TCP, remoteManagementPort},
++	{ipproto.TCP, 33445},
++	{ipproto.TCP, 48115},
++	{ipproto.UDP, 1053},
++}
++
++// reachPort is a port of the node's addresses, in one protocol.
++type reachPort struct {
 +	proto ipproto.Proto
 +	port  uint16
 +}
 +
-+func (p openPort) String() string {
++func (p reachPort) String() string {
 +	return strings.ToLower(p.proto.String()) + " " + strconv.Itoa(int(p.port))
++}
++
++func compareReachPorts(a, b reachPort) int {
++	if a.proto != b.proto {
++		return int(a.proto) - int(b.proto)
++	}
++	return int(a.port) - int(b.port)
++}
++
++// reachPolicy is the app's policy as read.
++type reachPolicy struct {
++	strict bool
++	open   []reachPort // sorted; what strict mode allows
++	closed []reachPort // sorted; what default mode refuses
++	// failsafe: the file was missing or unusable, and why.
++	failsafe string
++}
++
++// allows reports whether the policy lets a peer's flow to p through.
++func (p *reachPolicy) allows(rp reachPort) bool {
++	if p.strict {
++		_, found := slices.BinarySearchFunc(p.open, rp, compareReachPorts)
++		return found
++	}
++	_, found := slices.BinarySearchFunc(p.closed, rp, compareReachPorts)
++	return !found
++}
++
++func (p *reachPolicy) equal(q *reachPolicy) bool {
++	return p.strict == q.strict && p.failsafe == q.failsafe &&
++		slices.Equal(p.open, q.open) && slices.Equal(p.closed, q.closed)
++}
++
++func (p *reachPolicy) String() string {
++	switch {
++	case p.failsafe != "":
++		return fmt.Sprintf("%s; default mode, closed to the tailnet on this node's addresses: %v (the app's own listeners at their default ports)", p.failsafe, p.closed)
++	case p.strict && len(p.open) == 0:
++		return "strict mode; no local port is open to the tailnet beyond what the daemon serves"
++	case p.strict:
++		return fmt.Sprintf("strict mode; open to the tailnet on this node's addresses: %v", p.open)
++	case len(p.closed) == 0:
++		return "default mode; every local port is open to the tailnet"
++	default:
++		return fmt.Sprintf("default mode; closed to the tailnet on this node's addresses: %v", p.closed)
++	}
 +}
 +
 +// loopbackAllow is the allow list of the loopback guard.
 +type loopbackAllow struct {
 +	logf   logger.Logf
-+	file   string           // "" without a socket path: nothing is ever open
++	file   string           // "" without a socket path: the fail-safe for good
 +	remote *remoteForwarder // nil without a socket path
 +
-+	open   atomic.Pointer[[]openPort] // sorted; nil before the first read
-+	readAt atomic.Int64               // UnixNano of the last read; 0 before the first
++	policy atomic.Pointer[reachPolicy] // nil before the first read
++	readAt atomic.Int64                // UnixNano of the last read; 0 before the first
 +}
 +
-+// guardLoopback closes netstack's road to localhost down to the allow list.
-+// Called by newNetstack after forwardRemoteManagement, before Start.
++// guardLoopback closes netstack's road to localhost down to the app's
++// policy. Called by newNetstack after forwardRemoteManagement, before Start.
 +func guardLoopback(logf logger.Logf, ns *netstack.Impl) {
 +	a := newLoopbackAllow(logf, args.socketpath, remoteForward.Load())
 +	ns.GuardLoopback(a.allow)
@@ -674,7 +832,7 @@
 +func newLoopbackAllow(logf logger.Logf, socketPath string, remote *remoteForwarder) *loopbackAllow {
 +	a := &loopbackAllow{logf: logf, remote: remote}
 +	if socketPath != "" {
-+		a.file = filepath.Join(filepath.Dir(socketPath), tailnetOpenName)
++		a.file = filepath.Join(filepath.Dir(socketPath), tailnetReachName)
 +	}
 +	return a
 +}
@@ -682,56 +840,65 @@
 +// allow is the guard's question: may a peer's flow to this port of the node
 +// reach localhost?
 +func (a *loopbackAllow) allow(proto ipproto.Proto, port uint16) bool {
-+	if proto == ipproto.TCP && port == remoteManagementPort && a.remote != nil && a.remote.keeps(port) {
-+		return true
++	if proto == ipproto.TCP && port == remoteManagementPort && a.remote != nil {
++		return a.remote.keeps(port)
 +	}
-+	_, found := slices.BinarySearchFunc(a.ports(), openPort{proto, port}, compareOpenPorts)
-+	return found
++	return a.current().allows(reachPort{proto, port})
 +}
 +
-+// ports is the list as of at most tailnetOpenTTL ago.
-+func (a *loopbackAllow) ports() []openPort {
-+	if at := a.readAt.Load(); at != 0 && time.Now().UnixNano()-at < int64(tailnetOpenTTL) {
-+		if p := a.open.Load(); p != nil {
-+			return *p
++// current is the policy as of at most tailnetReachTTL ago.
++func (a *loopbackAllow) current() *reachPolicy {
++	if at := a.readAt.Load(); at != 0 && time.Now().UnixNano()-at < int64(tailnetReachTTL) {
++		if p := a.policy.Load(); p != nil {
++			return p
 +		}
 +	}
 +	return a.read()
 +}
 +
-+// read reads the list and remembers it for the datapath.
-+func (a *loopbackAllow) read() []openPort {
-+	var ports []openPort
-+	if a.file != "" {
-+		b, err := os.ReadFile(a.file)
-+		switch {
-+		case err == nil:
-+			var bad []string
-+			ports, bad = parseTailnetOpen(b)
-+			if len(bad) > 0 {
-+				a.logf("tailnet: %s: ignored %q", tailnetOpenName, bad)
-+			}
-+		case errors.Is(err, fs.ErrNotExist):
-+		default:
-+			// Unreadable is closed: nothing is opened on a guess.
-+			a.logf("tailnet: %s: %v; nothing is open", tailnetOpenName, err)
-+		}
-+	}
++// read reads the policy and remembers it for the datapath; a change is
++// logged, so a fail-safe that lasts is logged once.
++func (a *loopbackAllow) read() *reachPolicy {
++	p := a.load()
 +	a.readAt.Store(time.Now().UnixNano())
-+	if old := a.open.Swap(&ports); old == nil || !slices.Equal(*old, ports) {
-+		if len(ports) == 0 {
-+			a.logf("tailnet: no local port is open to the tailnet beyond what the daemon serves")
-+		} else {
-+			a.logf("tailnet: open to the tailnet on this node's addresses: %v", ports)
-+		}
++	if old := a.policy.Swap(p); old == nil || !old.equal(p) {
++		a.logf("tailnet: %v", p)
 +	}
-+	return ports
++	return p
 +}
 +
-+// parseTailnetOpen reads the app's list: "tcp 48115", "udp 1053", one a
-+// line; blank lines and lines starting with # are skipped. What is not such a
-+// line is returned in bad and opens nothing.
-+func parseTailnetOpen(b []byte) (ports []openPort, bad []string) {
++func (a *loopbackAllow) load() *reachPolicy {
++	if a.file == "" {
++		return failsafe("no socket path, no policy")
++	}
++	b, err := os.ReadFile(a.file)
++	switch {
++	case errors.Is(err, fs.ErrNotExist):
++		return failsafe(tailnetReachName + ": no such file")
++	case err != nil:
++		return failsafe(fmt.Sprintf("%s: %v", tailnetReachName, err))
++	}
++	p, bad, err := parseTailnetReach(b)
++	if len(bad) > 0 {
++		a.logf("tailnet: %s: ignored %q", tailnetReachName, bad)
++	}
++	if err != nil {
++		return failsafe(fmt.Sprintf("%s: %v", tailnetReachName, err))
++	}
++	return p
++}
++
++func failsafe(why string) *reachPolicy {
++	return &reachPolicy{closed: failsafeClosed, failsafe: why}
++}
++
++// parseTailnetReach reads the app's policy. A port line that is not one is
++// returned in bad and changes nothing; a policy with no mode line, a mode
++// the daemon does not know, or two modes is an error: what the app meant
++// cannot be told, and the caller takes the fail-safe.
++func parseTailnetReach(b []byte) (p *reachPolicy, bad []string, err error) {
++	p = new(reachPolicy)
++	modes := 0
 +	sc := bufio.NewScanner(bytes.NewReader(b))
 +	for sc.Scan() {
 +		line := strings.TrimSpace(sc.Text())
@@ -739,42 +906,59 @@
 +			continue
 +		}
 +		f := strings.Fields(line)
-+		var p openPort
-+		ok := len(f) == 2
-+		if ok {
-+			switch f[0] {
-+			case "tcp":
-+				p.proto = ipproto.TCP
-+			case "udp":
-+				p.proto = ipproto.UDP
-+			default:
-+				ok = false
++		switch {
++		case f[0] == "mode":
++			modes++
++			if len(f) != 2 || (f[1] != "default" && f[1] != "strict") {
++				return nil, bad, fmt.Errorf("mode %q is not default or strict", strings.Join(f[1:], " "))
 +			}
-+		}
-+		if ok {
-+			n, err := strconv.ParseUint(f[1], 10, 16)
-+			ok = err == nil && n > 0
-+			p.port = uint16(n)
-+		}
-+		if !ok {
++			p.strict = f[1] == "strict"
++		case (f[0] == "open" || f[0] == "close") && len(f) == 3:
++			rp, ok := parseReachPort(f[1], f[2])
++			if !ok {
++				bad = append(bad, line)
++			} else if f[0] == "open" {
++				p.open = append(p.open, rp)
++			} else {
++				p.closed = append(p.closed, rp)
++			}
++		default:
 +			bad = append(bad, line)
-+			continue
 +		}
-+		ports = append(ports, p)
 +	}
-+	slices.SortFunc(ports, compareOpenPorts)
-+	return slices.Compact(ports), bad
++	switch {
++	case modes == 0:
++		return nil, bad, errors.New("no mode line")
++	case modes > 1:
++		return nil, bad, errors.New("more than one mode line")
++	}
++	for _, l := range []*[]reachPort{&p.open, &p.closed} {
++		slices.SortFunc(*l, compareReachPorts)
++		*l = slices.Compact(*l)
++	}
++	return p, bad, nil
 +}
 +
-+func compareOpenPorts(a, b openPort) int {
-+	if a.proto != b.proto {
-+		return int(a.proto) - int(b.proto)
++// parseReachPort reads "tcp", "48115".
++func parseReachPort(proto, port string) (rp reachPort, ok bool) {
++	switch proto {
++	case "tcp":
++		rp.proto = ipproto.TCP
++	case "udp":
++		rp.proto = ipproto.UDP
++	default:
++		return rp, false
 +	}
-+	return int(a.port) - int(b.port)
++	n, err := strconv.ParseUint(port, 10, 16)
++	if err != nil || n == 0 {
++		return rp, false
++	}
++	rp.port = uint16(n)
++	return rp, true
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_loopback_test.go	2026-10-15 13:09:56.379207803 +0300
-@@ -0,0 +1,114 @@
++++ tailscale_src/cmd/tailscaled/android_loopback_test.go	2026-10-15 15:05:26.845942390 +0300
+@@ -0,0 +1,293 @@
 +//go:build !ts_omit_netstack
 +
 +package main
@@ -783,114 +967,293 @@
 +	"os"
 +	"path/filepath"
 +	"slices"
++	"strings"
 +	"testing"
 +
 +	"tailscale.com/types/ipproto"
 +)
 +
-+func TestParseTailnetOpen(t *testing.T) {
-+	ports, bad := parseTailnetOpen([]byte(`# written by the app
-+tcp 48115
++func TestParseTailnetReach(t *testing.T) {
++	p, bad, err := parseTailnetReach([]byte(`# written by the app
++mode default
 +
-+udp 1053
-+  tcp   8118
-+tcp 48115
-+http 80
-+tcp
-+tcp 0
-+tcp 65536
-+udp -1
-+tcp 33445 open
++close tcp 48115
++  close   udp   1053
++close tcp 48115
++open tcp 5555
++close http 80
++close tcp
++close tcp 0
++close tcp 65536
++close udp -1
++close tcp 33445 now
++tcp 8080
 +`))
-+	want := []openPort{{ipproto.TCP, 8118}, {ipproto.TCP, 48115}, {ipproto.UDP, 1053}}
-+	slices.SortFunc(want, compareOpenPorts)
-+	if !slices.Equal(ports, want) {
-+		t.Errorf("ports %v, want %v", ports, want)
++	if err != nil {
++		t.Fatal(err)
 +	}
-+	wantBad := []string{"http 80", "tcp", "tcp 0", "tcp 65536", "udp -1", "tcp 33445 open"}
++	if p.strict {
++		t.Error("strict; the file says default")
++	}
++	wantClosed := []reachPort{{ipproto.TCP, 48115}, {ipproto.UDP, 1053}}
++	slices.SortFunc(wantClosed, compareReachPorts)
++	if !slices.Equal(p.closed, wantClosed) {
++		t.Errorf("closed %v, want %v", p.closed, wantClosed)
++	}
++	if want := []reachPort{{ipproto.TCP, 5555}}; !slices.Equal(p.open, want) {
++		t.Errorf("open %v, want %v", p.open, want)
++	}
++	wantBad := []string{"close http 80", "close tcp", "close tcp 0", "close tcp 65536", "close udp -1", "close tcp 33445 now", "tcp 8080"}
 +	if !slices.Equal(bad, wantBad) {
 +		t.Errorf("bad %q, want %q", bad, wantBad)
 +	}
++
++	p, _, err = parseTailnetReach([]byte("mode strict\nopen tcp 8022\nopen udp 1234\nopen tcp 5555\n"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := []reachPort{{ipproto.TCP, 5555}, {ipproto.TCP, 8022}, {ipproto.UDP, 1234}}
++	slices.SortFunc(want, compareReachPorts)
++	if !p.strict || !slices.Equal(p.open, want) {
++		t.Errorf("got strict=%v open=%v, want strict, %v", p.strict, p.open, want)
++	}
 +}
 +
-+// expire makes the datapath's next question a fresh read of the list, as
-+// tailnetOpenTTL passing would.
++// A policy whose mode cannot be told is no policy: the caller takes the
++// fail-safe rather than guess.
++func TestParseTailnetReachWithoutAMode(t *testing.T) {
++	for name, text := range map[string]string{
++		"empty":         "",
++		"comments only": "# nothing\n\n",
++		"no mode":       "close tcp 48115\n",
++		"unknown mode":  "mode paranoid\nclose tcp 48115\n",
++		"bare mode":     "mode\n",
++		"two words":     "mode strict default\n",
++		"two modes":     "mode strict\nopen tcp 5555\nmode default\n",
++		"old format":    "tcp 48115\nudp 1053\n", // the list of 5.1's first builds
++	} {
++		if p, _, err := parseTailnetReach([]byte(text)); err == nil {
++			t.Errorf("%s: parsed as %v; want an error", name, p)
++		}
++	}
++}
++
++func TestReachPolicyAllows(t *testing.T) {
++	def, _, err := parseTailnetReach([]byte("mode default\nclose tcp 48115\nclose udp 1053\nopen tcp 9999\n"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	strict, _, err := parseTailnetReach([]byte("mode strict\nopen tcp 5555\nopen udp 1234\nclose tcp 8022\n"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	tests := []struct {
++		name   string
++		policy *reachPolicy
++		port   reachPort
++		want   bool
++	}{
++		{"default: the app's SOCKS5", def, reachPort{ipproto.TCP, 48115}, false},
++		{"default: the app's DNS proxy", def, reachPort{ipproto.UDP, 1053}, false},
++		{"default: the DNS proxy's number in TCP", def, reachPort{ipproto.TCP, 1053}, true},
++		{"default: adb", def, reachPort{ipproto.TCP, 5555}, true},
++		{"default: sshd", def, reachPort{ipproto.TCP, 8022}, true},
++		{"default: an open line changes nothing", def, reachPort{ipproto.TCP, 9999}, true},
++		{"strict: an opened port", strict, reachPort{ipproto.TCP, 5555}, true},
++		{"strict: an opened UDP port", strict, reachPort{ipproto.UDP, 1234}, true},
++		{"strict: the same number in the other protocol", strict, reachPort{ipproto.UDP, 5555}, false},
++		{"strict: anything else", strict, reachPort{ipproto.TCP, 22}, false},
++		{"strict: a close line opens nothing", strict, reachPort{ipproto.TCP, 8022}, false},
++		{"strict: the app's SOCKS5", strict, reachPort{ipproto.TCP, 48115}, false},
++		{"fail-safe: the app's SOCKS5", failsafe("test"), reachPort{ipproto.TCP, 48115}, false},
++		{"fail-safe: the HTTP proxy and the Web UI", failsafe("test"), reachPort{ipproto.TCP, 8080}, false},
++		{"fail-safe: the Taildrive proxy", failsafe("test"), reachPort{ipproto.TCP, 33445}, false},
++		{"fail-safe: the DNS proxy", failsafe("test"), reachPort{ipproto.UDP, 1053}, false},
++		{"fail-safe: remote management", failsafe("test"), reachPort{ipproto.TCP, remoteManagementPort}, false},
++		{"fail-safe: adb", failsafe("test"), reachPort{ipproto.TCP, 5555}, true},
++	}
++	for _, tt := range tests {
++		if got := tt.policy.allows(tt.port); got != tt.want {
++			t.Errorf("%s: allows(%v) = %v, want %v", tt.name, tt.port, got, tt.want)
++		}
++	}
++	if !slices.IsSortedFunc(failsafeClosed, compareReachPorts) {
++		t.Error("failsafeClosed is not sorted; the binary search misses")
++	}
++}
++
++// expire makes the datapath's next question a fresh read of the policy, as
++// tailnetReachTTL passing would.
 +func (a *loopbackAllow) expire() { a.readAt.Store(0) }
 +
-+func TestLoopbackAllow(t *testing.T) {
++// reachFor returns an allow list for an app's files/ directory in a
++// temporary place, the switch of remote management, and a func that writes
++// the policy ("" removes it).
++func reachFor(t *testing.T) (a *loopbackAllow, flip func(on bool), write func(string)) {
++	t.Helper()
 +	socket, flip := remoteSwitchFor(t)
-+	list := filepath.Join(filepath.Dir(socket), tailnetOpenName)
-+	write := func(s string) {
++	file := filepath.Join(filepath.Dir(socket), tailnetReachName)
++	a = newLoopbackAllow(t.Logf, socket, newRemoteForwarder(t.Logf, socket, true))
++	return a, flip, func(s string) {
 +		t.Helper()
-+		if err := os.WriteFile(list, []byte(s), 0o600); err != nil {
++		if s == "" {
++			if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
++				t.Fatal(err)
++			}
++			return
++		}
++		if err := os.WriteFile(file, []byte(s), 0o600); err != nil {
 +			t.Fatal(err)
 +		}
 +	}
-+	a := newLoopbackAllow(t.Logf, socket, newRemoteForwarder(t.Logf, socket, true))
-+	asks := func(proto ipproto.Proto, port uint16, want bool) {
++}
++
++func asks(t *testing.T, a *loopbackAllow, proto ipproto.Proto, port uint16, want bool) {
++	t.Helper()
++	if got := a.allow(proto, port); got != want {
++		t.Errorf("allow(%v, %d) = %v, want %v", proto, port, got, want)
++	}
++}
++
++func TestLoopbackAllowDefaultMode(t *testing.T) {
++	a, _, write := reachFor(t)
++	// The app's SOCKS5 on a port of its choosing, and its DNS proxy.
++	write("mode default\nclose tcp 1080\nclose udp 1053\n")
++	asks(t, a, ipproto.TCP, 1080, false)
++	asks(t, a, ipproto.UDP, 1053, false)
++	// Other apps' services, as upstream serves them.
++	asks(t, a, ipproto.TCP, 5555, true)
++	asks(t, a, ipproto.TCP, 8022, true)
++	asks(t, a, ipproto.UDP, 21027, true)
++	// The default ports are the fail-safe's, not the policy's: SOCKS5 moved.
++	asks(t, a, ipproto.TCP, 48115, true)
++
++	// The person opens SOCKS5 to the tailnet: its close line goes.
++	write("mode default\nclose udp 1053\n")
++	// Within the TTL the datapath keeps its last read...
++	asks(t, a, ipproto.TCP, 1080, false)
++	// ...and reads again after it.
++	a.expire()
++	asks(t, a, ipproto.TCP, 1080, true)
++	asks(t, a, ipproto.UDP, 1053, false)
++}
++
++func TestLoopbackAllowStrictMode(t *testing.T) {
++	a, _, write := reachFor(t)
++	write("mode strict\nopen tcp 48115\n")
++	asks(t, a, ipproto.TCP, 48115, true)
++	asks(t, a, ipproto.UDP, 1053, false)
++	asks(t, a, ipproto.TCP, 5555, false)
++	asks(t, a, ipproto.TCP, 8022, false)
++
++	// adb added to the ports left open, without a restart.
++	write("mode strict\nopen tcp 48115\nopen tcp 5555\n")
++	a.expire()
++	asks(t, a, ipproto.TCP, 5555, true)
++	asks(t, a, ipproto.UDP, 5555, false)
++	asks(t, a, ipproto.TCP, 8022, false)
++
++	// Back to default: everything but what is closed.
++	write("mode default\nclose udp 1053\n")
++	a.expire()
++	asks(t, a, ipproto.TCP, 8022, true)
++	asks(t, a, ipproto.UDP, 1053, false)
++}
++
++// No policy, an unreadable one, one whose mode cannot be told: the app's own
++// listeners at their default ports are closed and the rest is served, as in
++// default mode.
++func TestLoopbackAllowFailsafe(t *testing.T) {
++	a, _, write := reachFor(t)
++	failsafeHolds := func(why string) {
 +		t.Helper()
-+		if got := a.allow(proto, port); got != want {
-+			t.Errorf("allow(%v, %d) = %v, want %v", proto, port, got, want)
++		a.expire()
++		for _, p := range failsafeClosed {
++			if p.proto == ipproto.TCP && p.port == remoteManagementPort {
++				continue // the switch's, below
++			}
++			if a.allow(p.proto, p.port) {
++				t.Errorf("%s: %v is open", why, p)
++			}
++		}
++		asks(t, a, ipproto.TCP, 5555, true)
++		asks(t, a, ipproto.TCP, 8022, true)
++		if p := a.policy.Load(); p == nil || p.failsafe == "" {
++			t.Errorf("%s: not the fail-safe: %v", why, p)
 +		}
 +	}
 +
-+	// Nothing written, remote management off: nothing is open.
-+	for _, port := range []uint16{48115, 8118, 1053, 33445, remoteManagementPort} {
-+		asks(ipproto.TCP, port, false)
-+		asks(ipproto.UDP, port, false)
-+	}
-+
-+	// Remote management follows its switch, without a restart.
-+	flip(true)
-+	if !a.remote.forwarded() { // the bridge's question reads the switch afresh
-+		t.Fatal("the switch is not on")
-+	}
-+	asks(ipproto.TCP, remoteManagementPort, true)
-+	asks(ipproto.UDP, remoteManagementPort, false)
-+	flip(false)
-+	a.remote.forwarded()
-+	asks(ipproto.TCP, remoteManagementPort, false)
-+
-+	// The person opens SOCKS5 and the DNS proxy.
++	failsafeHolds("no file")
++	write("mode strict\n")
 +	a.expire()
-+	asks(ipproto.TCP, 48115, false)
-+	write("tcp 48115\nudp 1053\n")
-+	// Within the TTL the datapath keeps its last read...
-+	asks(ipproto.TCP, 48115, false)
-+	// ...and reads again after it.
-+	a.expire()
-+	asks(ipproto.TCP, 48115, true)
-+	asks(ipproto.UDP, 1053, true)
-+	asks(ipproto.UDP, 48115, false)
-+	asks(ipproto.TCP, 1053, false)
-+	asks(ipproto.TCP, 8118, false)
++	asks(t, a, ipproto.TCP, 5555, false)
 +
-+	// And closes them again: the file is gone.
-+	if err := os.Remove(list); err != nil {
++	write("tcp 48115\n")
++	failsafeHolds("the old list")
++	write("mode lax\n")
++	failsafeHolds("an unknown mode")
++	write("")
++	if err := os.Mkdir(a.file, 0o700); err != nil {
 +		t.Fatal(err)
 +	}
-+	a.expire()
-+	asks(ipproto.TCP, 48115, false)
-+	asks(ipproto.UDP, 1053, false)
-+
-+	// A list that cannot be read opens nothing.
-+	if err := os.Mkdir(list, 0o700); err != nil {
-+		t.Fatal(err)
-+	}
-+	a.expire()
-+	asks(ipproto.TCP, 48115, false)
++	failsafeHolds("a directory")
 +}
 +
-+// Without a socket path there is no list and no switch to find: everything
-+// stays closed.
++// The fail-safe is logged when it begins, not at every read.
++func TestLoopbackAllowLogsChanges(t *testing.T) {
++	socket, _ := remoteSwitchFor(t)
++	var logged []string
++	a := newLoopbackAllow(func(format string, args ...any) {
++		logged = append(logged, strings.TrimSpace(format))
++	}, socket, nil)
++	for range 3 {
++		a.expire()
++		a.allow(ipproto.TCP, 48115)
++	}
++	if len(logged) != 1 {
++		t.Errorf("logged %d times, want once: %q", len(logged), logged)
++	}
++}
++
++// Remote management's port is its switch's, in every mode and in the
++// fail-safe: the policy neither opens nor closes it.
++func TestLoopbackAllowRemoteManagement(t *testing.T) {
++	a, flip, write := reachFor(t)
++	for _, policy := range []string{
++		"",               // the fail-safe, which lists the port
++		"mode default\n", // nothing closed
++		"mode strict\n",  // nothing open
++		"mode strict\nopen tcp 28115\n",
++		"mode default\nclose tcp 28115\n",
++	} {
++		write(policy)
++		a.expire()
++		flip(false)
++		a.remote.forwarded() // the bridge's question reads the switch afresh
++		asks(t, a, ipproto.TCP, remoteManagementPort, false)
++		flip(true)
++		a.remote.forwarded()
++		asks(t, a, ipproto.TCP, remoteManagementPort, true)
++		// The same number in UDP is the policy's.
++		asks(t, a, ipproto.UDP, remoteManagementPort, !strings.HasPrefix(policy, "mode strict"))
++	}
++}
++
++// Without a socket path there is no policy and no switch to find: the
++// fail-safe holds, remote management's port with it.
 +func TestLoopbackAllowWithoutASocket(t *testing.T) {
 +	a := newLoopbackAllow(t.Logf, "", nil)
-+	if a.allow(ipproto.TCP, remoteManagementPort) || a.allow(ipproto.TCP, 48115) || a.allow(ipproto.UDP, 1053) {
-+		t.Error("something is open without a socket path")
++	for _, p := range failsafeClosed {
++		if a.allow(p.proto, p.port) {
++			t.Errorf("%v is open without a socket path", p)
++		}
++	}
++	if !a.allow(ipproto.TCP, 5555) {
++		t.Error("another app's port is closed without a socket path")
 +	}
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/ipn/ipnlocal/fortest_tailsocks.go	2026-10-15 13:02:16.151293724 +0300
++++ tailscale_src/ipn/ipnlocal/fortest_tailsocks.go	2026-10-15 14:47:16.877089277 +0300
 @@ -0,0 +1,13 @@
 +package ipnlocal
 +
