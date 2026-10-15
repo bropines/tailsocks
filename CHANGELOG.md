@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Root Mode with the native TUN: Excluded IP Ranges is on its card too — Root Mode always kept those ranges off the exit node, but the list could only be changed from VPN mode.
+
 ## [5.1.0] - 2026-10-15
 
 ### Security
