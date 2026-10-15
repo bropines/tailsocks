@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Http
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.ExposureNet
 import io.github.bropines.tailscaled.core.NetAddr
+import io.github.bropines.tailscaled.core.ReachPort
 import io.github.bropines.tailscaled.core.TailnetListener
 import io.github.bropines.tailscaled.core.TailnetReach
 import kotlinx.coroutines.Dispatchers
@@ -43,10 +46,11 @@ import kotlinx.coroutines.withContext
 
 /*
  * Settings → Local proxies → Reachable from the tailnet: one switch per local proxy that other
- * devices of the tailnet may be let in to, off unless turned on here (core/TailnetReach.kt says
- * why and how the daemon follows it). Each row's line says where the proxy stands now and, folded,
- * what opening it gives away. The SOCKS5 proxy without a password asks before it opens and offers
- * to set one; the Taildrive proxy without a login says so.
+ * devices of the tailnet may be let in to, off unless turned on here, and strict mode, which
+ * closes other apps' services too and leaves open only the ports listed under it
+ * (core/TailnetReach.kt says why and how the daemon follows it). Each row's line says where the
+ * proxy stands now and, folded, what opening it gives away. The SOCKS5 proxy without a password
+ * asks before it opens and offers to set one; the Taildrive proxy without a login says so.
  */
 
 /** What the card shows of the device; read by the caller, so previews can draw it. */
@@ -59,6 +63,11 @@ internal data class TailnetReachState(
     val tailnetIp: String?,
     val socks5Login: Boolean,
     val driveLogin: Boolean,
+    /** Strict mode, and the ports it leaves open as saved ("5555, 8022"). */
+    val strict: Boolean = false,
+    val extra: String = "",
+    /** The app's own ports, which the field may not name (TailnetReach.ownPorts). */
+    val own: Set<ReachPort> = emptySet(),
 )
 
 /**
@@ -75,6 +84,8 @@ internal fun TailnetReachCard(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var strict by remember { mutableStateOf(TailnetReach.isStrict(context)) }
+    var extra by remember { mutableStateOf(TailnetReach.extraText(context)) }
     val state = TailnetReachState(
         binds = TailnetListener.entries.associateWith { TailnetReach.bind(context, it) },
         open = open,
@@ -82,6 +93,9 @@ internal fun TailnetReachCard(
         tailnetIp = tailnetIp,
         socks5Login = socks5Login,
         driveLogin = TailnetReach.driveLogin(context),
+        strict = strict,
+        extra = extra,
+        own = TailnetReach.ownPorts(context),
     )
     TailnetReachContent(
         state,
@@ -90,6 +104,14 @@ internal fun TailnetReachCard(
             scope.launch { withContext(Dispatchers.IO) { TailnetReach.setOpen(context, listener, on) } }
         },
         onSetSocks5Password = onSetSocks5Password,
+        onStrict = { on ->
+            strict = on
+            scope.launch { withContext(Dispatchers.IO) { TailnetReach.setStrict(context, on) } }
+        },
+        onExtra = { text ->
+            extra = TailnetReach.normalExtra(text)
+            scope.launch { withContext(Dispatchers.IO) { TailnetReach.setExtra(context, text) } }
+        },
     )
 }
 
@@ -98,6 +120,8 @@ internal fun TailnetReachContent(
     state: TailnetReachState,
     onSwitch: (TailnetListener, Boolean) -> Unit,
     onSetSocks5Password: () -> Unit,
+    onStrict: (Boolean) -> Unit = {},
+    onExtra: (String) -> Unit = {},
 ) {
     var askSocks5 by remember { mutableStateOf(false) }
     SettingsCard(title = stringResource(R.string.tailnet_reach_card)) {
@@ -130,6 +154,7 @@ internal fun TailnetReachContent(
         if (TailnetListener.TAILDRIVE_PROXY in state.open && !state.driveLogin) {
             Warning(stringResource(R.string.tailnet_reach_drive_no_login))
         }
+        TailnetStrictRows(state, onStrict, onExtra)
     }
 
     if (askSocks5) {
@@ -160,6 +185,44 @@ internal fun TailnetReachContent(
                 }
             },
         )
+    }
+}
+
+/**
+ * The card's last rows: everything else that listens on this device — other apps' servers, served
+ * as on any node — closed by strict mode, and the ports it leaves open, shown while it is on.
+ */
+@Composable
+internal fun TailnetStrictRows(state: TailnetReachState, onStrict: (Boolean) -> Unit, onExtra: (String) -> Unit) {
+    // The field's dialog has a window of its own, which ignores the app's language: its words come from here.
+    val context = LocalContext.current
+    SettingsSwitchItem(
+        title = stringResource(R.string.tailnet_reach_strict),
+        subtitle = stringResource(R.string.tailnet_reach_strict_help),
+        icon = Icons.Default.Lock,
+        checked = state.strict,
+        onCheckedChange = onStrict,
+    )
+    if (state.strict) {
+        SettingsEditItem(
+            title = stringResource(R.string.tailnet_reach_extra),
+            value = state.extra,
+            icon = Icons.Default.SettingsEthernet,
+            placeholder = "5555, 8022",
+            description = stringResource(R.string.tailnet_reach_extra_desc),
+            error = { text -> extraProblem(context, text, state.own) },
+            onSave = onExtra,
+        )
+    }
+}
+
+/** What is wrong with the ports typed into the field, in the page's language; null when nothing is. */
+private fun extraProblem(context: android.content.Context, text: String, own: Set<ReachPort>): String? {
+    val read = TailnetReach.parseExtra(text, own)
+    return when {
+        read.bad.isNotEmpty() -> context.getString(R.string.tailnet_reach_extra_bad, read.bad.joinToString(", "))
+        read.own.isNotEmpty() -> context.getString(R.string.tailnet_reach_extra_own, read.own.joinToString(", "))
+        else -> null
     }
 }
 

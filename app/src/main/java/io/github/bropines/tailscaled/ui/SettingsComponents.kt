@@ -514,6 +514,8 @@ fun SettingsEditItem(
     suggestions: List<String> = emptyList(),
     onAction: (() -> String)? = null,
     actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    /** What is wrong with a typed value, said under the field, or null: Save waits until nothing is. */
+    error: ((String) -> String?)? = null,
     onSave: (String) -> Unit
 ) {
     var showDialog by remember { mutableStateOf(false) }
@@ -574,6 +576,7 @@ fun SettingsEditItem(
         ) { Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) }
     }
     if (showDialog) {
+        val problem = error?.invoke(text)
         AppAlertDialog(
             onDismissRequest = { showDialog = false },
             title = { Text(title) },
@@ -588,10 +591,12 @@ fun SettingsEditItem(
                         shape = MaterialTheme.shapes.medium,
                         label = { if (placeholder.isNotEmpty()) Text(ctx.getString(R.string.settings_field_example, placeholder)) },
                         placeholder = { if (placeholder.isNotEmpty()) Text(placeholder) },
+                        isError = problem != null,
+                        supportingText = problem?.let { { Text(it) } },
                         // A television's keyboard covers the buttons, and its own
                         // confirm key is the one under the thumb: there it saves.
                         keyboardOptions = if (tv) KeyboardOptions(imeAction = ImeAction.Done) else KeyboardOptions.Default,
-                        keyboardActions = if (tv) KeyboardActions(onDone = { onSave(text); showDialog = false }) else KeyboardActions.Default,
+                        keyboardActions = if (tv) KeyboardActions(onDone = { if (problem == null) { onSave(text); showDialog = false } }) else KeyboardActions.Default,
                         trailingIcon = if (onAction != null && actionIcon != null) {
                             { IconButton(onClick = { text = onAction() }) { Icon(actionIcon, ctx.getString(R.string.action_generate)) } }
                         } else null
@@ -628,7 +633,7 @@ fun SettingsEditItem(
                     }
                 }
             },
-            confirmButton = { Button(onClick = { onSave(text); showDialog = false }) { Text(ctx.getString(R.string.action_save)) } },
+            confirmButton = { Button(onClick = { onSave(text); showDialog = false }, enabled = problem == null) { Text(ctx.getString(R.string.action_save)) } },
             dismissButton = { TextButton(onClick = { showDialog = false }) { Text(ctx.getString(R.string.action_cancel)) } }
         )
     }

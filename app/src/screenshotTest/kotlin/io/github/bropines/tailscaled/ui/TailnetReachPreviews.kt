@@ -10,9 +10,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.ExposureNet
 import io.github.bropines.tailscaled.core.TailnetListener
@@ -20,7 +22,8 @@ import io.github.bropines.tailscaled.core.TailnetListener
 // Settings → Local proxies → Reachable from the tailnet (TailnetReachSettings.kt), standing alone
 // like the other cards of a section that does not render whole: as installed (everything closed,
 // the HTTP and Taildrive proxies off), with SOCKS5 opened without a password and the Taildrive
-// proxy without a login, and on the native engine, where the switches change nothing.
+// proxy without a login, on the native engine, where the switches change nothing, and in strict
+// mode with two ports of other apps left open.
 
 private val binds = mapOf(
     TailnetListener.SOCKS5 to "127.0.0.1:48115",
@@ -57,3 +60,20 @@ fun TailnetReachCardPhone() = AdaptiveShowcase { Cards(installed, opened, native
 
 @PreviewTest @TvBothLanguages @Composable
 fun TailnetReachCardTv() = AdaptiveShowcase(device = DeviceClass.TV) { Cards(opened) }
+
+/** Strict mode: other apps' services closed too, adb and an SSH server left open. */
+private val strict = installed.copy(strict = true, extra = "5555, 8022")
+
+@PreviewTest
+@Preview(name = "1-phone", device = "spec:width=411dp,height=1100dp,dpi=420")
+@Preview(name = "1-phone-ru", device = "spec:width=411dp,height=1100dp,dpi=420", locale = "ru")
+@Composable
+fun TailnetReachStrictPhone() = AdaptiveShowcase { Cards(strict) }
+
+/** A television shows the top of a card on the first frame: the strict rows alone, on a card of their own. */
+@PreviewTest @TvBothLanguages @Composable
+fun TailnetReachStrictTv() = AdaptiveShowcase(device = DeviceClass.TV) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
+        SettingsCard(title = stringResource(R.string.tailnet_reach_card)) { TailnetStrictRows(strict, onStrict = {}, onExtra = {}) }
+    }
+}

@@ -34,9 +34,20 @@
     <string name="tailnet_reach_set_password_and_open">Задать пароль и открыть</string>
     <string name="tailnet_reach_open_anyway">Открыть без пароля</string>
 
+    <!-- Строгий режим: закрыты и службы других приложений, кроме оставленных портов. -->
+    <string name="tailnet_reach_strict">Строго: закрыть из tailnet и всё остальное</string>
+    <string name="tailnet_reach_strict_help">Службы других приложений на этом устройстве — adb по сети, SSH-сервер, Syncthing — в режиме прокси доступны из tailnet, как на любом узле Tailscale в userspace-режиме. Строгий режим закрывает и их; нужные порты откройте ниже.</string>
+    <string name="tailnet_reach_extra">Оставить открытыми порты</string>
+    <string name="tailnet_reach_extra_desc">Порты других приложений, до которых tailnet всё равно достаёт, через запятую: 5555, 8022. Это TCP; для UDP пишите udp:1234.</string>
+    <string name="tailnet_reach_extra_bad">Не порт: %1$s. Порт — число от 1 до 65535; для UDP — udp:1234.</string>
+    <string name="tailnet_reach_extra_own">%1$s — порт самого TailSocks, его открывает свой переключатель.</string>
+
     <!-- По каким словам эти строки находит поиск по настройкам. -->
     <string name="search_kw_tailnet_socks5">socks5 из tailnet, раздать прокси, прокси для других устройств, телефон как прокси, доступен, открытый порт, наружу</string>
     <string name="search_kw_tailnet_http_proxy">http-прокси из tailnet, раздать http-прокси, прокси для других устройств, доступен, открытый порт, наружу</string>
     <string name="search_kw_tailnet_dns_proxy">dns из tailnet, раздать dns, резолвер для других устройств, доступен, открытый порт, наружу</string>
     <string name="search_kw_tailnet_drive_proxy">прокси taildrive из tailnet, webdav из tailnet, раздать taildrive, доступен, открытый порт, наружу</string>
+    <string name="search_kw_tailnet_strict">строго, строгий режим, закрыть порты, другие приложения, adb по сети, беспроводной adb, ssh, syncthing, открытые порты, файрвол, доступен, наружу</string>
+    <string name="search_kw_tailnet_extra_ports">открыть порты, разрешить порт, adb 5555, ssh 8022, другие приложения, строгий режим, исключение файрвола</string>
+    <string name="search_need_tailnet_strict">Появляется, когда включён строгий режим</string>
 </resources>

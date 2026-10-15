@@ -83,6 +83,7 @@ enum class Need(@param:StringRes val reason: Int = 0, val broughtBy: String? = n
     WEB_UI(R.string.search_need_web_ui, "web_ui"),
     AUTOMATION(R.string.search_need_automation, "automation_enable"),
     RELAY(R.string.search_need_relay, "relay"),
+    TAILNET_STRICT(R.string.search_need_tailnet_strict, "tailnet_strict"),
     /** The palette, which Material You's colours replace. */
     STATIC_COLORS(R.string.search_need_static_colors, "dynamic_color"),
     /** Material You: Android 12 and later. */
@@ -241,6 +242,8 @@ object SettingsCatalog {
         row("tailnet_http_proxy", SettingsPage.PROXIES, R.string.tailnet_reach_http, R.string.tailnet_reach_http_help, R.string.search_kw_tailnet_http_proxy, tailnetReach)
         row("tailnet_dns_proxy", SettingsPage.PROXIES, R.string.tailnet_reach_dns, R.string.tailnet_reach_dns_help, R.string.search_kw_tailnet_dns_proxy, tailnetReach)
         row("tailnet_drive_proxy", SettingsPage.PROXIES, R.string.tailnet_reach_drive, R.string.tailnet_reach_drive_help, R.string.search_kw_tailnet_drive_proxy, tailnetReach)
+        row("tailnet_strict", SettingsPage.PROXIES, R.string.tailnet_reach_strict, R.string.tailnet_reach_strict_help, R.string.search_kw_tailnet_strict, tailnetReach)
+        row("tailnet_extra_ports", SettingsPage.PROXIES, R.string.tailnet_reach_extra, R.string.tailnet_reach_extra_desc, R.string.search_kw_tailnet_extra_ports, tailnetReach, needs = Need.TAILNET_STRICT)
 
         // ─── DNS ─────────────────────────────────────────────────────────────────────────
         val resolver = R.string.settings_sect_resolver

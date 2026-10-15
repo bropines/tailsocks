@@ -27,6 +27,7 @@ import io.github.bropines.tailscaled.core.ClientPrefs
 import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.GlobalSettings
+import io.github.bropines.tailscaled.core.TailnetReach
 import io.github.bropines.tailscaled.core.TunEngines
 import io.github.bropines.tailscaled.core.UpdateChannel
 import io.github.bropines.tailscaled.search.SearchEngine
@@ -116,6 +117,7 @@ internal class StoredSettingsFacts(private val context: Context) : SettingsFacts
             Need.WEB_UI -> profile().getBoolean("enable_webui", false)
             Need.AUTOMATION -> GlobalSettings.isAutomationEnabled(context)
             Need.RELAY -> ClientPrefs.stored(profile().all ?: emptyMap<String, Any>()).relay?.enabled == true
+            Need.TAILNET_STRICT -> TailnetReach.isStrict(context)
             Need.STATIC_COLORS -> Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !GlobalSettings.isDynamicColorEnabled(context)
             Need.ANDROID_12 -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
             Need.SELF_UPDATE -> UpdateChannel.selfUpdate(context)

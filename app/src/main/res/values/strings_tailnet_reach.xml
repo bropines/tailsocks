@@ -34,9 +34,20 @@
     <string name="tailnet_reach_set_password_and_open">Set a password and open</string>
     <string name="tailnet_reach_open_anyway">Open without one</string>
 
+    <!-- Strict mode: other apps' services closed too, and the ports it leaves open. -->
+    <string name="tailnet_reach_strict">Strict: close everything else too</string>
+    <string name="tailnet_reach_strict_help">Other apps\' services on this device — adb over the network, an SSH server, Syncthing — are reachable from the tailnet in proxy mode, as with any Tailscale node in userspace networking. Strict closes them too; open the ports you need below.</string>
+    <string name="tailnet_reach_extra">Also open these ports</string>
+    <string name="tailnet_reach_extra_desc">Ports of other apps the tailnet still reaches, separated by commas: 5555, 8022. TCP; write udp:1234 for UDP.</string>
+    <string name="tailnet_reach_extra_bad">Not a port: %1$s. A port is a number from 1 to 65535; udp:1234 for UDP.</string>
+    <string name="tailnet_reach_extra_own">%1$s: a port of TailSocks itself, opened by its own switch.</string>
+
     <!-- What the settings search finds these rows by. -->
     <string name="search_kw_tailnet_socks5">socks5 from tailnet, share proxy, proxy for other devices, tailnet proxy, use phone as proxy, reachable, open port, exposed</string>
     <string name="search_kw_tailnet_http_proxy">http proxy from tailnet, share http proxy, proxy for other devices, reachable, open port, exposed</string>
     <string name="search_kw_tailnet_dns_proxy">dns from tailnet, share dns, resolver for other devices, reachable, open port, exposed</string>
     <string name="search_kw_tailnet_drive_proxy">taildrive proxy from tailnet, webdav from tailnet, share taildrive, reachable, open port, exposed</string>
+    <string name="search_kw_tailnet_strict">strict, close ports, other apps, adb over network, wireless adb, ssh, syncthing, open ports, firewall, reachable, exposed</string>
+    <string name="search_kw_tailnet_extra_ports">open ports, allow port, adb 5555, ssh 8022, other apps, strict, firewall exception</string>
+    <string name="search_need_tailnet_strict">Shown once strict mode is on</string>
 </resources>
