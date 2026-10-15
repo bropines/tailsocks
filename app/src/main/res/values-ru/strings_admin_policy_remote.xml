@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pvrm_tpl">Удалённое управление TailSocks</string>
+    <string name="admin_pvrm_tpl_help">Выбранные люди или устройства смогут управлять TailSocks на других устройствах — от вас нужно только «кто кем». Запишется одно правило на TCP-порт 28115 и тест, который его сторожит.</string>
+    <string name="admin_pvrm_note">Открывается только порт удалённого управления TailSocks, TCP 28115, — с устройств тех, кто управляет, на управляемые. Владелец он или гость, решает само управляемое устройство по аккаунту, а не это правило.</string>
+    <string name="admin_pvrm_from">Кто управляет</string>
+    <string name="admin_pvrm_from_help">Пользователи, группы или теги, с чьих устройств управляют остальными; «все участники» — для правила, где каждый управляет своими устройствами.</string>
+    <string name="admin_pvrm_to">Чьими устройствами</string>
+    <string name="admin_pvrm_to_help">Пользователи, группы или теги, чьи устройства управляются. «Свои устройства» — каждый управляет только тем, что принадлежит ему.</string>
+    <string name="admin_pvrm_self_tags">У тегов нет своих устройств</string>
+    <string name="admin_pvrm_self_tags_help">«Свои устройства» бывают только у людей: пользователей, групп, всех участников. Уберите %1$s из «Кто управляет» или «Свои устройства» из второго списка.</string>
+    <string name="admin_pvrm_open">Уже разрешено</string>
+    <string name="admin_pvrm_open_help">Политика уже пускает эти устройства на порт 28115, новое правило не нужно. Правило, которое это делает, — ниже.</string>
+    <string name="admin_pvrm_writes">Что запишется</string>
+    <string name="admin_pvrm_no_test">Без теста: тест называет только пользователей, группы и теги, у которых есть устройства, — не «свои устройства» и не всех участников.</string>
+    <string name="admin_pvrm_create">Создать правило и тест</string>
+    <string name="admin_pvrm_create_rule">Создать правило</string>
+    <string name="admin_pvrm_create_test">Добавить только тест</string>
+    <string name="admin_pvrm_create_hint">Выберите, кто управляет и чьими устройствами.</string>
+    <string name="admin_pvrm_created">Правило и тест добавлены</string>
+    <string name="admin_pvrm_created_rule">Правило добавлено</string>
+    <string name="admin_pvrm_rule_note">Удалённое управление TailSocks (TCP 28115)</string>
+</resources>

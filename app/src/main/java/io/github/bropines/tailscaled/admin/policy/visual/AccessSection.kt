@@ -57,8 +57,10 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
     val rules = remember(m) { accessRules(m) }
     var pending by remember { mutableStateOf<PendingRule?>(null) }
     var deleted by remember { mutableStateOf<DeletedRule?>(null) }
+    // The remote-management template's form while it is open; it stands in the editor's place.
+    var remote by remember { mutableStateOf<RemoteForm?>(null) }
     val selected = layout.selected?.let { p -> rules.firstOrNull { it.origin.path == p } }
-    val twoPane = layout.twoPane && (rules.isNotEmpty() || pending != null)
+    val twoPane = layout.twoPane && (rules.isNotEmpty() || pending != null || remote != null)
     val shown = pending?.rule ?: selected ?: rules.firstOrNull()?.takeIf { twoPane }
     val listState = rememberLazyListState()
     val newSection = RuleForms.newAccessSection(m, env.headscale)
@@ -85,12 +87,20 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
 
     fun select(p: PolicyPath?) {
         pending = null
+        remote = null
         layout.onSelect(p)
     }
 
     fun startNew(rule: AccessRule, index: Int? = null) {
         layout.onSelect(null)
+        remote = null
         pending = PendingRule(rule, index)
+    }
+
+    fun startRemote() {
+        layout.onSelect(null)
+        pending = null
+        remote = RemoteForm()
     }
 
     fun sizeOf(section: Section) = if (section == Section.GRANTS) m.grants.size else m.acls.size
@@ -161,14 +171,14 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
 
     RulePage(
         layout = layout.copy(twoPane = twoPane),
-        sheetOpen = shown != null,
+        sheetOpen = shown != null || remote != null,
         list = {
             RuleList(layout.copy(twoPane = twoPane), listState) {
                 if (rules.isEmpty()) {
                     item(key = "empty") { AccessEmpty(env, m, newSection, onAdd = { startNew(RuleForms.emptyAccess(m, newSection)) }, onTemplate = { t ->
                         val form = RuleForms.template(t, m, newSection)
                         if (RuleForms.complete(form)) write(PendingRule(form)) else startNew(form)
-                    }) }
+                    }, onRemote = ::startRemote) }
                     return@RuleList
                 }
                 item(key = "top") {
@@ -205,7 +215,7 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                             val rule = row.item as AccessRule
                             AccessCard(
                                 rule, env, actions,
-                                selected = twoPane && shown?.origin?.path == rule.origin.path && pending == null,
+                                selected = twoPane && shown?.origin?.path == rule.origin.path && pending == null && remote == null,
                                 policy = policy,
                                 moves = mover.moves(rule.section, headers(rule.section), rule.index, env, actions, layout),
                                 modifier = mover.decor(rule.origin.path, env.draft.text),
@@ -213,9 +223,24 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                         }
                     }
                 }
+                // After the rules, so that a card's place in the list stays what the mover counts.
+                if (env.editable) item(key = "tpl-remote") { RemoteTemplateCard(::startRemote) }
             }
         },
         editor = {
+            remote?.let { form ->
+                EditorFrame(onDismiss = { remote = null }) {
+                    key("remote") {
+                        RemoteManagementForm(
+                            form, env, actions,
+                            onChange = { remote = it },
+                            onCreated = { p -> if (p != null) select(p) else remote = null },
+                            onShow = ::select,
+                        )
+                    }
+                }
+                return@RulePage
+            }
             val rule = shown
             if (rule == null) {
                 PaneEmptyState(Icons.Default.Policy, ctx.getString(R.string.admin_pv_pane_empty))
@@ -343,7 +368,7 @@ internal fun NothingYet() {
 
 /** An Access page with no rules: what that means, Add, and the templates. */
 @Composable
-private fun AccessEmpty(env: VisualEnv, m: PolicyModel, section: Section, onAdd: () -> Unit, onTemplate: (AccessTemplate) -> Unit) {
+private fun AccessEmpty(env: VisualEnv, m: PolicyModel, section: Section, onAdd: () -> Unit, onTemplate: (AccessTemplate) -> Unit, onRemote: () -> Unit) {
     val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         EmptySection(
@@ -376,6 +401,7 @@ private fun AccessEmpty(env: VisualEnv, m: PolicyModel, section: Section, onAdd:
                 }
             }
         }
+        RemoteTemplateCard(onRemote)
     }
 }
 
