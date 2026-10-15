@@ -107,6 +107,16 @@ State as of 2026-10-14, at 5.0.0.
       debt; the fd swap, `CallbackRouter` and `SCM_RIGHTS` that
       [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues for stay that document's ambition, kept
       for the record and not wanted here.
+- [ ] **An MCP server — a probable plan, not designed yet (asked for by the author on
+      2026-10-15).** Let an AI agent work with TailSocks and the tailnet through the Model Context
+      Protocol instead of pasted text: read the status, the peers and the policy, propose policy
+      changes with tests, and act through the same allow-list remote management uses. The first
+      step already exists: the admin console copies the tailnet's map and policy "for an AI
+      agent". To decide before code: where it runs (on the phone over the tailnet, with the
+      remote-management port and its pairing as the identity, or in the desktop client), what it
+      may do (read-only first; any change confirmed by the person on the device, as the
+      temporary guest rights are), and that it never reaches secrets — keys, passwords, the
+      account.
 - [ ] **tsnet — an idea, not taken into 5.0.** The daemon moved inside the app process. Incompatible with
       Root Mode, where it must be a separate process under `su`.
 - [x] **One binary instead of two (2026-10-12).** Option (e) of the old "separate CLI binary"
@@ -303,5 +313,6 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Dropped
 
-- Dropped deliberately, with no code behind any of them: the MCP server, the Kotlin LocalAPI
-  bridge, the traffic analyzer, and custom DERP maps.
+- Dropped deliberately, with no code behind any of them: the Kotlin LocalAPI bridge, the
+  traffic analyzer, and custom DERP maps. (The MCP server was here too; it is back among the
+  ideas above, in a new shape.)
