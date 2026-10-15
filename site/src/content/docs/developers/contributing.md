@@ -85,7 +85,7 @@ see [Translating](/tailsocks/developers/translating/).
 
 `appctr/tailscale_src/` is **generated** and git-ignored: pristine upstream
 Tailscale with `appctr/patches/*.patch` applied in alphabetical order
-(`01-enable-socks-android` … `20-socks5-resilience`, twenty today).
+(`01-enable-socks-android` … `23-android-loopback-guard`, twenty-three today).
 `appctr/orig/` holds the pristine copy the patches are diffed against. The
 source of truth is the patch files; the tree is scratch space.
 
@@ -150,8 +150,10 @@ Concretely:
   been chosen. Its rules are tiered — T1
   (tailnet reachability) coexists with anything, T2 (default-route capture) and
   T3 (device-wide DNS) claim the whole device and therefore have exactly one
-  owner. If you touch T2 or T3, read the [Root Mode guide](/tailsocks/root-mode-internals/) §4–5 first: the coexistence
-  logic there is what keeps another VPN client's apps from being stolen.
+  owner. If you touch T2 or T3, read [Routing around tailscale0](/tailsocks/root-mode-internals/#routing-around-tailscale0)
+  and [Next to another VPN client](/tailsocks/root-mode-internals/#next-to-another-vpn-client) in
+  Root Mode internals first: the coexistence logic there is what keeps another VPN client's apps
+  from being stolen.
 - TUN mode has two engines, chosen in Settings → TUN (`tun_engine`, stored only
   when the user picks one). The native engine is the default: `core/TunVpnService.kt`
   establishes the device with what the daemon's no-op router would install — the
