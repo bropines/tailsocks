@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "id": "tailsocks-remote",
+  "version": 1,
+  "category": "remote-management",
+  "title": {
+    "en": "TailSocks remote management",
+    "ru": "Удалённое управление TailSocks"
+  },
+  "description": {
+    "en": "Lets chosen people or devices manage TailSocks on other devices: you only choose who manages whom. Writes one rule for TCP port 28115 and a test that keeps it.\n\nOpens only TailSocks's remote-management port, TCP 28115, from the managers' devices to the managed ones. Whether a manager is the owner or a guest is decided by the managed device, by account — not by this rule.",
+    "ru": "Выбранные люди или устройства смогут управлять TailSocks на других устройствах — от вас нужно только «кто кем». Запишется одно правило на TCP-порт 28115 и тест, который его сторожит.\n\nОткрывается только порт удалённого управления TailSocks, TCP 28115, — с устройств тех, кто управляет, на управляемые. Владелец он или гость, решает само управляемое устройство по аккаунту, а не это правило."
+  },
+  "headscale": { "supported": true },
+  "suggest": [
+    { "page": "access", "slot": "empty" },
+    { "page": "access", "slot": "after" }
+  ],
+  "params": [
+    {
+      "id": "managers",
+      "kind": "selector",
+      "slot": "remote-from",
+      "label": { "en": "Who manages", "ru": "Кто управляет" },
+      "help": {
+        "en": "Users, groups or tags whose devices manage the others; every member, for a rule where each person manages their own devices.",
+        "ru": "Пользователи, группы или теги, с чьих устройств управляют остальными; «все участники» — для правила, где каждый управляет своими устройствами."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "managed",
+      "kind": "selector",
+      "slot": "remote-to",
+      "label": { "en": "Whose devices", "ru": "Чьими устройствами" },
+      "help": {
+        "en": "Users, groups or tags whose devices are managed. \"Their own devices\" lets each person manage only what they own.",
+        "ru": "Пользователи, группы или теги, чьи устройства управляются. «Свои устройства» — каждый управляет только тем, что принадлежит ему."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["{{managers}}"],
+      "dst": ["{{managed}}"],
+      "ports": ["28115"],
+      "proto": "tcp",
+      "note": {
+        "en": "The policy already lets these devices reach port 28115, so no new rule is needed; only the test is left to add.",
+        "ru": "Политика уже пускает эти устройства на порт 28115, новое правило не нужно — осталось добавить только тест."
+      }
+    }
+  ],
+  "fragments": {
+    "access": [
+      {
+        "when": "!check:open",
+        "comment": {
+          "en": "TailSocks remote management (TCP 28115)",
+          "ru": "Удалённое управление TailSocks (TCP 28115)"
+        },
+        "src": ["{{managers}}"],
+        "dst": ["{{managed}}"],
+        "ports": ["28115"],
+        "proto": "tcp"
+      }
+    ],
+    "tests": [
+      { "generate": "pair-test", "src": ["{{managers}}"], "dst": ["{{managed}}"], "port": "28115", "proto": "tcp" }
+    ]
+  }
+}

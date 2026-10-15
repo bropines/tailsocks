@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "group-to-tag",
+  "version": 1,
+  "category": "access",
+  "title": {
+    "en": "A group reaches a tag on chosen ports",
+    "ru": "Группа к тегу на нужных портах"
+  },
+  "description": {
+    "en": "Pick the group, the tag and the ports.",
+    "ru": "Выберите группу, тег и порты."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Access rules", "ru": "Правила доступа" }, "url": "https://tailscale.com/kb/1337/policy-syntax" }
+  ],
+  "suggest": [ { "page": "access", "slot": "empty" } ],
+  "params": [
+    {
+      "id": "group",
+      "kind": "group",
+      "label": { "en": "Group", "ru": "Группа" },
+      "required": true
+    },
+    {
+      "id": "tag",
+      "kind": "tag",
+      "label": { "en": "Tag", "ru": "Тег" },
+      "required": true
+    },
+    {
+      "id": "ports",
+      "kind": "port",
+      "label": { "en": "Ports", "ru": "Порты" },
+      "help": {
+        "en": "A port, a range such as 8000-8100, or * for every port.",
+        "ru": "Порт, диапазон вроде 8000-8100 или * — все порты."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "fragments": {
+    "access": [
+      { "src": ["{{group}}"], "dst": ["{{tag}}"], "ports": ["{{ports}}"] }
+    ]
+  }
+}

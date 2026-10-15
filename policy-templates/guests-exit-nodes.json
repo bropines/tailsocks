@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "id": "guests-exit-nodes",
+  "version": 1,
+  "category": "guests",
+  "title": {
+    "en": "Guests use exit nodes only",
+    "ru": "Гостям — только exit-ноды"
+  },
+  "description": {
+    "en": "The internet through exit nodes and nothing in the tailnet. Pick who the guests are.",
+    "ru": "Интернет через exit-ноды и ничего внутри tailnet. Останется выбрать, кто гости."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Exit nodes", "ru": "Exit-ноды" }, "url": "https://tailscale.com/kb/1103/exit-nodes" }
+  ],
+  "suggest": [ { "page": "access", "slot": "empty" } ],
+  "params": [
+    {
+      "id": "guests",
+      "kind": "selector",
+      "slot": "acl-src",
+      "allow": ["user", "group", "tag", "autogroup"],
+      "label": { "en": "Who the guests are", "ru": "Кто гости" },
+      "help": {
+        "en": "Users, groups or tags whose devices may use exit nodes and nothing else.",
+        "ru": "Пользователи, группы или теги, чьим устройствам можно пользоваться exit-нодами и ничем больше."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "fragments": {
+    "access": [
+      { "src": ["{{guests}}"], "dst": ["autogroup:internet"], "ports": ["*"] }
+    ]
+  }
+}

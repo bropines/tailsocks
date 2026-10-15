@@ -353,6 +353,24 @@ tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.con
     dependsOn(copyChangelogAsset)
 }
 
+// The visual policy editor's built-in templates: the repository's policy-templates/ (the one
+// copy, with its README) goes into the APK as assets/policy-templates/, generated like the
+// changelog above, so the app always has them whatever the published set says.
+val policyTemplatesAssetsDir = layout.buildDirectory.dir("generated/policyTemplates/assets")
+val copyPolicyTemplates by tasks.registering(Sync::class) {
+    group = "build"
+    description = "Copies ../policy-templates/*.json into the generated assets directory"
+    from(layout.projectDirectory.dir("../policy-templates")) { include("*.json") }
+    into(policyTemplatesAssetsDir.map { it.dir("policy-templates") })
+}
+android.sourceSets["main"].assets.srcDir(policyTemplatesAssetsDir)
+tasks.named("preBuild") {
+    dependsOn(copyPolicyTemplates)
+}
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach {
+    dependsOn(copyPolicyTemplates)
+}
+
 // AGP's AAR-metadata check is disabled, and here is the reason it was missing:
 // androidx.appfunctions:appfunctions:1.0.0-alpha10 declares it requires Android
 // Gradle plugin 9.1.0 while this project builds on 8.13.2, so the check fails the

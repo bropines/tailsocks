@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "relays-site",
+  "version": 1,
+  "category": "relays",
+  "title": {
+    "en": "Relays for devices behind a strict NAT",
+    "ru": "Реле для устройств за строгим NAT"
+  },
+  "description": {
+    "en": "Choose the relays and the devices that use them: servers in an office or a cloud network, not phones and laptops.",
+    "ru": "Выберите реле и устройства, которые ими пользуются: серверы в офисе или облачной сети, а не телефоны и ноутбуки."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Peer relays", "ru": "Реле-узлы" }, "url": "https://tailscale.com/kb/1591/peer-relays" }
+  ],
+  "suggest": [ { "page": "peer-relays", "slot": "empty" } ],
+  "params": [
+    {
+      "id": "relays",
+      "kind": "selector",
+      "slot": "relay-dst",
+      "label": { "en": "Relay devices", "ru": "Устройства-реле" },
+      "help": {
+        "en": "The devices that relay, by tag, host, IP set or Tailscale address. Each relays only once it is switched on there: tailscale set --relay-server-port=40000.",
+        "ru": "Устройства, которые ретранслируют: по тегу, хосту, набору IP или адресу Tailscale. Реле заработает, только когда его включат на самом устройстве: tailscale set --relay-server-port=40000."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "clients",
+      "kind": "selector",
+      "slot": "relay-src",
+      "label": { "en": "May use them", "ru": "Кто может пользоваться" },
+      "help": {
+        "en": "Devices that stay in one place behind a strict NAT or firewall, in an office or a cloud network. Not phones and laptops that change networks, and not everyone: each of them would try the relays.",
+        "ru": "Устройства, которые стоят на месте за строгим NAT или файрволом: в офисе, в облачной сети. Не телефоны и ноутбуки, меняющие сети, и не все подряд: каждое из них станет пробовать реле."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "checks": [
+    { "id": "devices", "kind": "relay-devices", "relays": ["{{relays}}"], "clients": ["{{clients}}"] }
+  ],
+  "fragments": {
+    "grants": [
+      { "src": ["{{clients}}"], "dst": ["{{relays}}"], "app": { "tailscale.com/cap/relay": [] } }
+    ]
+  }
+}

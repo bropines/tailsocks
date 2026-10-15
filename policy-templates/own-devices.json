@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "own-devices",
+  "version": 1,
+  "category": "access",
+  "title": {
+    "en": "Everyone reaches their own devices",
+    "ru": "Каждый — к своим устройствам"
+  },
+  "description": {
+    "en": "Every member, on every port, to the devices they own.",
+    "ru": "Каждый участник ко всем портам своих устройств."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Autogroups", "ru": "Автогруппы" }, "url": "https://tailscale.com/kb/1337/policy-syntax#autogroups" }
+  ],
+  "suggest": [ { "page": "access", "slot": "empty" } ],
+  "fragments": {
+    "access": [
+      { "src": ["autogroup:member"], "dst": ["autogroup:self"], "ports": ["*"] }
+    ]
+  }
+}

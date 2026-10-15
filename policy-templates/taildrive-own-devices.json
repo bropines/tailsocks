@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "id": "taildrive-own-devices",
+  "version": 1,
+  "category": "taildrive",
+  "title": {
+    "en": "Taildrive between a person's own devices",
+    "ru": "Taildrive между своими устройствами"
+  },
+  "description": {
+    "en": "Each member's devices share folders and open them on that member's other devices. Writes both attributes and the grant Taildrive needs.\n\nThe grant lets members open shares on their own devices, to read and to write. Narrow it afterwards on the Access page.",
+    "ru": "Устройства каждого участника делятся папками и открывают их на других его устройствах. Запишутся оба атрибута и грант, без которых Taildrive не работает.\n\nГрант даёт участникам открывать папки на своих устройствах, на чтение и запись. Сузить его потом можно на странице «Доступ»."
+  },
+  "headscale": {
+    "supported": false,
+    "note": {
+      "en": "Headscale has no Taildrive.",
+      "ru": "В Headscale нет Taildrive."
+    }
+  },
+  "docs": [
+    { "title": { "en": "Taildrive", "ru": "Taildrive" }, "url": "https://tailscale.com/kb/1369/taildrive" }
+  ],
+  "suggest": [
+    { "page": "attributes", "slot": "before", "when": "!(check:attrs && check:grant)" }
+  ],
+  "params": [
+    {
+      "id": "devices",
+      "kind": "selector",
+      "slot": "node-target",
+      "label": { "en": "Devices that share and open folders", "ru": "Чьи устройства делятся и открывают папки" },
+      "help": {
+        "en": "The devices that get both attributes. The grant stays with every member and their own devices.",
+        "ru": "Устройства, которые получат оба атрибута. Грант остаётся на всех участников и их собственные устройства."
+      },
+      "required": true,
+      "multi": true,
+      "default": ["autogroup:member"]
+    }
+  ],
+  "checks": [
+    { "id": "attrs", "kind": "node-attr", "attrs": ["drive:share", "drive:access"] },
+    {
+      "id": "grant",
+      "kind": "grant-app",
+      "cap": "tailscale.com/cap/drive",
+      "note": {
+        "en": "The policy has a Taildrive grant already, and it stays as it is. Check on the Access page that it lets these devices open each other's shares.",
+        "ru": "Грант Taildrive в политике уже есть и останется как был. Проверьте на странице «Доступ», что он даёт этим устройствам открывать папки друг друга."
+      }
+    }
+  ],
+  "fragments": {
+    "nodeAttrs": [
+      { "target": ["{{devices}}"], "attr": ["drive:share", "drive:access"] }
+    ],
+    "grants": [
+      {
+        "when": "!check:grant",
+        "src": ["autogroup:member"],
+        "dst": ["autogroup:self"],
+        "app": { "tailscale.com/cap/drive": [ { "shares": ["*"], "access": "rw" } ] }
+      }
+    ]
+  }
+}

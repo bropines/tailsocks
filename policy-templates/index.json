@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "templates": [
+    {
+      "id": "own-devices",
+      "file": "own-devices.json",
+      "version": 1,
+      "sha256": "6deda175438e3efe0ae92189f5ca75b0cb11b973a13e0e318b51b423c5a87784"
+    },
+    {
+      "id": "admins-everything",
+      "file": "admins-everything.json",
+      "version": 1,
+      "sha256": "583de2c4e365874309812b31cfd22c9243bc2431c3da6dc660e8ef6793952457"
+    },
+    {
+      "id": "guests-exit-nodes",
+      "file": "guests-exit-nodes.json",
+      "version": 1,
+      "sha256": "672599ba17a17c106a31b03c7a369c255b21c558db7aad808a222eee8ce36a41"
+    },
+    {
+      "id": "group-to-tag",
+      "file": "group-to-tag.json",
+      "version": 1,
+      "sha256": "8b03234f8bf8b505ea3d73058cb3c5c9c08fee1890afa0cbb1132cdc401499ba"
+    },
+    {
+      "id": "tailsocks-remote",
+      "file": "tailsocks-remote.json",
+      "version": 1,
+      "sha256": "9b4dda63e3808b1ea80ff894f3897cca2d77f10ab83fc434ea2a232164128dd5"
+    },
+    {
+      "id": "taildrive-own-devices",
+      "file": "taildrive-own-devices.json",
+      "version": 1,
+      "sha256": "ce9c62a64d34c0ab315a15ee3f63da31318632e40b9416d0443074661aed1575"
+    },
+    {
+      "id": "faster-start",
+      "file": "faster-start.json",
+      "version": 1,
+      "sha256": "99b655aaf56e0cb72711a7ffcca94be455425b25314ce1ae157a43e1923c0e7b"
+    },
+    {
+      "id": "relays-site",
+      "file": "relays-site.json",
+      "version": 1,
+      "sha256": "c182b0951ee45c49555f562f5722d33f56353952959cdd1198971a34a64330dd"
+    },
+    {
+      "id": "relays-self",
+      "file": "relays-self.json",
+      "version": 1,
+      "sha256": "4d9f34a4e66a7e861fe6c20ea0768fef3b56bcf58d22e5f547a564cacc0e31a7"
+    }
+  ]
+}
