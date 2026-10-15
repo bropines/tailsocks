@@ -143,5 +143,5 @@
     <string name="search_kw_show_onboarding">welcome, tutorial, setup wizard, intro, first start</string>
 
     <!-- Advanced -->
-    <string name="search_kw_remote_management">remote control, manage from another device, pair, pairing, control a tv from a phone</string>
+    <string name="search_kw_remote_management">remote control, manage from another device, pair, pairing, control a tv from a phone, full control, network access to files</string>
 </resources>

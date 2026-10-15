@@ -6,9 +6,9 @@
 
     <!-- Full control -->
     <string name="remote_full_title">Full control</string>
-    <string name="remote_full_help">A paired device of this account can then see the name of every file in this device\'s storage and have any of them sent to itself, add shared folders, offer this device as an exit node or a router, and read the app\'s log with secrets scrubbed — a filter is a filter.\n• It is switched on here and nowhere else. A paired device can only switch it off.\n• A guest gets it only while it has full rights given here for a while.</string>
+    <string name="remote_full_help">A paired device of this account can then offer this device as an exit node or a router, and — with network access to files on as well — see the name of every file in this device\'s storage and have any of them sent to itself, add shared folders, and read the app\'s log with secrets scrubbed.\n• It is switched on here and nowhere else. A paired device can only switch it off.\n• A guest gets it only while it has full rights given here for a while.</string>
     <string name="remote_full_confirm_title">Turn on full control?</string>
-    <string name="remote_full_confirm_text">Every paired device of this account will be able to see the name of every file in this device\'s storage and have any of them sent to itself, add shared folders, offer this device as an exit node or a router, and read the app\'s log.\n\nSecrets are scrubbed from the log, but a filter is a filter. Whoever holds a paired phone holds all of this.</string>
+    <string name="remote_full_confirm_text">Every paired device of this account will be able to offer this device as an exit node or a router. With network access to files on as well, it will also see the name of every file in this device\'s storage and have any of them sent to itself, add shared folders, and read the app\'s log.\n\nWhoever holds a paired phone holds all of this.</string>
     <string name="remote_full_confirm_yes">Turn on</string>
 
     <!-- Guests -->

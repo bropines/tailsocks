@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Удалённое управление: доступ к файлам устройства по сети (appctr/remote_files.go). -->
+
+    <!-- Страница управляемого устройства -->
+    <string name="remote_netfiles_title">Доступ к файлам по сети</string>
+    <string name="remote_netfiles_help">Сопряжённое устройство с полными правами сможет просматривать память этого устройства и забирать файлы, видеть и менять общие папки, читать журнал и отчёт диагностики.\n• Пока выключено, ничего из этого издалека не доступно никому, что бы ни говорил полный доступ.\n• Гость с временными полными правами получает файлы, только если это было включено, когда права выдавались.\n• Включается только здесь.</string>
+    <string name="remote_netfiles_confirm_title">Открыть файлы этого устройства по сети?</string>
+    <string name="remote_netfiles_confirm_text">Сопряжённое устройство с полными правами сможет видеть имя каждого файла в памяти этого устройства и получить любой из них, видеть, добавлять и убирать общие папки, читать журнал приложения и отчёт диагностики.\n\nСекреты из журнала вычищаются, но фильтр есть фильтр. У кого в руках такое устройство, у того в руках и всё это.</string>
+    <string name="remote_netfiles_confirm_lock">Дальше подтвердите блокировкой экрана этого устройства.</string>
+    <string name="remote_netfiles_confirm_no_lock">На этом устройстве нет блокировки экрана, так что подтверждение — только этот ответ.</string>
+    <string name="remote_netfiles_confirm_yes">Открыть файлы</string>
+    <string name="remote_netfiles_prompt_title">Открыть файлы по сети</string>
+    <string name="remote_netfiles_lock_failed">Блокировку экрана запросить не удалось, поэтому файлы остались закрытыми.</string>
+    <string name="remote_netfiles_lockout">Слишком много попыток: блокировка на время закрыта. Файлы остались закрытыми.</string>
+    <string name="remote_access_with_files">Закрыто, пока выключен доступ к файлам по сети</string>
+    <string name="remote_never_files_on">включить доступ к файлам по сети</string>
+
+    <!-- Вопрос о временных полных правах гостю, когда файлы закрыты -->
+    <string name="remote_elevate_files_closed">Файлы остаются закрытыми: доступ к файлам по сети здесь выключен, поэтому эти права не включают память, общие папки, журнал и отчёт этого устройства — даже если его включат позже.</string>
+    <string name="remote_elevate_full_help_no_files">Раздача этого устройства как выходного узла или маршрутизатора — только этому гостю и только на это время.</string>
+
+    <!-- Журнал недавних удалённых изменений; после «Отказано: » -->
+    <string name="remote_denied_op_needs_files">доступ к файлам по сети выключен, а без него нельзя %1$s</string>
+    <string name="remote_denied_setting_needs_files">%1$s — доступ к файлам по сети выключен</string>
+
+    <!-- Управляющее устройство: файлы там закрыты -->
+    <string name="rmanage_files_closed">Файлы на %1$s закрыты</string>
+    <string name="rmanage_files_closed_short">Файлы закрыты</string>
+    <string name="rmanage_files_closed_hint">Открываются они там: Удалённое управление → Доступ к файлам по сети.</string>
+    <string name="rmanage_files_closed_hint_full">Открываются они там: Удалённое управление → Полный доступ и Доступ к файлам по сети.</string>
+    <string name="rmanage_files_closed_rights">Полные права, выданные там этому устройству, файлов не включают.</string>
+    <string name="rmanage_lock_files_closed">Там выключен доступ к файлам по сети.</string>
+
+    <!-- Управляющее устройство: своя блокировка перед чужими файлами -->
+    <string name="rmanage_files_unlock_title">Файлы %1$s</string>
+    <string name="rmanage_files_unlock_subtitle">Подтвердите, что это вы</string>
+    <string name="rmanage_shares_show">Показать общие папки</string>
+    <string name="rmanage_files_lock_help">Сначала спрашивается блокировка экрана этого устройства. Потом пять минут, пока открыта эта страница, — уже без неё.</string>
+    <string name="rmanage_files_no_lock">На этом устройстве нет блокировки экрана, так что открыть файлы %1$s с него может кто угодно.</string>
+    <string name="rmanage_files_unlock_failed">Блокировку экрана здесь запросить не удалось, поэтому ничего не открыто.</string>
+    <string name="rmanage_files_unlock_lockout">Слишком много попыток: блокировка на время закрыта.</string>
+</resources>

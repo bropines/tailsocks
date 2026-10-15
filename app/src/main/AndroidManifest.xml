@@ -190,6 +190,13 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/Theme.Tailscaled.Transparent" />
+        <!-- Remote management: this device's own lock, over the page that asked, before this
+             device's files are opened to the network or another device's are shown here. Never exported. -->
+        <activity
+            android:name=".ui.RemoteUnlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Tailscaled.Transparent" />
 
         <activity android:name=".ui.ToggleActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
 

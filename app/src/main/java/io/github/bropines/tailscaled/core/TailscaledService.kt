@@ -2073,6 +2073,8 @@ class TailscaledService : Service() {
             remoteNoGuests = !RemoteLevel.guestsAllowed(this@TailscaledService)
             // And whether a guest may be given full rights for a while (RemoteElevate).
             remoteNoElevation = !RemoteElevate.isAllowed(this@TailscaledService)
+            // And the files: closed to every paired device unless opened on this device.
+            remoteFiles = RemoteLevel.isFilesOpen(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the

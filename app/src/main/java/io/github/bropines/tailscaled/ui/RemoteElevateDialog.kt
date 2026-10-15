@@ -16,6 +16,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -77,6 +78,8 @@ data class RemoteElevateForm(
     val full: Boolean = false,
     /** The device's own Full control is on: it comes with the rights anyway. */
     val fullOn: Boolean = false,
+    /** The device's network access to files is on: the files may come with the rights. Off, they never do. */
+    val files: Boolean = true,
     /** The device has a screen lock to confirm with; without one, the person in front of it confirms. */
     val locked: Boolean = true,
     /** The lock is being asked, or the rights given. */
@@ -88,11 +91,11 @@ data class RemoteElevateForm(
 
     companion object {
         /** The form for a guest with [pairingLeft] seconds left: what it asked for when it is on offer, else the default. */
-        fun of(name: String, login: String, asked: Long?, pairingLeft: Long, fullOn: Boolean, locked: Boolean): RemoteElevateForm {
+        fun of(name: String, login: String, asked: Long?, pairingLeft: Long, fullOn: Boolean, locked: Boolean, files: Boolean = true): RemoteElevateForm {
             val offered = RemoteElevateLengths.offered(pairingLeft)
             val wanted = asked ?: RemoteElevateLengths.DEFAULT
             val choice = if (wanted in offered) wanted else RemoteElevateLengths.UNTIL_PAIRING_ENDS
-            return RemoteElevateForm(name, login, asked, pairingLeft, choice, fullOn = fullOn, locked = locked)
+            return RemoteElevateForm(name, login, asked, pairingLeft, choice, fullOn = fullOn, files = files, locked = locked)
         }
     }
 }
@@ -162,6 +165,8 @@ internal class RemoteElevateWords(
     val fullTitle: String,
     val fullHelp: String,
     val fullOn: String,
+    /** Said where the device's files are closed: the rights do not include them. */
+    val filesClosed: String?,
     val lock: String,
     val failure: String?,
     val yes: String,
@@ -180,8 +185,10 @@ private fun remoteElevateWords(form: RemoteElevateForm): RemoteElevateWords {
         howLong = stringResource(R.string.remote_elevate_for_how_long),
         lengths = lengths.map { if (it.first == asked?.first) asked else it },
         fullTitle = stringResource(R.string.remote_elevate_full_title),
-        fullHelp = stringResource(R.string.remote_elevate_full_help),
+        // Full control without the files is what is left of it: routes and the exit node.
+        fullHelp = stringResource(if (form.files) R.string.remote_elevate_full_help else R.string.remote_elevate_full_help_no_files),
         fullOn = stringResource(R.string.remote_elevate_full_on),
+        filesClosed = if (form.files) null else stringResource(R.string.remote_elevate_files_closed),
         lock = stringResource(if (form.locked) R.string.remote_elevate_lock else R.string.remote_elevate_no_lock),
         failure = form.failure?.let { remoteElevateFailureText(it, form.name) },
         yes = stringResource(R.string.remote_elevate_confirm),
@@ -218,6 +225,8 @@ private fun RemoteElevateBody(
         } else {
             FullRow(words.fullTitle, words.fullHelp, form.full, enabled = !form.working, onChange = onFull)
         }
+        // The files are not offered at all where they are closed: said plainly, with why.
+        words.filesClosed?.let { FilesClosedLine(it) }
         words.failure?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
     }
 }
@@ -284,6 +293,16 @@ private fun FullRow(title: String, help: String, on: Boolean, enabled: Boolean, 
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = on, onCheckedChange = null, enabled = enabled, modifier = Modifier.tvNoFocus())
+    }
+}
+
+/** The device's files are not part of the rights: a line with a lock, plain and in full. */
+@Composable
+private fun FilesClosedLine(text: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp).size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

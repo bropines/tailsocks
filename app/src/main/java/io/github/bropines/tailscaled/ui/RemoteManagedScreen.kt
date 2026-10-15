@@ -1,6 +1,7 @@
 package io.github.bropines.tailscaled.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.LockClock
 import androidx.compose.material.icons.filled.SettingsRemote
@@ -158,6 +160,12 @@ enum class RemoteNotice {
     NO_GUESTS,
     /** Nor the one for a guest's full rights for a while. */
     NO_ELEVATE,
+    /** Nor the one for network access to files. */
+    NO_FILES,
+    /** This device's lock could not be asked, so the files stayed closed. */
+    FILES_LOCK,
+    /** Too many tries at this device's lock: the files stayed closed. */
+    FILES_LOCKOUT,
 }
 
 /** Everything the screen draws. */
@@ -181,6 +189,10 @@ data class RemoteManagedUi(
     val guests: Boolean = true,
     /** Whether a guest may be given full rights for a while here, as stored on this device (core/RemoteElevate.kt). */
     val elevate: Boolean = true,
+    /** Network access to this device's files, as stored on this device. Never on without [enabled]. */
+    val files: Boolean = false,
+    /** This device has a screen lock to confirm opening the files with; without one, the question alone does. */
+    val locked: Boolean = true,
     /** What a paired device may do right now, as the bridge enforces it: it follows the two switches a moment later. */
     val access: RemoteAccess = RemoteAccess(),
     val accessOpen: Boolean = false,
@@ -192,6 +204,8 @@ interface RemoteManagedActions {
     fun setFullControl(on: Boolean) {}
     fun setGuests(allowed: Boolean) {}
     fun setElevate(allowed: Boolean) {}
+    /** Closes the files at once; opens them — after the question was answered — with this device's lock, where it has one. */
+    fun setFiles(open: Boolean) {}
     /** Opens the question that gives [device] full rights for a while (RemoteElevateActivity). */
     fun elevate(device: RemotePairedDevice) {}
     fun takeBack(nodeId: String) {}
@@ -284,6 +298,16 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
         }
     }
 
+    // Opening the files to the network takes this device's own lock, after the question: asked
+    // over the screen (RemoteUnlockActivity), and only then is the switch written.
+    val unlockTitle = stringResource(R.string.remote_netfiles_prompt_title)
+    val unlockText = stringResource(R.string.remote_netfiles_title)
+    val unlocked = remember { arrayOfNulls<(RemoteUnlockOutcome) -> Unit>(1) }
+    val unlock = rememberLauncherForActivityResult(RemoteUnlock) { outcome ->
+        unlocked[0]?.invoke(outcome)
+        unlocked[0] = null
+    }
+
     val actions = remember(context, scope) {
         object : RemoteManagedActions {
             fun change(work: () -> RemoteNotice?) {
@@ -301,13 +325,42 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
             override fun setEnabled(on: Boolean) {
                 // The switch answers at once; the endpoint follows when the service has applied it.
                 val reach = if (on) RemoteReach.APPLYING else RemoteReach.of(false, ui.state)
-                ui = ui.copy(enabled = on, reach = reach, fullControl = false)
+                ui = ui.copy(enabled = on, reach = reach, fullControl = false, files = false)
                 change {
-                    // Full control goes off with the switch, whichever way it is turned: it does not
-                    // outlive management, and switching management on again next month never brings
-                    // it back unasked.
+                    // Full control and the files go off with the switch, whichever way it is
+                    // turned: they do not outlive management, and switching management on again
+                    // next month never brings them back unasked.
                     val level = RemoteLevel.setFullControl(context, false)
-                    if (RemoteManage.setEnabled(context, on) && level) null else RemoteNotice.NO_SWITCH
+                    val files = RemoteLevel.setFilesOpen(context, false)
+                    if (RemoteManage.setEnabled(context, on) && level && files) null else RemoteNotice.NO_SWITCH
+                }
+            }
+
+            override fun setFiles(open: Boolean) {
+                if (!open) {
+                    // Closed at once, and told to the bridge at once: nothing is asked for that.
+                    ui = ui.copy(files = false)
+                    change { if (RemoteLevel.setFilesOpen(context, false)) null else RemoteNotice.NO_FILES }
+                    return
+                }
+                val write = {
+                    ui = ui.copy(files = true)
+                    change { if (RemoteLevel.setFilesOpen(context, true)) null else RemoteNotice.NO_FILES }
+                }
+                // Without a lock the question that was just answered is the confirmation.
+                if (!RemoteElevate.deviceSecure(context)) return write()
+                unlocked[0] = { outcome ->
+                    when (outcome) {
+                        // Gone since the question was asked: the answer stands, as without one.
+                        RemoteUnlockOutcome.UNLOCKED, RemoteUnlockOutcome.NO_LOCK -> write()
+                        RemoteUnlockOutcome.CANCELLED -> Unit
+                        RemoteUnlockOutcome.LOCKOUT -> ui = ui.copy(notice = RemoteNotice.FILES_LOCKOUT)
+                        RemoteUnlockOutcome.FAILED -> ui = ui.copy(notice = RemoteNotice.FILES_LOCK)
+                    }
+                }
+                if (runCatching { unlock.launch(RemoteUnlock.Ask(unlockTitle, unlockText)) }.isFailure) {
+                    unlocked[0] = null
+                    ui = ui.copy(notice = RemoteNotice.FILES_LOCK)
                 }
             }
 
@@ -384,14 +437,16 @@ private fun readManaged(context: android.content.Context, before: RemoteManagedU
         fullControl = RemoteLevel.isFullControl(context),
         guests = RemoteLevel.guestsAllowed(context),
         elevate = RemoteElevate.isAllowed(context),
+        files = RemoteLevel.isFilesOpen(context),
+        locked = RemoteElevate.deviceSecure(context),
         // The document is there with the service stopped as well, at the basic level.
         access = if (changed) RemoteAccess.of(Appctr.remoteAccessJSON()) else before.access,
     )
 }
 
-/** The bridge's document is not what this page's two switches say: it takes them from the running service. */
+/** The bridge's document is not what this page's switches say: it takes them from the running service. */
 private val RemoteManagedUi.switchesBehind: Boolean
-    get() = (access.level == RemoteAccess.LEVEL_FULL) != fullControl || access.guests != guests
+    get() = (access.level == RemoteAccess.LEVEL_FULL) != fullControl || access.guests != guests || access.files != files
 
 /**
  * The bridge is about to catch up: the service applies a switch a moment after it is turned.
@@ -423,8 +478,13 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
     val fullTitle = stringResource(R.string.remote_full_confirm_title)
     val fullText = stringResource(R.string.remote_full_confirm_text)
     val fullYes = stringResource(R.string.remote_full_confirm_yes)
+    val filesTitle = stringResource(R.string.remote_netfiles_confirm_title)
+    val filesText = stringResource(R.string.remote_netfiles_confirm_text)
+    val filesLock = stringResource(if (ui.locked) R.string.remote_netfiles_confirm_lock else R.string.remote_netfiles_confirm_no_lock)
+    val filesYes = stringResource(R.string.remote_netfiles_confirm_yes)
     var confirmAll by remember { mutableStateOf(false) }
     var confirmFull by remember { mutableStateOf(false) }
+    var confirmFiles by remember { mutableStateOf(false) }
     val access = remember(ui.access) { remoteAccessGroups(ui.access) }
     // Where the remote goes from the list of paired devices once its last row is revoked: to
     // the pairing code's button, and where that is not there or cannot be pressed, to the switch.
@@ -465,6 +525,21 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
                 { on -> if (on) confirmFull = true else actions.setFullControl(false) }
             )
             if (ui.notice == RemoteNotice.NO_FULL) NoticeLine(failed)
+            // A ceiling over full control and over a guest's rights for a while: off unless
+            // opened here, after a question and this device's lock.
+            SwitchCard(
+                Icons.Default.FolderOpen,
+                stringResource(R.string.remote_netfiles_title),
+                stringResource(R.string.remote_netfiles_help),
+                ui.files,
+                { open -> if (open) confirmFiles = true else actions.setFiles(false) }
+            )
+            when (ui.notice) {
+                RemoteNotice.NO_FILES -> NoticeLine(failed)
+                RemoteNotice.FILES_LOCK -> NoticeLine(stringResource(R.string.remote_netfiles_lock_failed))
+                RemoteNotice.FILES_LOCKOUT -> NoticeLine(stringResource(R.string.remote_netfiles_lockout))
+                else -> Unit
+            }
             SwitchCard(Icons.Default.Group, stringResource(R.string.remote_guests_title), guestsHelp(ui), ui.guests, actions::setGuests)
             if (ui.notice == RemoteNotice.NO_GUESTS) NoticeLine(failed)
             // Full rights for a while are a guest's: without guests there is nobody to give them to.
@@ -561,6 +636,35 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
             // So does one that hands more of the device out.
             dismissButton = { TextButton(onClick = { confirmFull = false }, modifier = Modifier.tvInitialFocus()) { Text(confirmNo) } }
         )
+    }
+    if (confirmFiles) {
+        AppAlertDialog(
+            onDismissRequest = { confirmFiles = false },
+            title = { Text(filesTitle) },
+            text = { Text("$filesText\n\n$filesLock") },
+            confirmButton = { TextButton(onClick = { confirmFiles = false; actions.setFiles(true) }) { Text(filesYes) } },
+            dismissButton = { TextButton(onClick = { confirmFiles = false }, modifier = Modifier.tvInitialFocus()) { Text(confirmNo) } }
+        )
+    }
+}
+
+/** The question before the files are opened, drawn without its window for a preview: the renderer has none. */
+@Composable
+internal fun RemoteFilesQuestion(locked: Boolean, modifier: Modifier = Modifier) {
+    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh, tonalElevation = 6.dp, modifier = modifier) {
+        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(stringResource(R.string.remote_netfiles_confirm_title), style = MaterialTheme.typography.headlineSmall)
+            Text(
+                stringResource(R.string.remote_netfiles_confirm_text) + "\n\n" +
+                    stringResource(if (locked) R.string.remote_netfiles_confirm_lock else R.string.remote_netfiles_confirm_no_lock),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = {}) { Text(stringResource(R.string.action_cancel)) }
+                TextButton(onClick = {}) { Text(stringResource(R.string.remote_netfiles_confirm_yes)) }
+            }
+        }
     }
 }
 
@@ -1286,6 +1390,7 @@ internal object RemoteAccessWords {
         "root_mode" to R.string.remote_never_root_mode,
         "grant_permission" to R.string.remote_never_grant_permission,
         "full_control_on" to R.string.remote_never_full_control_on,
+        "files_on" to R.string.remote_never_files_on,
     )
 
     /** What the app did about a request to show something, as the log quotes it. */
@@ -1323,7 +1428,8 @@ internal object RemoteAccessWords {
 /**
  * The bridge's document as the lines the card draws, and nothing that is not in the document:
  * a guest's operations, an owner's with which way each setting goes, what full control would
- * add — no such group while it is on, those lines are the owner's then — and what nobody may.
+ * add — no such group while it is on, those lines are the owner's then — what network access
+ * to files keeps closed while it is off, and what nobody may.
  * Merged so that it reads as a dozen lines: what is seen is one sentence, what is done another,
  * the settings one line for each way they go, and an owner who may all a guest may is said so
  * instead of said twice.
@@ -1345,6 +1451,10 @@ internal fun remoteAccessGroups(access: RemoteAccess): List<RemoteAccessGroup> {
     val full = classRows(access.full, access.full.ops) { settings ->
         listOf(RemoteAccessRow(R.string.remote_access_set_with_full, settings.map { words.name(it.key, words.settings) }))
     }
+    // What the files' switch closes, it closes both ways: a setting there is changed neither way.
+    val withFiles = classRows(access.withFiles, access.withFiles.ops) { settings ->
+        listOf(RemoteAccessRow(R.string.remote_access_set, settings.map { words.name(it.key, words.settings) }))
+    }
     val never = if (access.never.isEmpty()) emptyList()
     else listOf(RemoteAccessRow(0, access.never.map { words.name(it, words.never) }))
     return listOf(
@@ -1354,6 +1464,7 @@ internal fun remoteAccessGroups(access: RemoteAccess): List<RemoteAccessGroup> {
             owner
         ),
         RemoteAccessGroup(R.string.remote_access_full, full),
+        RemoteAccessGroup(R.string.remote_access_with_files, withFiles),
         RemoteAccessGroup(R.string.remote_access_never, never),
     ).filter { it.rows.isNotEmpty() }
 }

@@ -69,6 +69,10 @@ object RemoteDeviceKeys {
         REQUEST_SHARE_ADD, REQUEST_SHARE_REMOVE, REQUEST_DIAG_REPORT, REQUEST_ELEVATE_ASK, REQUEST_ELEVATIONS,
     )
 
+    /** What the device's network access to files closes: these requests, and these switches, neither way. */
+    val FILES_REQUESTS = setOf(REQUEST_STORAGE_LIST, REQUEST_STORAGE_FILE, REQUEST_SHARE_ADD, REQUEST_SHARE_REMOVE, REQUEST_DIAG_REPORT)
+    val FILES_SWITCHES = setOf(TAILDRIVE, TAILDRIVE_PROXY)
+
     /** Two refusals that are the API's own words rather than a sentence: the bridge answers 404 and 403 for them. */
     const val NOT_FOUND = "not_found"
     const val FORBIDDEN = "forbidden"
@@ -409,6 +413,12 @@ interface RemoteDeviceHost {
     /** A paired device changed something: [op] and [detail] are the line of the log. */
     fun notice(from: String, op: String, detail: String)
 
+    /**
+     * Whether this device's network access to files is on (RemoteLevel). The bridge refuses
+     * everything of the files while it is off; the delegate refuses it again here.
+     */
+    fun filesOpen(): Boolean
+
     /** The volumes for an empty [path]; else the folder there, from its entry number [offset]. */
     fun storageList(path: String, offset: Int): RemoteStorageListing
     fun storageFile(path: String): RemoteStorageFile
@@ -466,6 +476,7 @@ class RemoteDeviceDelegate(private val base: RemoteDelegate, private val host: R
                 }
                 // The bridge refuses it first; said here as well, where it matters most.
                 if (key == RemoteDeviceKeys.FULL_CONTROL && on) throw RemoteRefusal("full control is switched on at the device")
+                if (key in RemoteDeviceKeys.FILES_SWITCHES && !host.filesOpen()) throw RemoteRefusal(RemoteDeviceKeys.FORBIDDEN)
                 asked { host.setSwitch(key!!, on) }
             }
             RemoteDeviceKeys.ADVERTISE_ROUTES -> {
@@ -490,6 +501,8 @@ class RemoteDeviceDelegate(private val base: RemoteDelegate, private val host: R
     override fun request(name: String?, args: String?): String {
         val a = if (args.isNullOrBlank()) RemoteRequestArgs()
         else runCatching { AppJson.decodeFromString<RemoteRequestArgs>(args) }.getOrNull() ?: throw RemoteRefusal("not a request")
+        // The bridge refuses these first while the files are closed; refused here again.
+        if (name in RemoteDeviceKeys.FILES_REQUESTS && !host.filesOpen()) throw RemoteRefusal(RemoteDeviceKeys.FORBIDDEN)
         return when (name) {
             RemoteDeviceKeys.REQUEST_REPORT -> asked { AppJson.encodeToString(host.report()) }
             RemoteDeviceKeys.REQUEST_ASK -> {

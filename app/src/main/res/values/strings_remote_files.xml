@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: network access to a device's files (appctr/remote_files.go). The
+         managed device's own switch, the question before it is turned on, and the managing
+         device's lock before it shows another device's files. -->
+
+    <!-- The managed device's page -->
+    <string name="remote_netfiles_title">Network access to files</string>
+    <string name="remote_netfiles_help">Lets a paired device with full rights browse this device\'s storage and take files, see and edit its shared folders, and read its log and diagnostics report.\n• Off, none of this is anybody\'s from afar, whatever full control says.\n• A guest given full rights for a while gets the files only if this was on when they were given.\n• It is switched on here and nowhere else.</string>
+    <string name="remote_netfiles_confirm_title">Open this device\'s files to the network?</string>
+    <string name="remote_netfiles_confirm_text">A paired device with full rights will be able to see the name of every file in this device\'s storage and have any of them sent to itself, see, add and remove shared folders, and read the app\'s log and diagnostics report.\n\nSecrets are scrubbed from the log, but a filter is a filter. Whoever holds such a device holds all of this.</string>
+    <string name="remote_netfiles_confirm_lock">Next, confirm with this device\'s screen lock.</string>
+    <string name="remote_netfiles_confirm_no_lock">This device has no screen lock, so this answer is the only confirmation.</string>
+    <string name="remote_netfiles_confirm_yes">Open files</string>
+    <string name="remote_netfiles_prompt_title">Open files to the network</string>
+    <string name="remote_netfiles_lock_failed">This device\'s screen lock could not be asked, so the files stay closed.</string>
+    <string name="remote_netfiles_lockout">Too many tries: the lock is blocked for a while. The files stay closed.</string>
+    <string name="remote_access_with_files">Closed while network access to files is off</string>
+    <string name="remote_never_files_on">turn network access to files on</string>
+
+    <!-- The question that gives a guest full rights, where the files are closed -->
+    <string name="remote_elevate_files_closed">The files stay closed: network access to files is off here, so these rights never include this device\'s storage, shared folders, log or report — even if it is turned on later.</string>
+    <string name="remote_elevate_full_help_no_files">Offering this device as an exit node or a router — for this guest and this time only.</string>
+
+    <!-- The log of recent remote changes; each follows "Refused: " -->
+    <!-- %1$s: what was asked for, "to see the diagnostics report" -->
+    <string name="remote_denied_op_needs_files">network access to files is off, and it takes that %1$s</string>
+    <!-- %1$s: a setting and the value asked for, "the Taildrive proxy (off)" -->
+    <string name="remote_denied_setting_needs_files">%1$s — network access to files is off</string>
+
+    <!-- The managing device: the files closed there -->
+    <!-- %1$s: the managed device -->
+    <string name="rmanage_files_closed">Files are closed on %1$s</string>
+    <string name="rmanage_files_closed_short">Files closed</string>
+    <string name="rmanage_files_closed_hint">They are opened there: Remote management → Network access to files.</string>
+    <string name="rmanage_files_closed_hint_full">They are opened there: Remote management → Full control and Network access to files.</string>
+    <string name="rmanage_files_closed_rights">The full rights given to this device there leave the files out.</string>
+    <string name="rmanage_lock_files_closed">Network access to files is off there.</string>
+
+    <!-- The managing device: its own lock before another device's files -->
+    <!-- %1$s: the managed device -->
+    <string name="rmanage_files_unlock_title">Files of %1$s</string>
+    <string name="rmanage_files_unlock_subtitle">Confirm it is you</string>
+    <string name="rmanage_shares_show">Show the shared folders</string>
+    <string name="rmanage_files_lock_help">This device\'s screen lock is asked first. It then holds for five minutes while this page is open.</string>
+    <string name="rmanage_files_no_lock">This device has no screen lock, so anyone using it can open the files of %1$s.</string>
+    <string name="rmanage_files_unlock_failed">The screen lock could not be asked here, so nothing was opened.</string>
+    <string name="rmanage_files_unlock_lockout">Too many tries: the lock is blocked for a while.</string>
+</resources>

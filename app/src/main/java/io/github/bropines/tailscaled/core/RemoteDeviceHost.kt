@@ -78,6 +78,8 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
         }
     }
 
+    override fun filesOpen(): Boolean = RemoteLevel.isFilesOpen(context)
+
     override fun routes(): String = profilePrefs().getString(ROUTES_PREF, "").orEmpty()
         .split(',').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(",")
 

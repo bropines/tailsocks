@@ -84,6 +84,8 @@ internal fun remoteEventLine(op: String, detail: String, ok: Boolean, text: (Int
                 else -> detail
             }
             "op_needs_full" -> filled(R.string.remote_denied_op_needs_full, asked())
+            "op_needs_files" -> filled(R.string.remote_denied_op_needs_files, asked())
+            "setting_needs_files" -> filled(R.string.remote_denied_setting_needs_files, changed(remoteLogDetail(about)))
             "op_not_allowed" -> filled(R.string.remote_denied_op_not_allowed, asked())
             "setting_only_at_device" -> filled(R.string.remote_denied_setting_only_at_device, changed(remoteLogDetail(about)))
             "setting_needs_full" -> filled(R.string.remote_denied_setting_needs_full, changed(remoteLogDetail(about)))

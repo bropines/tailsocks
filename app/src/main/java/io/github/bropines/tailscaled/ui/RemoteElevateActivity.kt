@@ -131,6 +131,7 @@ class RemoteElevateActivity : FragmentActivity() {
             pairingLeft = device.left,
             fullOn = RemoteLevel.isFullControl(this),
             locked = RemoteElevate.deviceSecure(this),
+            files = RemoteLevel.isFilesOpen(this),
         )
     }
 

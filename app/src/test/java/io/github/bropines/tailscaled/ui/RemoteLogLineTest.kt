@@ -29,7 +29,7 @@ class RemoteLogLineTest {
     private data class ListedSetting(val key: String = "", val writable: Boolean = false)
 
     @Serializable
-    private data class ListedOp(val op: String = "", val full: Boolean = false)
+    private data class ListedOp(val op: String = "", val full: Boolean = false, val files: Boolean = false)
 
     @Serializable
     private data class Allowlist(
@@ -193,8 +193,9 @@ class RemoteLogLineTest {
                 // An operation, which has words here: any of them may be refused, those that take full control for that as well.
                 "op_not_allowed" -> for (op in listed.ops) assertInWords("denied", "$why: ${op.op}")
                 "op_needs_full" -> for (op in listed.ops.filter { it.full }) assertInWords("denied", "$why: ${op.op}")
+                "op_needs_files" -> for (op in listed.ops.filter { it.files }) assertInWords("denied", "$why: ${op.op}")
                 // A setting with the value asked for.
-                "setting_only_at_device", "setting_needs_full" -> for (key in changeable - RemoteDeviceKeys.EXIT_NODE) {
+                "setting_only_at_device", "setting_needs_full", "setting_needs_files" -> for (key in changeable - RemoteDeviceKeys.EXIT_NODE) {
                     for (value in listOf("true", "false", "", "10.0.0.0/8,192.168.5.0/24")) assertInWords("denied", "$why: $key=$value")
                 }
                 // The rest name what the other device sent, as it sent it: the name is its own, the words around it the app's.

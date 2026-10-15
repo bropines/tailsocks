@@ -53,6 +53,7 @@ class RemoteDeviceTest {
         var offered = "192.168.5.0/24"
         var refuse: String? = null
         var route = RemoteAskRoute.SHOWN
+        var files = true
 
         private fun note(call: String) {
             refuse?.let { throw RemoteRefusal(it) }
@@ -75,6 +76,7 @@ class RemoteDeviceTest {
         override fun askPermission(permission: AppPermission, from: String): RemoteAskRoute { note("ask ${permission.id} from $from"); return route }
         override fun identify(from: String): RemoteAskRoute { note("identify $from"); return route }
         override fun notice(from: String, op: String, detail: String) = note("notice $from $op $detail")
+        override fun filesOpen() = files
         override fun storageList(path: String, offset: Int): RemoteStorageListing {
             note("list '$path' from $offset")
             return RemoteStorageListing(path = path, entries = listOf(RemoteStorageEntry("film.mkv", false, 7, 9)), offset = offset)
@@ -271,6 +273,27 @@ class RemoteDeviceTest {
             refused { careless.getSetting("tun_mode") }, refused { careless.request("report", "") },
             refused { careless.request("storage_list", """{"path":""}""") }, refused { careless.request("diag_report", "") },
         )) assertEquals("the app could not do it", said)
+    }
+
+    /** With the device's network access to files off, the app refuses what is the files' again, after the bridge. */
+    @Test
+    fun theFilesClosedAreRefusedHereToo() {
+        host.files = false
+        for ((name, args) in listOf(
+            "storage_list" to """{"path":""}""", "storage_file" to """{"path":"/storage/emulated/0/a.txt"}""",
+            "share_add" to """{"name":"Movies","path":"/storage/emulated/0/Movies"}""", "share_remove" to """{"name":"Movies"}""",
+            "diag_report" to "",
+        )) assertEquals(name, RemoteDeviceKeys.FORBIDDEN, refused { d.request(name, args) })
+        for (key in RemoteDeviceKeys.FILES_SWITCHES) for (v in listOf("true", "false")) {
+            assertEquals("$key=$v", RemoteDeviceKeys.FORBIDDEN, refused { d.setSetting(key, v) })
+        }
+        assertEquals(emptyList<String>(), host.calls)
+        // What is not the files' is answered as before.
+        d.setSetting("auto_start", "true")
+        assertTrue(json(d.request("report", "")).containsKey("permissions"))
+        host.files = true
+        d.request("share_remove", """{"name":"Movies"}""")
+        assertEquals(listOf("set auto_start=true", "unshare Movies"), host.calls)
     }
 
     // ─── Permissions as they are said ────────────────────────────────────────────────────────

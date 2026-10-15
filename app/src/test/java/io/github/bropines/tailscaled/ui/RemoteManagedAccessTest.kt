@@ -24,10 +24,22 @@ import java.io.File
 class RemoteManagedAccessTest {
 
     @Serializable
-    private data class ListedSetting(val key: String = "", val writable: Boolean = false, val only: String = "", val full: String = "", val guard: String = "")
+    private data class ListedSetting(
+        val key: String = "",
+        val writable: Boolean = false,
+        val only: String = "",
+        val full: String = "",
+        val guard: String = "",
+        val files: Boolean = false,
+    )
 
     @Serializable
-    private data class ListedOp(val op: String = "", @kotlinx.serialization.SerialName("class") val role: String = "", val full: Boolean = false)
+    private data class ListedOp(
+        val op: String = "",
+        @kotlinx.serialization.SerialName("class") val role: String = "",
+        val full: Boolean = false,
+        val files: Boolean = false,
+    )
 
     @Serializable
     private data class Allowlist(
@@ -46,19 +58,22 @@ class RemoteManagedAccessTest {
 
     /**
      * The document as the bridge makes it from those lists (appctr/remote_level.go, access):
-     * what needs full control is the owner's at that level and listed apart below it.
+     * what needs full control is the owner's at that level and listed apart below it; what the
+     * device's network access to files closes is nobody's while it is off, and listed apart.
      */
-    private fun document(full: Boolean, guests: Boolean = true): RemoteAccess {
+    private fun document(full: Boolean, guests: Boolean = true, files: Boolean = true): RemoteAccess {
         val writable = listed.settings.filter { it.writable }
+        fun open(op: ListedOp) = (full || !op.full) && (files || !op.files)
         return RemoteAccess(
             level = if (full) RemoteAccess.LEVEL_FULL else RemoteAccess.LEVEL_BASIC,
             guests = guests,
             elevate = guests,
-            guest = RemoteAccessClass(ops = listed.ops.filter { it.role == "guest" && (full || !it.full) }.map { it.op }),
+            files = files,
+            guest = RemoteAccessClass(ops = listed.ops.filter { it.role == "guest" && open(it) }.map { it.op }),
             owner = RemoteAccessClass(
                 // Asking for full rights is a guest's: an owner has nothing to ask for.
-                ops = listed.ops.filter { (full || !it.full) && it.op != RemoteAccessWords.OP_ELEVATE }.map { it.op },
-                settings = writable.map {
+                ops = listed.ops.filter { open(it) && it.op != RemoteAccessWords.OP_ELEVATE }.map { it.op },
+                settings = writable.filter { files || !it.files }.map {
                     val needs = it.full.isNotEmpty() && !full
                     RemoteAccessSetting(it.key, only = if (needs && it.full == "true") "false" else it.only, needs = if (needs) "full" else "", guard = it.guard)
                 },
@@ -66,8 +81,12 @@ class RemoteManagedAccessTest {
                 permissions = listed.askable,
             ),
             full = if (full) RemoteAccessClass() else RemoteAccessClass(
-                ops = listed.ops.filter { it.full }.map { it.op },
-                settings = writable.filter { it.full.isNotEmpty() }.map { RemoteAccessSetting(it.key) },
+                ops = listed.ops.filter { it.full && (files || !it.files) }.map { it.op },
+                settings = writable.filter { it.full.isNotEmpty() && (files || !it.files) }.map { RemoteAccessSetting(it.key) },
+            ),
+            withFiles = if (files) RemoteAccessClass() else RemoteAccessClass(
+                ops = listed.ops.filter { it.files }.map { it.op },
+                settings = writable.filter { it.files }.map { RemoteAccessSetting(it.key) },
             ),
             never = listed.never,
         )
@@ -114,22 +133,43 @@ class RemoteManagedAccessTest {
 
     @Test
     fun atEitherLevelEveryLineIsInWordsAndNothingIsLeftOut() {
-        for (full in listOf(false, true)) {
-            val doc = document(full)
+        for (full in listOf(false, true)) for (files in listOf(false, true)) {
+            val doc = document(full, files = files)
             val groups = remoteAccessGroups(doc)
             val names = groups.names()
-            assertEquals("a name without words at full=$full", emptyList<String>(), names.filter { it.text == 0 }.map { it.name })
+            assertEquals("a name without words at full=$full files=$files", emptyList<String>(), names.filter { it.text == 0 }.map { it.name })
             val said = names.map { it.name }.toSet()
             // Every setting, action, permission and "never" of the document is on the card, and every operation
             // that is not said through its own list.
             val lists = setOf(RemoteAccessWords.OP_SET, RemoteAccessWords.OP_ACTION, RemoteAccessWords.OP_ASK)
-            val expected = doc.owner.ops + doc.full.ops - lists + doc.owner.settings.map { it.key } + doc.owner.actions +
-                doc.owner.permissions + doc.never
-            assertEquals("left out at full=$full", emptyList<String>(), expected.filterNot { it in said })
+            val expected = doc.owner.ops + doc.full.ops + doc.withFiles.ops - lists + doc.owner.settings.map { it.key } +
+                doc.withFiles.settings.map { it.key } + doc.owner.actions + doc.owner.permissions + doc.never
+            assertEquals("left out at full=$full files=$files", emptyList<String>(), expected.filterNot { it in said })
             // A dozen lines, not forty.
             val lines = groups.sumOf { it.rows.size }
-            assertTrue("$lines lines at full=$full", lines in 8..16)
+            assertTrue("$lines lines at full=$full files=$files", lines in 8..16)
         }
+    }
+
+    /** With the files closed, what they hold is said apart, and nowhere among what an owner or full control has. */
+    @Test
+    fun withTheFilesClosedTheirLinesStandApart() {
+        for (full in listOf(false, true)) {
+            val groups = remoteAccessGroups(document(full, files = false))
+            val closed = groups.group(R.string.remote_access_with_files)!!
+            val filesOps = listed.ops.filter { it.files }.map { it.op }
+            val filesSettings = listed.settings.filter { it.files }.map { it.key }
+            assertEquals(listOf("folders", "storage.list", "diag.report", "diag.log"), closed.row(R.string.remote_access_see)!!.said())
+            assertEquals(listOf("shares.remove", "shares.add", "storage.send"), closed.row(0)!!.said())
+            // Closed both ways: a setting there is changed neither way, so it is said as "change".
+            assertEquals(filesSettings, closed.row(R.string.remote_access_set)!!.said())
+            val elsewhere = groups.filter { it.title != R.string.remote_access_with_files }.flatMap { it.rows }.flatMap { it.said() }
+            assertEquals("full=$full", emptyList<String>(), elsewhere.filter { it in filesOps || it in filesSettings })
+            // Switching them on from afar is among what nobody may.
+            assertTrue("files_on" in groups.group(R.string.remote_access_never)!!.rows.single().said())
+        }
+        // Open, there is no such group.
+        assertNull(remoteAccessGroups(document(full = true, files = true)).group(R.string.remote_access_with_files))
     }
 
     @Test
