@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Policy tab: copying the policy file, and the network's map for an AI agent. -->
+    <string name="admin_pex_copy">Copy policy</string>
+    <string name="admin_pex_copy_ai">Copy for an AI agent</string>
+    <string name="admin_pex_share_ai">Share for an AI agent…</string>
+    <string name="admin_pex_help">Each asks for your fingerprint or screen lock. The text for an AI agent is a task for it and the map of the network — users, groups, every device with its addresses, and the policy; paste it into a chat with an assistant, nothing is sent from here.</string>
+    <string name="admin_pex_unlock_policy">Copy the policy</string>
+    <string name="admin_pex_unlock_ai">Copy for an AI agent</string>
+    <string name="admin_pex_unlock_share">Share for an AI agent</string>
+    <string name="admin_pex_unlock_subtitle">It holds the map of your network</string>
+    <string name="admin_pex_copied_policy">Policy copied. It is the access map of your network: paste it only where you trust.</string>
+    <string name="admin_pex_copied_ai">Copied for an AI agent: the task, %1$d devices and the policy — the whole map of your network.</string>
+    <string name="admin_pex_clip_policy">Tailnet policy</string>
+    <string name="admin_pex_clip_ai">Tailnet map for an AI agent</string>
+
+    <!-- The text for an AI agent (Markdown). Written to the agent, in the app's language. -->
+    <string name="admin_pex_title">Map of my Tailscale network</string>
+    <string name="admin_pex_title_hs">Map of my Headscale network</string>
+    <string name="admin_pex_task">Here is the full map of my Tailscale network: the policy file and every device. Before anything else, read Tailscale\'s current documentation — it changes, and the policy may use features newer than what you know:</string>
+    <string name="admin_pex_task_hs">Here is the full map of my network on Headscale, a self-hosted control server for Tailscale clients: the policy file and every device. Before anything else, read Headscale\'s current documentation — it supports only part of Tailscale\'s policy — and Tailscale\'s for the syntax it follows:</string>
+    <string name="admin_pex_task_end">Then ask me what I need. Do not change anything until I say so. When you propose a change to the policy, give the whole edited section of the policy file (for example the whole \"grants\" list) and a test for it (an entry of \"tests\").</string>
+    <string name="admin_pex_link_syntax">Policy file syntax</string>
+    <string name="admin_pex_link_acls">ACLs</string>
+    <string name="admin_pex_link_grants">Grants</string>
+    <string name="admin_pex_link_tags">Tags</string>
+    <string name="admin_pex_link_tests">Tests</string>
+    <string name="admin_pex_link_autogroups">Autogroups</string>
+    <string name="admin_pex_link_remote">TailSocks remote management (TCP port 28115)</string>
+    <string name="admin_pex_link_hs_policy">Headscale: policy</string>
+    <string name="admin_pex_link_hs_features">Headscale: what it supports</string>
+
+    <string name="admin_pex_h_tailnet">Tailnet</string>
+    <string name="admin_pex_tailnet_name">Name: %1$s</string>
+    <string name="admin_pex_tailnet_dns">MagicDNS domain: %1$s</string>
+    <string name="admin_pex_server_tailscale">Control server: Tailscale</string>
+    <string name="admin_pex_server_hs">Control server: Headscale %1$s</string>
+    <string name="admin_pex_hs_policy_db">The policy is kept in Headscale\'s database and set through its API.</string>
+    <string name="admin_pex_hs_policy_file">The policy is a file on the Headscale server: changes are made in that file.</string>
+    <string name="admin_pex_hs_no_roles">Headscale has no user roles; tagged devices belong to no user.</string>
+    <string name="admin_pex_external">The policy is managed outside the admin console (for example from a Git repository): changes are made there.</string>
+    <string name="admin_pex_made">Map made: %1$s</string>
+
+    <string name="admin_pex_h_users">Users (%1$d)</string>
+    <!-- Column headers of the users table, separated by |. -->
+    <string name="admin_pex_users_cols">Login|Name|Role</string>
+    <string name="admin_pex_h_groups">Groups, as the policy defines them</string>
+    <string name="admin_pex_h_devices">Devices (%1$d)</string>
+    <!-- Column headers of the devices table, separated by |. -->
+    <string name="admin_pex_devices_cols">Device|Owner or tags|OS|Client|Tailscale IPv4|Tailscale IPv6|Online|Exit node|Subnet routes|Key expiry</string>
+    <string name="admin_pex_h_policy">Policy file</string>
+
+    <string name="admin_pex_none">none</string>
+    <string name="admin_pex_not_loaded">not loaded</string>
+    <string name="admin_pex_unknown">unknown</string>
+    <string name="admin_pex_policy_unparsed">The policy file does not parse; see it below.</string>
+    <string name="admin_pex_shared_in">shared in from another tailnet</string>
+    <string name="admin_pex_not_authorized">not authorized</string>
+    <string name="admin_pex_online">online</string>
+    <string name="admin_pex_last_seen">last seen %1$s</string>
+    <string name="admin_pex_offline">offline</string>
+    <string name="admin_pex_approved">approved</string>
+    <string name="admin_pex_not_approved">not approved</string>
+    <string name="admin_pex_advertised">advertised, %1$s</string>
+    <string name="admin_pex_expiry_off">never (expiry disabled)</string>
+</resources>

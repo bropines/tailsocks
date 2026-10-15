@@ -177,6 +177,8 @@ fun PolicyTab(state: ConsoleState, vm: AdminConsoleViewModel?) {
                                 Text(ctx.getString(R.string.admin_cfg_reach_open))
                             }
                         }
+                        // Reading, not writing: offered whoever manages the file and whatever the credential may change.
+                        PolicyCopyActions(state, vm)
                         val prev = policy.previous
                         if (prev != null && canEdit) {
                             Row(verticalAlignment = Alignment.CenterVertically) {

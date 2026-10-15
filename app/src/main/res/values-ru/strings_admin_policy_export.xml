@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pex_copy">Скопировать политику</string>
+    <string name="admin_pex_copy_ai">Скопировать для ИИ-агента</string>
+    <string name="admin_pex_share_ai">Отправить ИИ-агенту…</string>
+    <string name="admin_pex_help">Каждое действие спросит отпечаток или блокировку экрана. Текст для ИИ-агента — это задание ему и карта сети: пользователи, группы, все устройства с адресами и политика. Вставьте его в чат с ассистентом — отсюда ничего никуда не отправляется.</string>
+    <string name="admin_pex_unlock_policy">Скопировать политику</string>
+    <string name="admin_pex_unlock_ai">Скопировать для ИИ-агента</string>
+    <string name="admin_pex_unlock_share">Отправить ИИ-агенту</string>
+    <string name="admin_pex_unlock_subtitle">В нём карта вашей сети</string>
+    <string name="admin_pex_copied_policy">Политика скопирована. Это карта доступа вашей сети — вставляйте её только туда, где доверяете.</string>
+    <string name="admin_pex_copied_ai">Скопировано для ИИ-агента: задание, устройства (%1$d) и политика — вся карта вашей сети.</string>
+    <string name="admin_pex_clip_policy">Политика tailnet</string>
+    <string name="admin_pex_clip_ai">Карта tailnet для ИИ-агента</string>
+
+    <string name="admin_pex_title">Карта моей сети Tailscale</string>
+    <string name="admin_pex_title_hs">Карта моей сети на Headscale</string>
+    <string name="admin_pex_task">Ниже — полная карта моей сети Tailscale: файл политики и все устройства. Сначала прочитай актуальную документацию Tailscale — она меняется, и в политике могут быть возможности новее тех, что ты знаешь:</string>
+    <string name="admin_pex_task_hs">Ниже — полная карта моей сети на Headscale (это свой сервер управления для клиентов Tailscale): файл политики и все устройства. Сначала прочитай актуальную документацию Headscale — он поддерживает только часть политики Tailscale — и документацию Tailscale по синтаксису, которому он следует:</string>
+    <string name="admin_pex_task_end">Потом спроси, что мне нужно. Ничего не меняй, пока я не скажу. Если предлагаешь изменить политику, приводи изменённый раздел файла целиком (например, весь список \"grants\") и тест к нему (запись в \"tests\").</string>
+    <string name="admin_pex_link_syntax">Синтаксис файла политики</string>
+    <string name="admin_pex_link_acls">ACL</string>
+    <string name="admin_pex_link_grants">Гранты</string>
+    <string name="admin_pex_link_tags">Теги</string>
+    <string name="admin_pex_link_tests">Тесты</string>
+    <string name="admin_pex_link_autogroups">Автогруппы</string>
+    <string name="admin_pex_link_remote">Удалённое управление TailSocks (TCP-порт 28115)</string>
+    <string name="admin_pex_link_hs_policy">Headscale: политика</string>
+    <string name="admin_pex_link_hs_features">Headscale: что он поддерживает</string>
+
+    <string name="admin_pex_h_tailnet">Tailnet</string>
+    <string name="admin_pex_tailnet_name">Название: %1$s</string>
+    <string name="admin_pex_tailnet_dns">Домен MagicDNS: %1$s</string>
+    <string name="admin_pex_server_tailscale">Сервер управления: Tailscale</string>
+    <string name="admin_pex_server_hs">Сервер управления: Headscale %1$s</string>
+    <string name="admin_pex_hs_policy_db">Политика хранится в базе Headscale и задаётся через его API.</string>
+    <string name="admin_pex_hs_policy_file">Политика — файл на сервере Headscale: менять её нужно в этом файле.</string>
+    <string name="admin_pex_hs_no_roles">В Headscale нет ролей пользователей; устройства с тегами не принадлежат никому.</string>
+    <string name="admin_pex_external">Политика ведётся вне консоли администратора (например, в Git-репозитории): менять её нужно там.</string>
+    <string name="admin_pex_made">Карта составлена: %1$s</string>
+
+    <string name="admin_pex_h_users">Пользователи (%1$d)</string>
+    <string name="admin_pex_users_cols">Логин|Имя|Роль</string>
+    <string name="admin_pex_h_groups">Группы, как их задаёт политика</string>
+    <string name="admin_pex_h_devices">Устройства (%1$d)</string>
+    <string name="admin_pex_devices_cols">Устройство|Владелец или теги|ОС|Клиент|IPv4 в Tailscale|IPv6 в Tailscale|В сети|Выходной узел|Маршруты подсетей|Срок ключа</string>
+    <string name="admin_pex_h_policy">Файл политики</string>
+
+    <string name="admin_pex_none">нет</string>
+    <string name="admin_pex_not_loaded">не загружено</string>
+    <string name="admin_pex_unknown">неизвестно</string>
+    <string name="admin_pex_policy_unparsed">Файл политики не разбирается; он приведён ниже как есть.</string>
+    <string name="admin_pex_shared_in">из другого tailnet</string>
+    <string name="admin_pex_not_authorized">не авторизовано</string>
+    <string name="admin_pex_online">в сети</string>
+    <string name="admin_pex_last_seen">был в сети %1$s</string>
+    <string name="admin_pex_offline">не в сети</string>
+    <string name="admin_pex_approved">одобрен</string>
+    <string name="admin_pex_not_approved">не одобрен</string>
+    <string name="admin_pex_advertised">предложен, %1$s</string>
+    <string name="admin_pex_expiry_off">бессрочно (срок отключён)</string>
+</resources>
