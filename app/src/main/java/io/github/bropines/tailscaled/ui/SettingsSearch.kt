@@ -110,6 +110,7 @@ internal class StoredSettingsFacts(private val context: Context) : SettingsFacts
             Need.TUN_MODE -> tun
             Need.TUN_HEV -> tun && GlobalSettings.getTunEngine(context) == TunEngines.HEV
             Need.TUN_OR_ROOT -> tun || root
+            Need.TUN_OR_ROOT_TUN -> tun || (root && GlobalSettings.isRootTunEnabled(context))
             Need.ROOT_MODE -> root
             Need.ROOT_TUN -> root && GlobalSettings.isRootTunEnabled(context)
             Need.HTTP_PROXY -> GlobalSettings.getString(context, "httpproxy", "").isNotEmpty()

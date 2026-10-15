@@ -13,6 +13,7 @@
     <string name="search_need_tun_hev">Появляется с движком hev-socks5-tunnel</string>
     <string name="search_need_tun_or_root">Появляется в режимах VPN (TUN) и Root</string>
     <string name="search_need_root">Появляется в режиме Root</string>
+    <string name="search_need_tun_or_root_tun">Появляется в режиме VPN (TUN) и в режиме Root с нативным TUN</string>
     <string name="search_need_root_tun">Появляется в режиме Root с нативным TUN</string>
     <string name="search_need_http_proxy">Появляется, когда включён HTTP-прокси</string>
     <string name="search_need_auto_reconnect">Появляется, когда включено автопереподключение</string>

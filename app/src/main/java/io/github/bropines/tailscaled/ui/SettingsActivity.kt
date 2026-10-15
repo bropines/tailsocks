@@ -1684,6 +1684,27 @@ fun SettingsScreen(
                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
                 }
 
+                // VPN mode's list again: with tailscale0 the app writes these ranges
+                // as throw routes into the daemon's table, so they stay on the real
+                // network while an exit node is on (RootUtils.localBypassRoutes). The
+                // service watches the key and re-applies the ruleset by itself.
+                AnimatedVisibility(visible = rootTunEnabled) {
+                    Column {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                        SettingsEditItem(
+                            title = stringResource(R.string.settings_tun_excluded_cidrs_title),
+                            value = tunExcludedCIDRs,
+                            icon = Icons.Default.Block,
+                            placeholder = "192.168.0.0/16, 10.0.0.0/8",
+                            description = stringResource(R.string.settings_root_excluded_cidrs_desc),
+                            onSave = {
+                                tunExcludedCIDRs = it
+                                saveGlobalPref("tun_excluded_cidrs", it)
+                            }
+                        )
+                    }
+                }
+
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
 
                 SettingsSwitchItem(

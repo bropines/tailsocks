@@ -277,6 +277,18 @@ class SettingsCatalogTest {
     }
 
     @Test
+    fun excludedRangesAreOnThePageInVpnModeAndInRootModeWithItsInterface() {
+        val vpnOrRootTun = place("tun_excluded_cidrs", facts = SettingsFacts { it == Need.TUN_OR_ROOT_TUN })!!
+        assertEquals(0, vpnOrRootTun.reason)
+        assertEquals(R.string.settings_tun_excluded_cidrs_title, vpnOrRootTun.anchor)
+        // Both cards carry it, so the result names the page and no card.
+        assertEquals(listOf("settings_cat_tunnel"), trail(vpnOrRootTun))
+        val proxy = place("tun_excluded_cidrs", facts = freshInstall)!!
+        assertEquals(R.string.search_need_tun_or_root_tun, proxy.reason)
+        assertEquals(R.string.settings_tunnel_mode_vpn, proxy.anchor)
+    }
+
+    @Test
     fun aRowThatIsNotOnItsPageOpensTheRowThatBringsIt() {
         // A fresh install runs as a proxy: the TUN card is not on the page.
         val ipv6 = place("tun_ipv6", facts = freshInstall)!!

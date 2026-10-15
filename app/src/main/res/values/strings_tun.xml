@@ -8,4 +8,6 @@
     <string name="tun_engine_hev_short">Compatibility: via the local SOCKS5 proxy</string>
     <string name="tun_engine_native_desc">Native: tailscaled runs the tunnel itself. MagicDNS, split DNS and exit nodes come straight from the daemon.\n• Turning an exit node on or off, or a change in accepted subnet routes, relaunches the daemon for a few seconds.\n• MTU 1280. If it misbehaves on this device, switch to hev-socks5-tunnel.</string>
     <string name="tun_engine_hev_desc">hev-socks5-tunnel, the compatibility engine. Every packet goes through the local SOCKS5 proxy.\n• Use it if the native engine misbehaves on this device.\n• Switching engines relaunches the daemon for a few seconds.</string>
+    <!-- Root Mode with the native TUN: the same excluded ranges, as throw routes in the daemon's table -->
+    <string name="settings_root_excluded_cidrs_desc">Comma-separated subnets that stay on the real network while an exit node is on — the same list as in VPN mode. Link-local addresses always do.</string>
 </resources>

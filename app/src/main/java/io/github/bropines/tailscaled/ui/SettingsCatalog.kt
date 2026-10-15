@@ -76,6 +76,8 @@ enum class Need(@param:StringRes val reason: Int = 0, val broughtBy: String? = n
     TUN_MODE(R.string.search_need_tun, "mode_vpn"),
     TUN_HEV(R.string.search_need_tun_hev, "tun_engine"),
     TUN_OR_ROOT(R.string.search_need_tun_or_root, "mode_vpn"),
+    /** VPN mode, or Root Mode with tailscale0: where an exit node has a route table to keep ranges out of. */
+    TUN_OR_ROOT_TUN(R.string.search_need_tun_or_root_tun, "mode_vpn"),
     ROOT_MODE(R.string.search_need_root, "mode_root"),
     ROOT_TUN(R.string.search_need_root_tun, "root_tun"),
     HTTP_PROXY(R.string.search_need_http_proxy, "http_enable"),
@@ -217,7 +219,7 @@ object SettingsCatalog {
         row("tun_uses_socks", SettingsPage.TUNNEL, R.string.settings_tun_uses_socks_title, R.string.search_sum_tun_uses_socks, R.string.search_kw_tun_uses_socks, tun, needs = Need.TUN_HEV)
         row("tun_ipv6", SettingsPage.TUNNEL, R.string.settings_tun_ipv6_title, R.string.settings_tun_ipv6_desc, R.string.search_kw_tun_ipv6, tun, needs = Need.TUN_MODE)
         row("tun_address", SettingsPage.TUNNEL, R.string.settings_tun_address_title, R.string.settings_tun_address_desc, R.string.search_kw_tun_address, tun, needs = Need.TUN_HEV)
-        row("tun_excluded_cidrs", SettingsPage.TUNNEL, R.string.settings_tun_excluded_cidrs_title, R.string.settings_tun_excluded_cidrs_desc, R.string.search_kw_tun_excluded_cidrs, tun, needs = Need.TUN_MODE)
+        row("tun_excluded_cidrs", SettingsPage.TUNNEL, R.string.settings_tun_excluded_cidrs_title, R.string.settings_tun_excluded_cidrs_desc, R.string.search_kw_tun_excluded_cidrs, needs = Need.TUN_OR_ROOT_TUN)
         row("tun_excluded_apps", SettingsPage.TUNNEL, R.string.settings_tun_excluded_apps_title, R.string.search_sum_tun_excluded_apps, R.string.search_kw_tun_excluded_apps, needs = Need.TUN_OR_ROOT)
         val rootCard = R.string.settings_root_sect_title
         row("root_tun", SettingsPage.TUNNEL, R.string.settings_root_tun_title, R.string.settings_root_tun_desc_native, R.string.search_kw_root_tun, rootCard, feature = root, aside = SettingsPage.ROOT, needs = Need.ROOT_MODE)

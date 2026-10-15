@@ -13,6 +13,7 @@
     <string name="search_need_tun_hev">Shown with the hev-socks5-tunnel engine</string>
     <string name="search_need_tun_or_root">Shown in VPN (TUN) and Root modes</string>
     <string name="search_need_root">Shown in Root mode</string>
+    <string name="search_need_tun_or_root_tun">Shown in VPN (TUN) mode, and in Root mode with the native TUN on</string>
     <string name="search_need_root_tun">Shown in Root mode with the native TUN on</string>
     <string name="search_need_http_proxy">Shown once the HTTP proxy is on</string>
     <string name="search_need_auto_reconnect">Shown once auto-reconnect is on</string>
