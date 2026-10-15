@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "id": "k3s-cluster",
+  "version": 1,
+  "category": "k8s",
+  "title": {
+    "en": "A k3s cluster over the tailnet",
+    "ru": "Кластер k3s через tailnet"
+  },
+  "description": {
+    "en": "Opens what k3s needs between nodes tagged as servers and agents, and nothing else between them.\n\nTCP 6443 to the servers (the API and the supervisor agents join through), TCP 10250 between all nodes (kubelet), UDP 8472 between all nodes for Flannel VXLAN or UDP 51820–51821 for Flannel WireGuard, and TCP 2379–2380 between servers for embedded etcd. Start k3s on the Tailscale addresses (--node-ip and --flannel-iface tailscale0) so this traffic stays in the tailnet. Tags the policy does not define yet are added with no owners: only admins can apply them.",
+    "ru": "Открывает между узлами с тегами серверов и агентов то, что нужно k3s, и больше ничего.\n\nTCP 6443 к серверам (API и супервизор, через который подключаются агенты), TCP 10250 между всеми узлами (kubelet), UDP 8472 между всеми узлами для Flannel VXLAN или UDP 51820–51821 для Flannel WireGuard и TCP 2379–2380 между серверами для встроенного etcd. Запускайте k3s на адресах Tailscale (--node-ip и --flannel-iface tailscale0), чтобы этот трафик шёл внутри tailnet. Теги, которых в политике ещё нет, добавятся без владельцев — назначать их смогут только администраторы."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "k3s: inbound rules", "ru": "k3s: входящие порты" }, "url": "https://github.com/k3s-io/docs/blob/main/docs/installation/requirements.md" }
+  ],
+  "params": [
+    {
+      "id": "servers",
+      "kind": "tag",
+      "slot": "grant-dst",
+      "label": { "en": "Servers (control plane)", "ru": "Серверы (control plane)" },
+      "help": {
+        "en": "The tag of the nodes started with k3s server.",
+        "ru": "Тег узлов, запущенных как k3s server."
+      },
+      "required": true,
+      "default": "tag:k3s-server"
+    },
+    {
+      "id": "agents",
+      "kind": "tag",
+      "slot": "grant-dst",
+      "label": { "en": "Agents (workers)", "ru": "Агенты (воркеры)" },
+      "help": {
+        "en": "The tag of the nodes started with k3s agent.",
+        "ru": "Тег узлов, запущенных как k3s agent."
+      },
+      "required": true,
+      "default": "tag:k3s-agent"
+    },
+    {
+      "id": "flannel",
+      "kind": "choice",
+      "label": { "en": "Flannel backend", "ru": "Бэкенд Flannel" },
+      "help": {
+        "en": "VXLAN is k3s's default; WireGuard is --flannel-backend=wireguard-native.",
+        "ru": "VXLAN — по умолчанию в k3s; WireGuard — это --flannel-backend=wireguard-native."
+      },
+      "options": [
+        { "value": "vxlan", "label": { "en": "VXLAN", "ru": "VXLAN" } },
+        { "value": "wireguard-native", "label": { "en": "WireGuard", "ru": "WireGuard" } }
+      ],
+      "required": true,
+      "default": "vxlan"
+    },
+    {
+      "id": "etcd",
+      "kind": "bool",
+      "label": { "en": "Several servers with embedded etcd", "ru": "Несколько серверов со встроенным etcd" },
+      "help": {
+        "en": "A highly available control plane: the servers reach each other's etcd.",
+        "ru": "Отказоустойчивый control plane: серверы ходят в etcd друг к другу."
+      },
+      "default": true
+    },
+    {
+      "id": "kubectl",
+      "kind": "selector",
+      "slot": "grant-src",
+      "allow": ["user", "group", "tag", "autogroup"],
+      "label": { "en": "Who runs kubectl", "ru": "Кто работает с kubectl" },
+      "help": {
+        "en": "People or tags that reach the Kubernetes API on the servers. Empty: nobody from outside the cluster.",
+        "ru": "Люди или теги, которым открыт API Kubernetes на серверах. Пусто — никому извне кластера."
+      },
+      "multi": true
+    }
+  ],
+  "fragments": {
+    "tagOwners": { "{{servers}}": [], "{{agents}}": [] },
+    "access": [
+      {
+        "comment": { "en": "k3s: API and supervisor", "ru": "k3s: API и супервизор" },
+        "src": ["{{servers}}", "{{agents}}"],
+        "dst": ["{{servers}}"],
+        "ports": ["6443"],
+        "proto": "tcp"
+      },
+      {
+        "comment": { "en": "k3s: kubelet", "ru": "k3s: kubelet" },
+        "src": ["{{servers}}", "{{agents}}"],
+        "dst": ["{{servers}}", "{{agents}}"],
+        "ports": ["10250"],
+        "proto": "tcp"
+      },
+      {
+        "when": "param:flannel=vxlan",
+        "comment": { "en": "k3s: Flannel VXLAN", "ru": "k3s: Flannel VXLAN" },
+        "src": ["{{servers}}", "{{agents}}"],
+        "dst": ["{{servers}}", "{{agents}}"],
+        "ports": ["8472"],
+        "proto": "udp"
+      },
+      {
+        "when": "param:flannel=wireguard-native",
+        "comment": { "en": "k3s: Flannel WireGuard", "ru": "k3s: Flannel WireGuard" },
+        "src": ["{{servers}}", "{{agents}}"],
+        "dst": ["{{servers}}", "{{agents}}"],
+        "ports": ["51820", "51821"],
+        "proto": "udp"
+      },
+      {
+        "when": "param:etcd",
+        "comment": { "en": "k3s: embedded etcd", "ru": "k3s: встроенный etcd" },
+        "src": ["{{servers}}"],
+        "dst": ["{{servers}}"],
+        "ports": ["2379-2380"],
+        "proto": "tcp"
+      },
+      {
+        "comment": { "en": "kubectl to the cluster", "ru": "kubectl к кластеру" },
+        "src": ["{{kubectl}}"],
+        "dst": ["{{servers}}"],
+        "ports": ["6443"],
+        "proto": "tcp"
+      }
+    ],
+    "tests": [
+      { "generate": "pair-test", "src": ["{{agents}}"], "dst": ["{{servers}}"], "port": "6443", "proto": "tcp" },
+      { "generate": "pair-test", "src": ["{{kubectl}}"], "dst": ["{{servers}}"], "port": "6443", "proto": "tcp" }
+    ]
+  }
+}

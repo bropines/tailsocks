@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "id": "relays-self",
+  "version": 1,
+  "category": "relays",
+  "title": {
+    "en": "A device relays for itself",
+    "ru": "Устройство само себе реле"
+  },
+  "description": {
+    "en": "A server behind a firewall that lets in only its relay port is its own relay.",
+    "ru": "Сервер за файрволом, открытым только для порта реле, сам служит себе реле."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Peer relays", "ru": "Реле-узлы" }, "url": "https://tailscale.com/kb/1591/peer-relays" }
+  ],
+  "suggest": [ { "page": "peer-relays", "slot": "empty" } ],
+  "params": [
+    {
+      "id": "devices",
+      "kind": "selector",
+      "slot": "relay-dst",
+      "label": { "en": "Devices that relay for themselves", "ru": "Устройства, которые сами себе реле" },
+      "help": {
+        "en": "The devices that relay, by tag, host, IP set or Tailscale address. Each relays only once it is switched on there: tailscale set --relay-server-port=40000.",
+        "ru": "Устройства, которые ретранслируют: по тегу, хосту, набору IP или адресу Tailscale. Реле заработает, только когда его включат на самом устройстве: tailscale set --relay-server-port=40000."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "checks": [
+    { "id": "devices", "kind": "relay-devices", "relays": ["{{devices}}"], "clients": ["{{devices}}"] }
+  ],
+  "fragments": {
+    "grants": [
+      { "src": ["{{devices}}"], "dst": ["{{devices}}"], "app": { "tailscale.com/cap/relay": [] } }
+    ]
+  }
+}

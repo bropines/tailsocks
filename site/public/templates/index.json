@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "templates": [
+    {
+      "id": "own-devices",
+      "file": "own-devices.json",
+      "version": 1,
+      "sha256": "6deda175438e3efe0ae92189f5ca75b0cb11b973a13e0e318b51b423c5a87784"
+    },
+    {
+      "id": "admins-everything",
+      "file": "admins-everything.json",
+      "version": 1,
+      "sha256": "583de2c4e365874309812b31cfd22c9243bc2431c3da6dc660e8ef6793952457"
+    },
+    {
+      "id": "lock-down",
+      "file": "lock-down.json",
+      "version": 1,
+      "sha256": "61fdcf69f4597370c747b0cd21f744886b5704d2cb0e29f1313fa7c012c05cf7"
+    },
+    {
+      "id": "guests-exit-nodes",
+      "file": "guests-exit-nodes.json",
+      "version": 2,
+      "sha256": "9a36a5aa07b0cc69c80e644334ca012bcf667062c712b5380de11b7262bb1682"
+    },
+    {
+      "id": "group-to-tag",
+      "file": "group-to-tag.json",
+      "version": 1,
+      "sha256": "8b03234f8bf8b505ea3d73058cb3c5c9c08fee1890afa0cbb1132cdc401499ba"
+    },
+    {
+      "id": "ssh-admins",
+      "file": "ssh-admins.json",
+      "version": 1,
+      "sha256": "49c86ac5c9aa1f5396c6d36ab809ebd188b670b9cf4182844554005c15d88d45"
+    },
+    {
+      "id": "exit-nodes-group",
+      "file": "exit-nodes-group.json",
+      "version": 1,
+      "sha256": "3dcaec125c6dc82a3f74222b8cd410e491e0d17a6069e6f12848353bceaa77af"
+    },
+    {
+      "id": "mullvad-exit-nodes",
+      "file": "mullvad-exit-nodes.json",
+      "version": 1,
+      "sha256": "ecfe7fbfaf5dc1e979aa6994253d2435a09148a2d9006c8cbf473227d9e63047"
+    },
+    {
+      "id": "subnet-router",
+      "file": "subnet-router.json",
+      "version": 1,
+      "sha256": "c9af15dbd7b68777915facc1b942a536061502ccf4f1f7d6455f1f2da5a728df"
+    },
+    {
+      "id": "app-connector",
+      "file": "app-connector.json",
+      "version": 1,
+      "sha256": "9345b5dd8181f01c076bdbef4cd22217fd283782412030b2650e80f55bfb44d5"
+    },
+    {
+      "id": "dns-server",
+      "file": "dns-server.json",
+      "version": 1,
+      "sha256": "2c437ef17e1cecec2c2215f60202e8e82321241f9a24c78bb92853f617a10168"
+    },
+    {
+      "id": "tailsocks-remote",
+      "file": "tailsocks-remote.json",
+      "version": 1,
+      "sha256": "9b4dda63e3808b1ea80ff894f3897cca2d77f10ab83fc434ea2a232164128dd5"
+    },
+    {
+      "id": "taildrive-own-devices",
+      "file": "taildrive-own-devices.json",
+      "version": 1,
+      "sha256": "ce9c62a64d34c0ab315a15ee3f63da31318632e40b9416d0443074661aed1575"
+    },
+    {
+      "id": "taildrive-groups",
+      "file": "taildrive-groups.json",
+      "version": 1,
+      "sha256": "e188cc12c98338f2997655faaac305ca19bf8f4c891ec725864d64ab33687015"
+    },
+    {
+      "id": "faster-start",
+      "file": "faster-start.json",
+      "version": 1,
+      "sha256": "99b655aaf56e0cb72711a7ffcca94be455425b25314ce1ae157a43e1923c0e7b"
+    },
+    {
+      "id": "funnel-tag",
+      "file": "funnel-tag.json",
+      "version": 1,
+      "sha256": "4a45491cceb0ebeb65ec45e980e700c3967dcef13f5ac58629836264084b0748"
+    },
+    {
+      "id": "relays-site",
+      "file": "relays-site.json",
+      "version": 1,
+      "sha256": "c182b0951ee45c49555f562f5722d33f56353952959cdd1198971a34a64330dd"
+    },
+    {
+      "id": "relays-self",
+      "file": "relays-self.json",
+      "version": 1,
+      "sha256": "4d9f34a4e66a7e861fe6c20ea0768fef3b56bcf58d22e5f547a564cacc0e31a7"
+    },
+    {
+      "id": "k3s-cluster",
+      "file": "k3s-cluster.json",
+      "version": 1,
+      "sha256": "367224bd895f0b0a2346ac2d82edff06e5c287f1def4d4045d43e151d27e4f38"
+    },
+    {
+      "id": "posture-tailscale-version",
+      "file": "posture-tailscale-version.json",
+      "version": 1,
+      "sha256": "f599e6687f86960276671dd83af5d4e53ccda770b0d0bbbd985e35f552d5411c"
+    }
+  ]
+}

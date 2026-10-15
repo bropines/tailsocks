@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "id": "taildrive-groups",
+  "version": 1,
+  "category": "taildrive",
+  "title": {
+    "en": "Taildrive from one group to another",
+    "ru": "Taildrive от одной группы другой"
+  },
+  "description": {
+    "en": "Devices of one group or tag share folders; another group opens them, read-only or read and write. Writes both attributes and the grant.\n\nThe sharing side gets drive:share, the opening side drive:access, and a grant lets the second open the first's shares: all of them, or only those you name. Shares between a person's own devices are another template.",
+    "ru": "Устройства одной группы или тега делятся папками, другая группа их открывает — только на чтение или на чтение и запись. Запишутся оба атрибута и грант.\n\nДелящаяся сторона получит drive:share, открывающая — drive:access, а грант даст второй открывать папки первой: все или только названные. Папки между своими устройствами — в отдельном шаблоне."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Taildrive", "ru": "Taildrive" }, "url": "https://tailscale.com/docs/features/taildrive" }
+  ],
+  "params": [
+    {
+      "id": "sharers",
+      "kind": "selector",
+      "slot": "node-target",
+      "allow": ["group", "user", "tag"],
+      "label": { "en": "Whose devices share", "ru": "Чьи устройства делятся" },
+      "help": {
+        "en": "Groups, users or tags whose devices share folders: they get drive:share.",
+        "ru": "Группы, пользователи или теги, чьи устройства делятся папками: им достанется drive:share."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "readers",
+      "kind": "selector",
+      "slot": "node-target",
+      "allow": ["group", "user", "tag"],
+      "label": { "en": "Who opens them", "ru": "Кто открывает" },
+      "help": {
+        "en": "Groups, users or tags whose devices open those folders: they get drive:access.",
+        "ru": "Группы, пользователи или теги, чьи устройства открывают эти папки: им достанется drive:access."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "shares",
+      "kind": "text",
+      "label": { "en": "Shares", "ru": "Папки" },
+      "help": {
+        "en": "Share names as the devices give them; * for every share.",
+        "ru": "Имена папок, как их дали устройства; * — все папки."
+      },
+      "required": true,
+      "multi": true,
+      "default": ["*"]
+    },
+    {
+      "id": "access",
+      "kind": "choice",
+      "label": { "en": "Access", "ru": "Доступ" },
+      "options": [
+        { "value": "ro", "label": { "en": "Read only", "ru": "Только чтение" } },
+        { "value": "rw", "label": { "en": "Read and write", "ru": "Чтение и запись" } }
+      ],
+      "required": true,
+      "default": "ro"
+    }
+  ],
+  "fragments": {
+    "nodeAttrs": [
+      { "target": ["{{sharers}}"], "attr": ["drive:share"] },
+      { "target": ["{{readers}}"], "attr": ["drive:access"] }
+    ],
+    "grants": [
+      {
+        "src": ["{{readers}}"],
+        "dst": ["{{sharers}}"],
+        "app": { "tailscale.com/cap/drive": [ { "shares": ["{{shares}}"], "access": "{{access}}" } ] }
+      }
+    ]
+  }
+}

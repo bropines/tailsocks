@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "id": "posture-tailscale-version",
+  "version": 1,
+  "category": "access",
+  "title": {
+    "en": "Only up-to-date devices reach a destination",
+    "ru": "Только обновлённые устройства — к цели"
+  },
+  "description": {
+    "en": "A device posture: the path opens only from devices whose Tailscale is at least the version you name.\n\nWrites the posture and an access rule that requires it (srcPosture). Rules only allow: while another rule opens the same path without a posture, out-of-date devices still get through — the page shows such rules. Older clients lose only this path, not the tailnet.",
+    "ru": "Состояние устройства (posture): путь открыт только с устройств, где Tailscale не старее названной версии.\n\nЗапишутся posture и правило доступа, которое её требует (srcPosture). Правила только разрешают: пока другое правило открывает тот же путь без posture, устаревшие устройства всё равно пройдут — страница покажет такие правила. Старые клиенты потеряют только этот путь, а не весь tailnet."
+  },
+  "headscale": {
+    "supported": false,
+    "note": {
+      "en": "Headscale has no device postures.",
+      "ru": "В Headscale нет posture устройств."
+    }
+  },
+  "docs": [
+    { "title": { "en": "Postures in access rules", "ru": "Posture в правилах доступа" }, "url": "https://tailscale.com/docs/features/device-posture/postures-in-access-rules" },
+    { "title": { "en": "Posture attributes", "ru": "Атрибуты posture" }, "url": "https://tailscale.com/docs/features/device-posture/postures-and-attributes" }
+  ],
+  "params": [
+    {
+      "id": "who",
+      "kind": "selector",
+      "slot": "grant-src",
+      "label": { "en": "Who", "ru": "Кто" },
+      "help": {
+        "en": "Users, groups or tags whose devices must pass the posture.",
+        "ru": "Пользователи, группы или теги, чьи устройства должны пройти проверку posture."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "dst",
+      "kind": "selector",
+      "slot": "grant-dst",
+      "label": { "en": "Reaches", "ru": "Куда" },
+      "help": {
+        "en": "The devices, tags or addresses the path leads to.",
+        "ru": "Устройства, теги или адреса, к которым ведёт путь."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "ports",
+      "kind": "port",
+      "label": { "en": "Ports", "ru": "Порты" },
+      "help": {
+        "en": "A port, a range such as 8000-8100, or * for every port.",
+        "ru": "Порт, диапазон вроде 8000-8100 или * — все порты."
+      },
+      "required": true,
+      "multi": true,
+      "default": ["*"]
+    },
+    {
+      "id": "version",
+      "kind": "text",
+      "format": "name",
+      "label": { "en": "Tailscale at least", "ru": "Tailscale не старее" },
+      "help": {
+        "en": "A version such as 1.98: devices on an older client lose this path.",
+        "ru": "Версия вроде 1.98: устройства со старым клиентом потеряют этот путь."
+      },
+      "required": true
+    },
+    {
+      "id": "posture",
+      "kind": "text",
+      "format": "tag-name",
+      "label": { "en": "Posture name", "ru": "Имя posture" },
+      "help": {
+        "en": "A posture of that name the policy has already gets this condition added to its own.",
+        "ru": "Если posture с таким именем в политике уже есть, условие добавится к её собственным."
+      },
+      "required": true,
+      "default": "recentTailscale"
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["{{who}}"],
+      "dst": ["{{dst}}"],
+      "ports": ["{{ports}}"],
+      "note": {
+        "en": "Rules of the policy open this path without a posture already: until they are narrowed, the posture here changes nothing.",
+        "ru": "Правила политики уже открывают этот путь без posture: пока их не сузить, posture здесь ничего не изменит."
+      }
+    }
+  ],
+  "fragments": {
+    "postures": {
+      "posture:{{posture}}": ["node:tsVersion >= '{{version}}'"]
+    },
+    "access": [
+      { "src": ["{{who}}"], "dst": ["{{dst}}"], "ports": ["{{ports}}"], "srcPosture": ["posture:{{posture}}"] }
+    ]
+  }
+}

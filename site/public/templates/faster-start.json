@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "id": "faster-start",
+  "version": 1,
+  "category": "baseline",
+  "title": {
+    "en": "Faster start for your devices",
+    "ru": "Быстрый старт для ваших устройств"
+  },
+  "description": {
+    "en": "Members' devices cache the network map and connect from it at start, before the control server answers. Add your servers' tags too.",
+    "ru": "Устройства участников кешируют карту сети и при запуске соединяются по ней, не дожидаясь сервера управления. Добавьте и теги своих серверов."
+  },
+  "headscale": { "supported": true },
+  "suggest": [
+    { "page": "attributes", "slot": "after", "when": "!check:cache" }
+  ],
+  "params": [
+    {
+      "id": "devices",
+      "kind": "selector",
+      "slot": "node-target",
+      "label": { "en": "Applies to", "ru": "Для кого" },
+      "help": {
+        "en": "Members' devices to start with; add the tags of servers that should start faster too.",
+        "ru": "Для начала — устройства участников; добавьте теги серверов, которым тоже нужен быстрый старт."
+      },
+      "required": true,
+      "multi": true,
+      "default": ["autogroup:member"]
+    }
+  ],
+  "checks": [
+    {
+      "id": "cache",
+      "kind": "node-attr",
+      "attrs": ["cache-network-maps"],
+      "note": {
+        "en": "A rule of the policy turns the cache on already; this one adds more devices to it.",
+        "ru": "Кеш уже включает одно из правил политики; это добавит к нему ещё устройства."
+      }
+    }
+  ],
+  "fragments": {
+    "nodeAttrs": [
+      { "target": ["{{devices}}"], "attr": ["cache-network-maps"] }
+    ]
+  }
+}

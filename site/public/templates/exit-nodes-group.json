@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "id": "exit-nodes-group",
+  "version": 1,
+  "category": "exit-nodes",
+  "title": {
+    "en": "Chosen exit nodes for a group",
+    "ru": "Группе — свои exit-ноды"
+  },
+  "description": {
+    "en": "Who may send their internet traffic through the exit nodes of one tag, and exit nodes with that tag approved without the admin console.\n\nWrites a grant to the internet through devices with the tag (via). A tag the policy does not define yet is added with no owners: only admins can apply it. Leave the tag empty to allow every exit node. Grants add up: while another rule gives these people the internet without via, every exit node stays open to them. No test is written: a policy test cannot name the internet.",
+    "ru": "Кто может пускать свой интернет через exit-ноды с одним тегом; exit-ноды с этим тегом одобряются без консоли администратора.\n\nЗапишется грант в интернет через устройства с тегом (via). Тег, которого в политике ещё нет, добавится без владельцев — назначать его смогут только администраторы. Пустой тег — разрешены любые exit-ноды. Гранты складываются: пока другое правило даёт этим людям интернет без via, им открыты все exit-ноды. Теста не будет: тест политики не умеет называть интернет."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Exit nodes", "ru": "Exit-ноды" }, "url": "https://tailscale.com/docs/features/exit-nodes" },
+    { "title": { "en": "Route filtering with via", "ru": "Маршрут через via" }, "url": "https://tailscale.com/docs/features/access-control/grants/grants-via" }
+  ],
+  "params": [
+    {
+      "id": "who",
+      "kind": "selector",
+      "slot": "grant-src",
+      "allow": ["user", "group", "tag", "autogroup"],
+      "label": { "en": "Who uses them", "ru": "Кто пользуется" },
+      "help": {
+        "en": "Users, groups or tags whose devices may route their internet traffic through these exit nodes.",
+        "ru": "Пользователи, группы или теги, чьи устройства могут пускать интернет через эти exit-ноды."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "exit",
+      "kind": "tag",
+      "slot": "grant-via",
+      "label": { "en": "Exit nodes with the tag", "ru": "Exit-ноды с тегом" },
+      "help": {
+        "en": "Only exit nodes with this tag carry their traffic. Empty: any exit node.",
+        "ru": "Их трафик пойдёт только через exit-ноды с этим тегом. Пусто — через любую exit-ноду."
+      },
+      "default": "tag:exit-node"
+    },
+    {
+      "id": "approve",
+      "kind": "bool",
+      "label": { "en": "Approve these exit nodes automatically", "ru": "Одобрять эти exit-ноды автоматически" },
+      "help": {
+        "en": "A device with the tag that offers itself as an exit node needs no approval in the admin console. Counts from its next advertisement on.",
+        "ru": "Устройство с тегом, которое объявит себя exit-нодой, не придётся одобрять в консоли администратора. Действует со следующего объявления."
+      },
+      "default": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["{{who}}"],
+      "dst": ["autogroup:internet"],
+      "ports": ["*"],
+      "note": {
+        "en": "A rule of the policy gives these people the internet without via already: every exit node stays open to them until that rule is narrowed.",
+        "ru": "Правило политики уже даёт этим людям интернет без via: все exit-ноды останутся им открыты, пока это правило не сузить."
+      }
+    }
+  ],
+  "fragments": [
+    {
+      "access": [
+        {
+          "when": "!check:open || param:exit",
+          "src": ["{{who}}"],
+          "dst": ["autogroup:internet"],
+          "ports": ["*"],
+          "via": ["{{exit}}"]
+        }
+      ],
+      "tagOwners": { "{{exit}}": [] }
+    },
+    { "when": "param:approve", "autoApprovers": { "exitNode": ["{{exit}}"] } }
+  ]
+}

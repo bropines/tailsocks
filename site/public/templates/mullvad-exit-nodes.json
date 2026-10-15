@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "id": "mullvad-exit-nodes",
+  "version": 1,
+  "category": "exit-nodes",
+  "title": {
+    "en": "Mullvad exit nodes for chosen people",
+    "ru": "Exit-ноды Mullvad для выбранных людей"
+  },
+  "description": {
+    "en": "Devices of these people or tags see Mullvad's servers as exit nodes. Needs the Mullvad VPN add-on.\n\nWrites the mullvad attribute. Once the policy hands Mullvad out, all Mullvad access is managed in the policy, not on the admin console's Mullvad page. A license goes to a device as it connects, first come, first served: with more devices than licenses some see no Mullvad exit nodes.",
+    "ru": "Устройства этих людей или тегов увидят серверы Mullvad как exit-ноды. Нужно дополнение Mullvad VPN.\n\nЗапишется атрибут mullvad. Когда Mullvad раздаёт политика, весь доступ к нему управляется в политике, а не на странице Mullvad в консоли администратора. Лицензия достаётся устройству при подключении, кто первым успел: если устройств больше, чем лицензий, часть из них exit-нод Mullvad не увидит."
+  },
+  "headscale": {
+    "supported": false,
+    "note": {
+      "en": "Mullvad exit nodes are a Tailscale add-on.",
+      "ru": "Exit-ноды Mullvad — дополнение Tailscale."
+    }
+  },
+  "docs": [
+    { "title": { "en": "Mullvad exit nodes", "ru": "Exit-ноды Mullvad" }, "url": "https://tailscale.com/docs/features/exit-nodes/mullvad-exit-nodes" }
+  ],
+  "params": [
+    {
+      "id": "devices",
+      "kind": "selector",
+      "slot": "node-target",
+      "allow": ["user", "group", "tag", "autogroup"],
+      "label": { "en": "Who gets them", "ru": "Кому" },
+      "help": {
+        "en": "Users, groups or tags; each of their devices takes a license as it connects, while licenses are left.",
+        "ru": "Пользователи, группы или теги; каждое их устройство берёт лицензию при подключении, пока лицензии есть."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "mullvad",
+      "kind": "node-attr",
+      "attrs": ["mullvad"],
+      "note": {
+        "en": "A rule of the policy hands Mullvad out already; this one adds these devices.",
+        "ru": "Mullvad уже раздаёт одно из правил политики; это добавит ещё устройства."
+      }
+    }
+  ],
+  "fragments": {
+    "nodeAttrs": [
+      { "target": ["{{devices}}"], "attr": ["mullvad"] }
+    ]
+  }
+}

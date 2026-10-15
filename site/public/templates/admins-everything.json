@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "id": "admins-everything",
+  "version": 1,
+  "category": "access",
+  "title": {
+    "en": "Admins reach everything",
+    "ru": "Администраторам — всё"
+  },
+  "description": {
+    "en": "Users with the Admin role, to every device on every port.",
+    "ru": "Пользователи с ролью администратора ко всем устройствам на всех портах."
+  },
+  "headscale": {
+    "supported": false,
+    "note": {
+      "en": "Headscale has no admin role to name.",
+      "ru": "В Headscale нет роли администратора, на которую можно сослаться."
+    }
+  },
+  "docs": [
+    { "title": { "en": "Autogroups", "ru": "Автогруппы" }, "url": "https://tailscale.com/kb/1337/policy-syntax#autogroups" }
+  ],
+  "suggest": [ { "page": "access", "slot": "empty" } ],
+  "fragments": {
+    "access": [
+      { "src": ["autogroup:admin"], "dst": ["*"], "ports": ["*"] }
+    ]
+  }
+}

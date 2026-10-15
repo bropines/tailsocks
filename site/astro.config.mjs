@@ -42,6 +42,7 @@ export default defineConfig({
 						{ slug: 'censorship' },
 						{ slug: 'automation' },
 						{ slug: 'settings-links' },
+						{ slug: 'templates' },
 					],
 				},
 				{

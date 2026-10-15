@@ -1,0 +1,2 @@
+# The index pins each file by its sha256: the bytes must not change with the checkout.
+*.json -text

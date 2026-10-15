@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "id": "ssh-admins",
+  "version": 1,
+  "category": "ssh",
+  "title": {
+    "en": "Tailscale SSH for admins",
+    "ru": "Tailscale SSH для администраторов"
+  },
+  "description": {
+    "en": "A group logs in to tagged servers with Tailscale SSH as the users you choose, with or without signing in again.\n\nWrites the SSH rule and, unless the policy opens it already, the access rule for TCP 22 that SSH needs too, plus tests. The servers run Tailscale SSH: tailscale set --ssh. Check mode asks for a fresh sign-in every 12 hours. The SSH test pins root: allowed when root is among the users, refused otherwise. A server may refuse the test while no device has these tags yet (Headscale does): switch it off until one does.",
+    "ru": "Группа входит на серверы с тегом через Tailscale SSH под выбранными пользователями — с повторным входом или без.\n\nЗапишется правило SSH и, если политика ещё не открывает его, правило доступа к TCP 22, без которого SSH не работает, плюс тесты. На серверах должен работать Tailscale SSH: tailscale set --ssh. Режим проверки просит войти заново раз в 12 часов. SSH-тест закрепляет root: разрешён, если root среди пользователей, иначе запрещён. Сервер может не принять тест, пока ни у одного устройства нет этих тегов (Headscale не принимает), — до тех пор выключите его."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Tailscale SSH", "ru": "Tailscale SSH" }, "url": "https://tailscale.com/docs/features/tailscale-ssh" },
+    { "title": { "en": "SSH rules and tests", "ru": "Правила и тесты SSH" }, "url": "https://tailscale.com/docs/reference/syntax/policy-file" }
+  ],
+  "params": [
+    {
+      "id": "admins",
+      "kind": "selector",
+      "slot": "ssh-src",
+      "allow": ["group", "user"],
+      "label": { "en": "Who logs in", "ru": "Кто входит" },
+      "help": {
+        "en": "A group of admins, or one person.",
+        "ru": "Группа администраторов или один человек."
+      },
+      "required": true
+    },
+    {
+      "id": "servers",
+      "kind": "selector",
+      "slot": "ssh-dst",
+      "allow": ["tag"],
+      "label": { "en": "Servers", "ru": "Серверы" },
+      "help": {
+        "en": "Tags of the servers. A person's own devices are not for this rule: Tailscale lets only their owner into them.",
+        "ru": "Теги серверов. Личные устройства сюда не годятся: Tailscale пускает на них только владельца."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "users",
+      "kind": "selector",
+      "slot": "ssh-user",
+      "label": { "en": "As users", "ru": "Под пользователями" },
+      "help": {
+        "en": "Accounts on the servers. \"Any user but root\" is autogroup:nonroot.",
+        "ru": "Учётные записи на серверах. «Любой, кроме root» — это autogroup:nonroot."
+      },
+      "required": true,
+      "multi": true,
+      "default": ["root", "autogroup:nonroot"]
+    },
+    {
+      "id": "mode",
+      "kind": "choice",
+      "label": { "en": "Sign-in", "ru": "Вход" },
+      "options": [
+        { "value": "check", "label": { "en": "Check: sign in again", "ru": "Проверка: войти заново" } },
+        { "value": "accept", "label": { "en": "Accept: no extra step", "ru": "Сразу: без лишнего шага" } }
+      ],
+      "required": true,
+      "default": "check"
+    },
+    {
+      "id": "test",
+      "kind": "bool",
+      "label": { "en": "Pin it with an SSH test", "ru": "Закрепить SSH-тестом" },
+      "help": {
+        "en": "Turn it off until a device has one of these tags: a server may refuse a test of servers that do not exist yet.",
+        "ru": "Выключите, пока ни у одного устройства нет этих тегов: сервер может не принять тест серверов, которых ещё нет."
+      },
+      "default": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["{{admins}}"],
+      "dst": ["{{servers}}"],
+      "ports": ["22"],
+      "proto": "tcp",
+      "note": {
+        "en": "The policy lets them reach port 22 of these servers already, so only the SSH rule and the tests are added.",
+        "ru": "Политика уже пускает их на порт 22 этих серверов, поэтому добавятся только правило SSH и тесты."
+      }
+    }
+  ],
+  "fragments": {
+    "access": [
+      { "when": "!check:open", "src": ["{{admins}}"], "dst": ["{{servers}}"], "ports": ["22"], "proto": "tcp" }
+    ],
+    "ssh": [
+      { "action": "{{mode}}", "src": ["{{admins}}"], "dst": ["{{servers}}"], "users": ["{{users}}"] }
+    ],
+    "tests": [
+      { "generate": "pair-test", "src": ["{{admins}}"], "dst": ["{{servers}}"], "port": "22", "proto": "tcp" }
+    ],
+    "sshTests": [
+      { "when": "param:test && param:users=root && param:mode=accept", "src": "{{admins}}", "dst": ["{{servers}}"], "accept": ["root"] },
+      { "when": "param:test && param:users=root && param:mode=check", "src": "{{admins}}", "dst": ["{{servers}}"], "check": ["root"] },
+      { "when": "param:test && !param:users=root", "src": "{{admins}}", "dst": ["{{servers}}"], "deny": ["root"] }
+    ]
+  }
+}
