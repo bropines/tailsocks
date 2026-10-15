@@ -109,6 +109,8 @@ enum class ManageProblem {
     OWNER_ONLY,
     /** Full control was needed and is off there. */
     NEEDS_FULL,
+    /** The device's files were needed and are closed there. */
+    FILES_CLOSED,
     /** What was asked about is no longer there: the lists were read again. */
     GONE,
     /** The device's app said no, in its own words. */
@@ -161,6 +163,7 @@ enum class ManageProblem {
             ManagedRefusal.EXPIRED -> EXPIRED
             ManagedRefusal.FORBIDDEN -> OWNER_ONLY
             ManagedRefusal.NEEDS_FULL -> NEEDS_FULL
+            ManagedRefusal.FILES_CLOSED -> FILES_CLOSED
             ManagedRefusal.NOT_FOUND -> GONE
             ManagedRefusal.REFUSED -> REFUSED
             ManagedRefusal.GUARD_PENDING -> GUARD_PENDING
@@ -849,11 +852,12 @@ internal class RemoteManageController(
     }
 
     /**
-     * Full rights for a while given or ended there — or the level moved: what the settings' rows
-     * let this device do is another class's now, and they are read again.
+     * Full rights for a while given or ended there — or the level moved, or the files were
+     * opened or closed: what the settings' rows let this device do is another class's now, and
+     * they are read again.
      */
     private fun rightsMoved(before: ManagedStatus?, now: ManagedStatus): Boolean =
-        before != null && (before.you.role != now.you.role || before.level != now.level)
+        before != null && (before.you.role != now.you.role || before.level != now.level || before.files != now.files)
 
     private fun RemoteManageUi.Managing.withStatus(status: ManagedStatus): RemoteManageUi.Managing {
         val report = status.app ?: app
@@ -869,6 +873,9 @@ internal class RemoteManageController(
             asked = asked - granted,
             // Given: the request is answered.
             rightsAsked = rightsAsked.takeIf { status.you.elevated == null },
+            // The log or the report on show goes when the device stops letting this one read it:
+            // the files closed there, or full control went off.
+            diag = diag?.takeIf { d -> ManagedAccess(status).gate(if (d.log) ManagedOp.DIAG_LOG else ManagedOp.DIAG_REPORT).open },
             now = time,
             heardAt = time,
             remembered = false,
@@ -1061,6 +1068,14 @@ internal class RemoteManageController(
      */
     private suspend fun failedChange(failed: ManagedResult.Failed) {
         val refusal = failed.refusal
+        // The files were closed there meanwhile — switched off at the device, maybe while a
+        // window of them was open here. Not an error: the device is read again, and its page
+        // shows them closed where they were.
+        if (refusal == ManagedRefusal.FILES_CLOSED) {
+            update { it.copy(diag = null) }
+            read()
+            return
+        }
         val reread = refusal.unclear || refusal == ManagedRefusal.NOT_FOUND ||
             // The level or the class is not what the page thought: the status says what it is.
             refusal == ManagedRefusal.NEEDS_FULL || refusal == ManagedRefusal.FORBIDDEN

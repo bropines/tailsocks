@@ -237,7 +237,7 @@
     <string name="rmanage_fact_class">This device is</string>
     <string name="rmanage_class_help">An owner is a device of the same account as the managed one. Any other device is a guest.</string>
     <string name="rmanage_fact_level">Level</string>
-    <string name="rmanage_level_help">Full control adds the storage, sharing a folder and diagnostics. It is switched on at the device, never from afar.</string>
+    <string name="rmanage_level_help">Full control adds offering the device as an exit node or a router and, with network access to files on there as well, the storage, sharing a folder and diagnostics. Both are switched on at the device, never from afar.</string>
     <string name="rmanage_fact_valid">Valid</string>
     <string name="rmanage_full_off">Switch Full control off</string>
     <string name="rmanage_full_off_title">Switch Full control off on %1$s?</string>

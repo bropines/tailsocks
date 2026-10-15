@@ -8,9 +8,11 @@ import io.github.bropines.tailscaled.core.ManagedDenial
 import io.github.bropines.tailscaled.core.ManagedElevated
 import io.github.bropines.tailscaled.core.ManagedGate
 import io.github.bropines.tailscaled.core.ManagedKeys
+import io.github.bropines.tailscaled.core.ManagedLock
 import io.github.bropines.tailscaled.core.ManagedOp
 import io.github.bropines.tailscaled.core.ManagedRefusal
 import io.github.bropines.tailscaled.core.ManagedResult
+import io.github.bropines.tailscaled.core.ManagedSetting
 import io.github.bropines.tailscaled.core.ManagedShown
 import io.github.bropines.tailscaled.core.RemoteAnswer
 import io.github.bropines.tailscaled.core.RemoteClient
@@ -20,6 +22,8 @@ import io.github.bropines.tailscaled.core.RemotePairFailure
 import io.github.bropines.tailscaled.core.RemotePairingRecord
 import io.github.bropines.tailscaled.core.RemoteTokenStore
 import io.github.bropines.tailscaled.core.RootKind
+import io.github.bropines.tailscaled.core.lock
+import io.github.bropines.tailscaled.core.setting
 import io.github.bropines.tailscaled.models.PeerData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -112,8 +116,8 @@ class RemoteManageControllerTest {
     }
 
     /** A paired page that has read its device. */
-    private fun open(owner: Boolean = true, full: Boolean = false, caps: List<String>? = RemoteContract.ALL_CAPS) {
-        device.become(owner = owner, full = full, caps = caps)
+    private fun open(owner: Boolean = true, full: Boolean = false, caps: List<String>? = RemoteContract.ALL_CAPS, files: Boolean? = null) {
+        device.become(owner = owner, full = full, caps = caps, files = files)
         paired(owner)
         runBlocking { controller.start() }
         device.sent.clear()
@@ -962,6 +966,77 @@ class RemoteManageControllerTest {
         device.become(full = true, caps = listOf("report", "can"))
         tick()
         assertNull(ui.fetch)
+    }
+
+    @Test
+    fun withTheFilesClosedThereAFullOwnerIsSentNothingOfThem() {
+        open(full = true, files = false)
+        val access = ui.access
+        assertTrue(access.full && access.filesClosed)
+        for (op in ManagedOp.entries.filter { it.files }) assertEquals(op.word, ManagedGate.Closed(ManagedDenial.FILES_CLOSED), access.gate(op))
+        // What is not the files' stays open: Full control still offers the device as an exit node.
+        assertEquals(ManagedGate.Open, access.gate(ManagedOp.SETTINGS_SET))
+        assertNull(ui.app?.folders)
+        assertEquals(ManagedLock.FILES_CLOSED, ui.settings.setting(ManagedKeys.TAILDRIVE, ManagedSetting.BOOL)!!.lock(owner = true))
+        controller.fetch("/storage/emulated/0/Download/film.mkv")
+        controller.addShare("Movies", "/storage/emulated/0/Movies")
+        controller.removeShare("Downloads")
+        controller.openDiag(log = true)
+        controller.openDiag(log = false)
+        controller.setSwitch(ManagedKeys.TAILDRIVE, false)
+        assertTrue(posts().toString(), posts().isEmpty())
+        assertTrue(sent().none { it.contains("/v1/diag/") || it.contains("/v1/storage/") })
+        controller.setSwitch(ManagedKeys.ADVERTISE_EXIT_NODE, true)
+        assertEquals(listOf("""POST /v1/settings {"key":"advertise_exit_node","value":"true"}"""), posts())
+        assertNull(ui.problem)
+    }
+
+    /** Switched off at the device while this page shows them: no banner, just the files closed where they were. */
+    @Test
+    fun filesClosedWhileThePageIsOpenAreAClosedStateNotAnError() {
+        open(full = true, files = true)
+        assertEquals(ManagedGate.Open, ui.access.gate(ManagedOp.STORAGE_LIST))
+        controller.openDiag(log = true)
+        assertNotNull(ui.diag)
+        // Off there: what the page asks next is refused, and the page reads the device again.
+        device.become(full = true, files = false)
+        controller.openDiag(log = false)
+        assertNull(ui.problem)
+        assertNull(ui.diag)
+        assertTrue(ui.access.filesClosed)
+        assertEquals(ManagedDenial.FILES_CLOSED, ui.access.gate(ManagedOp.STORAGE_LIST).denial)
+        // The storage browser's own request is said the same way: a closed state, not a problem.
+        device.become(full = true, files = true)
+        tick()
+        assertFalse(ui.access.filesClosed)
+        device.become(full = true, files = false)
+        val listed = client.storageList("", 0) as ManagedResult.Failed
+        assertEquals(ManagedRefusal.FILES_CLOSED, listed.refusal)
+        runBlocking { controller.failedOutside(listed) }
+        assertNull(ui.problem)
+        assertTrue(ui.access.filesClosed)
+        // A log on show goes with the next look at the device, and the settings are read again.
+        device.become(full = true, files = true)
+        tick()
+        controller.openDiag(log = true)
+        assertNotNull(ui.diag)
+        device.become(full = true, files = false)
+        device.sent.clear()
+        tick()
+        assertNull(ui.diag)
+        assertTrue(sent().toString(), "GET /v1/settings" in sent())
+        assertEquals(ManagedLock.FILES_CLOSED, ui.settings.setting(ManagedKeys.TAILDRIVE, ManagedSetting.BOOL)!!.lock(owner = true))
+    }
+
+    /** Full rights given while the files were closed never include them, whatever the switch says now. */
+    @Test
+    fun fullRightsGivenWithoutTheFilesKeepThemClosed() {
+        open(owner = false, files = true)
+        device.become(owner = false, full = false, files = true, elevated = ManagedElevated(left = 3600, until = 1_791_817_380, seconds = 3600, full = true, noFiles = true))
+        tick()
+        assertTrue(ui.owner && ui.access.full && ui.access.filesClosed)
+        assertEquals(true, ui.elevated?.noFiles)
+        assertEquals(ManagedDenial.FILES_CLOSED, ui.access.gate(ManagedOp.DIAG_LOG).denial)
     }
 
     @Test

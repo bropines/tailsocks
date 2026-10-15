@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -49,6 +50,7 @@ import io.github.bropines.tailscaled.core.BridgeRemotePeerApi
 import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.RemoteClient
+import io.github.bropines.tailscaled.core.RemoteElevate
 import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemoteManage
 import io.github.bropines.tailscaled.core.RemoteQr
@@ -363,6 +365,27 @@ private fun RemoteManageHost(
             )
         }
     }
+    // This device's own lock in front of the other one's files: asked over the screen, held for
+    // a few minutes by the page and gone with it (ui/RemoteFilesLock.kt).
+    val unlockTitle = stringResource(R.string.rmanage_files_unlock_title, name)
+    val unlockText = stringResource(R.string.rmanage_files_unlock_subtitle)
+    val answer = remember(peerId) { arrayOfNulls<(RemoteUnlockOutcome) -> Unit>(1) }
+    val unlock = rememberLauncherForActivityResult(RemoteUnlock) { outcome ->
+        answer[0]?.invoke(outcome)
+        answer[0] = null
+    }
+    val filesLock = remember(peerId) {
+        RemoteFilesLock(
+            secure = { RemoteElevate.deviceSecure(app) },
+            ask = { onResult ->
+                answer[0] = onResult
+                if (runCatching { unlock.launch(RemoteUnlock.Ask(unlockTitle, unlockText)) }.isFailure) {
+                    answer[0] = null
+                    onResult(RemoteUnlockOutcome.FAILED)
+                }
+            },
+        )
+    }
     // The scanner is asked for here, not in a sheet: it launches from the screen's own window.
     val scanner = rememberQrScanner { text -> controller.scanned(text) }
     val canScan = Feature.QR_SCANNER.offered()
@@ -384,6 +407,7 @@ private fun RemoteManageHost(
                 }
             },
             openInbox = { context.tryStartActivity(Intent(context, FilesActivity::class.java)) },
+            files = filesLock,
         )
     }
     RemoteManageContent(controller.ui, controller, hooks)

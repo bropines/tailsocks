@@ -15,7 +15,10 @@ import java.io.File
 class RemoteAllowListTest {
 
     @Serializable
-    private data class Setting(val key: String = "", val kind: String = "", val writable: Boolean = false)
+    private data class Setting(val key: String = "", val kind: String = "", val writable: Boolean = false, val files: Boolean = false)
+
+    @Serializable
+    private data class Op(val op: String = "", val full: Boolean = false, val files: Boolean = false)
 
     @Serializable
     private data class AllowList(
@@ -26,6 +29,8 @@ class RemoteAllowListTest {
         val askResults: List<String> = emptyList(),
         val identifyResults: List<String> = emptyList(),
         val requests: List<String> = emptyList(),
+        val ops: List<Op> = emptyList(),
+        val caps: List<String> = emptyList(),
     )
 
     /** Tests run in the module's directory; the bridge is its neighbour. */
@@ -64,5 +69,24 @@ class RemoteAllowListTest {
     @Test
     fun everyRequestOfTheBridgeIsOneTheAppKnows() {
         assertEquals(list.requests, RemoteDeviceKeys.REQUESTS)
+    }
+
+    /**
+     * What the device's network access to files closes is one list on every side: the bridge's,
+     * the managed app's second refusal (RemoteDeviceDelegate), and what a managing page draws
+     * as closed (ManagedOp).
+     */
+    @Test
+    fun whatTheFilesCloseIsOneList() {
+        assertTrue(list.ops.size >= 19 && ManagedCaps.FILES in list.caps)
+        assertEquals(list.settings.filter { it.files }.map { it.key }.toSet(), RemoteDeviceKeys.FILES_SWITCHES)
+        assertEquals(list.ops.filter { it.files }.map { it.op }.toSet(), ManagedOp.entries.filter { it.files }.map { it.word }.toSet())
+        // And every op of a managing page is the bridge's, with the same class and level.
+        for (op in ManagedOp.entries) {
+            val listed = list.ops.firstOrNull { it.op == op.word }
+            assertTrue(op.word, listed != null && listed.full == op.full)
+        }
+        // Every request the app answers for the files is one the bridge makes.
+        assertTrue(list.requests.containsAll(RemoteDeviceKeys.FILES_REQUESTS))
     }
 }

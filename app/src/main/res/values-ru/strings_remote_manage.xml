@@ -237,7 +237,7 @@
     <string name="rmanage_fact_class">Это устройство</string>
     <string name="rmanage_class_help">Владелец — устройство того же аккаунта, что и управляемое. Любое другое устройство — гость.</string>
     <string name="rmanage_fact_level">Уровень</string>
-    <string name="rmanage_level_help">Полный доступ добавляет хранилище устройства, открытие папок и диагностику. Включается он на самом устройстве и никогда — удалённо.</string>
+    <string name="rmanage_level_help">Полный доступ добавляет раздачу устройства как выходного узла или маршрутизатора, а если там включён и доступ к файлам по сети — ещё хранилище устройства, открытие папок и диагностику. Оба включаются на самом устройстве и никогда — удалённо.</string>
     <string name="rmanage_fact_valid">Действует</string>
     <string name="rmanage_full_off">Выключить полный доступ</string>
     <string name="rmanage_full_off_title">Выключить полный доступ на %1$s?</string>

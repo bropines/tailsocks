@@ -163,6 +163,9 @@ object RemoteContract {
     val OWNER_OPS = GUEST_OPS + listOf("settings.set", "action", "files.delete", "permission.request", "folders", "shares.remove")
     val FULL_OPS = OWNER_OPS + listOf("shares.add", "storage.list", "storage.send", "diag.report", "diag.log")
 
+    /** The ops the device's network access to files closes. */
+    val FILES_OPS = ManagedOp.entries.filter { it.files }.map { it.word }.toSet()
+
     /** Asking for full rights: a guest's, while it has none and the device gives them. */
     const val ELEVATE_OP = "elevate.request"
 }
@@ -275,7 +278,9 @@ class FakeManagedDevice(
      * Another caller, level or build. [caps] null makes it the first build: no `caps`, no
      * `level`, no `you.can`, none of the later fields, and the first build's settings.
      * [elevated] makes a guest one that was given full rights for a while: an owner until they
-     * end, with the full tier where they carry it.
+     * end, with the full tier where they carry it. [files] is the device's network access to
+     * files, for a build that has the switch: closed, nothing of the files is anybody's — and
+     * neither to rights that were given without them; null is a build from before it.
      */
     fun become(
         owner: Boolean = true,
@@ -283,10 +288,14 @@ class FakeManagedDevice(
         caps: List<String>? = RemoteContract.ALL_CAPS,
         left: Long = if (owner) -1 else 75_600,
         elevated: ManagedElevated? = null,
+        files: Boolean? = null,
     ) {
         val acting = owner || elevated != null
         val tier = full || elevated?.full == true
         val role = if (acting) REMOTE_CLASS_OWNER else REMOTE_CLASS_GUEST
+        val filesOpen = files != false && elevated?.noFiles != true
+        @Suppress("NAME_SHADOWING")
+        val caps = if (files != null && caps != null) caps + ManagedCaps.FILES else caps
         if (caps == null) {
             status = buildJsonObject {
                 status.filterKeys { it !in LATER_FIELDS }.forEach { (k, v) -> put(k, v) }
@@ -301,10 +310,11 @@ class FakeManagedDevice(
             !acting -> RemoteContract.GUEST_OPS + listOfNotNull(RemoteContract.ELEVATE_OP.takeIf { ManagedCaps.ELEVATE in caps })
             tier -> RemoteContract.FULL_OPS
             else -> RemoteContract.OWNER_OPS
-        }
+        }.filter { filesOpen || it !in RemoteContract.FILES_OPS }
         status = status
             .with("caps", buildJsonArray { caps.forEach { add(JsonPrimitive(it)) } })
             .with("level", JsonPrimitive(if (tier) ManagedLevel.FULL else ManagedLevel.BASIC))
+            .with("files", if (files != null && acting) JsonPrimitive(if (filesOpen) ManagedFiles.OPEN else ManagedFiles.CLOSED) else null)
             .with("you", buildJsonObject {
                 put("class", role)
                 put("left", left)
@@ -313,8 +323,10 @@ class FakeManagedDevice(
             })
         val app = status["app"] as? JsonObject
         if (app != null) {
-            // A guest reads no folder names and can ask for nothing.
-            val seen = if (acting) app else app.without("folders").with(
+            // A guest reads no folder names and can ask for nothing; nobody reads them while the files are closed.
+            val folders = app["folders"] ?: shownFolders
+            if (folders != null) shownFolders = folders
+            val seen = if (acting) app.with("folders", folders.takeIf { filesOpen }) else app.without("folders").with(
                 "permissions",
                 JsonArray(app["permissions"]?.jsonArray.orEmpty().map { it.jsonObject.with("ask", JsonPrimitive(false)) })
             )
@@ -323,6 +335,11 @@ class FakeManagedDevice(
         settings = settings.map { row ->
             val changeable = row.text("kind") != ManagedSetting.TEXT
             var next = row.with("writable", JsonPrimitive(acting && changeable))
+            if (row.text("needs") == ManagedSetting.NEEDS_FILES) next = next.without("needs")
+            if (!filesOpen && row.text("key") in FILES_SWITCHES) {
+                // Neither way, by anybody, while the files are closed.
+                return@map next.without("only").with("writable", JsonPrimitive(false)).with("needs", JsonPrimitive(ManagedSetting.NEEDS_FILES))
+            }
             when {
                 // It reads "true" while the device is at the full level, and can only be given up.
                 row.text("key") == ManagedKeys.FULL_CONTROL -> next = next.with("value", JsonPrimitive(full.toString()))
@@ -501,6 +518,7 @@ class FakeManagedDevice(
         val key = body.text("key")
         val value = body.text("value")
         val row = settings.firstOrNull { it.text("key") == key } ?: return refuse(403, "forbidden")
+        if (row.text("needs") == ManagedSetting.NEEDS_FILES) return refuse(403, "files_closed")
         if (row["writable"]?.jsonPrimitive?.booleanOrNull != true) return refuse(403, "forbidden")
         if (row.text("kind") == ManagedSetting.BOOL && value != "true" && value != "false") return refuse(400, "bad_request")
         val only = row["only"]?.jsonPrimitive?.content
@@ -517,7 +535,7 @@ class FakeManagedDevice(
         }
         if (key == ManagedKeys.FULL_CONTROL) {
             // Given up at once, and with it everything it opened.
-            become(owner = true, full = false, caps = caps())
+            become(owner = true, full = false, caps = caps()?.minus(ManagedCaps.FILES), files = filesSwitch())
             return ok()
         }
         val guarded = row.text("guard") == ManagedSetting.GUARD_ALWAYS || body.flag("guard")
@@ -743,13 +761,23 @@ class FakeManagedDevice(
     private fun caps(): List<String>? = (status["caps"] as? JsonArray)?.map { it.jsonPrimitive.content }
     private fun has(cap: String): Boolean = caps()?.contains(cap) == true
 
-    /** The refusal for an op this caller may not use, by §3's table: the class first, then the level. */
+    /** The refusal for an op this caller may not use, by §3's table: the class first, then the files, then the level. */
     private fun denied(op: ManagedOp): RemoteAnswer? {
         val owner = you().text("class") == REMOTE_CLASS_OWNER
         if (op.owner && !owner) return refuse(403, "forbidden")
+        if (op.files && status.text("files") == ManagedFiles.CLOSED) return refuse(403, "files_closed")
         if (op.full && status.text("level") != ManagedLevel.FULL) return refuse(403, "needs_full")
         return null
     }
+
+    /** The device's network access to files as [become] last set it; null for a build without the switch. */
+    private fun filesSwitch(): Boolean? = when {
+        !has(ManagedCaps.FILES) -> null
+        else -> status.text("files") != ManagedFiles.CLOSED
+    }
+
+    /** The shared folders of the device's report, kept while a status hides them. */
+    private var shownFolders: JsonElement? = null
 
     /** A body may carry only what its route knows: anything else is a 400. */
     private fun unknownField(body: JsonObject, vararg known: String?): RemoteAnswer? =
@@ -763,6 +791,9 @@ class FakeManagedDevice(
     companion object {
         /** The settings whose other value takes Full control (§6.1). */
         private val NEEDS_FULL = setOf(ManagedKeys.TAILDRIVE, ManagedKeys.TAILDRIVE_PROXY, ManagedKeys.ADVERTISE_EXIT_NODE, ManagedKeys.ADVERTISE_ROUTES)
+
+        /** The settings the device's network access to files closes both ways. */
+        private val FILES_SWITCHES = setOf(ManagedKeys.TAILDRIVE, ManagedKeys.TAILDRIVE_PROXY)
 
         /** How many entries of a folder one answer carries (§10). */
         const val STORAGE_PAGE = 500

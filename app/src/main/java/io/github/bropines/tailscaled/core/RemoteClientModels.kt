@@ -34,12 +34,24 @@ object ManagedCaps {
     const val SAVE = "save"
     /** A guest may ask for full rights for a while, and is told while it has them (`you.elevated`). */
     const val ELEVATE = "elevate"
+    /** The device has a switch for network access to its files, and says how it stands for this caller (`status.files`). */
+    const val FILES = "files"
 }
 
 /** `status.level`: what the device lets its owners do. Chosen at the device, never from afar. */
 object ManagedLevel {
     const val BASIC = "basic"
     const val FULL = "full"
+}
+
+/**
+ * `status.files`: whether the device's network access to files lets this caller at its storage,
+ * its shared folders, its log and its report. Told to an owner and to a guest with full rights;
+ * switched on at the device, never from afar.
+ */
+object ManagedFiles {
+    const val OPEN = "open"
+    const val CLOSED = "closed"
 }
 
 /** GET /v1/status. The fields after [you] are absent on the first build. */
@@ -61,6 +73,8 @@ data class ManagedStatus(
     /** Null on the first build, which announces nothing: it gets exactly the first build's set. */
     val caps: List<String>? = null,
     val level: String = "",
+    /** [ManagedFiles.OPEN] or [ManagedFiles.CLOSED]; empty from a build without the switch, and for a guest. */
+    val files: String = "",
     /** A change this caller made that still waits for its confirmation. */
     val guard: ManagedPendingGuard? = null,
     val device: ManagedDeviceInfo? = null,
@@ -89,9 +103,13 @@ data class ManagedYou(
     val owner: Boolean get() = role == REMOTE_CLASS_OWNER
 }
 
-/** Full rights for a while: [left] seconds, ending at [until] by the device's clock, given for [seconds]; [full] with full control. */
+/**
+ * Full rights for a while: [left] seconds, ending at [until] by the device's clock, given for
+ * [seconds]; [full] with full control; [noFiles] given while the device's files were closed, and
+ * never including them.
+ */
 @Serializable
-data class ManagedElevated(val left: Long = 0, val until: Long = 0, val seconds: Long = 0, val full: Boolean = false)
+data class ManagedElevated(val left: Long = 0, val until: Long = 0, val seconds: Long = 0, val full: Boolean = false, val noFiles: Boolean = false)
 
 /** POST /v1/elevate/request: what the device did with the question — "shown", "notified" or "waiting". */
 @Serializable
@@ -254,7 +272,7 @@ data class ManagedSetting(
     val error: String = "",
     /** The one value this caller may write now; null for either. */
     val only: String? = null,
-    /** "full" when the other value takes Full control. */
+    /** "full" when the other value takes Full control; [NEEDS_FILES] when it is written neither way while the files are closed. */
     val needs: String = "",
     /** [GUARD_OPTIONAL], [GUARD_ALWAYS] or empty. */
     val guard: String = "",
@@ -267,6 +285,8 @@ data class ManagedSetting(
         const val CIDRS = "cidrs"
         const val GUARD_OPTIONAL = "optional"
         const val GUARD_ALWAYS = "always"
+        /** [needs] of a setting that belongs to the device's files, while they are closed to this caller. */
+        const val NEEDS_FILES = "files"
     }
 }
 
@@ -394,28 +414,38 @@ data class ManagedLog(val lines: List<String> = emptyList(), val scrubbed: Int =
 /**
  * The things a manager can ask of a device, beyond looking. [word] is the op's name in
  * `you.can`; [cap] the capability a build must announce for it — null for what the first
- * build already did; [owner] and [full] the lowest class and level the contract gives it.
+ * build already did; [owner] and [full] the lowest class and level the contract gives it;
+ * [files] whether the device's network access to files closes it.
  */
-enum class ManagedOp(val word: String, val cap: String?, val owner: Boolean, val full: Boolean = false, val guestOnly: Boolean = false) {
+enum class ManagedOp(
+    val word: String,
+    val cap: String?,
+    val owner: Boolean,
+    val full: Boolean = false,
+    val guestOnly: Boolean = false,
+    val files: Boolean = false,
+) {
     EXIT_NODE_SET("exit_node.set", null, owner = false),
     SETTINGS_SET("settings.set", null, owner = true),
     ACTION("action", null, owner = true),
     FILES_DELETE("files.delete", null, owner = true),
     PERMISSION_REQUEST("permission.request", ManagedCaps.PERMISSIONS, owner = true),
-    FOLDERS("folders", ManagedCaps.REPORT, owner = true),
+    FOLDERS("folders", ManagedCaps.REPORT, owner = true, files = true),
     IDENTIFY("identify", ManagedCaps.IDENTIFY, owner = false),
-    SHARES_REMOVE("shares.remove", ManagedCaps.SHARES, owner = true),
-    SHARES_ADD("shares.add", ManagedCaps.SHARES, owner = true, full = true),
-    STORAGE_LIST("storage.list", ManagedCaps.STORAGE, owner = true, full = true),
-    STORAGE_SEND("storage.send", ManagedCaps.STORAGE, owner = true, full = true),
-    DIAG_REPORT("diag.report", ManagedCaps.DIAG, owner = true, full = true),
-    DIAG_LOG("diag.log", ManagedCaps.DIAG, owner = true, full = true),
+    SHARES_REMOVE("shares.remove", ManagedCaps.SHARES, owner = true, files = true),
+    SHARES_ADD("shares.add", ManagedCaps.SHARES, owner = true, full = true, files = true),
+    STORAGE_LIST("storage.list", ManagedCaps.STORAGE, owner = true, full = true, files = true),
+    STORAGE_SEND("storage.send", ManagedCaps.STORAGE, owner = true, full = true, files = true),
+    DIAG_REPORT("diag.report", ManagedCaps.DIAG, owner = true, full = true, files = true),
+    DIAG_LOG("diag.log", ManagedCaps.DIAG, owner = true, full = true, files = true),
     /** A guest's alone — an owner has nothing to ask for — and in `you.can` only while it may ask. */
     ELEVATE_REQUEST("elevate.request", ManagedCaps.ELEVATE, owner = false, guestOnly = true),
 }
 
 /** The one reason a thing that exists is not this caller's to use. */
 enum class ManagedDenial {
+    /** The device's network access to files is off (or this caller's full rights leave it out); it is switched on there. */
+    FILES_CLOSED,
     /** Full control is off on the device; it is switched on there. */
     NEEDS_FULL,
     OWNER_ONLY,
@@ -439,16 +469,19 @@ sealed interface ManagedGate {
  *
  * A device without `caps` is the first build: it has what [ManagedOp]s carry no capability
  * for, and nothing else. A device that announces a capability and not the op in `you.can`
- * gets the thing drawn disabled — because Full control is off there, when the op takes Full
- * control and the caller is an owner; because the caller is not an owner otherwise. A guest is
- * told "only an owner" even of what also takes Full control: switching that on at the device
- * would not let a guest in.
+ * gets the thing drawn disabled — because the device's files are closed to this caller, when
+ * the op is one of the files' and the caller is an owner; because Full control is off there,
+ * when the op takes Full control and the caller is an owner; because the caller is not an owner
+ * otherwise. A guest is told "only an owner" even of what also takes Full control: switching
+ * that on at the device would not let a guest in.
  */
 class ManagedAccess(
     private val caps: Set<String>?,
     private val can: Set<String>?,
     val owner: Boolean,
     val level: String,
+    /** The device says its files are closed to this caller (`status.files`). */
+    val filesClosed: Boolean = false,
 ) {
     constructor(status: ManagedStatus) : this(
         caps = status.caps?.toSet(),
@@ -456,6 +489,7 @@ class ManagedAccess(
         can = status.you.can?.toSet()?.takeIf { status.caps?.contains(ManagedCaps.CAN) == true },
         owner = status.you.owner,
         level = if (status.caps?.contains(ManagedCaps.CAN) == true) status.level else "",
+        filesClosed = status.caps?.contains(ManagedCaps.FILES) == true && status.files == ManagedFiles.CLOSED,
     )
 
     /** The first build: no capabilities announced at all. */
@@ -475,12 +509,16 @@ class ManagedAccess(
         if (op.guestOnly && owner) return ManagedGate.Absent
         val allowed = can?.contains(op.word)
             // No list: the class decides, as on the first build, and the level where it is told.
-            ?: ((owner || !op.owner) && !(op.full && level == ManagedLevel.BASIC))
+            ?: ((owner || !op.owner) && !(op.full && level == ManagedLevel.BASIC) && !(op.files && filesClosed))
         return if (allowed) ManagedGate.Open else ManagedGate.Closed(denial(op))
     }
 
-    private fun denial(op: ManagedOp): ManagedDenial =
-        if (owner && op.full && level == ManagedLevel.BASIC) ManagedDenial.NEEDS_FULL else ManagedDenial.OWNER_ONLY
+    private fun denial(op: ManagedOp): ManagedDenial = when {
+        // The files first: they close what Full control would open.
+        owner && op.files && filesClosed -> ManagedDenial.FILES_CLOSED
+        owner && op.full && level == ManagedLevel.BASIC -> ManagedDenial.NEEDS_FULL
+        else -> ManagedDenial.OWNER_ONLY
+    }
 
     /** Whether a change of [setting] is sent with `"guard": true`: only to a device that knows the field. */
     fun asksGuard(setting: ManagedSetting): Boolean = has(ManagedCaps.GUARD) && setting.guard == ManagedSetting.GUARD_OPTIONAL
@@ -504,6 +542,8 @@ enum class ManagedLock {
     OWNER_ONLY,
     /** Not changeable from afar at all. */
     READ_ONLY,
+    /** Part of the device's files, which are closed to this caller: neither way until they are opened there. */
+    FILES_CLOSED,
     /** Turning it on takes Full control, which is switched on at the device. */
     NEEDS_FULL,
     /** It is on, and can only be turned off at the device. */
@@ -515,7 +555,11 @@ enum class ManagedLock {
 /** Whether this caller can move [this] switch now, and if not, why (contract §6.1). */
 fun ManagedSetting.lock(owner: Boolean): ManagedLock = when {
     error.isNotEmpty() -> ManagedLock.UNKNOWN
-    !writable -> if (owner) ManagedLock.READ_ONLY else ManagedLock.OWNER_ONLY
+    !writable -> when {
+        !owner -> ManagedLock.OWNER_ONLY
+        needs == ManagedSetting.NEEDS_FILES -> ManagedLock.FILES_CLOSED
+        else -> ManagedLock.READ_ONLY
+    }
     only != null && value == only -> when {
         needs == ManagedLevel.FULL -> ManagedLock.NEEDS_FULL
         only == "true" -> ManagedLock.OFF_AT_DEVICE

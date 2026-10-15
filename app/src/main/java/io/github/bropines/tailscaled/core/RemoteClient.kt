@@ -31,6 +31,8 @@ enum class ManagedRefusal {
     FORBIDDEN,
     /** For this caller only while Full control is on there, and it is off. */
     NEEDS_FULL,
+    /** The device's network access to files is off, or this caller's full rights were given without it. */
+    FILES_CLOSED,
     NOT_FOUND,
     /** The device's app said no; its sentence comes along. */
     REFUSED,
@@ -93,7 +95,11 @@ fun RemoteAnswer.refusal(): ManagedResult.Failed {
             else -> ManagedRefusal.UNREACHABLE
         }
         401 -> ManagedRefusal.UNAUTHORIZED
-        403 -> if (told.error == "needs_full") ManagedRefusal.NEEDS_FULL else ManagedRefusal.FORBIDDEN
+        403 -> when (told.error) {
+            "needs_full" -> ManagedRefusal.NEEDS_FULL
+            "files_closed" -> ManagedRefusal.FILES_CLOSED
+            else -> ManagedRefusal.FORBIDDEN
+        }
         404 -> ManagedRefusal.NOT_FOUND
         409 -> when (told.error) {
             "too_early" -> ManagedRefusal.TOO_EARLY

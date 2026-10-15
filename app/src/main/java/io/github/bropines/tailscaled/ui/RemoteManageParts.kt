@@ -203,6 +203,7 @@ internal fun ManageLine(text: String, modifier: Modifier = Modifier, tone: Manag
 /** The one sentence for a thing that is there and is not this caller's to use. */
 @Composable
 internal fun denialText(denial: ManagedDenial, name: String): String = when (denial) {
+    ManagedDenial.FILES_CLOSED -> stringResource(R.string.rmanage_files_closed, name)
     ManagedDenial.NEEDS_FULL -> stringResource(R.string.rmanage_deny_full, name)
     ManagedDenial.OWNER_ONLY -> stringResource(R.string.rmanage_deny_owner)
 }
@@ -211,6 +212,7 @@ internal fun denialText(denial: ManagedDenial, name: String): String = when (den
 @Composable
 internal fun denialShort(denial: ManagedDenial): String = stringResource(
     when (denial) {
+        ManagedDenial.FILES_CLOSED -> R.string.rmanage_files_closed_short
         ManagedDenial.NEEDS_FULL -> R.string.rmanage_deny_full_short
         ManagedDenial.OWNER_ONLY -> R.string.rmanage_deny_owner_short
     }
@@ -224,6 +226,7 @@ internal fun denialShort(denial: ManagedDenial): String = stringResource(
 @Composable
 internal fun denialRow(denial: ManagedDenial): String = stringResource(
     when (denial) {
+        ManagedDenial.FILES_CLOSED -> R.string.rmanage_files_closed_short
         ManagedDenial.NEEDS_FULL -> R.string.rmanage_deny_full_short
         ManagedDenial.OWNER_ONLY -> R.string.rmanage_deny_owner
     }
@@ -245,6 +248,7 @@ internal fun lockText(lock: ManagedLock): String? = when (lock) {
     ManagedLock.NONE, ManagedLock.OWNER_ONLY -> null
     ManagedLock.UNKNOWN -> stringResource(R.string.remote_setting_unknown)
     ManagedLock.READ_ONLY -> stringResource(R.string.rmanage_lock_read_only)
+    ManagedLock.FILES_CLOSED -> stringResource(R.string.rmanage_lock_files_closed)
     ManagedLock.NEEDS_FULL -> stringResource(R.string.rmanage_lock_needs_full)
     ManagedLock.OFF_AT_DEVICE -> stringResource(R.string.rmanage_lock_off_at_device)
     ManagedLock.ON_AT_DEVICE -> stringResource(R.string.rmanage_lock_on_at_device)

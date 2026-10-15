@@ -123,6 +123,8 @@ class RemoteManageHooks(
     val copyText: ((String) -> Unit)? = null,
     /** Opens this device's own received files. */
     val openInbox: (() -> Unit)? = null,
+    /** This device's lock in front of the managed device's files (ui/RemoteManageFiles.kt); none in a preview. */
+    val files: RemoteFilesLock? = null,
 )
 
 /**
@@ -513,6 +515,7 @@ internal fun problemText(
     ManageProblem.EXPIRED -> stringResource(R.string.remote_problem_expired, name)
     ManageProblem.OWNER_ONLY -> stringResource(R.string.remote_problem_owner_only)
     ManageProblem.NEEDS_FULL -> stringResource(R.string.rmanage_deny_full, name)
+    ManageProblem.FILES_CLOSED -> stringResource(R.string.rmanage_files_closed, name)
     ManageProblem.GONE -> stringResource(R.string.remote_problem_gone)
     ManageProblem.REFUSED ->
         if (detail.isEmpty()) stringResource(R.string.remote_problem_refused, name)

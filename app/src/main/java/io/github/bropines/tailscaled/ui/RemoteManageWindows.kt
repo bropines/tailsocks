@@ -140,9 +140,12 @@ internal fun ManageWindows(
         ManageAsk.FullRights -> RightsDialog(ui, actions, close)
         ManageAsk.BrowseFiles, ManageAsk.BrowseFolder -> {
             val storage = hooks.storage
-            if (storage == null) LaunchedEffect(asked) { close() }
+            val folder = asked == ManageAsk.BrowseFolder
+            // Closed there while it was open — the files were switched off at the device — the
+            // window goes, and the page says where they are closed.
+            val shut = !ui.access.gate(if (folder) ManagedOp.SHARES_ADD else ManagedOp.STORAGE_LIST).open
+            if (storage == null || shut) LaunchedEffect(asked) { close() }
             else {
-                val folder = asked == ManageAsk.BrowseFolder
                 // The device's own grant is asked for there, as the Permissions group asks it; the
                 // answer comes back to the page. Where it cannot be asked the browser says so.
                 val grant = { actions.askPermission(ManagedPermission.STORAGE); close() }

@@ -49,11 +49,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.focusGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -169,6 +174,7 @@ internal fun summaryOf(group: ManageGroup, ui: RemoteManageUi.Managing): GroupSu
         val count = ui.app?.folders?.size ?: ui.app?.folderCount ?: 0
         GroupSummary(
             when {
+                sharesClosed(ui) -> stringResource(R.string.rmanage_files_closed_short)
                 off -> stringResource(R.string.rmanage_sum_shares_off)
                 count == 0 -> stringResource(R.string.rmanage_shares_none)
                 else -> pluralStringResource(R.plurals.rmanage_shares_count, count, count)
@@ -204,10 +210,10 @@ internal fun GroupBody(group: ManageGroup, ui: RemoteManageUi.Managing, actions:
     when (group) {
         ManageGroup.CONNECTION -> ConnectionGroup(ui, actions)
         ManageGroup.FILES -> FilesGroup(ui, actions, hooks, ask)
-        ManageGroup.SHARES -> SharesGroup(ui, actions, ask)
+        ManageGroup.SHARES -> SharesGroup(ui, actions, hooks, ask)
         ManageGroup.PERMISSIONS -> PermissionsGroup(ui, actions)
         ManageGroup.DEVICE -> DeviceGroup(ui, actions, ask)
-        ManageGroup.DIAGNOSTICS -> DiagnosticsGroup(ui, actions)
+        ManageGroup.DIAGNOSTICS -> DiagnosticsGroup(ui, actions, hooks)
         ManageGroup.PAIRING -> PairingGroup(ui, ask)
     }
 }
@@ -501,22 +507,65 @@ private fun FilesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions
     val browse = access.gate(ManagedOp.STORAGE_LIST)
     if (browse.offered) {
         ManageGap()
+        // Closed there: said where the storage would be, with where it is opened.
+        if (browse.denial == ManagedDenial.FILES_CLOSED) {
+            FilesClosed(ui, needsFull = !access.full)
+            return
+        }
         ManageOpenRow(
             icon = Icons.Default.Storage,
             title = stringResource(R.string.rmanage_browse),
             help = stringResource(R.string.rmanage_browse_help),
             reason = browse.denial?.let { denialRow(it) },
             enabled = ui.usable && status?.fetch?.state != ManagedFetch.SENDING,
-            onClick = { ask(ManageAsk.BrowseFiles) }
+            // This device's own lock first.
+            onClick = { hooks.filesGate(FilesPlace.STORAGE) { ask(ManageAsk.BrowseFiles) } }
         )
+        FilesLockLine(hooks, FilesPlace.STORAGE, ui.name)
         FullControlNote(browse.denial == ManagedDenial.NEEDS_FULL, ui.name)
     }
 }
 
+/** The shared folders are closed to this device there, by the device's network access to files. */
+private fun sharesClosed(ui: RemoteManageUi.Managing): Boolean = ui.owner && ui.access.filesClosed
+
 // ─── Shared folders ──────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun SharesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions, ask: (ManageAsk) -> Unit) {
+private fun SharesGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions, hooks: RemoteManageHooks, ask: (ManageAsk) -> Unit) {
+    // Closed there: Taildrive, its proxy and the folders are the files', and none of it is shown.
+    if (sharesClosed(ui)) {
+        FilesClosed(ui)
+        return
+    }
+    // Which folders, and where, is shown to an owner after this device's lock.
+    val behind = ui.owner && ui.app?.folders != null && !hooks.filesShown
+    // The row that opens them goes with the press: on a television the remote that was on it
+    // goes to the first of what it opened. Read while the new state is composed, when the
+    // row, and the focus on it, are still there.
+    val held = remember { booleanArrayOf(false) }
+    val follow = remember(behind) { held[0] }
+    val opened = remember { FocusRequester() }
+    LaunchedEffect(behind) {
+        if (behind || !follow) return@LaunchedEffect
+        held[0] = false
+        withFrameNanos { }
+        runCatching { opened.requestFocus() }
+    }
+    if (behind) {
+        Column(Modifier.onFocusChanged { held[0] = it.hasFocus }) { SharesBehindLock(ui, hooks) }
+        FilesLockLine(hooks, FilesPlace.SHARES, ui.name)
+        return
+    }
+    Column(Modifier.focusRequester(opened).focusGroup()) {
+        FilesLockLine(hooks, FilesPlace.SHARES, ui.name)
+        SharesOpen(ui, actions, ask)
+    }
+}
+
+/** The shared folders as they are: Taildrive and its proxy, the folders, and sharing another. */
+@Composable
+private fun SharesOpen(ui: RemoteManageUi.Managing, actions: RemoteManageActions, ask: (ManageAsk) -> Unit) {
     val access = ui.access
     Switches(ManagedKeys.SHARING, ui, actions)
 
@@ -760,26 +809,33 @@ private fun DeviceGroup(ui: RemoteManageUi.Managing, actions: RemoteManageAction
 // ─── Diagnostics ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun DiagnosticsGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions) {
+private fun DiagnosticsGroup(ui: RemoteManageUi.Managing, actions: RemoteManageActions, hooks: RemoteManageHooks) {
     val log = ui.access.gate(ManagedOp.DIAG_LOG)
     val report = ui.access.gate(ManagedOp.DIAG_REPORT)
-    // The two take the same class and level: one reason covers both.
+    // The two take the same class and level: one reason covers both. Closed there, they are the
+    // files': said where they would be, with where they are opened.
+    if (log.denial == ManagedDenial.FILES_CLOSED) {
+        FilesClosed(ui, needsFull = !ui.access.full)
+        return
+    }
     // The whole group waits for one thing: said once, above the rows it holds back.
     DeniedNote(if (log.denial != null) log else report, ui.name, Modifier.padding(bottom = 4.dp))
+    // Either is opened after this device's own lock.
     ManageOpenRow(
         icon = Icons.Default.Subject,
         title = stringResource(R.string.rmanage_diag_log),
         help = stringResource(R.string.rmanage_diag_log_help),
         enabled = ui.usable && log.open,
-        onClick = { actions.openDiag(log = true) }
+        onClick = { hooks.filesGate(FilesPlace.DIAG) { actions.openDiag(log = true) } }
     )
     ManageOpenRow(
         icon = Icons.Default.Article,
         title = stringResource(R.string.rmanage_diag_report),
         help = stringResource(R.string.rmanage_diag_report_help),
         enabled = ui.usable && report.open,
-        onClick = { actions.openDiag(log = false) }
+        onClick = { hooks.filesGate(FilesPlace.DIAG) { actions.openDiag(log = false) } }
     )
+    FilesLockLine(hooks, FilesPlace.DIAG, ui.name)
 }
 
 /** Whether a switch of [keys] waits for Full control: its row says so in two words, the card once in full. */
