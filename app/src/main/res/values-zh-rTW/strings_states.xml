@@ -5,4 +5,6 @@
   and for the path and last-seen reading on a peer row. A file of its own so
   it lands without touching strings.xml.
 --><resources>
-    </resources>
+    <string name="state_logs_empty">暫無日誌</string>
+    <string name="state_logs_category_empty">暫無 %1$s 類別的日誌</string>
+</resources>

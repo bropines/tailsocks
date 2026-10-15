@@ -3,4 +3,6 @@
      strings.xml so work on it does not collide with edits there; Android merges
      every file in values/. Values are short on purpose: they sit in one
      monospace row each, next to a label. --><resources>
-    </resources>
+    <string name="diag_live_traffic">流量</string>
+    <string name="diag_live_traffic_value">%1$d 節點 · ↓%2$s ↑%3$s</string>
+</resources>
