@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
@@ -171,7 +173,21 @@ internal fun RemoteManageContent(
                         Text(stringResource(R.string.action_close))
                     }
                 }
-                is RemoteManageUi.Managing -> Managing(ui, actions, hooks, layout, opened)
+                // Pulled down, the page reads the device again, as the top bar's refresh does: the
+                // same action, so it is refused while a change is being confirmed or under a
+                // problem that waiting does not mend. The page already looks at the device's
+                // status every few seconds while it is open; this re-reads everything.
+                // Its spinner is for a pull only: the first load and the top bar's refresh have
+                // the thin line under the bar.
+                is RemoteManageUi.Managing -> {
+                    var pulled by remember { mutableStateOf(false) }
+                    LaunchedEffect(ui.loading) { if (!ui.loading) pulled = false }
+                    PullToRefreshBox(
+                        isRefreshing = pulled && ui.loading,
+                        onRefresh = { pulled = true; actions.refresh() },
+                        modifier = Modifier.fillMaxSize(),
+                    ) { Managing(ui, actions, hooks, layout, opened) }
+                }
             }
             if (ui.asking) AskingLine(ui.name, Modifier.align(Alignment.TopCenter))
         }
