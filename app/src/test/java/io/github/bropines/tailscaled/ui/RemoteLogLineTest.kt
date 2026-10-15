@@ -44,6 +44,9 @@ class RemoteLogLineTest {
         val ops: List<ListedOp> = emptyList(),
         /** Every reason a refusal is logged with. */
         val denials: List<String> = emptyList(),
+        /** The lengths full rights for a while are given and asked for, and every reason they end with. */
+        val elevateSeconds: List<Long> = emptyList(),
+        val elevateEnds: List<String> = emptyList(),
     )
 
     private val listed: Allowlist = AppJson.decodeFromString(File("../appctr/testdata/remote_allowlist.json").readText())
@@ -149,6 +152,30 @@ class RemoteLogLineTest {
         }
         // What the bridge may add when the app did not simply do as asked.
         for (remark in RemoteAccessWords.remarks.keys) assertInWords("action", "${listed.actions.first()} $remark")
+        // Full rights for a while: given for a length, with full control or not; asked for, with
+        // what came of it; ended, for each reason the bridge has.
+        assertTrue("the lengths and ends of full rights", listed.elevateSeconds.size >= 4 && listed.elevateEnds.size >= 4)
+        for (seconds in listed.elevateSeconds + 75_600) {
+            assertInWords("elevated", "$seconds")
+            assertInWords("elevated", "$seconds: full")
+            for (result in listed.askResults) assertInWords("elevate_asked", "$seconds: $result")
+            assertInWords("elevate_asked", "$seconds (no answer from the app yet)")
+        }
+        for (why in listed.elevateEnds) assertInWords("elevation_ended", why)
+        assertEquals(listed.elevateEnds.toSet(), RemoteAccessWords.elevationEnds.keys)
+    }
+
+    @Test
+    fun fullRightsAreSaidWithTheirLength() {
+        assertEquals("Full rights given for 15 min", en("elevated", "900"))
+        assertEquals("Full rights and full control given for 8 h", en("elevated", "28800: full"))
+        assertEquals("Выданы полные права на 21 ч", ru("elevated", "75600"))
+        assertEquals("Asked for full rights for 1 h (shown on screen)", en("elevate_asked", "3600: shown"))
+        assertEquals("Просило полные права на всё время сопряжения (показано уведомление)", ru("elevate_asked", "0: notified"))
+        assertEquals("Full rights taken back", en("elevation_ended", "taken_back"))
+        assertEquals("Полные права закончились: время вышло", ru("elevation_ended", "time"))
+        // A reason this build has no words for is shown as the bridge wrote it.
+        assertEquals("Full rights ended: moon_phase", en("elevation_ended", "moon_phase"))
     }
 
     /**

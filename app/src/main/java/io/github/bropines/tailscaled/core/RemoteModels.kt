@@ -122,6 +122,8 @@ data class RemotePairedDevice(
     /** Seconds the pairing has left; -1 for until revoked. */
     val left: Long = -1,
     val expires: Long = 0,
+    /** A guest's full rights for a while, while they last (core/RemoteElevate.kt). */
+    val elevated: RemoteElevation? = null,
 ) {
     val owner: Boolean get() = role == REMOTE_CLASS_OWNER
 }

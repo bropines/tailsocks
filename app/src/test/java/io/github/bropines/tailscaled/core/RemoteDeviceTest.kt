@@ -83,6 +83,8 @@ class RemoteDeviceTest {
         override fun shareAdd(name: String, path: String) = note("share $name=$path")
         override fun shareRemove(name: String) = note("unshare $name")
         override fun diagReport(): String { note("diag"); return "--- TAILSOCKS DIAGNOSTICS ---" }
+        override fun elevateAsk(nodeId: String, from: String, seconds: Long): RemoteAskRoute { note("elevate $nodeId $from $seconds"); return route }
+        override fun elevations(list: List<RemoteElevation>) = note("elevations ${list.joinToString { "${it.nodeId}:${it.left}${if (it.full) "+full" else ""}" }}")
     }
 
     private val base = FakeBase()
@@ -197,6 +199,49 @@ class RemoteDeviceTest {
             ),
             host.calls
         )
+    }
+
+    @Test
+    fun aRequestForFullRightsReachesThePersonAndTheGrantsInForceReachTheNotification() {
+        assertEquals("shown", d.request("elevate_ask", """{"from":"ann-iphone","nodeId":"nB7annCNTRL","seconds":3600}"""))
+        host.route = RemoteAskRoute.NOTIFIED
+        assertEquals("notified", d.request("elevate_ask", """{"from":"ann-iphone","nodeId":"nB7annCNTRL","seconds":0}"""))
+        assertEquals(
+            "",
+            d.request("elevations", """{"elevations":[{"nodeId":"nB7annCNTRL","name":"ann-iphone","left":900,"until":1791814680,"seconds":900,"full":true}]}""")
+        )
+        assertEquals("", d.request("elevations", """{"elevations":[]}"""))
+        assertEquals(
+            listOf("elevate nB7annCNTRL ann-iphone 3600", "elevate nB7annCNTRL ann-iphone 0", "elevations nB7annCNTRL:900+full", "elevations "),
+            host.calls
+        )
+        // A length nobody gives, or a node that is not one, is not put in front of anybody.
+        for (args in listOf(
+            """{"from":"x","nodeId":"nB7annCNTRL","seconds":7200}""",
+            """{"from":"x","nodeId":"nB7annCNTRL"}""",
+            """{"from":"x","nodeId":"../etc","seconds":900}""",
+            """{"from":"x","seconds":900}""",
+        )) refused { d.request("elevate_ask", args) }
+        assertEquals(4, host.calls.size)
+    }
+
+    @Test
+    fun theLengthsOfFullRightsAreTheBridgesAndAPairingCutsThem() {
+        assertEquals(listOf(900L, 3600L, 28_800L, 0L), RemoteElevateLengths.ALL)
+        // A pairing with five hours left: eight hours is "until it ends" by another name.
+        assertEquals(listOf(900L, 3600L, 0L), RemoteElevateLengths.offered(5 * 3600))
+        assertEquals(RemoteElevateLengths.ALL, RemoteElevateLengths.offered(-1))
+        assertEquals(5 * 3600L, RemoteElevateLengths.effective(0, 5 * 3600))
+        assertEquals(3600L, RemoteElevateLengths.effective(3600, 5 * 3600))
+        assertEquals(86_400L, RemoteElevateLengths.effective(0, -1))
+        assertNull(RemoteElevateLengths.of(7200))
+        assertEquals(0L, RemoteElevateLengths.of(0))
+        // The paired list carries them, and a row without them has none.
+        val rows = RemoteJson.paired(
+            """[{"nodeId":"nA","name":"ann","class":"guest","left":70000,"elevated":{"left":900,"until":5,"seconds":900,"full":true}},
+               {"nodeId":"nB","name":"bob","class":"guest","left":70000}]"""
+        )
+        assertEquals(listOf(RemoteElevation("nA", "ann", 900, 5, 900, true)), RemoteElevate.elevations(rows))
     }
 
     @Test

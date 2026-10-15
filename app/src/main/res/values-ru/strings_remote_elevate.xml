@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Удалённое управление: временные полные права гостю (core/RemoteElevate.kt, ui/RemoteElevate*.kt). -->
+
+    <!-- Страница управляемого устройства: переключатель и строка гостя -->
+    <string name="remote_elevate_switch_title">Разрешать гостям временные полные права</string>
+    <string name="remote_elevate_switch_help">Гостю можно будет дать всё, что здесь может устройство владельца, — от 15 минут до суток, и только если кто-то у этого устройства подтвердит это блокировкой экрана. Гость может попросить, но издалека ничего не выдаётся.\n• Если выключить, выданные права заканчиваются.\n• Остановка TailSocks, выход из аккаунта, аккаунт, пароли, Root-режим и включение полного доступа всё равно остаются только здесь.</string>
+    <string name="remote_elevate_give">Дать полные права на время…</string>
+    <string name="remote_elevate_give_named">Дать %1$s полные права на время</string>
+    <string name="remote_elevate_take_back">Забрать права</string>
+    <string name="remote_elevate_take_back_named">Забрать полные права у %1$s</string>
+    <string name="remote_elevate_row">Полные права · до %1$s</string>
+    <string name="remote_elevate_row_full">Полные права и полный доступ · до %1$s</string>
+    <string name="remote_access_guest_elevate">С согласия того, кто у этого устройства, — права владельца на время</string>
+    <string name="remote_can_elevate_request">попросить полные права на время</string>
+
+    <!-- Вопрос, который их выдаёт -->
+    <string name="remote_elevate_title_give">Дать %1$s полные права?</string>
+    <string name="remote_elevate_title_asked">%1$s просит полные права</string>
+    <string name="remote_elevate_help">На это время оно сможет здесь то же, что устройство владельца. Остановить TailSocks, выйти из аккаунта, сменить аккаунт или увидеть пароли оно всё равно не сможет. Забрать права можно в любой момент.</string>
+    <string name="remote_elevate_for_how_long">На сколько</string>
+    <string name="remote_elevate_len_15m">15 минут</string>
+    <string name="remote_elevate_len_1h">1 час</string>
+    <string name="remote_elevate_len_8h">8 часов</string>
+    <string name="remote_elevate_len_pairing_left">Пока действует сопряжение (%1$s)</string>
+    <string name="remote_elevate_len_pairing">всё время сопряжения</string>
+    <string name="remote_elevate_asked_mark">%1$s · просили</string>
+    <string name="remote_elevate_full_title">И полный доступ</string>
+    <string name="remote_elevate_full_help">Память устройства по именам, отправка его файлов, общие папки, маршруты и диагностика — только этому гостю и только на это время.</string>
+    <string name="remote_elevate_full_on">Полный доступ здесь включён, поэтому он прилагается к правам.</string>
+    <string name="remote_elevate_lock">Подтвердите блокировкой экрана этого устройства: отпечатком, лицом, PIN-кодом или паролем.</string>
+    <string name="remote_elevate_no_lock">На этом устройстве нет блокировки экрана, поэтому никто не проверит, кто подтверждает. Давайте полные права, только если вы сами находитесь у этого устройства.</string>
+    <string name="remote_elevate_confirm">Дать полные права</string>
+    <string name="remote_elevate_decline">Отказать</string>
+    <string name="remote_elevate_prompt_title">Полные права для %1$s</string>
+    <string name="remote_elevate_fail_lock">Блокировку экрана здесь запросить не удаётся, поэтому ничего не выдано.</string>
+    <string name="remote_elevate_fail_lockout">Слишком много попыток: блокировка на время закрыта. Ничего не выдано.</string>
+    <string name="remote_elevate_fail_not_proven">Блокировка это не подтвердила. Ничего не выдано.</string>
+    <string name="remote_elevate_fail_not_saved">Не удалось сохранить это на устройстве, поэтому ничего не выдано.</string>
+    <string name="remote_elevate_fail_off">Полные права для гостей на этом устройстве выключены.</string>
+    <string name="remote_elevate_fail">%1$s ничего не выдано. Попробуйте ещё раз.</string>
+    <string name="remote_elevate_given">У %1$s полные права до %2$s</string>
+    <string name="remote_elevate_taken">%1$s снова гость</string>
+    <string name="remote_elevate_gone">Это устройство здесь больше не гость, или полные права для гостей выключены.</string>
+
+    <!-- Просьба гостя, как её показывает это устройство -->
+    <string name="remote_elevate_ask_text">На %1$s. Откройте, чтобы ответить: нужна блокировка экрана этого устройства.</string>
+    <string name="remote_notice_elevate_ask">Просит полные права на %1$s</string>
+    <string name="remote_elevate_ask_toast">%1$s просит полные права на %2$s. Откройте TailSocks, чтобы ответить.</string>
+
+    <!-- Пока они действуют -->
+    <string name="remote_elevate_channel">Выданные полные права</string>
+    <string name="remote_elevate_notif_one">У %1$s полные права</string>
+    <plurals name="remote_elevate_notif_many">
+        <item quantity="one">У %d устройства полные права</item>
+        <item quantity="few">У %d устройств полные права</item>
+        <item quantity="many">У %d устройств полные права</item>
+        <item quantity="other">У %d устройства полные права</item>
+    </plurals>
+    <string name="remote_elevate_until">до %1$s</string>
+    <string name="remote_elevate_until_full">до %1$s, с полным доступом</string>
+
+    <!-- Журнал недавних удалённых изменений -->
+    <string name="remote_log_elevated">Выданы полные права на %1$s</string>
+    <string name="remote_log_elevated_full">Выданы полные права и полный доступ на %1$s</string>
+    <string name="remote_log_elevate_asked">Просило полные права на %1$s</string>
+    <string name="remote_log_elevation_ended">Полные права закончились</string>
+    <string name="remote_log_elevation_time">Полные права закончились: время вышло</string>
+    <string name="remote_log_elevation_taken_back">Полные права забрали</string>
+    <string name="remote_log_elevation_switch_off">Полные права закончились: их выключили на этом устройстве</string>
+    <string name="remote_log_elevation_guests_off">Полные права закончились: гостей больше не пускают</string>
+
+    <!-- Управляющее устройство -->
+    <string name="rmanage_rights_ask">Попросить полные права</string>
+    <string name="rmanage_rights_ask_help">%1$s может на время дать этому устройству права владельца. Кто-то там подтвердит это блокировкой экрана — отсюда ничего не выдаётся.</string>
+    <string name="rmanage_rights_asked_shown">%1$s показывает просьбу. Права появятся, когда кто-то там её подтвердит.</string>
+    <string name="rmanage_rights_asked_notified">TailSocks там не на экране, поэтому %1$s показал уведомление. Права появятся, когда кто-то её подтвердит.</string>
+    <string name="rmanage_rights_asked_waiting">%1$s получил просьбу. Она появится там, когда откроют TailSocks.</string>
+    <string name="rmanage_rights_left">Полные права · осталось %1$s</string>
+    <string name="rmanage_fact_rights">Полные права</string>
+    <string name="rmanage_rights_until">до %1$s · осталось %2$s</string>
+    <string name="rmanage_rights_until_full">до %1$s · осталось %2$s · с полным доступом</string>
+    <string name="rmanage_rights_help">Выданы на %1$s на время: это устройство может там то же, что устройство владельца. Закончатся сами или когда их там заберут.</string>
+    <string name="rmanage_rights_dialog_title">Попросить у %1$s полные права</string>
+    <string name="rmanage_rights_dialog_text">Кто-то у %1$s подтвердит это блокировкой экрана. До тех пор ничего не выдаётся.</string>
+    <string name="rmanage_rights_send">Попросить</string>
+</resources>

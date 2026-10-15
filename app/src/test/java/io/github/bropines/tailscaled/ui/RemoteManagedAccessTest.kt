@@ -53,9 +53,11 @@ class RemoteManagedAccessTest {
         return RemoteAccess(
             level = if (full) RemoteAccess.LEVEL_FULL else RemoteAccess.LEVEL_BASIC,
             guests = guests,
+            elevate = guests,
             guest = RemoteAccessClass(ops = listed.ops.filter { it.role == "guest" && (full || !it.full) }.map { it.op }),
             owner = RemoteAccessClass(
-                ops = listed.ops.filter { full || !it.full }.map { it.op },
+                // Asking for full rights is a guest's: an owner has nothing to ask for.
+                ops = listed.ops.filter { (full || !it.full) && it.op != RemoteAccessWords.OP_ELEVATE }.map { it.op },
                 settings = writable.map {
                     val needs = it.full.isNotEmpty() && !full
                     RemoteAccessSetting(it.key, only = if (needs && it.full == "true") "false" else it.only, needs = if (needs) "full" else "", guard = it.guard)
@@ -192,6 +194,21 @@ class RemoteManagedAccessTest {
         assertNull(owner.row(R.string.remote_access_like_guest))
         assertEquals(listOf("status", "exit_nodes", "settings", "files", "folders"), owner.row(R.string.remote_access_see)!!.said())
         assertTrue(owner.row(0)!!.said().containsAll(listOf("exit_node.set", "unpair", "confirm", "identify")))
+    }
+
+    @Test
+    fun fullRightsForAWhileAreAGuestsLineOfItsOwnAndNeverAnOwners() {
+        val guest = remoteAccessGroups(document(full = false)).group(R.string.remote_access_guest)!!
+        assertEquals(R.string.remote_access_guest_elevate, guest.rows.last().text)
+        assertFalse(guest.rows.flatMap { it.said() }.contains(RemoteAccessWords.OP_ELEVATE))
+        // An owner that the bridge lists it for all the same is not said to ask.
+        val doc = document(full = false).let { it.copy(owner = it.owner.copy(ops = it.owner.ops + RemoteAccessWords.OP_ELEVATE)) }
+        val groups = remoteAccessGroups(doc)
+        assertEquals(R.string.remote_access_like_guest, groups.group(R.string.remote_access_owner)!!.rows.first().text)
+        assertFalse(groups.group(R.string.remote_access_owner)!!.rows.any { it.text == R.string.remote_access_guest_elevate })
+        // Where the device does not give them, the guest's list has no such line.
+        val off = document(full = false).let { it.copy(elevate = false, guest = it.guest.copy(ops = it.guest.ops - RemoteAccessWords.OP_ELEVATE)) }
+        assertFalse(remoteAccessGroups(off).group(R.string.remote_access_guest)!!.rows.any { it.text == R.string.remote_access_guest_elevate })
     }
 
     @Test

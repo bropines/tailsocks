@@ -60,10 +60,13 @@ object RemoteDeviceKeys {
     const val REQUEST_SHARE_ADD = "share_add"
     const val REQUEST_SHARE_REMOVE = "share_remove"
     const val REQUEST_DIAG_REPORT = "diag_report"
+    /** A guest asks for full rights for a while; and the bridge says which are in force (core/RemoteElevate.kt). */
+    const val REQUEST_ELEVATE_ASK = "elevate_ask"
+    const val REQUEST_ELEVATIONS = "elevations"
 
     val REQUESTS = listOf(
         REQUEST_REPORT, REQUEST_ASK, REQUEST_IDENTIFY, REQUEST_NOTICE, REQUEST_STORAGE_LIST, REQUEST_STORAGE_FILE,
-        REQUEST_SHARE_ADD, REQUEST_SHARE_REMOVE, REQUEST_DIAG_REPORT,
+        REQUEST_SHARE_ADD, REQUEST_SHARE_REMOVE, REQUEST_DIAG_REPORT, REQUEST_ELEVATE_ASK, REQUEST_ELEVATIONS,
     )
 
     /** Two refusals that are the API's own words rather than a sentence: the bridge answers 404 and 403 for them. */
@@ -412,6 +415,16 @@ interface RemoteDeviceHost {
     fun shareAdd(name: String, path: String)
     fun shareRemove(name: String)
     fun diagReport(): String
+
+    /**
+     * The guest paired as [nodeId], called [from], asks for full rights for [seconds] (0: until
+     * its pairing ends): the question goes in front of whoever is at the device, as far as
+     * Android lets it. It gives nothing.
+     */
+    fun elevateAsk(nodeId: String, from: String, seconds: Long): RemoteAskRoute
+
+    /** The full rights in force changed in the bridge: [list] is all of them now. */
+    fun elevations(list: List<RemoteElevation>)
 }
 
 @Serializable
@@ -423,6 +436,9 @@ private data class RemoteRequestArgs(
     val path: String = "",
     val name: String = "",
     val offset: Int = 0,
+    val nodeId: String = "",
+    val seconds: Long = -1,
+    val elevations: List<RemoteElevation> = emptyList(),
 )
 
 /**
@@ -489,6 +505,13 @@ class RemoteDeviceDelegate(private val base: RemoteDelegate, private val host: R
             RemoteDeviceKeys.REQUEST_SHARE_ADD -> asked { host.shareAdd(a.name, a.path); "" }
             RemoteDeviceKeys.REQUEST_SHARE_REMOVE -> asked { host.shareRemove(a.name); "" }
             RemoteDeviceKeys.REQUEST_DIAG_REPORT -> asked { host.diagReport() }
+            RemoteDeviceKeys.REQUEST_ELEVATE_ASK -> {
+                // The bridge has checked both; said here as well, where the question is put.
+                if (!RemoteJson.isNodeId(a.nodeId)) throw RemoteRefusal("not a paired device")
+                val seconds = RemoteElevateLengths.of(a.seconds) ?: throw RemoteRefusal("not a length full rights are given for")
+                asked { host.elevateAsk(a.nodeId, a.from, seconds).word }
+            }
+            RemoteDeviceKeys.REQUEST_ELEVATIONS -> asked { host.elevations(a.elevations); "" }
             else -> throw RemoteRefusal("not a remote request")
         }
     }

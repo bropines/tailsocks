@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: full rights for a guest for a while (core/RemoteElevate.kt, ui/RemoteElevate*.kt). -->
+
+    <!-- The managed device's page: the switch, and a guest's row -->
+    <string name="remote_elevate_switch_title">Let guests get full rights for a while</string>
+    <string name="remote_elevate_switch_help">A guest can then be given everything an owner\'s device may do here, for 15 minutes up to a day — only when someone at this device confirms it with its screen lock. A guest can ask; nothing is given from afar.\n• Switching this off ends the rights given.\n• Stopping TailSocks, signing out, the account, passwords, Root Mode and switching full control on stay at this device anyway.</string>
+    <string name="remote_elevate_give">Give full rights for a while…</string>
+    <string name="remote_elevate_give_named">Give %1$s full rights for a while</string>
+    <string name="remote_elevate_take_back">Take the rights back</string>
+    <string name="remote_elevate_take_back_named">Take full rights back from %1$s</string>
+    <string name="remote_elevate_row">Full rights · until %1$s</string>
+    <string name="remote_elevate_row_full">Full rights and full control · until %1$s</string>
+    <string name="remote_access_guest_elevate">With the OK of someone at this device, an owner\'s rights for a while</string>
+    <string name="remote_can_elevate_request">ask for full rights for a while</string>
+
+    <!-- The question that gives them -->
+    <string name="remote_elevate_title_give">Give %1$s full rights?</string>
+    <string name="remote_elevate_title_asked">%1$s asks for full rights</string>
+    <string name="remote_elevate_help">For this time it can do here what an owner\'s device can. It still cannot stop TailSocks, sign out, change the account or see passwords. You can take the rights back at any time.</string>
+    <string name="remote_elevate_for_how_long">For how long</string>
+    <string name="remote_elevate_len_15m">15 minutes</string>
+    <string name="remote_elevate_len_1h">1 hour</string>
+    <string name="remote_elevate_len_8h">8 hours</string>
+    <string name="remote_elevate_len_pairing_left">Until the pairing ends (%1$s)</string>
+    <string name="remote_elevate_len_pairing">the rest of the pairing</string>
+    <string name="remote_elevate_asked_mark">%1$s · asked for</string>
+    <string name="remote_elevate_full_title">Full control too</string>
+    <string name="remote_elevate_full_help">The storage by name, sending its files, shares, routes and the diagnostics — for this guest and this time only.</string>
+    <string name="remote_elevate_full_on">Full control is on here, so it comes with the rights.</string>
+    <string name="remote_elevate_lock">You confirm with this device\'s screen lock: fingerprint, face, PIN or password.</string>
+    <string name="remote_elevate_no_lock">This device has no screen lock, so nothing checks who confirms. Give full rights only if you are in front of this device yourself.</string>
+    <string name="remote_elevate_confirm">Give full rights</string>
+    <string name="remote_elevate_decline">Decline</string>
+    <string name="remote_elevate_prompt_title">Full rights for %1$s</string>
+    <string name="remote_elevate_fail_lock">This device\'s screen lock cannot be asked for here, so nothing was given.</string>
+    <string name="remote_elevate_fail_lockout">Too many tries: the lock is blocked for a while. Nothing was given.</string>
+    <string name="remote_elevate_fail_not_proven">The lock did not confirm it. Nothing was given.</string>
+    <string name="remote_elevate_fail_not_saved">It could not be saved on this device, so nothing was given.</string>
+    <string name="remote_elevate_fail_off">Full rights for guests are switched off on this device.</string>
+    <string name="remote_elevate_fail">Nothing was given to %1$s. Try again.</string>
+    <string name="remote_elevate_given">%1$s has full rights until %2$s</string>
+    <string name="remote_elevate_taken">%1$s is a guest again</string>
+    <string name="remote_elevate_gone">That device is no longer a guest here, or full rights are switched off.</string>
+
+    <!-- A guest's request, as this device says it -->
+    <string name="remote_elevate_ask_text">For %1$s. Open to answer: it takes this device\'s screen lock.</string>
+    <string name="remote_notice_elevate_ask">Asks for full rights for %1$s</string>
+    <string name="remote_elevate_ask_toast">%1$s asks for full rights for %2$s. Open TailSocks to answer.</string>
+
+    <!-- While they last -->
+    <string name="remote_elevate_channel">Full rights given</string>
+    <string name="remote_elevate_notif_one">%1$s has full rights</string>
+    <plurals name="remote_elevate_notif_many">
+        <item quantity="one">%d device has full rights</item>
+        <item quantity="other">%d devices have full rights</item>
+    </plurals>
+    <string name="remote_elevate_until">until %1$s</string>
+    <string name="remote_elevate_until_full">until %1$s, with full control</string>
+    <string name="remote_elevate_holds" translatable="false">%1$s: %2$s</string>
+
+    <!-- The log of recent remote changes -->
+    <string name="remote_log_elevated">Full rights given for %1$s</string>
+    <string name="remote_log_elevated_full">Full rights and full control given for %1$s</string>
+    <string name="remote_log_elevate_asked">Asked for full rights for %1$s</string>
+    <string name="remote_log_elevation_ended">Full rights ended</string>
+    <string name="remote_log_elevation_time">Full rights ended: their time was up</string>
+    <string name="remote_log_elevation_taken_back">Full rights taken back</string>
+    <string name="remote_log_elevation_switch_off">Full rights ended: switched off on this device</string>
+    <string name="remote_log_elevation_guests_off">Full rights ended: guests are not let in</string>
+
+    <!-- The managing device -->
+    <string name="rmanage_rights_ask">Ask for full rights</string>
+    <string name="rmanage_rights_ask_help">%1$s can give this device an owner\'s rights for a while. Someone there confirms it with its screen lock; nothing is given from here.</string>
+    <string name="rmanage_rights_asked_shown">%1$s shows the request. The rights come when someone there confirms it.</string>
+    <string name="rmanage_rights_asked_notified">TailSocks is not on screen there, so %1$s showed a notification. The rights come when someone confirms it.</string>
+    <string name="rmanage_rights_asked_waiting">%1$s got the request. It comes up there when TailSocks is opened.</string>
+    <string name="rmanage_rights_left">Full rights · %1$s left</string>
+    <string name="rmanage_fact_rights">Full rights</string>
+    <string name="rmanage_rights_until">until %1$s · %2$s left</string>
+    <string name="rmanage_rights_until_full">until %1$s · %2$s left · with full control</string>
+    <string name="rmanage_rights_help">Given at %1$s for a while: this device can do there what an owner\'s can. They end by themselves, or when taken back there.</string>
+    <string name="rmanage_rights_dialog_title">Ask %1$s for full rights</string>
+    <string name="rmanage_rights_dialog_text">Someone at %1$s confirms it with its screen lock. Until then nothing is given.</string>
+    <string name="rmanage_rights_send">Ask</string>
+</resources>

@@ -182,6 +182,14 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@style/Theme.Tailscaled.Transparent" />
+        <!-- Remote management: a guest's full rights for a while, given at this device after its
+             own lock, over whatever is on screen, in a task of its own. Never exported. -->
+        <activity
+            android:name=".ui.RemoteElevateActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Tailscaled.Transparent" />
 
         <activity android:name=".ui.ToggleActivity" android:exported="false" android:theme="@android:style/Theme.NoDisplay" android:excludeFromRecents="true" />
 

@@ -215,6 +215,13 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
 
     override fun notice(from: String, op: String, detail: String) = RemoteDevicePrompts.notice(context, from, op, detail)
 
+    override fun elevateAsk(nodeId: String, from: String, seconds: Long): RemoteAskRoute {
+        if (!RemoteElevate.isAllowed(context)) throw RemoteRefusal("this device does not give guests full rights")
+        return RemoteDevicePrompts.elevateAsk(context, nodeId, from, seconds)
+    }
+
+    override fun elevations(list: List<RemoteElevation>) = RemoteElevationNotice.show(context, list)
+
     // ─── The storage by name, shares, diagnostics ────────────────────────────────────────────
 
     private fun source(): FileSource = RealFileSource(context)

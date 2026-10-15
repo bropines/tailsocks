@@ -83,11 +83,13 @@ data class RemoteAccessClass(
  * from this and from nothing else, so the page cannot say more or less than is done.
  * [guest] and [owner] are at the current [level]; [full] is what switching full control on
  * would add for an owner (empty while it is on); [never] what no level and no class reaches.
+ * [elevate]: a guest may be given full rights for a while here (core/RemoteElevate.kt).
  */
 @Serializable
 data class RemoteAccess(
     val level: String = LEVEL_BASIC,
     val guests: Boolean = true,
+    val elevate: Boolean = false,
     val guest: RemoteAccessClass = RemoteAccessClass(),
     val owner: RemoteAccessClass = RemoteAccessClass(),
     val full: RemoteAccessClass = RemoteAccessClass(),

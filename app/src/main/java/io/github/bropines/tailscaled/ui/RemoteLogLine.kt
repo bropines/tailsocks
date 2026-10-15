@@ -2,6 +2,8 @@ package io.github.bropines.tailscaled.ui
 
 import androidx.annotation.StringRes
 import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.RemoteDurationUnit
+import io.github.bropines.tailscaled.core.RemoteElevateLengths
 
 /*
  * Remote management, one line of "recent remote changes" in words: what a paired device did,
@@ -15,6 +17,7 @@ import io.github.bropines.tailscaled.R
 /** The log's lines that are something asked of this device, which can fail. */
 private val CAN_FAIL = setOf(
     "exit_node", "setting", "action", "file_deleted", "reverted", "share_added", "share_removed", "file_sent", "permission", "identify",
+    "elevate_asked",
 )
 
 /**
@@ -104,6 +107,28 @@ internal fun remoteEventLine(op: String, detail: String, ok: Boolean, text: (Int
         }
     }
 
+    // A length of full rights, as the bridge logs it in seconds: "1 h", or "until the pairing ends" for 0.
+    fun length(seconds: String): String {
+        val s = seconds.toLongOrNull() ?: return seconds
+        if (s == 0L) return text(R.string.remote_elevate_len_pairing)
+        val (count, unit) = RemoteElevateLengths.unit(s)
+        val pattern = when (unit) {
+            RemoteDurationUnit.DAYS -> R.string.remote_dur_days
+            RemoteDurationUnit.HOURS -> R.string.remote_dur_hours
+            RemoteDurationUnit.MINUTES -> R.string.remote_dur_minutes
+        }
+        return String.format(text(pattern), count.toInt())
+    }
+
+    // Full rights given for a length, with full control or not; asked for, with what came of the request; ended, and why.
+    fun elevated(): String =
+        filled(if (parts.value == "full") R.string.remote_log_elevated_full else R.string.remote_log_elevated, length(parts.name))
+
+    fun elevateAsked(): String =
+        noted(filled(R.string.remote_log_elevate_asked, length(parts.name)), parts.value?.let { word(it, words.results) })
+
+    fun elevationEnded(): String = words.elevationEnds[detail]?.let(text) ?: titled(R.string.remote_log_elevation_ended, detail)
+
     val line = when (op) {
         "paired" -> text(R.string.remote_op_paired)
         "pair_failed" -> text(R.string.remote_op_pair_failed)
@@ -138,6 +163,9 @@ internal fun remoteEventLine(op: String, detail: String, ok: Boolean, text: (Int
             "report" -> text(R.string.remote_log_diag_report)
             else -> titled(R.string.remote_log_diag, detail)
         }
+        "elevated" -> elevated()
+        "elevate_asked" -> remarked(elevateAsked(), parts.note)
+        "elevation_ended" -> elevationEnded()
         else -> op
     }
     return if (op in CAN_FAIL && !ok) "$line — ${text(R.string.remote_log_failed)}" else line

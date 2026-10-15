@@ -21,6 +21,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.ui.PermissionsActivity
+import io.github.bropines.tailscaled.ui.RemoteElevateActivity
 import io.github.bropines.tailscaled.ui.remoteEventLine
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -149,6 +150,11 @@ internal data class PendingAsk(val permission: AppPermission, val from: String, 
         if (alive(now) && !granted) RemoteDeviceAsked(id = permission.id, result = route.word, age = (now - at) / 1000) else null
 }
 
+/** A guest's request for full rights that waits for one of the app's screens, as a [PendingAsk] does. */
+internal data class PendingElevate(val nodeId: String, val from: String, val seconds: Long, val at: Long) {
+    fun alive(now: Long): Boolean = now - at in 0 until RemotePromptRules.ASK_WAITS_MS
+}
+
 /**
  * Whether one of the app's own screens is in front, counted from the activities' resumes and
  * pauses. An activity resumed before the watch began was never counted: until the first
@@ -182,11 +188,15 @@ object RemoteDevicePrompts {
     private const val CHANNEL_ID = "tailsocks_remote_requests"
     private const val NOTIF_ASK = 0x7E40
     private const val NOTIF_IDENTIFY = 0x7E41
+    private const val NOTIF_ELEVATE = 0x7E42
 
     private val lock = Any()
 
     /** The request that waits, one at most: a newer one takes its place. Guarded by [lock]. */
     private var pending: PendingAsk? = null
+
+    /** The same for a guest's request for full rights. Guarded by [lock]. */
+    private var pendingElevate: PendingElevate? = null
 
     /** When a change was last said. Guarded by [lock]. */
     private var noticeAt: Long? = null
@@ -267,6 +277,59 @@ object RemoteDevicePrompts {
             pending = null
         }
         cancel(context.applicationContext, NOTIF_ASK)
+    }
+
+    /**
+     * A guest, [from], asks for full rights for [seconds] (0: until its pairing ends): the question
+     * that gives them (RemoteElevateActivity) is put in front of whoever is at the device the way
+     * a permission's page is ([ask]) — at once where Android lets it, otherwise through a
+     * notification and a line in the bar, and when TailSocks is next opened within a few
+     * minutes. Nothing is given here: the question takes the device's lock.
+     */
+    fun elevateAsk(context: Context, nodeId: String, from: String, seconds: Long): RemoteAskRoute {
+        val app = context.applicationContext
+        watch(app)
+        val res = inAppLanguage(app)
+        val who = who(res, from)
+        val length = RemoteElevateText.length(res, seconds)
+        val canNotify = canNotify(app)
+        val onScreen = onScreen()
+        val question = RemoteElevateActivity.askIntent(app, nodeId, from, seconds)
+        var route = RemoteAskRoute.of(Build.VERSION.SDK_INT, onScreen, canNotify)
+        if (route == RemoteAskRoute.SHOWN && !app.tryStartActivity(question)) route = RemotePromptRules.below(route, canNotify)
+        synchronized(lock) {
+            pendingElevate = if (route == RemoteAskRoute.SHOWN) null else PendingElevate(nodeId, from, seconds, now())
+        }
+        if (route == RemoteAskRoute.NOTIFIED) {
+            notify(
+                app, res, NOTIF_ELEVATE,
+                title = res.getString(R.string.remote_elevate_title_asked, who),
+                text = res.getString(R.string.remote_elevate_ask_text, length),
+                staysMs = RemotePromptRules.ASK_WAITS_MS,
+                // The person's own press may start what the app may not.
+                tap = PendingIntent.getActivity(app, NOTIF_ELEVATE, question, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
+            )
+            say(
+                app, RemotePromptRules.said(route, onScreen, isTv(app)), RemoteDeviceNotice.Kind.ASK,
+                from = who,
+                text = res.getString(R.string.remote_notice_elevate_ask, length),
+                spoken = res.getString(R.string.remote_elevate_ask_toast, who, length),
+                staysMs = RemotePromptRules.IDENTIFY_BAR_MS,
+            )
+        } else {
+            cancel(app, NOTIF_ELEVATE)
+        }
+        Log.i(TAG, "A guest asks for full rights for ${seconds}s: ${route.word}")
+        return route
+    }
+
+    /** The question for [nodeId]'s request is in front of a person: it waits for nobody any more. */
+    fun elevateOpened(context: Context, nodeId: String) {
+        synchronized(lock) {
+            if (pendingElevate?.nodeId != nodeId) return
+            pendingElevate = null
+        }
+        cancel(context.applicationContext, NOTIF_ELEVATE)
     }
 
     /** Says "managed from [from]" for a few seconds. */
@@ -392,12 +455,22 @@ object RemoteDevicePrompts {
      */
     private fun resumed(activity: Activity) {
         screen.resumed()
+        resumedElevate(activity)
         val ask = synchronized(lock) { pending.also { pending = null } } ?: return
         val app = activity.applicationContext
         cancel(app, NOTIF_ASK)
         if (!ask.alive(now()) || granted(app, ask.permission)) return
         // Once the resume is through: this is called from the middle of it.
         main.post { app.tryStartActivity(PermissionsActivity.askIntent(app, ask.permission, ask.from)) }
+    }
+
+    /** The same for a guest's request for full rights: its question comes up once, while it is young. */
+    private fun resumedElevate(activity: Activity) {
+        val ask = synchronized(lock) { pendingElevate.also { pendingElevate = null } } ?: return
+        val app = activity.applicationContext
+        cancel(app, NOTIF_ELEVATE)
+        if (!ask.alive(now())) return
+        main.post { app.tryStartActivity(RemoteElevateActivity.askIntent(app, ask.nodeId, ask.from, ask.seconds)) }
     }
 
     private fun granted(app: Context, permission: AppPermission): Boolean =
@@ -452,7 +525,7 @@ object RemoteDevicePrompts {
     }
 
     /** [context] in the language picked in Settings; the application's own is in the system's (as in TaildropEvents). */
-    private fun inAppLanguage(context: Context): Context {
+    internal fun inAppLanguage(context: Context): Context {
         val lang = GlobalSettings.getString(context, "app_locale", "sys")
         if (lang == "sys") return context
         val config = Configuration(context.resources.configuration)

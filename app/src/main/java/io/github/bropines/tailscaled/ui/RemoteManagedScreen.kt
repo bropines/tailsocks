@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LockClock
 import androidx.compose.material.icons.filled.SettingsRemote
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -93,6 +94,9 @@ import io.github.bropines.tailscaled.core.RemoteAccessClass
 import io.github.bropines.tailscaled.core.RemoteAccessSetting
 import io.github.bropines.tailscaled.core.RemoteCode
 import io.github.bropines.tailscaled.core.RemoteDurationUnit
+import io.github.bropines.tailscaled.core.RemoteElevate
+import io.github.bropines.tailscaled.core.RemoteElevateText
+import io.github.bropines.tailscaled.core.RemoteElevationNotice
 import io.github.bropines.tailscaled.core.RemoteEvent
 import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemoteLevel
@@ -106,6 +110,7 @@ import io.github.bropines.tailscaled.core.RemoteState
 import io.github.bropines.tailscaled.core.remoteCodeGroups
 import io.github.bropines.tailscaled.core.remoteCountdown
 import io.github.bropines.tailscaled.core.remoteDuration
+import io.github.bropines.tailscaled.core.tryStartActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -122,10 +127,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /*
  * Remote management, the managed device's own screen (core/RemoteManage.kt, core/RemoteLevel.kt;
- * the bridge's appctr/remote.go is the model): the switch and the two that go with it — full
- * control, and guests let in or not — a pairing code to show, who is paired, what a paired
- * device may do and what they changed. A page, not an Activity — whoever owns the settings
- * shows it.
+ * the bridge's appctr/remote.go is the model): the switch and the three that go with it — full
+ * control, guests let in or not, and a guest given full rights for a while or not
+ * (core/RemoteElevate.kt) — a pairing code to show, who is paired, what a paired device may do
+ * and what they changed. A page, not an Activity — whoever owns the settings shows it.
  *
  * Made for a television first: every control is one stop for the remote and OK does its one
  * thing; nothing waits for a long press. An explanation that would be tapped open on a phone
@@ -151,6 +156,8 @@ enum class RemoteNotice {
     NO_FULL,
     /** Nor the one for guests. */
     NO_GUESTS,
+    /** Nor the one for a guest's full rights for a while. */
+    NO_ELEVATE,
 }
 
 /** Everything the screen draws. */
@@ -172,6 +179,8 @@ data class RemoteManagedUi(
     val fullControl: Boolean = false,
     /** Whether other people's devices may pair as guests, as stored on this device. */
     val guests: Boolean = true,
+    /** Whether a guest may be given full rights for a while here, as stored on this device (core/RemoteElevate.kt). */
+    val elevate: Boolean = true,
     /** What a paired device may do right now, as the bridge enforces it: it follows the two switches a moment later. */
     val access: RemoteAccess = RemoteAccess(),
     val accessOpen: Boolean = false,
@@ -182,6 +191,10 @@ interface RemoteManagedActions {
     fun setEnabled(on: Boolean)
     fun setFullControl(on: Boolean) {}
     fun setGuests(allowed: Boolean) {}
+    fun setElevate(allowed: Boolean) {}
+    /** Opens the question that gives [device] full rights for a while (RemoteElevateActivity). */
+    fun elevate(device: RemotePairedDevice) {}
+    fun takeBack(nodeId: String) {}
     /** A fresh code, replacing the one on show. */
     fun showCode()
     fun hideCode()
@@ -308,6 +321,19 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
                 change { if (RemoteLevel.setGuestsAllowed(context, allowed)) null else RemoteNotice.NO_GUESTS }
             }
 
+            override fun setElevate(allowed: Boolean) {
+                ui = ui.copy(elevate = allowed)
+                change { if (RemoteElevate.setAllowed(context, allowed)) null else RemoteNotice.NO_ELEVATE }
+            }
+
+            // The question, the lock and the grant are the activity's: the same as for a guest's request.
+            override fun elevate(device: RemotePairedDevice) {
+                context.tryStartActivity(RemoteElevateActivity.giveIntent(context, device.nodeId))
+            }
+
+            // Taken back at once; a write that has to be tried again is the state's "unsaved" line.
+            override fun takeBack(nodeId: String) = change { RemoteElevate.takeBack(context, nodeId); null }
+
             override fun showCode() = change {
                 if (RemoteJson.code(Appctr.remoteStartPairing()).ok) null else RemoteNotice.NO_CODE
             }
@@ -343,17 +369,21 @@ private fun readManaged(context: android.content.Context, before: RemoteManagedU
     val enabled = RemoteManage.isEnabled(context)
     val state = RemoteJson.state(Appctr.remoteStateJSON())
     val changed = lists || state.rev != before.state.rev
+    val devices = if (changed) RemoteJson.paired(Appctr.remotePairedJSON()) else before.devices
+    // The notification of full rights in force follows what the page reads: it is never behind the page.
+    if (changed) RemoteElevationNotice.show(context, RemoteElevate.elevations(devices))
     return RemoteManagedUi(
         enabled = enabled,
         state = state,
         reach = RemoteReach.of(enabled, state),
         tagged = if (changed) selfTagged() else before.tagged,
-        devices = if (changed) RemoteJson.paired(Appctr.remotePairedJSON()) else before.devices,
+        devices = devices,
         log = if (changed) RemoteJson.actions(Appctr.remoteActionsJSON()) else before.log,
         now = System.currentTimeMillis(),
         // The switches are files, read every time: a paired owner may have given full control up.
         fullControl = RemoteLevel.isFullControl(context),
         guests = RemoteLevel.guestsAllowed(context),
+        elevate = RemoteElevate.isAllowed(context),
         // The document is there with the service stopped as well, at the basic level.
         access = if (changed) RemoteAccess.of(Appctr.remoteAccessJSON()) else before.access,
     )
@@ -437,6 +467,17 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
             if (ui.notice == RemoteNotice.NO_FULL) NoticeLine(failed)
             SwitchCard(Icons.Default.Group, stringResource(R.string.remote_guests_title), guestsHelp(ui), ui.guests, actions::setGuests)
             if (ui.notice == RemoteNotice.NO_GUESTS) NoticeLine(failed)
+            // Full rights for a while are a guest's: without guests there is nobody to give them to.
+            if (ui.guests) {
+                SwitchCard(
+                    Icons.Default.LockClock,
+                    stringResource(R.string.remote_elevate_switch_title),
+                    stringResource(R.string.remote_elevate_switch_help),
+                    ui.elevate,
+                    actions::setElevate
+                )
+                if (ui.notice == RemoteNotice.NO_ELEVATE) NoticeLine(failed)
+            }
         }
     }
     // What one reads. Pairings outlive the switch: they are listed, and can be revoked, while it
@@ -444,7 +485,12 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
     val listed = ui.enabled || ui.devices.isNotEmpty()
     val hasSecond = listed || access.isNotEmpty()
     val second: @Composable ColumnScope.() -> Unit = {
-        if (listed) DevicesCard(ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true }, afterRows = afterRows)
+        if (listed) {
+            DevicesCard(
+                ui, onRevoke = actions::revoke, onRevokeAll = { confirmAll = true }, afterRows = afterRows,
+                onElevate = actions::elevate, onTakeBack = actions::takeBack,
+            )
+        }
         if (access.isNotEmpty()) AccessCard(access, ui.accessOpen, ui.accessNotApplied, actions::toggleAccess)
         if (listed) LogCard(ui.log, ui.logOpen, ui.now, actions::toggleLog)
     }
@@ -846,9 +892,20 @@ internal fun RemoteRoleTag(owner: Boolean, modifier: Modifier = Modifier, text: 
     }
 }
 
-/** Who may manage this device, each with its Revoke button in plain sight. */
+/**
+ * Who may manage this device, each with its Revoke button in plain sight — and a guest with
+ * its full rights for a while: how long they last and "Take the rights back", or the way to
+ * give them.
+ */
 @Composable
-private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevokeAll: () -> Unit, afterRows: FocusRequester) {
+private fun DevicesCard(
+    ui: RemoteManagedUi,
+    onRevoke: (String) -> Unit,
+    onRevokeAll: () -> Unit,
+    afterRows: FocusRequester,
+    onElevate: (RemotePairedDevice) -> Unit = {},
+    onTakeBack: (String) -> Unit = {},
+) {
     // A revoked device's row goes, and the button the remote was on with it: the next key would
     // start from the top of the page. The remote is handed to the row that took its place, and
     // from an emptied list to [afterRows].
@@ -895,9 +952,16 @@ private fun DevicesCard(ui: RemoteManagedUi, onRevoke: (String) -> Unit, onRevok
             key(device.nodeId) {
                 val stop = stops.getOrPut(device.nodeId) { FocusRequester() }
                 // A guest paired before guests were shut out keeps its place and is refused meanwhile.
+                val refused = !device.owner && !ui.guests
                 DeviceRow(
-                    device, ui.now, refused = !device.owner && !ui.guests, onRevoke = { onRevoke(device.nodeId) },
-                    revoke = Modifier.focusRequester(stop).stop(device.nodeId)
+                    device, ui.now, refused = refused, onRevoke = { onRevoke(device.nodeId) },
+                    revoke = Modifier.focusRequester(stop),
+                    // Full rights are a guest's, and given while the switch lets them be.
+                    elevate = !device.owner && !refused && ui.elevate,
+                    onElevate = { onElevate(device) },
+                    onTakeBack = { onTakeBack(device.nodeId) },
+                    // The row as one: the remote moving between its two buttons has not left it.
+                    modifier = Modifier.stop(device.nodeId),
                 )
                 Spacer(Modifier.height(8.dp))
             }
@@ -954,9 +1018,23 @@ internal fun remoteRowHeir(before: List<String>, after: List<String>, focused: S
     return if (next == null) RemoteRowHeir.Out else RemoteRowHeir.Row(next)
 }
 
-/** One paired device; [revoke] goes on its button, the row's one stop. */
+/**
+ * One paired device; [revoke] goes on its Revoke button. A guest's full rights for a while are a
+ * line under its name with "Take the rights back", and where [elevate] lets them be given and
+ * there are none, "Give full rights for a while…": a second stop of the row.
+ */
 @Composable
-private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, onRevoke: () -> Unit, revoke: Modifier = Modifier) {
+private fun DeviceRow(
+    device: RemotePairedDevice,
+    now: Long,
+    refused: Boolean,
+    onRevoke: () -> Unit,
+    revoke: Modifier = Modifier,
+    elevate: Boolean = false,
+    onElevate: () -> Unit = {},
+    onTakeBack: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val term = if (device.left < 0) stringResource(R.string.remote_paired_until_revoked)
     else stringResource(R.string.remote_paired_expires_in, remoteDurationText(device.left))
@@ -969,15 +1047,22 @@ private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, o
     // time was kept says nothing.
     val since = if (device.created > 0) stringResource(R.string.remote_paired_since, agoText(context, device.created * 1000, now)) else null
     val revokeLabel = stringResource(R.string.remote_revoke_named, device.name)
+    // Full rights in force, by this device's clock: "Full rights · until 18:30".
+    val rights = device.elevated?.takeIf { !device.owner }?.let { e ->
+        val until = remember(e.until) { RemoteElevateText.clock(context, e.until) }
+        stringResource(if (e.full) R.string.remote_elevate_row_full else R.string.remote_elevate_row, until)
+    }
+    // "Give" and "Take back" stand in one place: the remote on one is on the other once it is pressed.
+    val rightsStop = remember { FocusRequester() }
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(Modifier.padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Devices, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).keepsFocus(rights != null, rightsStop)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         device.name,
@@ -1003,6 +1088,23 @@ private fun DeviceRow(device: RemotePairedDevice, now: Long, refused: Boolean, o
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (rights != null) {
+                    Text(rights, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    val label = stringResource(R.string.remote_elevate_take_back_named, device.name)
+                    TextButton(
+                        onClick = onTakeBack,
+                        shape = MaterialTheme.shapes.medium,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.focusRequester(rightsStop).semantics { contentDescription = label }
+                    ) { Text(stringResource(R.string.remote_elevate_take_back)) }
+                } else if (elevate) {
+                    val label = stringResource(R.string.remote_elevate_give_named, device.name)
+                    TextButton(
+                        onClick = onElevate,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.focusRequester(rightsStop).semantics { contentDescription = label }
+                    ) { Text(stringResource(R.string.remote_elevate_give)) }
+                }
             }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(
@@ -1108,6 +1210,8 @@ internal object RemoteAccessWords {
     const val OP_SET = "settings.set"
     const val OP_ACTION = "action"
     const val OP_ASK = "permission.request"
+    /** A guest's request for full rights for a while: said by a line of its own, and never an owner's. */
+    const val OP_ELEVATE = "elevate.request"
     /** What a guarded change of the exit node is called in the log (the bridge's RemoteKeyExitNode). */
     const val KEY_EXIT_NODE = "exit_node"
 
@@ -1139,6 +1243,7 @@ internal object RemoteAccessWords {
         "shares.remove" to R.string.remote_can_shares_remove,
         "shares.add" to R.string.remote_can_shares_add,
         "storage.send" to R.string.remote_can_storage_send,
+        OP_ELEVATE to R.string.remote_can_elevate_request,
     )
 
     val settings: Map<String, Int> = mapOf(
@@ -1204,6 +1309,14 @@ internal object RemoteAccessWords {
     /** What a line of the log can say was changed: a setting, or the exit node. */
     val changed: Map<String, Int> = settings + (KEY_EXIT_NODE to R.string.remote_can_set_exit_node)
 
+    /** Why a guest's full rights ended, as the bridge logs it (remote_elevate.go, remoteElevateEnds). */
+    val elevationEnds: Map<String, Int> = mapOf(
+        "time" to R.string.remote_log_elevation_time,
+        "taken_back" to R.string.remote_log_elevation_taken_back,
+        "switch_off" to R.string.remote_log_elevation_switch_off,
+        "guests_off" to R.string.remote_log_elevation_guests_off,
+    )
+
     fun name(name: String, words: Map<String, Int>) = RemoteAccessName(name, words[name] ?: 0)
 }
 
@@ -1217,13 +1330,17 @@ internal object RemoteAccessWords {
  */
 internal fun remoteAccessGroups(access: RemoteAccess): List<RemoteAccessGroup> {
     val words = RemoteAccessWords
-    val guestOps = access.guest.ops
+    // Asking for full rights is a guest's line of its own: an owner has nothing to ask for.
+    val elevate = words.OP_ELEVATE in access.guest.ops
+    val guestOps = access.guest.ops - words.OP_ELEVATE
+    val ownerOps = access.owner.ops - words.OP_ELEVATE
     // With guests shut out a guest is nobody, whatever the list says a guest could do.
-    val guest = if (access.guests) classRows(access.guest, guestOps, ::settingRows)
-    else listOf(RemoteAccessRow(R.string.remote_access_guests_off))
-    val alike = access.guests && guestOps.isNotEmpty() && access.owner.ops.containsAll(guestOps)
+    val guest = if (access.guests) {
+        classRows(access.guest, guestOps, ::settingRows) + (if (elevate) listOf(RemoteAccessRow(R.string.remote_access_guest_elevate)) else emptyList())
+    } else listOf(RemoteAccessRow(R.string.remote_access_guests_off))
+    val alike = access.guests && guestOps.isNotEmpty() && ownerOps.containsAll(guestOps)
     val owner = (if (alike) listOf(RemoteAccessRow(R.string.remote_access_like_guest)) else emptyList()) +
-        classRows(access.owner, if (alike) access.owner.ops - guestOps.toSet() else access.owner.ops, ::settingRows)
+        classRows(access.owner, if (alike) ownerOps - guestOps.toSet() else ownerOps, ::settingRows)
     // What full control opens of a setting is turning it on: off was the owner's already.
     val full = classRows(access.full, access.full.ops) { settings ->
         listOf(RemoteAccessRow(R.string.remote_access_set_with_full, settings.map { words.name(it.key, words.settings) }))

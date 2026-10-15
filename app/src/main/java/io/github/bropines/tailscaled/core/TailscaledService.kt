@@ -2071,6 +2071,8 @@ class TailscaledService : Service() {
             // Its two other switches: what a paired owner may do beyond the basics, and guests.
             remoteFullControl = RemoteLevel.isFullControl(this@TailscaledService)
             remoteNoGuests = !RemoteLevel.guestsAllowed(this@TailscaledService)
+            // And whether a guest may be given full rights for a while (RemoteElevate).
+            remoteNoElevation = !RemoteElevate.isAllowed(this@TailscaledService)
 
             // The bridge parses extraUpArgs as `tailscale up`-style flags and folds
             // the result into the same prefs PATCH syncSettings sends, after the
