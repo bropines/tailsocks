@@ -125,7 +125,9 @@
     "storage_file",
     "share_add",
     "share_remove",
-    "diag_report"
+    "diag_report",
+    "elevate_ask",
+    "elevations"
   ],
   "routes": [
     "GET /v1/hello",
@@ -147,7 +149,8 @@
     "POST /v1/storage/list",
     "POST /v1/storage/send",
     "GET /v1/diag/report",
-    "GET /v1/diag/log"
+    "GET /v1/diag/log",
+    "POST /v1/elevate/request"
   ],
   "ops": [
     {
@@ -230,6 +233,10 @@
       "op": "diag.log",
       "class": "owner",
       "full": true
+    },
+    {
+      "op": "elevate.request",
+      "class": "guest"
     }
   ],
   "caps": [
@@ -247,7 +254,8 @@
     "storage",
     "shares",
     "advertise",
-    "diag"
+    "diag",
+    "elevate"
   ],
   "never": [
     "stop",
@@ -283,5 +291,17 @@
     "file_outside_storage"
   ],
   "guardSeconds": 60,
-  "guardSettle": 5
+  "guardSettle": 5,
+  "elevateSeconds": [
+    900,
+    3600,
+    28800,
+    0
+  ],
+  "elevateEnds": [
+    "time",
+    "taken_back",
+    "switch_off",
+    "guests_off"
+  ]
 }

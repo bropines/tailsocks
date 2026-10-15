@@ -233,6 +233,10 @@ type StartOptions struct {
 	// RemoteNoGuests keeps devices that cannot be owners from pairing and
 	// from using a pairing they have. The zero value lets them in as guests.
 	RemoteNoGuests bool
+	// RemoteNoElevation keeps a person at the device from giving a guest full
+	// rights for a while, and ends those in force (remote_elevate.go). The
+	// zero value lets them be given.
+	RemoteNoElevation bool
 }
 
 func SetLogLevel(level int32) {

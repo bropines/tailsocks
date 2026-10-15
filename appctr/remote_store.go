@@ -99,6 +99,26 @@ type remotePairing struct {
 	Boot         string `json:"boot,omitempty"`
 	BootDeadline int64  `json:"bootDeadline,omitempty"`
 	Left         int64  `json:"left,omitempty"`
+	// Elevation is a guest's full rights for a while, given at the device
+	// (remote_elevate.go); nil when it has none.
+	Elevation *remoteElevation `json:"elevation,omitempty"`
+}
+
+// remoteElevation is how long a guest's full rights last, kept the way a
+// pairing's deadline is (see the note at the top) and by the wall clock as
+// well: Granted and Seconds say when they were given and for how long, so they
+// end at Granted+Seconds, and a clock set back never makes them last longer
+// than Seconds. Whichever of the two ends first ends them.
+type remoteElevation struct {
+	// Granted is Unix seconds on the wall clock; Seconds the length given.
+	Granted int64 `json:"granted"`
+	Seconds int64 `json:"seconds"`
+	// Full: the full-control tier is part of them, whatever the device's own
+	// switch says.
+	Full         bool   `json:"full,omitempty"`
+	Boot         string `json:"boot,omitempty"`
+	BootDeadline int64  `json:"bootDeadline,omitempty"`
+	Left         int64  `json:"left,omitempty"`
 }
 
 // remoteEvent is one line of the action log.
@@ -193,6 +213,11 @@ func (s *remoteStore) decode(raw []byte) error {
 			continue
 		}
 		seen[p.NodeID] = true
+		if e := p.Elevation; e != nil && (remoteClassOf(p.Class) != remoteGuest || e.Seconds <= 0 || e.Seconds > int64(remoteElevateMax/time.Second)) {
+			// Full rights are a guest's, for a day at most: anything else is
+			// not what this device gave.
+			p.Elevation = nil
+		}
 		p.Name = remoteClean(p.Name, 64)
 		p.Login = remoteClean(p.Login, 128)
 		kept = append(kept, p)
@@ -220,6 +245,16 @@ func (s *remoteStore) rebase() {
 	upSec := int64(up / time.Second)
 	for i := range s.data.Pairings {
 		p := &s.data.Pairings[i]
+		if e := p.Elevation; e != nil && e.Boot != boot {
+			left := remoteElevationWallLeft(e, now)
+			if left > e.Left {
+				left = e.Left
+			}
+			if left < 0 {
+				left = 0
+			}
+			e.Boot, e.BootDeadline, e.Left = boot, upSec+left, left
+		}
 		if p.Expires == 0 || p.Boot == boot {
 			continue
 		}
@@ -234,6 +269,45 @@ func (s *remoteStore) rebase() {
 		p.BootDeadline = upSec + left
 		p.Left = left
 	}
+}
+
+// remoteElevationWallLeft is what e has left by the wall clock alone: never
+// more than its length, whatever the clock says.
+func remoteElevationWallLeft(e *remoteElevation, now int64) int64 {
+	left := e.Granted + e.Seconds - now
+	if left > e.Seconds {
+		left = e.Seconds
+	}
+	return left
+}
+
+// elevate gives p full rights for seconds from now, in place of any it had.
+func (s *remoteStore) elevate(p *remotePairing, seconds int64, full bool) {
+	boot, up := s.clock.Boot()
+	p.Elevation = &remoteElevation{
+		Granted: s.clock.Now().Unix(), Seconds: seconds, Full: full,
+		Boot: boot, BootDeadline: int64(up/time.Second) + seconds, Left: seconds,
+	}
+}
+
+// elevationLeft is the seconds e has left — the earlier of the boot-time
+// deadline and the wall clock's — and 0 when it is over or there is none.
+func (s *remoteStore) elevationLeft(e *remoteElevation) int64 {
+	if e == nil {
+		return 0
+	}
+	boot, up := s.clock.Boot()
+	if e.Boot != boot {
+		s.rebase()
+	}
+	left := e.BootDeadline - int64(up/time.Second)
+	if wall := remoteElevationWallLeft(e, s.clock.Now().Unix()); wall < left {
+		left = wall
+	}
+	if left < 0 {
+		left = 0
+	}
+	return left
 }
 
 // arm gives p a lifetime of ttl from now; 0 is until revoked.
@@ -340,8 +414,12 @@ func (s *remoteStore) save(mustLand bool) error {
 	_, up := s.clock.Boot()
 	s.triedAt = up
 	for i := range s.data.Pairings {
-		if p := &s.data.Pairings[i]; p.Expires != 0 {
+		p := &s.data.Pairings[i]
+		if p.Expires != 0 {
 			p.Left = s.left(p)
+		}
+		if e := p.Elevation; e != nil {
+			e.Left = s.elevationLeft(e)
 		}
 	}
 	if s.data.Pairings == nil {

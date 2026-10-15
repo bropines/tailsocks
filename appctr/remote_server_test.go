@@ -74,6 +74,12 @@ type rtAllowList struct {
 	// The guard's two knobs, in seconds.
 	GuardSeconds int64 `json:"guardSeconds"`
 	GuardSettle  int64 `json:"guardSettle"`
+	// What full rights for a while may be given and asked for, in seconds (0:
+	// until the pairing ends), and every reason their end is logged under:
+	// the app has a choice for each length and words for each reason
+	// (remote_elevate.go).
+	ElevateSeconds []int64  `json:"elevateSeconds"`
+	ElevateEnds    []string `json:"elevateEnds"`
 }
 
 type rtAllowedSetting struct {
@@ -103,17 +109,19 @@ func rtSortedKeys(m map[string]bool) []string {
 func rtCurrentAllowList() rtAllowList {
 	p := remoteDefaultPolicy()
 	l := rtAllowList{
-		Actions:      append([]string(nil), remoteActions...),
-		Permissions:  append([]string(nil), remotePermissions...),
-		AskResults:   rtSortedKeys(remoteAskResults),
-		Identify:     rtSortedKeys(remoteIdentifyResults),
-		Requests:     append([]string(nil), remoteRequests...),
-		Caps:         append([]string(nil), remoteCaps...),
-		Never:        append([]string(nil), remoteNever...),
-		Notices:      rtSortedKeys(remoteNoticeOps),
-		Denials:      append([]string(nil), remoteDenialNames[:]...),
-		GuardSeconds: int64(p.GuardTTL / time.Second),
-		GuardSettle:  int64(p.GuardSettle / time.Second),
+		Actions:        append([]string(nil), remoteActions...),
+		Permissions:    append([]string(nil), remotePermissions...),
+		AskResults:     rtSortedKeys(remoteAskResults),
+		Identify:       rtSortedKeys(remoteIdentifyResults),
+		Requests:       append([]string(nil), remoteRequests...),
+		Caps:           append([]string(nil), remoteCaps...),
+		Never:          append([]string(nil), remoteNever...),
+		Notices:        rtSortedKeys(remoteNoticeOps),
+		Denials:        append([]string(nil), remoteDenialNames[:]...),
+		GuardSeconds:   int64(p.GuardTTL / time.Second),
+		GuardSettle:    int64(p.GuardSettle / time.Second),
+		ElevateSeconds: append([]int64(nil), remoteElevateLengths...),
+		ElevateEnds:    append([]string(nil), remoteElevateEnds...),
 	}
 	for _, s := range remoteSettings {
 		l.Settings = append(l.Settings, rtAllowedSetting{Key: s.key, Kind: s.kind, Writable: s.writable, Only: s.only, Full: s.full, Guard: s.guard})
@@ -343,7 +351,7 @@ func TestRemoteAllowListContents(t *testing.T) {
 	want := "GET /v1/hello,POST /v1/pair,POST /v1/unpair,GET /v1/status,GET /v1/exit-nodes,POST /v1/exit-node," +
 		"GET /v1/settings,POST /v1/settings,POST /v1/actions,GET /v1/files,POST /v1/files/delete,POST /v1/permissions/request," +
 		"POST /v1/confirm,POST /v1/identify,POST /v1/shares/remove,POST /v1/shares/add,POST /v1/storage/list,POST /v1/storage/send," +
-		"GET /v1/diag/report,GET /v1/diag/log"
+		"GET /v1/diag/report,GET /v1/diag/log,POST /v1/elevate/request"
 	if got := strings.Join(paths, ","); got != want {
 		t.Errorf("routes:\n got %s\nwant %s", got, want)
 	}

@@ -326,6 +326,8 @@ type remoteFakeApp struct {
 	answers  map[string]string
 	refusals map[string]string
 	notices  []string
+	// elevations are the lists of full rights in force it was told of.
+	elevations []string
 	// blockOnly narrows a hang to the calls that start with it.
 	blockOnly string
 }
@@ -444,6 +446,13 @@ func (a *remoteFakeApp) Request(name, args string) (string, error) {
 		// test counts, and never held up.
 		a.mu.Lock()
 		a.notices = append(a.notices, args)
+		a.mu.Unlock()
+		return "", nil
+	}
+	if name == remoteRequestElevations {
+		// The same: told after the fact, on a thread of its own.
+		a.mu.Lock()
+		a.elevations = append(a.elevations, args)
 		a.mu.Unlock()
 		return "", nil
 	}

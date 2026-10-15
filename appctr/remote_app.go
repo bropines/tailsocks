@@ -47,6 +47,12 @@ import (
 //	share_add       {"name","path"}                 ""
 //	share_remove    {"name"}                        ""
 //	diag_report     ""                              the diagnostics report, text
+//	elevate_ask     {"from","nodeId","seconds"}     "shown" | "notified" | "waiting"
+//	elevations      {"elevations":[{"nodeId","name","left","until","seconds","full"}]}   ""
+//
+// elevate_ask puts a guest's request for full rights in front of the person at
+// the device, and elevations tells the app which full rights are in force after
+// they changed here (remote_elevate.go).
 //
 // A refusal is a thrown error whose message is for a person, except two words
 // the bridge turns into its own answers: "not_found" and "forbidden".
@@ -60,6 +66,8 @@ const (
 	remoteRequestShareAdd    = "share_add"
 	remoteRequestShareRemove = "share_remove"
 	remoteRequestDiagReport  = "diag_report"
+	remoteRequestElevateAsk  = "elevate_ask"
+	remoteRequestElevations  = "elevations"
 )
 
 // remoteRequests is all of them, for the tests that hold the two halves to
@@ -67,6 +75,7 @@ const (
 var remoteRequests = []string{
 	remoteRequestReport, remoteRequestAsk, remoteRequestIdentify, remoteRequestNotice, remoteRequestStorageList,
 	remoteRequestStorageFile, remoteRequestShareAdd, remoteRequestShareRemove, remoteRequestDiagReport,
+	remoteRequestElevateAsk, remoteRequestElevations,
 }
 
 const (

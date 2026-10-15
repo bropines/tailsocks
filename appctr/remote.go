@@ -148,7 +148,9 @@ package appctr
 //	  nothing of the full level whatever the switch says, sees no path of a
 //	  shared folder, cannot ask for a permission, and with the device's "no
 //	  guests" switch on is nobody: not to pair, and not with the pairing it
-//	  has.
+//	  has. It can ask for an owner's rights for a while; a person at the
+//	  device gives them, by unlocking it, or does not (remote_elevate.go).
+//	  Given, they are exactly an owner's, and end on their own.
 //
 //	A compromised node elsewhere in the tailnet
 //	  is a tailnet member who was never paired, and cannot arrive as a paired
@@ -367,6 +369,8 @@ type remoteManager struct {
 	perNode *remoteLimiter // per calling node
 	pairs   *remoteLimiter // pairing attempts per calling node
 	asks    *remoteLimiter // requests for a permission's page per calling node
+	// elevateAsks: a guest's requests for full rights (remote_elevate.go).
+	elevateAsks *remoteLimiter
 
 	// delegateSlot serialises calls into the app; delegateWait is how long a
 	// request waits for its turn and delegateAnswer how long for the answer of
@@ -406,6 +410,11 @@ type remoteManager struct {
 	// the main one (remote_level.go).
 	full     bool
 	noGuests bool
+	// noElevate is the switch that keeps guests from being given full rights
+	// for a while; elevateTimer goes off when the next of those ends
+	// (remote_elevate.go).
+	noElevate    bool
+	elevateTimer *time.Timer
 	// guard is the change that waits for its confirmation, if one does;
 	// guarding serialises the making of such changes (remote_guard.go).
 	guard    *remoteGuard
@@ -433,6 +442,7 @@ func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI
 		perNode:        newRemoteLimiter(8, 24),
 		pairs:          newRemoteLimiter(1, 3),
 		asks:           newRemoteLimiter(remoteAskRate, remoteAskBurst),
+		elevateAsks:    newRemoteLimiter(remoteElevateAskRate, remoteElevateAskBurst),
 		delegateSlot:   make(chan struct{}, 1),
 		delegateWait:   remoteDelegateWait,
 		delegateAnswer: remoteDelegateAnswer,
@@ -516,10 +526,12 @@ func remoteApply(opt *StartOptions) {
 		return
 	}
 	remote.setAccess(opt.RemoteFullControl, opt.RemoteNoGuests)
+	remote.setElevation(!opt.RemoteNoElevation)
 	remote.apply(opt.RemoteManagement, remoteStorePath(opt), remoteListenAddr())
 	// A guarded change left over from an earlier run of the app was never
-	// confirmed (remote_guard.go).
+	// confirmed (remote_guard.go); full rights given before may be over.
 	go remote.guardTick()
+	go remote.elevationTick()
 }
 
 // remoteSwitch follows the switch alone, for settings applied to a daemon that
@@ -531,6 +543,7 @@ func remoteSwitch(opt *StartOptions) {
 		return
 	}
 	remote.setAccess(opt.RemoteFullControl, opt.RemoteNoGuests)
+	remote.setElevation(!opt.RemoteNoElevation)
 	remote.apply(opt.RemoteManagement, "", remoteListenAddr())
 }
 
@@ -953,11 +966,16 @@ type remotePairedView struct {
 	// Expires is the same as a Unix time, 0 for "until revoked".
 	Left    int64 `json:"left"`
 	Expires int64 `json:"expires"`
+	// Elevated is a guest's full rights in force (remote_elevate.go): the
+	// seconds they have left, their end, their length, and whether the
+	// full-control tier is part of them. Absent otherwise.
+	Elevated *remoteElevatedView `json:"elevated,omitempty"`
 }
 
 // RemotePairedJSON lists the devices that may manage this one, oldest first:
-// [{"nodeId","name","login","class","created","lastUsed","left","expires"}].
-// Expired pairings are dropped before the list is made.
+// [{"nodeId","name","login","class","created","lastUsed","left","expires",
+// "elevated":{"left","until","seconds","full"}}]. Expired pairings and full
+// rights that are over are dropped before the list is made.
 func RemotePairedJSON() string { return remoteReply(remote.paired()) }
 
 func (m *remoteManager) paired() []remotePairedView {
@@ -974,6 +992,7 @@ func (m *remoteManager) paired() []remotePairedView {
 		v := remotePairedView{
 			NodeID: p.NodeID, Name: p.Name, Login: p.Login, Class: p.Class,
 			Created: p.Created, LastUsed: p.LastUsed, Left: m.store.left(p),
+			Elevated: m.elevatedViewLocked(p, false),
 		}
 		if v.Left >= 0 {
 			v.Expires = now + v.Left
@@ -1011,9 +1030,14 @@ func (m *remoteManager) revoke(nodeID string) remoteRevoked {
 		return remoteRevoked{Error: "not_paired"}
 	}
 	ev := remoteEvent{NodeID: p.NodeID, Name: p.Name, Class: p.Class, Op: "revoked", OK: true}
+	elevated := p.Elevation != nil
 	m.store.remove(nodeID)
 	m.auditLocked(ev)
 	slog.Info("Remote management: pairing revoked", "device", ev.Name, "node", ev.NodeID)
+	if elevated {
+		// Its full rights went with it.
+		m.tellElevations()
+	}
 	if !m.saveRemovalLocked() {
 		return remoteRevoked{Removed: 1, Error: "not_saved"}
 	}
@@ -1033,6 +1057,9 @@ func (m *remoteManager) revokeAll() remoteRevoked {
 	n := len(m.store.data.Pairings)
 	if n == 0 && !m.store.owed {
 		return remoteRevoked{OK: true}
+	}
+	if m.anyElevationLocked() {
+		m.tellElevations()
 	}
 	m.store.data.Pairings = nil
 	if n > 0 {
@@ -1127,12 +1154,34 @@ func (m *remoteManager) expireLocked() {
 			m.rev++
 		}
 	}
+	// Full rights first: they end no later than their pairing, and say so.
+	ended := m.endElevationsLocked()
 	gone := m.store.expire()
 	for _, p := range gone {
 		m.auditLocked(remoteEvent{NodeID: p.NodeID, Name: p.Name, Class: p.Class, Op: "expired", OK: true})
 		slog.Info("Remote management: pairing expired", "device", p.Name, "node", p.NodeID)
+		if p.Elevation != nil {
+			ended++
+		}
 	}
-	if len(gone) > 0 {
+	if len(gone) > 0 || ended > 0 {
 		m.saveRemovalLocked()
 	}
+	if ended > 0 {
+		m.tellElevations()
+	}
+}
+
+// anyElevationLocked reports whether a pairing holds full rights, in force or
+// not yet swept. Caller holds m.mu.
+func (m *remoteManager) anyElevationLocked() bool {
+	if m.store == nil {
+		return false
+	}
+	for i := range m.store.data.Pairings {
+		if m.store.data.Pairings[i].Elevation != nil {
+			return true
+		}
+	}
+	return false
 }

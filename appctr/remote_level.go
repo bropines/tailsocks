@@ -13,16 +13,22 @@ package appctr
 // which the app fills from a file of its own, and the one thing a paired
 // device can do to it is switch it off (the setting full_control, off only).
 //
-// A third switch there keeps guests out altogether.
+// A third switch there keeps guests out altogether, and a fourth lets a person
+// at the device give one guest an owner's rights for a while
+// (remote_elevate.go).
 
 import "strings"
 
-// setAccess records the two switches.
+// setAccess records the two switches. Shutting guests out ends the full rights
+// a guest was given for a while (remote_elevate.go).
 func (m *remoteManager) setAccess(full, noGuests bool) {
 	m.mu.Lock()
 	if m.full != full || m.noGuests != noGuests {
 		m.full, m.noGuests = full, noGuests
 		m.rev++
+		if noGuests {
+			m.expireLocked()
+		}
 	}
 	m.mu.Unlock()
 }
@@ -53,13 +59,16 @@ func (m *remoteManager) guestsAllowedLocked() bool {
 	return m.policy.AllowGuests && !m.noGuests
 }
 
-// may reports whether a caller of this class may use op right now; when it
-// may not, needsFull says that full control is all that is missing.
-func (m *remoteManager) may(op string, class remoteClass) (ok, needsFull bool) {
+// may reports whether a caller of this class, with the full-control tier open
+// to it or not, may use op right now; when it may not, needsFull says that
+// full control is all that is missing. The tier is open where the device's
+// switch is on, and to a guest whose full rights include it
+// (remote_elevate.go).
+func (m *remoteManager) may(op string, class remoteClass, full bool) (ok, needsFull bool) {
 	if !m.policy.allows(op, class) {
 		return false, false
 	}
-	if m.policy.Full[op] && !m.fullControl() {
+	if m.policy.Full[op] && !full {
 		return false, true
 	}
 	return true, false
@@ -67,8 +76,7 @@ func (m *remoteManager) may(op string, class remoteClass) (ok, needsFull bool) {
 
 // can lists the operations a caller of this class may use right now, in the
 // order of remoteOps.
-func (m *remoteManager) can(class remoteClass) []string {
-	full := m.fullControl()
+func (m *remoteManager) can(class remoteClass, full bool) []string {
 	out := []string{}
 	for _, op := range remoteOps {
 		if m.policy.allows(op, class) && (full || !m.policy.Full[op]) {
@@ -82,8 +90,10 @@ func (m *remoteManager) can(class remoteClass) []string {
 // full level and not at this one.
 var remoteNeedsFull = remoteError{Error: "needs_full", Message: "full control is off on this device"}
 
-func (m *remoteManager) level() string {
-	if m.fullControl() {
+// remoteLevel is the level a caller is at: "full" where the full-control tier
+// is open to it, "basic" otherwise.
+func remoteLevel(full bool) string {
+	if full {
 		return "full"
 	}
 	return "basic"
@@ -93,7 +103,7 @@ func (m *remoteManager) level() string {
 // from the lists the endpoint itself enforces — for the device's own page, so
 // that what it tells its user cannot drift from what is done:
 //
-//	{"level":"basic"|"full","guests":true,
+//	{"level":"basic"|"full","guests":true,"elevate":true,
 //	 "guest":{"ops":[…]},
 //	 "owner":{"ops":[…],"settings":[{"key","only","needs","guard"}],"actions":[…],"permissions":[…]},
 //	 "full":{"ops":[…],"settings":[…]},
@@ -103,7 +113,10 @@ func (m *remoteManager) level() string {
 // control on would add for an owner (empty while it is on). A setting's "only"
 // is the one value that may be written from afar, "needs":"full" marks one
 // whose other value takes full control, "guard" one that is put back unless
-// confirmed. "never" names what no level and no class reaches.
+// confirmed. "never" names what no level and no class reaches. "elevate" says
+// that a guest may be given full rights for a while here (remote_elevate.go);
+// asking for them is among a guest's operations then, and never an owner's,
+// who has nothing to ask for.
 func RemoteAccessJSON() string { return remoteReply(remote.access()) }
 
 type remoteAccessSetting struct {
@@ -121,12 +134,13 @@ type remoteAccessClass struct {
 }
 
 type remoteAccessView struct {
-	Level  string            `json:"level"`
-	Guests bool              `json:"guests"`
-	Guest  remoteAccessClass `json:"guest"`
-	Owner  remoteAccessClass `json:"owner"`
-	Full   remoteAccessClass `json:"full"`
-	Never  []string          `json:"never"`
+	Level   string            `json:"level"`
+	Guests  bool              `json:"guests"`
+	Elevate bool              `json:"elevate"`
+	Guest   remoteAccessClass `json:"guest"`
+	Owner   remoteAccessClass `json:"owner"`
+	Full    remoteAccessClass `json:"full"`
+	Never   []string          `json:"never"`
 }
 
 // remoteNever is what stays on the device whatever the level and the class,
@@ -135,15 +149,16 @@ var remoteNever = []string{"stop", "sign_out", "account", "credentials", "contro
 
 func (m *remoteManager) access() remoteAccessView {
 	m.mu.Lock()
-	full, guests := m.full, m.guestsAllowedLocked()
+	full, guests, elevate := m.full, m.guestsAllowedLocked(), m.elevationAllowedLocked()
 	m.mu.Unlock()
-	v := remoteAccessView{Level: "basic", Guests: guests, Never: remoteNever}
-	if full {
-		v.Level = "full"
-	}
+	v := remoteAccessView{Level: remoteLevel(full), Guests: guests, Elevate: elevate, Never: remoteNever}
 	v.Guest.Ops, v.Owner.Ops, v.Full.Ops = []string{}, []string{}, []string{}
 	for _, op := range remoteOps {
 		switch {
+		case op == remoteOpElevateAsk:
+			if elevate {
+				v.Guest.Ops = append(v.Guest.Ops, op)
+			}
 		case m.policy.Full[op] && !full:
 			if m.policy.allows(op, remoteOwner) {
 				v.Full.Ops = append(v.Full.Ops, op)

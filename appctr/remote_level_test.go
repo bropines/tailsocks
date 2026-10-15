@@ -83,7 +83,7 @@ func TestRemoteLevels(t *testing.T) {
 	}
 	gst := r.call(rtFriend, "GET", "/v1/status", guest, nil)
 	gcan := rtStrings(gst.obj["you"].(map[string]any)["can"])
-	if got := strings.Join(gcan, ","); got != "status,exit_nodes,exit_node.set,settings,files,unpair,confirm,identify" {
+	if got := strings.Join(gcan, ","); got != "status,exit_nodes,exit_node.set,settings,files,unpair,confirm,identify,elevate.request" {
 		t.Errorf("a guest can %s", got)
 	}
 
@@ -121,7 +121,7 @@ func TestRemoteLevels(t *testing.T) {
 	r.m.setAccess(true, false)
 	st = r.call(rtPhone, "GET", "/v1/status", owner, nil)
 	can = rtStrings(st.obj["you"].(map[string]any)["can"])
-	if st.str("level") != "full" || strings.Join(can, ",") != strings.Join(remoteOps, ",") {
+	if st.str("level") != "full" || strings.Join(can, ",") != strings.Join(rtOwnerOps(), ",") {
 		t.Errorf("an owner at the full level: %q can %v", st.str("level"), can)
 	}
 	gst = r.call(rtFriend, "GET", "/v1/status", guest, nil)
@@ -282,7 +282,7 @@ func TestRemoteAccess(t *testing.T) {
 	if v.Level != "basic" || !v.Guests {
 		t.Errorf("access: %+v", v)
 	}
-	if got := strings.Join(v.Guest.Ops, ","); got != "status,exit_nodes,exit_node.set,settings,files,unpair,confirm,identify" {
+	if got := strings.Join(v.Guest.Ops, ","); got != "status,exit_nodes,exit_node.set,settings,files,unpair,confirm,identify,elevate.request" {
 		t.Errorf("a guest's operations: %s", got)
 	}
 	if got := strings.Join(v.Full.Ops, ","); got != "shares.add,storage.list,storage.send,diag.report,diag.log" {
@@ -293,7 +293,7 @@ func TestRemoteAccess(t *testing.T) {
 			t.Errorf("%s is listed at the basic level", op)
 		}
 	}
-	if len(v.Owner.Ops)+len(v.Full.Ops) != len(remoteOps) {
+	if len(v.Owner.Ops)+len(v.Full.Ops) != len(rtOwnerOps()) {
 		t.Errorf("an owner's operations: %v + %v", v.Owner.Ops, v.Full.Ops)
 	}
 	settings := map[string]remoteAccessSetting{}
@@ -330,7 +330,7 @@ func TestRemoteAccess(t *testing.T) {
 
 	r.m.setAccess(true, true)
 	v = r.m.access()
-	if v.Level != "full" || v.Guests || len(v.Full.Ops) != 0 || len(v.Full.Settings) != 0 || len(v.Owner.Ops) != len(remoteOps) {
+	if v.Level != "full" || v.Guests || len(v.Full.Ops) != 0 || len(v.Full.Settings) != 0 || len(v.Owner.Ops) != len(rtOwnerOps()) {
 		t.Errorf("access at the full level: %+v", v)
 	}
 	for _, s := range v.Owner.Settings {

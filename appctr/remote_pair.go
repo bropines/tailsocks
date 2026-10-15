@@ -281,6 +281,11 @@ func (m *remoteManager) pair(c remoteCaller, self remoteSelf, code string) (int,
 	m.spent, m.window = w, nil
 	m.outcome = &remoteOutcome{Result: "paired", Time: p.Created, Name: c.Name, Login: c.Login, NodeID: c.NodeID, Class: p.Class}
 	m.rev++
+	if before != nil && before.Elevation != nil {
+		// A new pairing starts as what it is: full rights given to the old one
+		// went with it.
+		m.tellElevations()
+	}
 	slog.Info("Remote management: paired", "device", c.Name, "node", c.NodeID, "class", p.Class)
 
 	res := remotePaired{Token: token, Class: p.Class, Left: m.store.left(m.store.find(c.NodeID)), NodeID: self.NodeID, Name: self.Name}
@@ -312,6 +317,9 @@ func (m *remoteManager) adoptSelfLocked(self remoteSelf) {
 	}
 	if m.store.data.Self != "" && len(m.store.data.Pairings) > 0 {
 		n := len(m.store.data.Pairings)
+		if m.anyElevationLocked() {
+			m.tellElevations()
+		}
 		m.store.data.Pairings = nil
 		m.auditLocked(remoteEvent{Op: "reset", Detail: "this device joined as another node; its pairings were removed"})
 		slog.Warn("Remote management: this node's identity changed, pairings removed", "count", n)

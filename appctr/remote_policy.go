@@ -17,6 +17,10 @@ package appctr
 //     a network or shows what is on it, and is the owner's only;
 //   - the name: an operation, a setting, an action or a permission that is not
 //     on its list here does not exist.
+//
+// A guest can be an owner for a while: full rights, given to that one pairing
+// by a person at the device who unlocks it (remote_elevate.go). Nothing on
+// these lists grows for it.
 
 import "time"
 
@@ -64,6 +68,10 @@ type remotePolicy struct {
 	// shared in from another tailnet — pair at all, as guests. The device's
 	// own "no guests" switch can only take this away (remote_level.go).
 	AllowGuests bool
+	// AllowElevation lets a person at the device give a guest an owner's
+	// rights for a while (remote_elevate.go). The device's own switch can only
+	// take this away.
+	AllowElevation bool
 	// CodeTTL and CodeAttempts bound one pairing code.
 	CodeTTL      time.Duration
 	CodeAttempts int
@@ -115,6 +123,10 @@ const (
 	// The diagnostics report and the tail of the log (remote_diag.go).
 	remoteOpDiagReport = "diag.report"
 	remoteOpDiagLog    = "diag.log"
+	// Asking the person at the device for full rights for a while
+	// (remote_elevate.go): a guest's, while it has none and the device gives
+	// them. Asking grants nothing.
+	remoteOpElevateAsk = "elevate.request"
 )
 
 // remoteOps is every operation, in the order a status answer lists the ones a
@@ -123,17 +135,18 @@ var remoteOps = []string{
 	remoteOpStatus, remoteOpExitNodes, remoteOpSetExitNode, remoteOpSettings, remoteOpSetSetting, remoteOpAction,
 	remoteOpFiles, remoteOpDeleteFile, remoteOpUnpair, remoteOpAskPermission, remoteOpFolders, remoteOpConfirm,
 	remoteOpIdentify, remoteOpSharesRemove, remoteOpSharesAdd, remoteOpStorageList, remoteOpStorageSend,
-	remoteOpDiagReport, remoteOpDiagLog,
+	remoteOpDiagReport, remoteOpDiagLog, remoteOpElevateAsk,
 }
 
 func remoteDefaultPolicy() remotePolicy {
 	return remotePolicy{
-		AllowGuests:  true,
-		CodeTTL:      10 * time.Minute,
-		CodeAttempts: 5,
-		GuestTTL:     24 * time.Hour,
-		OwnerTTL:     0,
-		MaxPairings:  8,
+		AllowGuests:    true,
+		AllowElevation: true,
+		CodeTTL:        10 * time.Minute,
+		CodeAttempts:   5,
+		GuestTTL:       24 * time.Hour,
+		OwnerTTL:       0,
+		MaxPairings:    8,
 		// A guest looks, picks an exit node and can make the device say whose
 		// hands it is in; what changes how the device behaves afterwards,
 		// deletes something, puts a page in front of the person at the device
@@ -147,6 +160,7 @@ func remoteDefaultPolicy() remotePolicy {
 			remoteOpUnpair:        remoteGuest,
 			remoteOpConfirm:       remoteGuest,
 			remoteOpIdentify:      remoteGuest,
+			remoteOpElevateAsk:    remoteGuest,
 			remoteOpSetSetting:    remoteOwner,
 			remoteOpAction:        remoteOwner,
 			remoteOpDeleteFile:    remoteOwner,
@@ -329,6 +343,7 @@ var remoteCaps = []string{
 	"shares",      // POST /v1/shares/add, POST /v1/shares/remove
 	"advertise",   // advertise_exit_node, advertise_routes, status.advertise
 	"diag",        // GET /v1/diag/report, GET /v1/diag/log
+	"elevate",     // POST /v1/elevate/request, status.you.elevated
 }
 
 func remoteSettingFor(key string) (remoteSetting, bool) {

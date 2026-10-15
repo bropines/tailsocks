@@ -40,10 +40,16 @@ type remoteRequest struct {
 	caller remoteCaller
 	self   remoteSelf
 	// class and left describe the caller's pairing; class is remoteNobody on
-	// the two routes that need none.
-	class remoteClass
-	left  int64
-	body  []byte
+	// the two routes that need none. class is what the caller acts as — an
+	// owner, for a guest whose full rights are in force (remote_elevate.go) —
+	// and paired what it paired as; elevated describes those rights, nil
+	// while there are none. full: the full-control tier is open to it.
+	class    remoteClass
+	paired   remoteClass
+	left     int64
+	full     bool
+	elevated *remoteElevatedView
+	body     []byte
 	// modern: the caller's bridge knows more than the first build's API
 	// (remoteClientHeader). What an older one would show without
 	// understanding — a setting by its bare key, with a switch that works —
@@ -107,6 +113,7 @@ var remoteRoutes = []remoteRoute{
 	{"POST", "/v1/storage/send", remoteOpStorageSend, (*remoteManager).handleStorageSend},
 	{"GET", "/v1/diag/report", remoteOpDiagReport, (*remoteManager).handleDiagReport},
 	{"GET", "/v1/diag/log", remoteOpDiagLog, (*remoteManager).handleDiagLog},
+	{"POST", "/v1/elevate/request", remoteOpElevateAsk, (*remoteManager).handleElevateRequest},
 }
 
 // remoteError is the body of every refusal: a fixed word a client can switch
@@ -194,23 +201,23 @@ func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rq := &remoteRequest{caller: caller, self: self, left: -1, modern: r.Header.Get(remoteClientHeader) != ""}
 	if route.op != "" {
-		class, left, ok := m.authorize(caller, self, remoteBearer(r))
+		auth, ok := m.authorize(caller, self, remoteBearer(r))
 		if !ok {
 			remoteWrite(w, http.StatusUnauthorized, remoteError{Error: "unauthorized"})
 			return
 		}
-		if ok, needsFull := m.may(route.op, class); !ok {
+		if ok, needsFull := m.may(route.op, auth.class, auth.full); !ok {
 			if needsFull {
 				// The caller's, at a level the device is not at.
-				m.noteDenied(caller, class, remoteDeniedOpLevel, route.op)
+				m.noteDenied(caller, auth.class, remoteDeniedOpLevel, route.op)
 				remoteWrite(w, http.StatusForbidden, remoteNeedsFull)
 				return
 			}
-			m.noteDenied(caller, class, remoteDeniedOp, route.op)
+			m.noteDenied(caller, auth.class, remoteDeniedOp, route.op)
 			remoteWrite(w, http.StatusForbidden, remoteError{Error: "forbidden"})
 			return
 		}
-		rq.class, rq.left = class, left
+		rq.class, rq.paired, rq.left, rq.full, rq.elevated = auth.class, auth.paired, auth.left, auth.full, auth.elevated
 	}
 	if r.Method == http.MethodPost {
 		body, status := remoteReadBody(w, r)
@@ -268,15 +275,27 @@ func remoteDecode(body []byte, into any) bool {
 // paired" costs the same comparison as "wrong token".
 var remoteDummyHash = remoteHashToken("no such pairing")
 
-// authorize checks the caller's token against its pairing and returns the
-// class it may act as and the seconds the pairing has left (-1: until revoked).
-func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string) (remoteClass, int64, bool) {
+// remoteAuth is what authorize found the caller may act as: class, which is an
+// owner's for a guest whose full rights are in force, paired, the class it
+// paired as, the seconds its pairing has left (-1: until revoked), whether the
+// full-control tier is open to it, and those full rights.
+type remoteAuth struct {
+	class    remoteClass
+	paired   remoteClass
+	left     int64
+	full     bool
+	elevated *remoteElevatedView
+}
+
+// authorize checks the caller's token against its pairing and returns what it
+// may act as.
+func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string) (remoteAuth, bool) {
 	now := m.classOf(c, self)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.enabled || m.store == nil {
-		return remoteNobody, 0, false
+		return remoteAuth{}, false
 	}
 	m.expireLocked()
 	m.adoptSelfLocked(self)
@@ -292,26 +311,32 @@ func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string)
 			// the pairing was replaced.
 			m.noteDeniedLocked(c, remoteClassOf(p.Class), remoteDeniedToken, "")
 		}
-		return remoteNobody, 0, false
+		return remoteAuth{}, false
 	}
 	class := remoteClassOf(p.Class)
 	switch {
 	case p.UserID != c.UserID:
 		// The node changed hands since it paired.
 		m.noteDeniedLocked(c, class, remoteDeniedUser, "")
-		return remoteNobody, 0, false
+		return remoteAuth{}, false
 	case now < class:
 		// It paired as an owner and is no longer one — it was tagged, or this
 		// node was — or guests are no longer let in at all. Pairing again
 		// settles what it is now.
 		m.noteDeniedLocked(c, class, remoteDeniedClass, class.String())
-		return remoteNobody, 0, false
+		return remoteAuth{}, false
 	}
 	p.LastUsed = m.clock.Now().Unix()
 	if m.store.stale() {
 		m.saveLocked()
 	}
-	return class, m.store.left(p), true
+	auth := remoteAuth{class: class, paired: class, left: m.store.left(p), full: m.full}
+	if v := m.elevatedViewLocked(p, false); v != nil {
+		// Full rights for a while: an owner until they end, with the full
+		// tier when the device's switch or the grant opens it.
+		auth.class, auth.full, auth.elevated = remoteOwner, m.full || v.Full, v
+	}
+	return auth, true
 }
 
 // remoteDeniedEvery spaces the "denied" lines one node can put in the action
@@ -679,8 +704,19 @@ func (m *remoteManager) handlePair(rq *remoteRequest) (int, any) {
 func (m *remoteManager) handleUnpair(rq *remoteRequest) (int, any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.store == nil || !m.store.remove(rq.caller.NodeID) {
+	if m.store == nil {
 		return http.StatusOK, struct{}{}
+	}
+	elevated := false
+	if p := m.store.find(rq.caller.NodeID); p != nil {
+		elevated = p.Elevation != nil
+	}
+	if !m.store.remove(rq.caller.NodeID) {
+		return http.StatusOK, struct{}{}
+	}
+	if elevated {
+		// Its full rights went with it.
+		m.tellElevations()
 	}
 	m.auditLocked(remoteEvent{NodeID: rq.caller.NodeID, Name: rq.caller.Name, Class: rq.class.String(), Op: "unpaired", OK: true})
 	slog.Info("Remote management: a device unpaired itself", "device", rq.caller.Name, "node", rq.caller.NodeID)
@@ -707,13 +743,17 @@ type remoteExitNode struct {
 }
 
 type remoteYou struct {
+	// Class is what the caller acts as: "owner" for a guest while its full
+	// rights for a while are in force (remote_elevate.go), which Elevated
+	// then describes.
 	Class string `json:"class"`
 	// Left is the seconds the caller's pairing has left, -1 for "until
 	// revoked".
 	Left int64 `json:"left"`
 	// Can lists the operations (remoteOps) the caller may use right now: its
 	// class at the device's level.
-	Can []string `json:"can"`
+	Can      []string            `json:"can"`
+	Elevated *remoteElevatedView `json:"elevated,omitempty"`
 }
 
 type remoteStatus struct {
@@ -767,9 +807,9 @@ func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
 		NodeID:       s.NodeID,
 		Health:       []string{},
 		Since:        GetDaemonStartTime(),
-		You:          remoteYou{Class: rq.class.String(), Left: rq.left, Can: m.can(rq.class)},
+		You:          remoteYou{Class: rq.class.String(), Left: rq.left, Can: m.canFor(rq), Elevated: rq.elevated},
 		Caps:         remoteCaps,
-		Level:        m.level(),
+		Level:        remoteLevel(rq.full),
 		Guard:        m.guardFor(rq.caller.NodeID),
 		Fetch:        m.fetchFor(rq.caller.NodeID),
 		Advertise:    m.advertise(s),
@@ -987,7 +1027,7 @@ type remoteSettingView struct {
 
 func (m *remoteManager) handleSettings(rq *remoteRequest) (int, any) {
 	mayWrite := m.policy.allows(remoteOpSetSetting, rq.class)
-	full := m.fullControl()
+	full := rq.full
 	out := []remoteSettingView{}
 	for _, s := range remoteSettings {
 		if !rq.modern && !remoteFirstSettings[s.key] {
@@ -1059,7 +1099,7 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 		// The app is handed the list as the bridge read it, not as it came.
 		value, _ = remoteRoutesValue(in.Value)
 	}
-	switch remoteSettingRefusal(s, value, m.fullControl()) {
+	switch remoteSettingRefusal(s, value, rq.full) {
 	case "only":
 		// The app is not asked: from afar this switch goes one way.
 		m.noteDenied(rq.caller, rq.class, remoteDeniedSettingOnly, s.key+"="+value)
