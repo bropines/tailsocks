@@ -68,12 +68,16 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.pluralStringResource
@@ -99,6 +103,7 @@ import io.github.bropines.tailscaled.core.NetAddr
 import io.github.bropines.tailscaled.core.tryStartActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -121,6 +126,30 @@ import java.util.Locale
 
 /** How often the list is read again while it is on screen: a switch thrown elsewhere shows up within this. */
 private const val REFRESH_MS = 4_000L
+
+/** How long the remote waits to follow a row just switched to the group a reading moves it to. */
+private const val FOLLOW_MS = 3 * REFRESH_MS
+
+/** The folded card's own row, as a place for the remote. */
+private const val OFF_HEADER = "off"
+
+/** A row just switched, and the group it stood in. */
+private data class Moved(val key: String, val from: ExposureGroup)
+
+/**
+ * Puts the remote on this element while [now] holds, and says so through [onTaken]. Nothing off a
+ * television. Asked again on layout: an element the reading has just added may not take focus yet.
+ */
+@Composable
+private fun Modifier.takeFocus(now: Boolean, onTaken: () -> Unit): Modifier {
+    if (!isTv) return this
+    val requester = remember { FocusRequester() }
+    val wanted by rememberUpdatedState(now)
+    val taken by rememberUpdatedState(onTaken)
+    val take = { if (wanted && runCatching { requester.requestFocus() }.getOrDefault(false)) taken() }
+    LaunchedEffect(now) { take() }
+    return focusRequester(requester).onGloballyPositioned { take() }
+}
 
 /** The page, reading the device while it is on screen. */
 @Composable
@@ -183,6 +212,14 @@ internal fun ExposureContent(
 ) {
     val layout = rememberWindowLayout()
     var offOpen by rememberSaveable { mutableStateOf(offOpenAtFirst) }
+    // Where the remote goes: the first row, once a visit; then a row just switched, once a
+    // reading has moved it to its group. Left alone, focus went to the row that took its place,
+    // and a second OK switched that one off too.
+    var started by remember { mutableStateOf(false) }
+    var moved by remember { mutableStateOf<Moved?>(null) }
+    // A row a reading never moves lets the remote go where the person takes it.
+    LaunchedEffect(moved) { if (moved != null) { delay(FOLLOW_MS); moved = null } }
+    val focused = { if (!started) started = true else moved = null }
     Scaffold(topBar = { AppTopBar(title = stringResource(R.string.exposure_title), onBack = onBack) }) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             ReadableWidth {
@@ -202,25 +239,31 @@ internal fun ExposureContent(
                     val rows = remember(facts) { Exposure.rows(facts) }
                     SummaryCard(Exposure.summary(rows), facts)
                     val groups = rows.groupBy { it.group }
-                    // The remote starts on the first row the page has.
-                    var first = true
+                    // A row folded away with the rest of what is off is reached by the fold's own row.
+                    fun stopOf(row: ExposureRow) = if (row.group == ExposureGroup.OFF && !offOpen) OFF_HEADER else row.key
+                    val focusTo = when {
+                        !started -> rows.firstOrNull()?.let(::stopOf)
+                        else -> moved?.let { m -> rows.firstOrNull { it.key == m.key }?.takeIf { it.group != m.from }?.let(::stopOf) }
+                    }
+                    val turnOff = { row: ExposureRow ->
+                        moved = Moved(row.key, row.group)
+                        onTurnOff(row)
+                    }
                     for (group in ExposureGroup.entries) {
                         val inGroup = groups[group].orEmpty()
                         if (inGroup.isEmpty()) continue
-                        val focusFirst = first
-                        first = false
                         if (group == ExposureGroup.OFF) {
-                            OffCard(inGroup, facts, offOpen, focusFirst, onToggle = { offOpen = !offOpen }, onOpen = onOpen)
+                            OffCard(inGroup, facts, offOpen, focusTo, focused, onToggle = { offOpen = !offOpen }, onOpen = onOpen)
                         } else {
                             GroupCard(group, inGroup.size) {
-                                inGroup.forEachIndexed { index, row ->
+                                for (row in inGroup) {
                                     key(row.key) {
                                         ExposureRowItem(
                                             row, facts,
                                             switchable = ExposureSwitches.canTurnOff(row, facts),
                                             pending = row.key in pending,
-                                            modifier = if (focusFirst && index == 0) Modifier.tvInitialFocus() else Modifier,
-                                            onTurnOff = { onTurnOff(row) },
+                                            modifier = Modifier.takeFocus(focusTo == row.key, focused),
+                                            onTurnOff = { turnOff(row) },
                                             onOpen = { onOpen(row.item) },
                                         )
                                     }
@@ -315,7 +358,15 @@ private fun GroupHeader(group: ExposureGroup, count: Int, modifier: Modifier = M
 
 /** What is off, folded under one row that the remote can reach as well as a finger. */
 @Composable
-private fun OffCard(rows: List<ExposureRow>, facts: ExposureFacts, open: Boolean, focusFirst: Boolean, onToggle: () -> Unit, onOpen: (ExposureItem) -> Unit) {
+private fun OffCard(
+    rows: List<ExposureRow>,
+    facts: ExposureFacts,
+    open: Boolean,
+    focusTo: String?,
+    onFocused: () -> Unit,
+    onToggle: () -> Unit,
+    onOpen: (ExposureItem) -> Unit,
+) {
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             val help = remember { mutableStateOf(false) }
@@ -324,7 +375,7 @@ private fun OffCard(rows: List<ExposureRow>, facts: ExposureFacts, open: Boolean
                 help = help,
                 onClickLabel = stringResource(if (open) R.string.help_collapse else R.string.help_expand),
                 color = Color.Transparent,
-                modifier = if (focusFirst) Modifier.tvInitialFocus() else Modifier,
+                modifier = Modifier.takeFocus(focusTo == OFF_HEADER, onFocused),
             ) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     GroupHeader(ExposureGroup.OFF, rows.size, Modifier.weight(1f).padding(top = 6.dp))
@@ -335,7 +386,11 @@ private fun OffCard(rows: List<ExposureRow>, facts: ExposureFacts, open: Boolean
             if (open) {
                 for (row in rows) {
                     key(row.key) {
-                        ExposureRowItem(row, facts, switchable = false, pending = false, onTurnOff = {}, onOpen = { onOpen(row.item) })
+                        ExposureRowItem(
+                            row, facts, switchable = false, pending = false,
+                            modifier = Modifier.takeFocus(focusTo == row.key, onFocused),
+                            onTurnOff = {}, onOpen = { onOpen(row.item) },
+                        )
                     }
                 }
             }
