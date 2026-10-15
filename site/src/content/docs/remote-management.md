@@ -22,7 +22,7 @@ On the managing device:
 1. Open that device in **Peers** and tap **Manage this device**.
 2. Type the code and tap **Pair**, or **Scan the code**.
 
-From then on the managed devices appear on the main screen, each with whether it is online. **Managed devices on the main screen** (Settings → Appearance & language) hides them.
+From then on the managed devices appear on the main screen, each with whether it is online. **Managed devices on the main screen** (Settings → Appearance & language) hides them. Pull a device's page down to read it again; on a TV, use the refresh button at the top.
 
 ## Who may do what
 
@@ -44,7 +44,13 @@ When the **managed** device itself has tags, it has no owner at all: everyone is
 
 Nothing else counts. Being an admin of the tailnet, or a member of a group in its policy, gives no rights here: the app does not read them. To be an owner of a relative's tablet, sign it in to your account; full control can then be switched on at the tablet.
 
-**Full control** is a switch on the managed device only, and asks before it turns on. It adds, for the owner: the device's storage (sending any file back by Taildrop), shared folders, Taildrive and its proxy, offering exit node and subnet routes, the diagnostics report and the log. The owner can switch it off from afar, never on.
+### Full control and the files
+
+**Full control** is a switch on the managed device only, and asks before it turns on. It lets the owner offer the device as an exit node or a router. The owner can switch it off from afar, never on.
+
+**Network access to files**, a switch next to it, decides the rest: the device's storage (sending any file back by Taildrop), shared folders, Taildrive and its proxy, the diagnostics report and the log. On, the owner gets them with full control; off, none of that is anyone's from afar, whatever full control says. It starts off — on only where full control was already on before 5.1.0 — and turns on only at the device, after its screen lock.
+
+The managing device asks its own screen lock before it shows another device's storage, shared folders, log or report. One confirmation holds five minutes while that page is open; a device without a screen lock does not ask.
 
 **Nobody, ever**, from afar:
 
@@ -56,8 +62,19 @@ Nothing else counts. Being an admin of the tailnet, or a member of a group in it
 - touch Root Mode
 - grant a permission
 - turn full control on
+- turn network access to files on
 
 **What a paired device may do** on the managed device lists all of it.
+
+### Full rights for a while
+
+A guest can be given an owner's rights for 15 minutes, an hour, eight hours or until its pairing ends — a day at most. On a tagged device, where everyone is a guest, this is the only way to an owner's rights.
+
+- **At the device**: **Give full rights for a while…** on the guest's row under **Paired devices**, pick how long, and confirm with the device's screen lock. **Full control too** adds full control for this guest and this time only.
+- **From the guest**: **Ask for full rights** on the device's page. The question comes up at the device, as a notification if TailSocks is not on screen, and still takes its screen lock there. Nothing is given from afar.
+- They end by themselves, or with **Take the rights back**. While they last, a notification on the device says who has them and until when.
+- Rights given while **Network access to files** was off never include the files, even if it is turned on later. What nobody may do from afar stays out of reach with them too.
+- **Let guests get full rights for a while** turns this off and ends the rights given. It is on by default and shown while guests are let in.
 
 ## On the managed device
 
@@ -88,6 +105,6 @@ Remote management needs one thing from the policy: that the managing device may 
 },
 ```
 
-Nothing else is opened by it; replies come back on the same connection. In TailSocks's own policy editor it is a new access rule — **Who** `prod-admin`, **Where** `guest-users`, **Which ports** `28115` — and a test made **From the rule** keeps it from being lost by a later edit.
+Nothing else is opened by it; replies come back on the same connection. In TailSocks's own policy editor the template [**TailSocks remote management**](/tailsocks/templates/#tailsocks-remote-management) writes it: choose **Who manages** and **Whose devices**, and it adds the rule and a test that keeps it. By hand it is a new access rule — **Who** `prod-admin`, **Where** `guest-users`, **Which ports** `28115` — and a test made **From the rule** keeps it from being lost by a later edit.
 
 With a policy that allows everything (Tailscale's default), nothing has to be added.
