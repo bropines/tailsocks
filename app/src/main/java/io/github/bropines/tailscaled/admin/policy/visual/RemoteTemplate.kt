@@ -40,9 +40,13 @@ import io.github.bropines.tailscaled.ui.HelpText
 /** The template's form: what is chosen on each side so far. */
 data class RemoteForm(val managers: List<String> = emptyList(), val managed: List<String> = emptyList())
 
-/** The template as a card: what it does, a tap opens its form. */
+/**
+ * The template as a card: what it does, a tap opens its form. Under the rules it says it is a
+ * template; [inTemplates] — among the templates of an empty page, under their heading — it
+ * looks like the others.
+ */
 @Composable
-internal fun RemoteTemplateCard(onClick: () -> Unit) {
+internal fun RemoteTemplateCard(inTemplates: Boolean = false, onClick: () -> Unit) {
     val ctx = LocalContext.current
     Card(
         onClick = onClick,
@@ -51,10 +55,12 @@ internal fun RemoteTemplateCard(onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.SettingsRemote, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(16.dp))
+            if (!inTemplates) {
+                Icon(Icons.Default.SettingsRemote, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(16.dp))
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(ctx.getString(R.string.admin_pv_templates), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                if (!inTemplates) Text(ctx.getString(R.string.admin_pv_templates), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 Text(ctx.getString(R.string.admin_pvrm_tpl), style = MaterialTheme.typography.titleSmall)
                 HelpText(ctx.getString(R.string.admin_pvrm_tpl_help), inClickableRow = true)
             }

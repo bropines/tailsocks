@@ -224,7 +224,7 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                     }
                 }
                 // After the rules, so that a card's place in the list stays what the mover counts.
-                if (env.editable) item(key = "tpl-remote") { RemoteTemplateCard(::startRemote) }
+                if (env.editable) item(key = "tpl-remote") { RemoteTemplateCard(onClick = ::startRemote) }
             }
         },
         editor = {
@@ -401,7 +401,7 @@ private fun AccessEmpty(env: VisualEnv, m: PolicyModel, section: Section, onAdd:
                 }
             }
         }
-        RemoteTemplateCard(onRemote)
+        RemoteTemplateCard(inTemplates = true, onClick = onRemote)
     }
 }
 
