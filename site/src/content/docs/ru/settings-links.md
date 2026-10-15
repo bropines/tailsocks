@@ -122,6 +122,12 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 | Включить HTTP-прокси | `tailsocks://settings/proxies/http_enable` |
 | Адрес HTTP-прокси<br><small>Появляется, когда включён HTTP-прокси</small> | `tailsocks://settings/proxies/http_address` |
 | Открыть прокси в локальную сеть | `tailsocks://settings/proxies/lan_access` |
+| SOCKS5 из tailnet | `tailsocks://settings/proxies/tailnet_socks5` |
+| HTTP-прокси из tailnet | `tailsocks://settings/proxies/tailnet_http_proxy` |
+| DNS-прокси из tailnet | `tailsocks://settings/proxies/tailnet_dns_proxy` |
+| Прокси Taildrive из tailnet | `tailsocks://settings/proxies/tailnet_drive_proxy` |
+| Строго: закрыть из tailnet и всё остальное | `tailsocks://settings/proxies/tailnet_strict` |
+| Оставить открытыми порты<br><small>Появляется, когда включён строгий режим</small> | `tailsocks://settings/proxies/tailnet_extra_ports` |
 
 ### DNS
 
@@ -224,6 +230,7 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 
 | Настройка | Ссылка |
 |---|---|
+| Что открыто на этом устройстве | `tailsocks://settings/advanced/exposure` |
 | Удалённое управление | `tailsocks://settings/advanced/remote_management` |
 
 ### Тема и иконка

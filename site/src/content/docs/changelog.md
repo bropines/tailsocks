@@ -10,6 +10,29 @@ tableOfContents:
 
 The app shows the same list: once after each update, and any time under **What's new** in **About TailSocks** (the ⓘ on the main screen).
 
+## 5.1.0 — 2026-10-15
+
+### Security
+
+- Where the tailnet has no interface of its own — proxy mode, the hev engine, Root Mode without tailscale0 — devices the policy let reach this one could use TailSocks's local proxies (SOCKS5, HTTP, DNS, Taildrive), its Web UI and TailCat's forwards as if they ran on it. These are now closed to the tailnet; each proxy opens under Settings → Local proxies → Reachable from the tailnet. Other apps' services (adb over the network, an SSH server, Syncthing) stay reachable as before, and Strict mode closes them too.
+
+### Added
+
+- Remote management: a guest can be given an owner's rights for 15 minutes up to a day, confirmed at the device with its lock; a guest can ask for them, and Settings can turn this off.
+- Policy editor: a "TailSocks remote management" template — choose who manages whose devices; it writes the rule for port 28115 and a test.
+- Policy templates are data: each opens a page with its fields, a preview of exactly what it adds, and Apply; a catalog lists them and fetches new ones from the project site.
+- Settings → Advanced → What this device exposes: everything reachable from the internet, the tailnet or the local network, each with the switch or the setting that closes it.
+- Eleven more policy templates: lock it down, exit nodes and subnets by tag, SSH for admins, a DNS server, k3s, Taildrive between groups, Funnel, Mullvad, an app connector, device posture.
+- Policy tab: copy the policy, or copy or share it for an AI agent together with the network's map, behind fingerprint or screen lock.
+- Remote management: pull the page down to read the device again.
+- Remote management: a "Network access to files" switch — off unless Full control was on — opens or closes storage, shared folders, the log and the report; temporary rights never go past it, and the managing phone asks its own lock before showing them.
+
+### Fixed
+
+- Remote management: a device this one cannot see — another tailnet, or access rules that keep it away — is no longer said to be outside the tailnet.
+- Policy editor: a Headscale user is written as `name@`, which Headscale reads as a user and not as a host.
+- About → Report a problem opens the issue form with the version, the device and the report filled in.
+
 ## 5.0.1 — 2026-10-14
 
 ### Added

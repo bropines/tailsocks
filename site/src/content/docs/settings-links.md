@@ -122,6 +122,12 @@ Every page and every row, as the app names them. A note under a row says when it
 | Enable HTTP Proxy | `tailsocks://settings/proxies/http_enable` |
 | HTTP Proxy Address<br><small>Shown once the HTTP proxy is on</small> | `tailsocks://settings/proxies/http_address` |
 | Expose proxies to local network | `tailsocks://settings/proxies/lan_access` |
+| SOCKS5 from the tailnet | `tailsocks://settings/proxies/tailnet_socks5` |
+| HTTP proxy from the tailnet | `tailsocks://settings/proxies/tailnet_http_proxy` |
+| DNS proxy from the tailnet | `tailsocks://settings/proxies/tailnet_dns_proxy` |
+| Taildrive proxy from the tailnet | `tailsocks://settings/proxies/tailnet_drive_proxy` |
+| Strict: close everything else too | `tailsocks://settings/proxies/tailnet_strict` |
+| Also open these ports<br><small>Shown once strict mode is on</small> | `tailsocks://settings/proxies/tailnet_extra_ports` |
 
 ### DNS
 
@@ -224,6 +230,7 @@ On a TV this page is under Advanced.
 
 | Setting | Link |
 |---|---|
+| What this device exposes | `tailsocks://settings/advanced/exposure` |
 | Remote management | `tailsocks://settings/advanced/remote_management` |
 
 ### Theme and icon
