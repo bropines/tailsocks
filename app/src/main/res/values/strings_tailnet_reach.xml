@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Local proxies → Reachable from the tailnet (ui/TailnetReachSettings.kt, core/TailnetReach.kt). -->
+    <string name="tailnet_reach_card">Reachable from the tailnet</string>
+    <string name="tailnet_reach_intro">Off, a proxy here serves only this device. On, every device of your tailnet the access rules allow can use it at this device\'s tailnet address. Remote management, Taildrop, Taildrive folders and Serve do not need these switches.</string>
+    <string name="tailnet_reach_vpn">Right now the native TUN engine carries the tailnet, and TailSocks itself is outside that VPN: the tailnet reaches none of these proxies, open or not. These switches work in proxy mode and with the hev engine.</string>
+    <string name="tailnet_reach_interface">Right now Root Mode\'s interface carries the tailnet: what listens on every address (local network access) is reached from the tailnet anyway, and nothing else is. These switches work in proxy mode and with the hev engine.</string>
+
+    <!-- The rows. -->
+    <string name="tailnet_reach_socks5">SOCKS5 from the tailnet</string>
+    <string name="tailnet_reach_socks5_help">When open, it lets other devices of your tailnet into this device\'s local network and out to the internet as this device.</string>
+    <string name="tailnet_reach_http">HTTP proxy from the tailnet</string>
+    <string name="tailnet_reach_http_help">When open, it lets other devices of your tailnet into this device\'s local network and out to the internet as this device. It never asks for a password.</string>
+    <string name="tailnet_reach_dns">DNS proxy from the tailnet</string>
+    <string name="tailnet_reach_dns_help">When open, other devices of your tailnet can look up names through this device, MagicDNS and split DNS names included.</string>
+    <string name="tailnet_reach_drive">Taildrive proxy from the tailnet</string>
+    <string name="tailnet_reach_drive_help">When open, other devices of your tailnet can open the Taildrive folders this device may open, as this device.</string>
+
+    <!-- A row's state, before its explanation. -->
+    <string name="tailnet_reach_state_closed">This device only.</string>
+    <string name="tailnet_reach_state_open">Open at %1$s.</string>
+    <string name="tailnet_reach_state_open_port">Open on port %1$s of this device\'s tailnet address.</string>
+    <string name="tailnet_reach_state_off">The proxy is off.</string>
+    <string name="tailnet_reach_state_alias">It listens on %1$s, where the tailnet cannot be let in: 127.0.0.1 can.</string>
+    <string name="tailnet_reach_state_interface">In this mode the tailnet does not reach it.</string>
+    <string name="tailnet_reach_state_interface_wildcard">In this mode the tailnet reaches it through local network access, whatever this switch says.</string>
+
+    <!-- Warnings and the question before SOCKS5 opens without a password. -->
+    <string name="tailnet_reach_socks5_no_password">The SOCKS5 proxy has no username or password: every device of your tailnet the access rules allow can use it.</string>
+    <string name="tailnet_reach_set_password">Set a password</string>
+    <string name="tailnet_reach_drive_no_login">The Taildrive proxy asks for no login: every device of your tailnet the access rules allow can open your Taildrive folders through it. Turn the login on in Taildrive\'s settings.</string>
+    <string name="tailnet_reach_socks5_ask_title">Open SOCKS5 to the tailnet?</string>
+    <string name="tailnet_reach_socks5_ask_text">It has no username or password. Any device of your tailnet the access rules allow could use this device as a way into its local network and out to the internet. Set a password first and give it only to the devices that should use the proxy.</string>
+    <string name="tailnet_reach_set_password_and_open">Set a password and open</string>
+    <string name="tailnet_reach_open_anyway">Open without one</string>
+
+    <!-- What the settings search finds these rows by. -->
+    <string name="search_kw_tailnet_socks5">socks5 from tailnet, share proxy, proxy for other devices, tailnet proxy, use phone as proxy, reachable, open port, exposed</string>
+    <string name="search_kw_tailnet_http_proxy">http proxy from tailnet, share http proxy, proxy for other devices, reachable, open port, exposed</string>
+    <string name="search_kw_tailnet_dns_proxy">dns from tailnet, share dns, resolver for other devices, reachable, open port, exposed</string>
+    <string name="search_kw_tailnet_drive_proxy">taildrive proxy from tailnet, webdav from tailnet, share taildrive, reachable, open port, exposed</string>
+</resources>

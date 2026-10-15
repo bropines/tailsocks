@@ -519,6 +519,8 @@ fun SettingsScreen(
     // local listeners (measured 2026-09-08 from another tailnet node).
     val lanIp = remember { NetAddr.lanIpv4() }
     var tailnetIp by remember { mutableStateOf<String?>(null) }
+    // The local proxies opened to the tailnet (Local proxies → Reachable from the tailnet).
+    var tailnetOpen by remember { mutableStateOf(TailnetReach.opened(context)) }
     LaunchedEffect(Unit) {
         tailnetIp = withContext(Dispatchers.IO) {
             runCatching { AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI()) }
@@ -1858,10 +1860,18 @@ fun SettingsScreen(
             }
             // The link is made to be pasted elsewhere: offered where there is a clipboard to speak of.
             val copies = place(Feature.CLIPBOARD_ACTIONS) == Availability.OFFERED
+            // The tailnet reaches the proxy where it is opened to it, or where Root Mode's interface
+            // carries the tailnet and it listens on every address; never under the native engine,
+            // whose VPN the app is outside of (core/Exposure.kt, ExposureNet).
+            val socksForTailnet = when (TailnetReach.net(context)) {
+                ExposureNet.NETSTACK -> TailnetListener.SOCKS5 in tailnetOpen
+                ExposureNet.VPN -> false
+                ExposureNet.INTERFACE -> lanAccessEnabled
+            }
             if (copies) Spacer(Modifier.height(12.dp))
             if (!copies) {
                 // Nothing to copy with.
-            } else if (!lanAccessEnabled) {
+            } else if (!lanAccessEnabled && !socksForTailnet) {
                 OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_sagernet_copy)), shape = MaterialTheme.shapes.medium) {
                     Icon(Icons.Default.Share, null)
                     Spacer(Modifier.width(8.dp))
@@ -1880,10 +1890,10 @@ fun SettingsScreen(
                     OutlinedButton(onClick = { copySagerNetLink() }, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_sagernet_copy_local), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
-                    OutlinedButton(onClick = { lanIp?.let { copySagerNetLink(it) } }, enabled = lanIp != null, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                    OutlinedButton(onClick = { lanIp?.let { copySagerNetLink(it) } }, enabled = lanAccessEnabled && lanIp != null, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_lan_endpoint_lan), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
-                    OutlinedButton(onClick = { tailnetIp?.let { copySagerNetLink(it) } }, enabled = tailnetIp != null, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                    OutlinedButton(onClick = { tailnetIp?.let { copySagerNetLink(it) } }, enabled = socksForTailnet && tailnetIp != null, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                         Text(stringResource(R.string.settings_lan_endpoint_tailnet), maxLines = 1, style = MaterialTheme.typography.labelLarge)
                     }
                 }
@@ -1933,8 +1943,8 @@ fun SettingsScreen(
 
         SettingsCardGap()
 
-        // Last in the section on purpose: it is the one switch here that can
-        // expose the listeners above to anyone on the same Wi-Fi.
+        // Last in the section on purpose, with the tailnet's card after it: the
+        // switches here that expose the listeners above to other devices.
         SettingsCard(title = stringResource(R.string.settings_sect_lan)) {
             val socksHasAuth = socks5User.isNotEmpty() || socks5Pass.isNotEmpty()
 
@@ -1971,9 +1981,12 @@ fun SettingsScreen(
                 val copies = place(Feature.CLIPBOARD_ACTIONS) == Availability.OFFERED
                 var shownEndpoint by remember { mutableStateOf<String?>(null) }
                 LanEndpoints(
-                    networks = listOf(
+                    // The tailnet reaches these addresses only where Root Mode's interface carries
+                    // it; in userspace networking the card below opens them to it one by one.
+                    networks = listOfNotNull(
                         stringResource(R.string.settings_lan_endpoint_lan) to lanIp,
-                        stringResource(R.string.settings_lan_endpoint_tailnet) to tailnetIp
+                        (stringResource(R.string.settings_lan_endpoint_tailnet) to tailnetIp)
+                            .takeIf { TailnetReach.net(context) == ExposureNet.INTERFACE }
                     ),
                     ports = ports,
                     copies = copies,
@@ -2023,6 +2036,23 @@ fun SettingsScreen(
                     )
                 }
             }
+        }
+
+        SettingsCardGap()
+
+        // Which of them the tailnet may use (core/TailnetReach.kt); the password is the SOCKS5 card's.
+        TailnetReachCard(
+            open = tailnetOpen,
+            onOpenChange = { tailnetOpen = it },
+            tailnetIp = tailnetIp,
+            socks5Login = socks5User.isNotBlank() && socks5Pass.isNotBlank(),
+        ) {
+            if (socks5User.isBlank()) {
+                socks5User = generateRandomString(8)
+                saveGlobalPref("socks5_user", socks5User)
+            }
+            socks5Pass = generateRandomString(12)
+            saveGlobalPref("socks5_pass", socks5Pass)
         }
     }
 

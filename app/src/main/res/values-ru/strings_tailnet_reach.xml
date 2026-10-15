@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Настройки → Локальные прокси → Доступно из tailnet (ui/TailnetReachSettings.kt, core/TailnetReach.kt). -->
+    <string name="tailnet_reach_card">Доступно из tailnet</string>
+    <string name="tailnet_reach_intro">Когда выключено, прокси работает только для этого устройства. Когда включено, им может пользоваться любое устройство вашего tailnet, которому это разрешают правила доступа, — по tailnet-адресу этого устройства. Удалённому управлению, Taildrop, папкам Taildrive и Serve эти переключатели не нужны.</string>
+    <string name="tailnet_reach_vpn">Сейчас tailnet несёт нативный движок TUN, а сам TailSocks в этот VPN не входит: ни до одного из этих прокси tailnet не достаёт, открыт он или нет. Эти переключатели работают в режиме прокси и с движком hev.</string>
+    <string name="tailnet_reach_interface">Сейчас tailnet несёт интерфейс Root-режима: то, что слушает на всех адресах (доступ из локальной сети), tailnet видит в любом случае, а всё остальное — никогда. Эти переключатели работают в режиме прокси и с движком hev.</string>
+
+    <!-- Строки. -->
+    <string name="tailnet_reach_socks5">SOCKS5 из tailnet</string>
+    <string name="tailnet_reach_socks5_help">Когда открыт, другие устройства tailnet могут через него попасть в локальную сеть этого устройства и выйти в интернет от его имени.</string>
+    <string name="tailnet_reach_http">HTTP-прокси из tailnet</string>
+    <string name="tailnet_reach_http_help">Когда открыт, другие устройства tailnet могут через него попасть в локальную сеть этого устройства и выйти в интернет от его имени. Пароля он не спрашивает никогда.</string>
+    <string name="tailnet_reach_dns">DNS-прокси из tailnet</string>
+    <string name="tailnet_reach_dns_help">Когда открыт, другие устройства tailnet могут разрешать через это устройство имена, включая имена MagicDNS и split DNS.</string>
+    <string name="tailnet_reach_drive">Прокси Taildrive из tailnet</string>
+    <string name="tailnet_reach_drive_help">Когда открыт, другие устройства tailnet могут открывать папки Taildrive, доступные этому устройству, — от его имени.</string>
+
+    <!-- Состояние строки перед объяснением. -->
+    <string name="tailnet_reach_state_closed">Только для этого устройства.</string>
+    <string name="tailnet_reach_state_open">Открыт на %1$s.</string>
+    <string name="tailnet_reach_state_open_port">Открыт на порту %1$s tailnet-адреса устройства.</string>
+    <string name="tailnet_reach_state_off">Прокси выключен.</string>
+    <string name="tailnet_reach_state_alias">Слушает на %1$s, а туда tailnet пустить нельзя — только на 127.0.0.1.</string>
+    <string name="tailnet_reach_state_interface">В этом режиме tailnet до него не достаёт.</string>
+    <string name="tailnet_reach_state_interface_wildcard">В этом режиме tailnet достаёт до него через доступ из локальной сети, что бы ни говорил этот переключатель.</string>
+
+    <!-- Предупреждения и вопрос перед тем, как открыть SOCKS5 без пароля. -->
+    <string name="tailnet_reach_socks5_no_password">У SOCKS5-прокси нет логина и пароля: им может пользоваться любое устройство tailnet, которому это разрешают правила доступа.</string>
+    <string name="tailnet_reach_set_password">Задать пароль</string>
+    <string name="tailnet_reach_drive_no_login">Прокси Taildrive не спрашивает логин: любое устройство tailnet, которому это разрешают правила доступа, может открыть через него ваши папки Taildrive. Включите логин в настройках Taildrive.</string>
+    <string name="tailnet_reach_socks5_ask_title">Открыть SOCKS5 для tailnet?</string>
+    <string name="tailnet_reach_socks5_ask_text">У него нет логина и пароля. Любое устройство tailnet, которому это разрешают правила доступа, сможет ходить через это устройство в его локальную сеть и в интернет. Сначала задайте пароль и сообщите его только тем устройствам, которым нужен прокси.</string>
+    <string name="tailnet_reach_set_password_and_open">Задать пароль и открыть</string>
+    <string name="tailnet_reach_open_anyway">Открыть без пароля</string>
+
+    <!-- По каким словам эти строки находит поиск по настройкам. -->
+    <string name="search_kw_tailnet_socks5">socks5 из tailnet, раздать прокси, прокси для других устройств, телефон как прокси, доступен, открытый порт, наружу</string>
+    <string name="search_kw_tailnet_http_proxy">http-прокси из tailnet, раздать http-прокси, прокси для других устройств, доступен, открытый порт, наружу</string>
+    <string name="search_kw_tailnet_dns_proxy">dns из tailnet, раздать dns, резолвер для других устройств, доступен, открытый порт, наружу</string>
+    <string name="search_kw_tailnet_drive_proxy">прокси taildrive из tailnet, webdav из tailnet, раздать taildrive, доступен, открытый порт, наружу</string>
+</resources>

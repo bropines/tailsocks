@@ -236,6 +236,11 @@ object SettingsCatalog {
         row("http_enable", SettingsPage.PROXIES, R.string.settings_http_enable_title, R.string.settings_http_enable_desc, R.string.search_kw_http_enable, http)
         row("http_address", SettingsPage.PROXIES, R.string.settings_http_address_title, R.string.settings_http_desc, R.string.search_kw_http_address, http, needs = Need.HTTP_PROXY)
         row("lan_access", SettingsPage.PROXIES, R.string.settings_lan_access_title, R.string.settings_lan_access_desc, R.string.search_kw_lan_access, R.string.settings_sect_lan)
+        val tailnetReach = R.string.tailnet_reach_card
+        row("tailnet_socks5", SettingsPage.PROXIES, R.string.tailnet_reach_socks5, R.string.tailnet_reach_socks5_help, R.string.search_kw_tailnet_socks5, tailnetReach)
+        row("tailnet_http_proxy", SettingsPage.PROXIES, R.string.tailnet_reach_http, R.string.tailnet_reach_http_help, R.string.search_kw_tailnet_http_proxy, tailnetReach)
+        row("tailnet_dns_proxy", SettingsPage.PROXIES, R.string.tailnet_reach_dns, R.string.tailnet_reach_dns_help, R.string.search_kw_tailnet_dns_proxy, tailnetReach)
+        row("tailnet_drive_proxy", SettingsPage.PROXIES, R.string.tailnet_reach_drive, R.string.tailnet_reach_drive_help, R.string.search_kw_tailnet_drive_proxy, tailnetReach)
 
         // ─── DNS ─────────────────────────────────────────────────────────────────────────
         val resolver = R.string.settings_sect_resolver
