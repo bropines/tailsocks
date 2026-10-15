@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "id": "lock-down",
+  "version": 1,
+  "category": "baseline",
+  "title": {
+    "en": "Lock it down",
+    "ru": "Закрыть лишнее"
+  },
+  "description": {
+    "en": "A narrow start instead of allow-all: members reach their own devices, admins reach everything, tagged devices reach nothing. Read the preview carefully.\n\nIt only adds rules and never removes one: while the policy keeps a rule that lets everyone reach everything (such as * to *:*), nothing gets narrower. The page shows that rule; delete it by hand after Apply. From then on whatever is not allowed here closes: tagged servers talking to each other, devices shared with you, subnet routes — add rules for what has to keep working before you delete it.",
+    "ru": "Узкий старт вместо «можно всё»: участники ходят к своим устройствам, администраторы — ко всем, устройства с тегами — никуда. Внимательно прочитайте предпросмотр.\n\nШаблон только добавляет правила и ничего не удаляет: пока в политике есть правило, которое пускает всех ко всем (вроде * → *:*), ничего не сузится. Страница покажет это правило — удалите его вручную после «Применить». С этого момента закроется всё, что здесь не разрешено: серверы с тегами друг к другу, устройства, которыми с вами поделились, маршруты подсетей. Добавьте правила для того, что должно продолжать работать, до того как удалять."
+  },
+  "headscale": {
+    "supported": true
+  },
+  "docs": [
+    { "title": { "en": "Autogroups", "ru": "Автогруппы" }, "url": "https://tailscale.com/docs/reference/targets-and-selectors" },
+    { "title": { "en": "Tags", "ru": "Теги" }, "url": "https://tailscale.com/docs/features/tags" }
+  ],
+  "params": [
+    {
+      "id": "admins",
+      "kind": "selector",
+      "slot": "acl-src",
+      "allow": ["group", "user"],
+      "label": { "en": "Admins", "ru": "Администраторы" },
+      "help": {
+        "en": "Who reaches every device. On Tailscale people with the Admin role do anyway; Headscale has no roles, so here they are the only ones.",
+        "ru": "Кому открыты все устройства. На Tailscale людям с ролью администратора — в любом случае; в Headscale ролей нет, и тогда это единственные администраторы."
+      },
+      "multi": true
+    },
+    {
+      "id": "internet",
+      "kind": "bool",
+      "label": { "en": "Members keep exit nodes", "ru": "Участникам остаются exit-ноды" },
+      "help": {
+        "en": "Every member may still route their internet traffic through an exit node.",
+        "ru": "Любой участник по-прежнему может пускать интернет через exit-ноду."
+      },
+      "default": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["autogroup:member"],
+      "dst": ["*"],
+      "ports": ["*"],
+      "note": {
+        "en": "The policy lets every member reach every device already, by the rule shown here. Nothing gets narrower until you delete it by hand.",
+        "ru": "Политика уже пускает любого участника ко всем устройствам — правилом, показанным здесь. Пока его не удалить вручную, ничего не сузится."
+      }
+    }
+  ],
+  "fragments": {
+    "access": [
+      { "src": ["autogroup:member"], "dst": ["autogroup:self"], "ports": ["*"] },
+      { "when": "tailscale", "src": ["autogroup:admin"], "dst": ["*"], "ports": ["*"] },
+      { "src": ["{{admins}}"], "dst": ["*"], "ports": ["*"] },
+      { "when": "param:internet", "src": ["autogroup:member"], "dst": ["autogroup:internet"], "ports": ["*"] }
+    ]
+  }
+}

@@ -1,6 +1,8 @@
 package io.github.bropines.tailscaled.admin.policy.templates
 
+import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.policy.HuJson
+import io.github.bropines.tailscaled.admin.policy.TailnetView
 import io.github.bropines.tailscaled.admin.policy.templates.TemplateRules.isSelector
 import io.github.bropines.tailscaled.admin.policy.visual.SelectorKind
 import io.github.bropines.tailscaled.admin.policy.visual.SelectorRules
@@ -13,8 +15,8 @@ import java.io.File
  * The set in policy-templates/, which the build copies into the APK and the site publishes:
  * every file listed with its sha256 and nothing left out, every template valid, and each one
  * written, with its defaults and sample values, into several policies on Tailscale and on
- * Headscale — the result always a policy that parses. The Headscale renders are kept under
- * build/ for `headscale policy check`.
+ * Headscale — the result always a policy that parses. The renders are kept under build/, the
+ * Headscale ones for `headscale policy check` on the test tailnet.
  */
 class BundledTemplatesTest {
 
@@ -81,16 +83,38 @@ class BundledTemplatesTest {
         return ParamValue.Items(listOf(one))
     }
 
-    private val renders = File("build/policy-templates-rendered").also { it.mkdirs() }
+    /**
+     * What a person would pick where [sample] would make a test that pins nothing: an address
+     * inside the sample subnet, a guest and a device that stays closed to them, a version. On
+     * Headscale the testnet's users, and no test of tagged devices: the testnet has none, and
+     * Headscale refuses a test of servers, or of a route through routers, that do not exist.
+     */
+    private fun picked(id: String, headscale: Boolean): Map<String, ParamValue> {
+        val guest = if (headscale) "bob@" else "mom@example.com"
+        val other = if (headscale) "tester@" else "alice@example.com"
+        return when (id) {
+            "subnet-router" -> if (headscale) mapOf("tester" to TemplateTestKit.items(), "probe" to TemplateTestKit.items())
+            else mapOf("tester" to TemplateTestKit.items(guest), "probe" to TemplateTestKit.items("10.0.0.10"))
+            "guests-exit-nodes" -> mapOf("guests" to TemplateTestKit.items(guest), "tester" to TemplateTestKit.items(guest), "closed" to TemplateTestKit.items(other))
+            "posture-tailscale-version" -> mapOf("version" to TemplateTestKit.items("1.98"))
+            "app-connector" -> mapOf("name" to TemplateTestKit.items("GitHub"), "domains" to TemplateTestKit.items("github.com", "*.github.com"))
+            "ssh-admins" -> if (headscale) mapOf("test" to ParamValue.Flag(false)) else emptyMap()
+            else -> emptyMap()
+        }
+    }
+
+    private val renders = File("build/policy-templates-rendered").also { File(it, "tailscale").mkdirs() }
 
     @Test
     fun everyTemplateRendersOnBothBackends() {
         for (t in TemplateTestKit.all()) for (headscale in listOf(false, true)) {
             val defaults = TemplateEngine.defaults(t)
-            val withSamples = defaults + t.params.filter { !defaults.getValue(it.id).isSet }.associate { it.id to sample(it, headscale) }
+            val withSamples = defaults + t.params.filter { !defaults.getValue(it.id).isSet }.associate { it.id to sample(it, headscale) } + picked(t.id, headscale)
+            // On Headscale the console knows the devices: a generated test skips sides that have none, as on the testnet.
+            val view = if (headscale) TESTNET else null
             for ((name, text) in TemplateTestKit.policies + ("headscale" to HEADSCALE_BASE)) {
                 for (values in listOf(defaults, withSamples)) {
-                    val p = TemplateEngine.plan(t, values, TemplateContext(text, headscale))
+                    val p = TemplateEngine.plan(t, values, TemplateContext(text, headscale, view))
                     if (headscale && t.headscale.supported == HeadscaleLevel.NONE) {
                         assertTrue("${t.id} on Headscale", TemplateIssue.NotOnHeadscale in p.issues)
                         continue
@@ -104,6 +128,7 @@ class BundledTemplatesTest {
                     assertTrue("${t.id} into $name: does not parse\n$out", HuJson.check(out).isEmpty())
                     if (p.ready) assertTrue("${t.id} into $name wrote nothing", out != text)
                     if (headscale && name == "headscale" && values === withSamples) File(renders, "${t.id}.hujson").writeText(out)
+                    if (!headscale && name == "grants" && values === withSamples) File(renders, "tailscale/${t.id}.hujson").writeText(out)
                 }
             }
         }
@@ -117,6 +142,15 @@ class BundledTemplatesTest {
     }
 
     companion object {
+        /** The testnet's devices: untagged, of `tester@` and `bob@`. */
+        val TESTNET = TailnetView(
+            listOf(
+                ApiDevice(nodeId = "1", name = "tvemu1.tailnet.test", user = "tester@", addresses = listOf("100.64.0.1")),
+                ApiDevice(nodeId = "2", name = "guest7.tailnet.test", user = "bob@", addresses = listOf("100.64.0.10")),
+            ),
+            null,
+        )
+
         /** A Headscale policy of the testnet's shape: users `tester@` and `bob@`, a group of them, tags. */
         val HEADSCALE_BASE = """{
 	"groups": {

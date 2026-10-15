@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "id": "dns-server",
+  "version": 1,
+  "category": "dns",
+  "title": {
+    "en": "A DNS server for every device",
+    "ru": "DNS-сервер для всех устройств"
+  },
+  "description": {
+    "en": "Every device of the tailnet may query a tagged DNS server on port 53, over UDP and TCP.\n\nA tag the policy does not define yet is added with no owners: only admins can apply it. Then give the server's Tailscale address as a nameserver in the tailnet's DNS settings. Nothing is written when a rule opens port 53 of the server to everyone already.",
+    "ru": "Любое устройство tailnet может обращаться к DNS-серверу с тегом на порт 53 по UDP и TCP.\n\nТег, которого в политике ещё нет, добавится без владельцев — назначать его смогут только администраторы. Затем укажите адрес сервера в Tailscale как DNS-сервер в настройках DNS tailnet. Если правило уже открывает всем порт 53 этого сервера, ничего не запишется."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Grant examples", "ru": "Примеры грантов" }, "url": "https://tailscale.com/docs/reference/examples/grants" }
+  ],
+  "params": [
+    {
+      "id": "dns",
+      "kind": "tag",
+      "slot": "grant-dst",
+      "label": { "en": "DNS server's tag", "ru": "Тег DNS-сервера" },
+      "help": {
+        "en": "The tag of the device that answers DNS queries.",
+        "ru": "Тег устройства, которое отвечает на DNS-запросы."
+      },
+      "required": true,
+      "default": "tag:dns"
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["*"],
+      "dst": ["{{dns}}"],
+      "ports": ["53"],
+      "note": {
+        "en": "A rule of the policy lets every device reach port 53 of this server already.",
+        "ru": "Правило политики уже пускает любое устройство на порт 53 этого сервера."
+      }
+    }
+  ],
+  "fragments": [
+    { "tagOwners": { "{{dns}}": [] } },
+    {
+      "when": "!check:open && style:grants",
+      "grants": [
+        { "src": ["*"], "dst": ["{{dns}}"], "ip": ["udp:53", "tcp:53"] }
+      ]
+    },
+    {
+      "when": "!check:open && style:acls",
+      "acls": [
+        { "action": "accept", "src": ["*"], "dst": ["{{dns}}:53"], "proto": "udp" },
+        { "action": "accept", "src": ["*"], "dst": ["{{dns}}:53"], "proto": "tcp" }
+      ]
+    }
+  ]
+}

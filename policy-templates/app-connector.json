@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "id": "app-connector",
+  "version": 1,
+  "category": "subnets",
+  "title": {
+    "en": "An app connector for some domains",
+    "ru": "App connector для своих доменов"
+  },
+  "description": {
+    "en": "Traffic to the domains you name goes through a tagged Linux server, like a subnet router that works by name.\n\nWrites the connector's domains, the grant that sends these people to the internet through it (via), the grant to its port 53 that finding the routes needs, and the approval of the routes it learns. A tag the policy does not define yet is added with no owners: only admins can apply it. The server runs tailscale up --advertise-connector --advertise-tags with that tag; Linux clients also need tailscale set --accept-routes.",
+    "ru": "Трафик к названным доменам идёт через Linux-сервер с тегом — как subnet-роутер, только по именам.\n\nЗапишутся домены коннектора, грант, который ведёт этих людей в интернет через него (via), грант на его порт 53, без которого маршруты не найдутся, и одобрение маршрутов, которые он узнает. Тег, которого в политике ещё нет, добавится без владельцев — назначать его смогут только администраторы. На сервере — tailscale up --advertise-connector --advertise-tags с этим тегом; клиентам на Linux нужно ещё tailscale set --accept-routes."
+  },
+  "headscale": {
+    "supported": false,
+    "note": {
+      "en": "Headscale has no app connectors.",
+      "ru": "В Headscale нет app connector."
+    }
+  },
+  "docs": [
+    { "title": { "en": "Set up an app connector", "ru": "Как настроить app connector" }, "url": "https://tailscale.com/docs/features/app-connectors/how-to/setup" }
+  ],
+  "params": [
+    {
+      "id": "name",
+      "kind": "text",
+      "label": { "en": "App name", "ru": "Название приложения" },
+      "help": {
+        "en": "How the admin console lists it: GitHub, Jira.",
+        "ru": "Как его покажет консоль администратора: GitHub, Jira."
+      },
+      "required": true
+    },
+    {
+      "id": "domains",
+      "kind": "text",
+      "label": { "en": "Domains", "ru": "Домены" },
+      "help": {
+        "en": "Every domain the app uses; *.example.com takes its subdomains.",
+        "ru": "Все домены, которыми пользуется приложение; *.example.com — его поддомены."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "connector",
+      "kind": "tag",
+      "slot": "grant-via",
+      "label": { "en": "Connector's tag", "ru": "Тег коннектора" },
+      "help": {
+        "en": "The tag of the Linux server that carries the traffic.",
+        "ru": "Тег Linux-сервера, через который идёт трафик."
+      },
+      "required": true,
+      "default": "tag:app-connector"
+    },
+    {
+      "id": "who",
+      "kind": "selector",
+      "slot": "grant-src",
+      "allow": ["user", "group", "tag", "autogroup"],
+      "label": { "en": "Who uses it", "ru": "Кто пользуется" },
+      "help": {
+        "en": "Users, groups or tags whose traffic to these domains goes through the connector.",
+        "ru": "Пользователи, группы или теги, чей трафик к этим доменам пойдёт через коннектор."
+      },
+      "required": true,
+      "multi": true,
+      "default": ["autogroup:member"]
+    }
+  ],
+  "fragments": {
+    "tagOwners": { "{{connector}}": [] },
+    "nodeAttrs": [
+      {
+        "target": ["*"],
+        "app": {
+          "tailscale.com/app-connectors": [
+            { "name": "{{name}}", "connectors": ["{{connector}}"], "domains": ["{{domains}}"] }
+          ]
+        }
+      }
+    ],
+    "access": [
+      { "src": ["{{who}}"], "dst": ["autogroup:internet"], "ports": ["*"], "via": ["{{connector}}"] }
+    ],
+    "grants": [
+      { "src": ["{{who}}"], "dst": ["{{connector}}"], "ip": ["tcp:53", "udp:53"] }
+    ],
+    "autoApprovers": {
+      "routes": {
+        "0.0.0.0/0": ["{{connector}}"],
+        "::/0": ["{{connector}}"]
+      }
+    }
+  }
+}

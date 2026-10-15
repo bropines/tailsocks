@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "id": "subnet-router",
+  "version": 1,
+  "category": "subnets",
+  "title": {
+    "en": "A subnet through a tagged router",
+    "ru": "Подсеть через роутер с тегом"
+  },
+  "description": {
+    "en": "Who reaches a local network through the subnet routers of one tag, and the route approved without the admin console.\n\nWrites a grant to the subnet through devices with the tag (via). A tag the policy does not define yet is added with no owners: only admins can apply it. Leave the tag empty to allow any router that advertises the subnet. Linux clients also need tailscale set --accept-routes. Fill in both test fields and a test pins the path: the server then refuses a policy that loses it.",
+    "ru": "Кто попадает в локальную сеть через subnet-роутеры с одним тегом; маршрут одобряется без консоли администратора.\n\nЗапишется грант в подсеть через устройства с тегом (via). Тег, которого в политике ещё нет, добавится без владельцев — назначать его смогут только администраторы. Пустой тег — через любой роутер, объявивший подсеть. Клиентам на Linux нужно ещё tailscale set --accept-routes. Заполните оба поля теста — и тест закрепит этот путь: сервер не примет политику, которая его потеряет."
+  },
+  "headscale": { "supported": true },
+  "docs": [
+    { "title": { "en": "Subnet routers", "ru": "Subnet-роутеры" }, "url": "https://tailscale.com/docs/features/subnet-routers" },
+    { "title": { "en": "Route filtering with via", "ru": "Маршрут через via" }, "url": "https://tailscale.com/docs/features/access-control/grants/grants-via" }
+  ],
+  "params": [
+    {
+      "id": "who",
+      "kind": "selector",
+      "slot": "grant-src",
+      "allow": ["user", "group", "tag", "autogroup"],
+      "label": { "en": "Who reaches it", "ru": "Кому доступна" },
+      "help": {
+        "en": "Users, groups or tags whose devices may reach every address of the subnet.",
+        "ru": "Пользователи, группы или теги, чьим устройствам открыты все адреса подсети."
+      },
+      "required": true,
+      "multi": true
+    },
+    {
+      "id": "subnet",
+      "kind": "cidr",
+      "label": { "en": "Subnet", "ru": "Подсеть" },
+      "help": {
+        "en": "As the router advertises it: tailscale set --advertise-routes=192.168.1.0/24.",
+        "ru": "Как её объявляет роутер: tailscale set --advertise-routes=192.168.1.0/24."
+      },
+      "required": true
+    },
+    {
+      "id": "router",
+      "kind": "tag",
+      "slot": "grant-via",
+      "label": { "en": "Routers with the tag", "ru": "Роутеры с тегом" },
+      "help": {
+        "en": "Only routers with this tag carry the traffic. Empty: any router that advertises the subnet.",
+        "ru": "Трафик пойдёт только через роутеры с этим тегом. Пусто — через любой роутер, объявивший подсеть."
+      },
+      "default": "tag:subnet-router"
+    },
+    {
+      "id": "approve",
+      "kind": "bool",
+      "label": { "en": "Approve the route automatically", "ru": "Одобрять маршрут автоматически" },
+      "help": {
+        "en": "A router with the tag that advertises this subnet needs no approval in the admin console. Counts from its next advertisement on.",
+        "ru": "Роутер с тегом, объявивший эту подсеть, не придётся одобрять в консоли администратора. Действует со следующего объявления."
+      },
+      "default": true
+    },
+    {
+      "id": "tester",
+      "kind": "selector",
+      "slot": "test-src",
+      "allow": ["user", "group", "tag"],
+      "label": { "en": "Test: as whom", "ru": "Тест: от чьего имени" },
+      "help": {
+        "en": "One of those who reach the subnet, with devices of their own. Empty: no test.",
+        "ru": "Один из тех, кому открыта подсеть, — и у него есть устройства. Пусто — без теста."
+      }
+    },
+    {
+      "id": "probe",
+      "kind": "host",
+      "label": { "en": "Test: an address in the subnet", "ru": "Тест: адрес в подсети" },
+      "help": {
+        "en": "The test checks that it is reachable on port 443. Through a tagged router the server may refuse the test until a router with the tag advertises the subnet; Headscale does. Empty: no test.",
+        "ru": "Тест проверит, что он доступен на порту 443. С роутером по тегу сервер может отвергать тест, пока роутер с этим тегом не объявит подсеть; Headscale отвергает. Пусто — без теста."
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "open",
+      "kind": "access-open",
+      "src": ["{{who}}"],
+      "dst": ["{{subnet}}"],
+      "ports": ["*"],
+      "note": {
+        "en": "A rule of the policy lets these people into the subnet without via already: every router stays open to them until that rule is narrowed.",
+        "ru": "Правило политики уже пускает этих людей в подсеть без via: им открыт любой роутер, пока это правило не сузить."
+      }
+    }
+  ],
+  "fragments": [
+    {
+      "access": [
+        {
+          "when": "!check:open || param:router",
+          "src": ["{{who}}"],
+          "dst": ["{{subnet}}"],
+          "ports": ["*"],
+          "via": ["{{router}}"]
+        }
+      ],
+      "tagOwners": { "{{router}}": [] },
+      "tests": [
+        { "when": "param:tester && param:probe", "src": "{{tester}}", "accept": ["{{probe}}:443"] }
+      ]
+    },
+    { "when": "param:approve", "autoApprovers": { "routes": { "{{subnet}}": ["{{router}}"] } } }
+  ]
+}

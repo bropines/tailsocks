@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "id": "guests-exit-nodes",
-  "version": 1,
+  "version": 2,
   "category": "guests",
   "title": {
     "en": "Guests use exit nodes only",
     "ru": "Гостям — только exit-ноды"
   },
   "description": {
-    "en": "The internet through exit nodes and nothing in the tailnet. Pick who the guests are.",
-    "ru": "Интернет через exit-ноды и ничего внутри tailnet. Останется выбрать, кто гости."
+    "en": "The internet through exit nodes and nothing in the tailnet. Pick who the guests are.\n\nRules only allow: while another rule lets every member in, guests get that too. Fill in both test fields and a test makes the server refuse any policy that opens those devices to a guest (ports 22 and 443).",
+    "ru": "Интернет через exit-ноды и ничего внутри tailnet. Останется выбрать, кто гости.\n\nПравила только разрешают: пока другое правило пускает всех участников, гостям достаётся и это. Заполните оба поля теста — и сервер не примет политику, которая откроет гостю эти устройства (порты 22 и 443)."
   },
   "headscale": { "supported": true },
   "docs": [
@@ -29,11 +29,37 @@
       },
       "required": true,
       "multi": true
+    },
+    {
+      "id": "tester",
+      "kind": "selector",
+      "slot": "test-src",
+      "allow": ["user", "group"],
+      "label": { "en": "Test: as which guest", "ru": "Тест: от имени какого гостя" },
+      "help": {
+        "en": "One of the guests, with devices of their own. Empty: no test.",
+        "ru": "Один из гостей, и у него есть устройства. Пусто — без теста."
+      }
+    },
+    {
+      "id": "closed",
+      "kind": "selector",
+      "slot": "test-dst",
+      "allow": ["user", "group", "tag", "host"],
+      "label": { "en": "Test: stays closed to guests", "ru": "Тест: закрыто для гостей" },
+      "help": {
+        "en": "Your own devices, admins' groups, servers' tags. Empty: no test.",
+        "ru": "Ваши устройства, группы администраторов, теги серверов. Пусто — без теста."
+      },
+      "multi": true
     }
   ],
   "fragments": {
     "access": [
       { "src": ["{{guests}}"], "dst": ["autogroup:internet"], "ports": ["*"] }
+    ],
+    "tests": [
+      { "when": "param:tester && param:closed", "src": "{{tester}}", "deny": ["{{closed}}:22", "{{closed}}:443"] }
     ]
   }
 }

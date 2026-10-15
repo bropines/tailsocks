@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "id": "funnel-tag",
+  "version": 1,
+  "category": "funnel",
+  "title": {
+    "en": "Funnel for tagged devices",
+    "ru": "Funnel для устройств с тегом"
+  },
+  "description": {
+    "en": "Devices with these tags may publish a local service to the internet with Funnel.\n\nWrites the funnel attribute for the tags. The tailnet also needs MagicDNS and HTTPS certificates, both turned on in the admin console's DNS settings. Funnel listens only on ports 443, 8443 and 10000, over TLS; each device then switches it on itself (tailscale funnel).",
+    "ru": "Устройства с этими тегами смогут выставлять локальный сервис в интернет через Funnel.\n\nЗапишется атрибут funnel для этих тегов. Ещё tailnet нужны MagicDNS и HTTPS-сертификаты — оба включаются в настройках DNS в консоли администратора. Funnel слушает только порты 443, 8443 и 10000 и только по TLS; включает его каждое устройство само (tailscale funnel)."
+  },
+  "headscale": {
+    "supported": false,
+    "note": {
+      "en": "Headscale has no Funnel and refuses the attribute.",
+      "ru": "В Headscale нет Funnel, и атрибут он не принимает."
+    }
+  },
+  "docs": [
+    { "title": { "en": "Tailscale Funnel", "ru": "Tailscale Funnel" }, "url": "https://tailscale.com/docs/features/tailscale-funnel" }
+  ],
+  "params": [
+    {
+      "id": "devices",
+      "kind": "selector",
+      "slot": "node-target",
+      "allow": ["tag"],
+      "label": { "en": "Tags that may use Funnel", "ru": "Теги, которым можно Funnel" },
+      "help": {
+        "en": "Servers by their tags; people's own devices are left as they are.",
+        "ru": "Серверы по их тегам; личные устройства людей остаются как были."
+      },
+      "required": true,
+      "multi": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "funnel",
+      "kind": "node-attr",
+      "attrs": ["funnel"],
+      "note": {
+        "en": "A rule of the policy turns Funnel on for some devices already; this one adds these tags.",
+        "ru": "Funnel уже включает одно из правил политики; это добавит к нему ещё теги."
+      }
+    }
+  ],
+  "fragments": {
+    "nodeAttrs": [
+      { "target": ["{{devices}}"], "attr": ["funnel"] }
+    ]
+  }
+}
