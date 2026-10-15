@@ -181,7 +181,9 @@ internal fun RemoteManageContent(
                 // status every few seconds while it is open; this re-reads everything.
                 // Its spinner is for a pull only: the first load and the top bar's refresh have
                 // the thin line under the bar.
-                is RemoteManageUi.Managing -> {
+                // Not on a television: there is nothing to pull with, and the D-pad scrolling up
+                // past the top left the indicator half drawn. The top bar's refresh is there.
+                is RemoteManageUi.Managing -> if (isTv) Managing(ui, actions, hooks, layout, opened) else {
                     var pulled by remember { mutableStateOf(false) }
                     LaunchedEffect(ui.loading) { if (!ui.loading) pulled = false }
                     PullToRefreshBox(
