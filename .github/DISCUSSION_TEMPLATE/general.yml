@@ -1,0 +1,13 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bugs go to [Issues](https://github.com/bropines/tailsocks/issues/new/choose), questions to Q&A.
+
+        Ошибки — в [Issues](https://github.com/bropines/tailsocks/issues/new/choose), вопросы — в Q&A.
+  - type: textarea
+    id: message
+    attributes:
+      label: "What is on your mind? / О чём хотите поговорить?"
+    validations:
+      required: true

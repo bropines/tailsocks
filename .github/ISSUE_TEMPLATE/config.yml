@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "Questions & help / Вопросы и помощь"
+    url: "https://github.com/bropines/tailsocks/discussions/categories/q-a"
+    about: "Ask in Discussions / Спросите в Обсуждениях"
+  - name: "Ideas / Идеи"
+    url: "https://github.com/bropines/tailsocks/discussions/categories/ideas"
+    about: "Talk an idea over first / Сначала обсудите идею"
+  - name: "Documentation / Документация"
+    url: "https://bropines.github.io/tailsocks/"
+    about: "Setup, modes, troubleshooting / Настройка, режимы, решение проблем"
+  - name: "Translations / Переводы"
+    url: "https://hosted.weblate.org/engage/tailsocks/"
+    about: "Translate on Hosted Weblate / Переводите на Hosted Weblate"
+  - name: "Security problem / Уязвимость"
+    url: "https://github.com/bropines/tailsocks/security/advisories/new"
+    about: "Report privately, not here / Сообщите приватно, не здесь"

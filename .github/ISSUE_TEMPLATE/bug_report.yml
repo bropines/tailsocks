@@ -1,0 +1,109 @@
+name: "Bug / Ошибка"
+description: "Something does not work as it should / Что-то работает не так"
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Look at [Troubleshooting](https://bropines.github.io/tailsocks/troubleshooting/) first. In the app, **Report a problem** builds the report below.
+
+        Сначала загляните в [решение проблем](https://bropines.github.io/tailsocks/ru/troubleshooting/). В приложении отчёт собирает **Сообщить о проблеме**.
+  - type: input
+    id: version
+    attributes:
+      label: "TailSocks version / Версия TailSocks"
+      description: "Main screen → ⓘ → App Version / Главный экран → ⓘ → «Версия приложения»"
+      placeholder: "5.0.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: "Installed from / Откуда установлено"
+      options:
+        - "GitHub"
+        - "F-Droid"
+        - "Obtainium"
+        - "Other / Другое"
+  - type: input
+    id: device
+    attributes:
+      label: "Device and Android version / Устройство и версия Android"
+      placeholder: "Pixel 8, Android 15"
+    validations:
+      required: true
+  - type: dropdown
+    id: device_type
+    attributes:
+      label: "Device type / Тип устройства"
+      options:
+        - "Phone / Телефон"
+        - "Tablet / Планшет"
+        - "Android TV"
+        - "WSA or other / WSA или другое"
+  - type: dropdown
+    id: mode
+    attributes:
+      label: "Mode / Режим"
+      description: "Settings → Tunnel mode / Настройки → Режим туннеля"
+      options:
+        - "Proxy / Прокси"
+        - "VPN (TUN) — native engine / нативный движок"
+        - "VPN (TUN) — hev engine / движок hev"
+        - "Root"
+  - type: dropdown
+    id: login_server
+    attributes:
+      label: "Login server / Сервер входа"
+      options:
+        - "Tailscale"
+        - "Headscale"
+        - "Other / Другой"
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: "What happened? / Что произошло?"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "What did you expect? / Что ожидалось?"
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to reproduce / Шаги воспроизведения"
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: "Diagnostics report / Отчёт диагностики"
+      description: "Main screen → ⓘ → Report a problem → Copy. No device names or addresses. / Главный экран → ⓘ → «Сообщить о проблеме» → «Копировать». Без имён и адресов."
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs / Логи"
+      description: "Main screen → Logs → Copy; the last lines are enough. Remove names and addresses of devices first. / Главный экран → «Логи» → «Копировать»; хватит последних строк. Сначала уберите имена и адреса устройств."
+      render: text
+  - type: textarea
+    id: files
+    attributes:
+      label: "Screenshots and files / Скриншоты и файлы"
+      description: "Drop them here, even the whole log: Logs → Save. / Сюда же весь лог: «Логи» → «Сохранить»."
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: "Before you send / Перед отправкой"
+      options:
+        - label: "I searched [existing issues](https://github.com/bropines/tailsocks/issues?q=is%3Aissue) / Я искал(а) среди существующих"
+          required: true
+        - label: "I am on the latest version available to me / У меня последняя доступная мне версия"
+          required: true
+        - label: "This is not a security problem; those go [privately](https://github.com/bropines/tailsocks/security/advisories/new) / Это не уязвимость; о них пишут [приватно](https://github.com/bropines/tailsocks/security/advisories/new)"
+          required: true

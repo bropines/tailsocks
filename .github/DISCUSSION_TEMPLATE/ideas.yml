@@ -1,0 +1,25 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/bropines/tailsocks/blob/main/docs/ROADMAP.md) first: it may be planned already.
+
+        Сначала загляните в [план](https://github.com/bropines/tailsocks/blob/main/docs/ROADMAP_RU.md): возможно, это уже запланировано.
+  - type: textarea
+    id: idea
+    attributes:
+      label: "Your idea / Ваша идея"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: "Why, and who needs it? / Зачем и кому это нужно?"
+  - type: textarea
+    id: how
+    attributes:
+      label: "How might it look? / Как это может выглядеть?"
+  - type: textarea
+    id: tried
+    attributes:
+      label: "What have you tried? / Что вы уже пробовали?"

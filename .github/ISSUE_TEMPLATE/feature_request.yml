@@ -1,0 +1,49 @@
+name: "Feature request / Предложение функции"
+description: "Suggest an improvement / Предложите улучшение"
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/bropines/tailsocks/blob/main/docs/ROADMAP.md) first: it may be planned already.
+
+        Сначала загляните в [план](https://github.com/bropines/tailsocks/blob/main/docs/ROADMAP_RU.md): возможно, это уже запланировано.
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem does it solve? / Какую задачу это решает?"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: "What would you like? / Что бы вы хотели?"
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives / Альтернативы"
+      description: "What you tried or considered / Что вы пробовали или рассматривали"
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Which part? / Какая часть?"
+      options:
+        - "Connection & modes / Подключение и режимы"
+        - "Files — Taildrop/Taildrive / Файлы — Taildrop/Taildrive"
+        - "Remote management / Удалённое управление"
+        - "Android TV"
+        - "Admin console & policy / Консоль администратора и политика"
+        - "Settings & UI / Настройки и интерфейс"
+        - "Automation / Автоматизация"
+        - "Censorship bypass / Обход блокировок"
+        - "Other / Другое"
+  - type: checkboxes
+    id: testing
+    attributes:
+      label: "Testing / Проверка"
+      options:
+        - label: "I can help test it / Могу помочь проверить"

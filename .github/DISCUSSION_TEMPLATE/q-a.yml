@@ -1,0 +1,32 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        [Troubleshooting](https://bropines.github.io/tailsocks/troubleshooting/) may already answer this.
+
+        Возможно, ответ уже есть в [решении проблем](https://bropines.github.io/tailsocks/ru/troubleshooting/).
+  - type: textarea
+    id: goal
+    attributes:
+      label: "What do you want to do? / Что вы хотите сделать?"
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: "What have you tried? / Что вы пробовали?"
+  - type: input
+    id: version
+    attributes:
+      label: "TailSocks version / Версия TailSocks"
+      placeholder: "5.0.1"
+  - type: input
+    id: device
+    attributes:
+      label: "Device and Android version / Устройство и версия Android"
+      placeholder: "Pixel 8, Android 15"
+  - type: input
+    id: mode
+    attributes:
+      label: "Mode / Режим"
+      placeholder: "Proxy, VPN (TUN) or Root"
