@@ -1,6 +1,6 @@
---- /dev/null	2026-10-12 10:19:24.352827300 +0300
-+++ tailscale_src/cmd/tailscaled/android_remote.go	2026-10-13 17:11:45.569761316 +0300
-@@ -0,0 +1,148 @@
+--- /dev/null	2026-10-14 07:35:26.525338240 +0300
++++ tailscale_src/cmd/tailscaled/android_remote.go	2026-10-15 13:09:29.255212972 +0300
+@@ -0,0 +1,150 @@
 +//go:build !ts_omit_netstack
 +
 +package main
@@ -123,10 +123,12 @@
 +
 +// forwarded reports whether a peer's connection to the port is forwarded to
 +// localhost as of now: the switch is read afresh, so the datapath agrees with
-+// the answer from the moment it is given.
++// the answer from the moment it is given. That is the switch in every mode:
++// on a real TUN netstack keeps the port only while it is on, and in
++// userspace-networking, where netstack has every port, the loopback guard
++// lets the connection through only then (android_loopback.go).
 +func (f *remoteForwarder) forwarded() bool {
-+	on := f.look()
-+	return f.everyPort || on
++	return f.look()
 +}
 +
 +// serveRemoteManagementPort answers GET /localapi/v0/remote-management-port
@@ -149,9 +151,9 @@
 +	w.Header().Set("Content-Type", "application/json")
 +	json.NewEncoder(w).Encode(res)
 +}
---- /dev/null	2026-10-12 10:19:24.352827300 +0300
-+++ tailscale_src/cmd/tailscaled/android_remote_test.go	2026-10-13 17:12:50.241744239 +0300
-@@ -0,0 +1,167 @@
+--- /dev/null	2026-10-14 07:35:26.525338240 +0300
++++ tailscale_src/cmd/tailscaled/android_remote_test.go	2026-10-15 13:09:33.631212124 +0300
+@@ -0,0 +1,171 @@
 +//go:build !ts_omit_netstack
 +
 +package main
@@ -253,17 +255,21 @@
 +	}
 +}
 +
-+// In userspace-networking netstack has every port of the node's addresses, so
-+// the port is forwarded whatever the switch says — as it was before the port
-+// was kept anywhere.
++// In userspace-networking netstack has every port of the node's addresses, and
++// the loopback guard lets the port through to localhost only while the switch
++// is on: forwarded is the switch there too.
 +func TestRemoteForwarderEveryPort(t *testing.T) {
-+	socket, _ := remoteSwitchFor(t)
++	socket, flip := remoteSwitchFor(t)
 +	f := newRemoteForwarder(t.Logf, socket, true)
-+	if !f.forwarded() {
-+		t.Error("not forwarded though netstack takes every port")
++	if f.forwarded() {
++		t.Error("forwarded with the switch off")
 +	}
 +	if f.keeps(remoteManagementPort) {
 +		t.Error("the port is kept by the switch though the switch is off")
++	}
++	flip(true)
++	if !f.forwarded() {
++		t.Error("not forwarded with the switch on")
 +	}
 +}
 +
@@ -319,8 +325,8 @@
 +	_, body = ask(&localapi.Handler{PermitRead: true})
 +	want(t, body, false)
 +}
---- /dev/null	2026-10-12 10:19:24.352827300 +0300
-+++ tailscale_src/wgengine/netstack/local_tcp_port_test.go	2026-10-13 17:15:03.862552775 +0300
+--- /dev/null	2026-10-14 07:35:26.525338240 +0300
++++ tailscale_src/wgengine/netstack/local_tcp_port_test.go	2026-10-15 12:48:01.220831605 +0300
 @@ -0,0 +1,160 @@
 +package netstack
 +

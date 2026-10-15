@@ -166,6 +166,24 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/wgengine/netstack/local_tcp_port_test.go || true
 } > patches/22-android-remote-port.patch
 
+# 23-android-loopback-guard.patch (creates wgengine/netstack/loopback_guard.go,
+# cmd/tailscaled/android_loopback.go, their tests, and a test hook in ipnlocal)
+# Upstream netstack hands a tailnet connection to the node's own address that
+# nothing took first (Serve, the peerAPI, quad-100) to the same port on
+# 127.0.0.1, which in userspace networking opened every loopback listener of
+# the device — the app's SOCKS5, HTTP, DNS and Taildrive proxies — to the
+# tailnet. Impl.GuardLoopback refuses those flows (a RST, a dropped UDP flow)
+# unless the port is allowed: the remote-management port while 22's switch is
+# on, and what the app lists in files/tailnet-open. The one call from
+# newNetstack travels in 19 (whole-file diff).
+{
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/loopback_guard.go || true
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/loopback_guard_test.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_loopback.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_loopback_test.go || true
+    diff -N -u /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks.go || true
+} > patches/23-android-loopback-guard.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.
