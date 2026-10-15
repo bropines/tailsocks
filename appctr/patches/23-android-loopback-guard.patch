@@ -1,5 +1,5 @@
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/loopback_guard.go	2026-10-15 15:02:55.557974162 +0300
++++ tailscale_src/wgengine/netstack/loopback_guard.go	2026-10-15 15:09:58.184957737 +0300
 @@ -0,0 +1,99 @@
 +package netstack
 +
@@ -101,7 +101,7 @@
 +	return false
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/loopback_guard_test.go	2026-10-15 15:02:11.977975550 +0300
++++ tailscale_src/wgengine/netstack/loopback_guard_test.go	2026-10-15 15:09:58.185028951 +0300
 @@ -0,0 +1,566 @@
 +package netstack
 +
@@ -670,8 +670,8 @@
 +	return uint16(c.LocalAddr().(*net.UDPAddr).Port)
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_loopback.go	2026-10-15 14:56:55.802035427 +0300
-@@ -0,0 +1,284 @@
++++ tailscale_src/cmd/tailscaled/android_loopback.go	2026-10-15 15:33:31.913636504 +0300
+@@ -0,0 +1,283 @@
 +//go:build !ts_omit_netstack
 +
 +package main
@@ -710,8 +710,9 @@
 +// race at start, an app from before the file): default mode with the app's
 +// listeners at their default ports closed, failsafeClosed. Whatever the file
 +// says, the remote-management port is its switch's: allowed while it is on,
-+// refused while it is off — the switch and the look at it are
-+// android_remote.go's, and that port is the bridge's own listener.
++// refused while it is off or with no switch to look at — the switch and the
++// look at it are android_remote.go's, and that port is the bridge's own
++// listener.
 +//
 +// Both are followed without a restart.
 +
@@ -746,11 +747,9 @@
 +// failsafeClosed is what default mode closes when the app's policy cannot be
 +// read: the app's own listeners at their default ports (GlobalSettings,
 +// DriveProxy): SOCKS5, the HTTP proxy and the Web UI (both 8080), the DNS
-+// proxy (UDP only), the Taildrive proxy, and remote management, which the
-+// switch decides whenever there is one to look at. Sorted.
++// proxy (UDP only), the Taildrive proxy. Sorted.
 +var failsafeClosed = []reachPort{
 +	{ipproto.TCP, 8080},
-+	{ipproto.TCP, remoteManagementPort},
 +	{ipproto.TCP, 33445},
 +	{ipproto.TCP, 48115},
 +	{ipproto.UDP, 1053},
@@ -840,8 +839,8 @@
 +// allow is the guard's question: may a peer's flow to this port of the node
 +// reach localhost?
 +func (a *loopbackAllow) allow(proto ipproto.Proto, port uint16) bool {
-+	if proto == ipproto.TCP && port == remoteManagementPort && a.remote != nil {
-+		return a.remote.keeps(port)
++	if proto == ipproto.TCP && port == remoteManagementPort {
++		return a.remote != nil && a.remote.keeps(port)
 +	}
 +	return a.current().allows(reachPort{proto, port})
 +}
@@ -957,8 +956,8 @@
 +	return rp, true
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_loopback_test.go	2026-10-15 15:05:26.845942390 +0300
-@@ -0,0 +1,293 @@
++++ tailscale_src/cmd/tailscaled/android_loopback_test.go	2026-10-15 15:33:47.373631600 +0300
+@@ -0,0 +1,292 @@
 +//go:build !ts_omit_netstack
 +
 +package main
@@ -1069,7 +1068,6 @@
 +		{"fail-safe: the HTTP proxy and the Web UI", failsafe("test"), reachPort{ipproto.TCP, 8080}, false},
 +		{"fail-safe: the Taildrive proxy", failsafe("test"), reachPort{ipproto.TCP, 33445}, false},
 +		{"fail-safe: the DNS proxy", failsafe("test"), reachPort{ipproto.UDP, 1053}, false},
-+		{"fail-safe: remote management", failsafe("test"), reachPort{ipproto.TCP, remoteManagementPort}, false},
 +		{"fail-safe: adb", failsafe("test"), reachPort{ipproto.TCP, 5555}, true},
 +	}
 +	for _, tt := range tests {
@@ -1169,9 +1167,6 @@
 +		t.Helper()
 +		a.expire()
 +		for _, p := range failsafeClosed {
-+			if p.proto == ipproto.TCP && p.port == remoteManagementPort {
-+				continue // the switch's, below
-+			}
 +			if a.allow(p.proto, p.port) {
 +				t.Errorf("%s: %v is open", why, p)
 +			}
@@ -1220,7 +1215,7 @@
 +func TestLoopbackAllowRemoteManagement(t *testing.T) {
 +	a, flip, write := reachFor(t)
 +	for _, policy := range []string{
-+		"",               // the fail-safe, which lists the port
++		"",               // the fail-safe
 +		"mode default\n", // nothing closed
 +		"mode strict\n",  // nothing open
 +		"mode strict\nopen tcp 28115\n",
@@ -1240,7 +1235,7 @@
 +}
 +
 +// Without a socket path there is no policy and no switch to find: the
-+// fail-safe holds, remote management's port with it.
++// fail-safe holds, and remote management's port is closed.
 +func TestLoopbackAllowWithoutASocket(t *testing.T) {
 +	a := newLoopbackAllow(t.Logf, "", nil)
 +	for _, p := range failsafeClosed {
@@ -1248,12 +1243,15 @@
 +			t.Errorf("%v is open without a socket path", p)
 +		}
 +	}
++	if a.allow(ipproto.TCP, remoteManagementPort) {
++		t.Error("remote management's port is open with no switch to look at")
++	}
 +	if !a.allow(ipproto.TCP, 5555) {
 +		t.Error("another app's port is closed without a socket path")
 +	}
 +}
 --- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/ipn/ipnlocal/fortest_tailsocks.go	2026-10-15 14:47:16.877089277 +0300
++++ tailscale_src/ipn/ipnlocal/fortest_tailsocks.go	2026-10-15 15:09:58.185510516 +0300
 @@ -0,0 +1,13 @@
 +package ipnlocal
 +
