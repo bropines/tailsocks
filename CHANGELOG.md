@@ -2,6 +2,20 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Remote management: a guest can be given an owner's rights for 15 minutes up to a day, confirmed at the device with its lock; a guest can ask for them, and Settings can turn this off.
+- Policy editor: a "TailSocks remote management" template — choose who manages whose devices; it writes the rule for port 28115 and a test.
+- Policy tab: copy the policy, or copy or share it for an AI agent together with the network's map, behind fingerprint or screen lock.
+
+### Fixed
+
+- Remote management: a device this one cannot see — another tailnet, or access rules that keep it away — is no longer said to be outside the tailnet.
+- Policy editor: a Headscale user is written as `name@`, which Headscale reads as a user and not as a host.
+- About → Report a problem opens the issue form with the version, the device and the report filled in.
+
 ## [5.0.1] - 2026-10-14
 
 ### Added
