@@ -40,8 +40,8 @@ each one claims:
 
 | Tier | What it is | What it claims |
 |---|---|---|
-| **T1 — tailnet reachability** | table `53`, the two priority-100 rules, the `TAILSOCKS_MARK` chain, the `tailscale0` FORWARD pair, the `/etc/hosts` publication and the loopback SOCKS5/HTTP proxies | only packets this device sends to a tailnet address |
-| **T2 — default-route capture** | the priority-200 catch-all into the daemon's table `52`, the LAN `throw` routes, the `rp_filter` loosening, and the priority-190 per-app exclusions that punch holes in it | everything this device sends, whenever an exit node is selected |
+| **T1 — tailnet reachability** | table `53` with the CGNAT guard, the two priority-100 rules, the `TAILSOCKS_MARK` chain, the `tailscale0` FORWARD pair, the `/etc/hosts` publication and the loopback SOCKS5/HTTP proxies | only packets this device sends to a tailnet address |
+| **T2 — default-route capture** | the priority-200 catch-all into the daemon's table `52`, the `throw` routes for **Excluded IP Ranges**, the `rp_filter` loosening, and the priority-190 per-app exclusions that punch holes in it | everything this device sends, whenever an exit node is selected |
 | **T3 — device-wide DNS** | the `TAILSOCKS_DNS` chain and its two `nat OUTPUT` hooks | every port-53 packet on the device |
 
 T1 coexists with anything, by construction. T2 and T3 claim the whole device and
@@ -96,14 +96,56 @@ packages resolved to uids, and there is no `PackageManager` at `late_start`
   `/8`-sized pieces but installs `100.0.0.0/10` and `100.128.0.0/9` and
   deliberately not `100.64.0.0/10` — so the tailnet stays reachable from inside
   its tunnel with no configuration on either side.
+* **The CGNAT guard.** Every prefix inside `100.64.0.0/10` held by an interface
+  that is not ours — a carrier's WAN address, another VPN client's `tun` — gets a
+  `throw` route in table `53`, so that traffic stays on its own network instead
+  of going into `tailscale0`.
+
+<details>
+<summary>The CGNAT guard: what triggers it, what it writes, how to see it</summary>
+
+`100.64.0.0/10` is also real carrier-grade NAT space. A carrier can hand out a
+WAN address inside it, and another VPN client can put its `tun` there. The
+priority-100 destination rule sits above every per-app exclusion, so without the
+guard nothing on the device could take that traffic back out of the tunnel.
+Upstream Tailscale guards the same case with netmon's `HasCGNATInterface()`;
+`RootUtils.cgnatInterfacePrefixes()` is the same walk, done from Java.
+
+- **Trigger.** An interface that is up, is not named `tailscale*`, and holds an
+  IPv4 address inside `100.64.0.0/10` with a prefix from `/11` to `/32`. IPv4
+  only.
+- **Effect.** `ip route replace throw <prefix> table 53`, one per prefix.
+  Longest-prefix match picks the throw over the `/10`, and the lookup falls
+  through to the rules below ours: the priority-200 catch-all where it is
+  installed — so a tailnet peer inside that prefix is still reached through its
+  own `/32` in table 52 — and netd's rules otherwise, which route it as they did
+  before Root Mode started.
+- **Refused.** A prefix of `/10` or shorter would cover the tailnet itself. It
+  is not thrown; the ROOT log names the interface and says it is left captured.
+- **When.** On every apply, in every coexistence state: the guard is part of T1.
+  The colliding prefixes are part of the routing inputs
+  (`RootUtils.cgnatGuardSignature()` in `TailscaledService`), so an address that
+  appears — a carrier, on the way out of the house — or goes away re-applies the
+  rules without a restart. New throws are added before stale ones are swept, so
+  the `/10` never covers that traffic in between. If the interface list cannot be
+  read, the guard is skipped and the ROOT log says `CGNAT guard skipped`.
+- **Removed** on the next apply once stale, and with every other `throw` in
+  table `53` when Root Mode stops (nothing else writes a throw there). The boot
+  script does not write the guard; it arrives with the app's first apply.
+- **Seen** in the ROOT log as `CGNAT guard: <prefix> on <interface> sits inside
+  100.64.0.0/10 without being the tailnet; …`, in the table-53 part of Check
+  Routing, and with `su -c ip route show table 53`.
+
+</details>
 
 #### T2 — default-route capture (exit nodes, subnet routes, table `52`)
 
 Everything only the daemon knows goes into its own table `52`: peer `/32`s,
 accepted subnet routes, `100.100.100.100/32`, `default dev tailscale0` while an
 exit node is selected, and `throw` routes for the LAN prefixes when *allow LAN
-access* is on. The app never writes to, flushes or checks that table; it adds
-one rule next to the priority-100 ones:
+access* is on. The app adds one rule next to the priority-100 ones, and with it
+its own `throw` routes for **Excluded IP Ranges** (below); otherwise it leaves
+the table to the daemon:
 
 ```
 200: from all fwmark 0x0/0x2020000 iif lo lookup 52
@@ -188,6 +230,41 @@ are netd's permission bits, and the nft `nat` chain type is missing on some
 kernels, which is where the old `router config failed` health warning came
 from. Root Mode is client-only: this device cannot act as an exit node or
 subnet router while in Root Mode.
+
+**Excluded IP Ranges.** Together with the catch-all, every prefix in **Excluded
+IP Ranges** gets a `throw` route in table `52`, so those subnets stay on the
+real network while an exit node is on.
+
+<details>
+<summary>Excluded IP Ranges in Root Mode</summary>
+
+- **Where it is set.** Settings → Tunnel mode → **VPN (TUN)** → **Excluded IP
+  Ranges** (`tun_excluded_cidrs`). That card is shown only while VPN mode is
+  selected; Root Mode uses the value saved there — by default
+  `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` and
+  `fe80::/10`, is always added (`RootUtils.localExclusions`).
+- **What is written.** `ip route replace throw <prefix> table 52` for every
+  plain CIDR in the list: IPv4 always, IPv6 only where IPv6 is enabled on the
+  device. A throw ends the lookup in table 52 and hands it to netd's rules, so
+  traffic to that prefix leaves on Wi-Fi/cellular instead of the exit node.
+  Entries may be separated by commas, semicolons, spaces or new lines; one that
+  is not a plain CIDR is dropped and named in the ROOT log (`exit-node
+  exclusions ignored, not plain CIDRs: …`).
+- **No Android 13 limit here.** The "Needs Android 13+" note under the setting
+  is about VPN mode, which excludes routes through `VpnService.Builder`; Root
+  Mode writes kernel routes.
+- **When.** Only together with the priority-200 catch-all, device-wide or scoped
+  to a partial yield. The throws survive the daemon's own reconfiguration, so
+  they are written once per apply, not on every network-map change.
+- **Removed** when T2 is yielded — exactly the prefixes from the list, never a
+  throw the daemon wrote for itself (its *allow LAN access* throws live in the
+  same table). When Root Mode stops, every IPv4 throw in table 52 except the
+  daemon's `127.0.0.0/8`, and every IPv6 throw, is removed.
+- **Seen** with `su -c ip route show table 52`, and in Check Routing, whose
+  route check for the first excluded prefix answers `tailscale0` if the LAN is
+  going through the exit node.
+
+</details>
 
 #### T3 — device-wide DNS (`TAILSOCKS_DNS`)
 
@@ -452,7 +529,7 @@ traffic carries netId 0 in the mark, and it was measured directly —
 which is why the scope has to be expressed as uids.
 
 What is *not* installed is also actively **removed**: an earlier apply's
-catch-all — device-wide or scoped — the LAN `throw` routes we wrote into table
+catch-all — device-wide or scoped — the **Excluded IP Ranges** `throw` routes we wrote into table
 52, the `rp_filter` change, the per-app exclusion rules and both DNS hooks are
 taken down when the tier is yielded, and the scoped rules are likewise replaced
 as a unit whenever the other tunnel changes which apps it bypasses. Skipping an
@@ -571,8 +648,10 @@ exit-node egress — while it keeps the device and everything else keeps working
   way this document does not describe. It prints: the complete `ip rule` /
   `ip -6 rule` lists (our priority-100 rules, the priority-200 catch-all when it
   is installed, the priority-190 exclusions, and any stale `52xx` rules); other
-  tunnel interfaces present on the device; tables 53, 1099 and 52 and every
-  `tailscale0` route; the route decision for `8.8.8.8` with and without the
+  tunnel interfaces present on the device; table 53 (the tailnet prefix and a
+  `throw` per foreign CGNAT prefix), table 1099, table 52 for IPv4 and IPv6 (with
+  the **Excluded IP Ranges** throws) and every `tailscale0` route; the number of
+  default routes in table 53 (expected 0 — one means the device was captured); the route decision for `8.8.8.8` with and without the
   daemon's bypass mark, **per excluded uid** (a `tailscale0` answer there means
   that app is not excluded after all) and for the first excluded local prefix (a
   `tailscale0` answer means the LAN is going through the exit node); any rule
@@ -707,12 +786,12 @@ su -c ls -la /data/data/io.github.bropines.tailscaled/files/tailscaled.sock
 # catch-all — device-wide when nothing else holds the VPN slot, one rule per carried
 # uid range in a partial yield, absent in a full one; no 52xx expected)
 su -c ip rule show
-su -c ip route show table 53
+su -c ip route show table 53                 # the tailnet /10, plus a throw per foreign CGNAT prefix
 su -c iptables -t mangle -S TAILSOCKS_MARK
 su -c iptables -t nat -S TAILSOCKS_DNS
 
 # The daemon's table and the exit-node decision
-su -c ip route show table 52                 # peers, subnet routes, 'default dev tailscale0' with an exit node
+su -c ip route show table 52                 # peers, subnet routes, 'default dev tailscale0' with an exit node, throws for excluded ranges
 su -c ip route get 8.8.8.8                   # tailscale0 with an exit node and the device ours, Wi-Fi/cellular otherwise
 su -c ip rule show | grep '^200:'            # empty is correct while another VPN holds the device
 su -c ip route get 8.8.8.8 mark 0x2000000    # the daemon's own path: always the physical network
