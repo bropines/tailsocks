@@ -92,6 +92,17 @@ android {
         }
     }
 
+    // -PskipReleaseLint: no lintVital pass inside a release build. F-Droid's recipe
+    // sets it: its check of a merge request builds the four ABIs one after another
+    // on a two-core runner, where lintVital competed with R8 for the CPU and the
+    // job ran out of its hour. It changes nothing in the APK. Our own release
+    // builds and CI keep it — it is what catches an orphan translation.
+    if (project.hasProperty("skipReleaseLint")) {
+        lint {
+            checkReleaseBuilds = false
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (releaseKeystorePath != null) {
