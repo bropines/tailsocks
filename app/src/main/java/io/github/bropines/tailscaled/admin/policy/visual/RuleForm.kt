@@ -6,9 +6,8 @@ import io.github.bropines.tailscaled.admin.policy.TailnetView
 
 /*
  * The rule pages' logic without Compose: which syntax a new access rule is written in, what a
- * form turns into, which fields an edit actually changes, where Move up / Move down put a rule,
- * the templates of an empty Access page and the SSH page's port-22 check. The editors only
- * draw it and hand the result to PolicyEdits.
+ * form turns into, which fields an edit actually changes, where Move up / Move down put a rule
+ * and the SSH page's port-22 check. The editors only draw it and hand the result to PolicyEdits.
  */
 
 /** An access rule in either syntax: the Access page lists acls and grants together. */
@@ -31,18 +30,6 @@ sealed class AccessRule {
 
     /** Its place in its own list (acls or grants). */
     val index: Int get() = (origin.path.last as? PathStep.Index)?.index ?: -1
-}
-
-/** The ready-made rules an empty Access page offers. */
-enum class AccessTemplate {
-    /** Every member reaches the devices they own. */
-    OWN_DEVICES,
-    /** The tailnet's admins reach every device on every port (Tailscale: Headscale has no role autogroups). */
-    ADMINS_EVERYTHING,
-    /** Someone uses exit nodes and nothing else: the internet, not the nodes themselves. */
-    GUESTS_INTERNET,
-    /** A group reaches a tag on chosen ports: an empty form to fill in. */
-    GROUP_TO_TAG,
 }
 
 object RuleForms {
@@ -127,26 +114,6 @@ object RuleForms {
     fun complete(t: AclTest): Boolean = t.src.isNotBlank() && (t.accept.isNotEmpty() || t.deny.isNotEmpty())
 
     fun complete(t: SshTest): Boolean = t.src.isNotBlank() && t.dst.isNotEmpty() && (t.accept.isNotEmpty() || t.check.isNotEmpty() || t.deny.isNotEmpty())
-
-    /** The templates this backend accepts: Headscale has no admin role to name. */
-    fun templates(headscale: Boolean): List<AccessTemplate> =
-        AccessTemplate.entries.filter { !(headscale && it == AccessTemplate.ADMINS_EVERYTHING) }
-
-    /** A template as a form in [section]'s syntax; complete ones are written at once, the others opened to fill in. */
-    fun template(t: AccessTemplate, m: PolicyModel, section: Section): AccessRule {
-        val (src, hosts) = when (t) {
-            AccessTemplate.OWN_DEVICES -> listOf("autogroup:member") to listOf("autogroup:self")
-            AccessTemplate.ADMINS_EVERYTHING -> listOf("autogroup:admin") to listOf("*")
-            AccessTemplate.GUESTS_INTERNET -> emptyList<String>() to listOf("autogroup:internet")
-            AccessTemplate.GROUP_TO_TAG -> emptyList<String>() to emptyList()
-        }
-        val o = newOrigin(m, section)
-        return if (section == Section.GRANTS) {
-            AccessRule.Grant(GrantRule(o, src, hosts, if (hosts.isEmpty()) emptyList() else listOf("*"), emptyList(), emptyList(), emptyList()))
-        } else {
-            AccessRule.Acl(AclRule(o, "accept", src, hosts.map { "$it:*" }, null, emptyList()))
-        }
-    }
 
     // ---- derived rules ----
 

@@ -6,10 +6,6 @@
     <string name="admin_pvr_add">Добавить правило</string>
     <string name="admin_pvr_pane_empty">Выберите правило, чтобы посмотреть и изменить его</string>
     <string name="admin_pvr_empty">Реле-узлов пока нет: устройства, которые не соединяются напрямую, идут через серверы DERP от Tailscale</string>
-    <string name="admin_pvr_tpl_site">Реле для устройств за строгим NAT</string>
-    <string name="admin_pvr_tpl_site_help">Выберите реле и устройства, которые ими пользуются: серверы в офисе или облачной сети, а не телефоны и ноутбуки.</string>
-    <string name="admin_pvr_tpl_self">Устройство само себе реле</string>
-    <string name="admin_pvr_tpl_self_help">Сервер за файрволом, открытым только для порта реле, сам служит себе реле.</string>
     <string name="admin_pvr_coverage">%1$s для %2$s</string>
     <plurals name="admin_pvr_n_relays">
         <item quantity="one">%d реле</item>
@@ -47,7 +43,6 @@
     <string name="admin_pvr_f_relays_help">Устройства, которые ретранслируют: по тегу, хосту, набору IP или адресу Tailscale. Реле заработает, только когда его включат на самом устройстве: tailscale set --relay-server-port=40000.</string>
     <string name="admin_pvr_f_clients">Кто может пользоваться</string>
     <string name="admin_pvr_f_clients_help">Устройства, которые стоят на месте за строгим NAT или файрволом: в офисе, в облачной сети. Не телефоны и ноутбуки, меняющие сети, и не все подряд: каждое из них станет пробовать реле.</string>
-    <string name="admin_pvr_f_self">Устройства, которые сами себе реле</string>
     <string name="admin_pvr_d_relays">Будут ретранслировать</string>
     <string name="admin_pvr_d_clients">Будут пользоваться</string>
     <string name="admin_pvr_d_none">Ни одного устройства из списка</string>

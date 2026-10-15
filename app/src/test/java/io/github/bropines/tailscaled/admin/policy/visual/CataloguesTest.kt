@@ -10,6 +10,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import io.github.bropines.tailscaled.admin.policy.templates.ParamValue
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateEngine
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateTestKit
 import org.junit.Test
 
 /** What the editor knows by name: posture attributes, app capabilities, node attributes, other tailnets. */
@@ -95,9 +98,9 @@ class CataloguesTest {
 
     @Test
     fun theFasterStartTemplateWritesOneRule() {
-        val preset = AttrTemplate.FASTER_START.preset
-        assertEquals(listOf("autogroup:member"), preset.targets)
-        val out = PolicyEdits.addRule(sample, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(preset.targets + "tag:homelab", preset.attrs))
+        val t = TemplateTestKit.load("faster-start")
+        assertEquals(mapOf("devices" to ParamValue.Items(listOf("autogroup:member"))), TemplateEngine.defaults(t))
+        val out = TemplateTestKit.apply(t, sample, mapOf("devices" to ParamValue.Items(listOf("autogroup:member", "tag:homelab"))))
         assertEquals("", window(sample, out).removed)
         assertMeaning(
             insertAt(parsed(sample), listOf("nodeAttrs"), 2, json("""{"target": ["autogroup:member", "tag:homelab"], "attr": ["cache-network-maps"]}""")),

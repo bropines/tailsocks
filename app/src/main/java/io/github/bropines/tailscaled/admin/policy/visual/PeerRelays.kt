@@ -40,14 +40,6 @@ data class RelayCheck(
     val broad: List<String>,
 )
 
-/** The ready-made rules an empty Peer relays page offers. */
-enum class RelayTemplate {
-    /** Devices behind a strict NAT use relays chosen for them: both sides to fill in. */
-    SITE,
-    /** Devices relay for themselves: one list, written as both sides (Tailscale's own example). */
-    SELF,
-}
-
 object PeerRelays {
 
     const val CAP = "tailscale.com/cap/relay"
@@ -129,9 +121,6 @@ object PeerRelays {
         return PolicyEdits.addRule(out, Section.GRANTS, fields(rule.src, rule.dst), index = index + 1)
     }
 
-    /** The template as a form: clients and relays to fill in, or one list that is both. */
-    fun template(t: RelayTemplate): RelayForm = RelayForm(self = t == RelayTemplate.SELF)
-
     // ---- what the device list says ----
 
     /** Sources that make every device of a kind try the relays: what Tailscale advises against. */
@@ -177,14 +166,13 @@ object PeerRelays {
 }
 
 /**
- * A peer relay rule not yet in the file: who may use the relays and which devices relay — or,
- * [self], one list of devices that relay for themselves. Nothing is written until both sides
- * have a value ([complete]).
+ * A peer relay rule not yet in the file: who may use the relays and which devices relay.
+ * Nothing is written until both sides have a value ([complete]).
  */
-data class RelayForm(val clients: List<String> = emptyList(), val relays: List<String> = emptyList(), val self: Boolean = false) {
-    val complete: Boolean get() = clients.isNotEmpty() && (self || relays.isNotEmpty())
+data class RelayForm(val clients: List<String> = emptyList(), val relays: List<String> = emptyList()) {
+    val complete: Boolean get() = clients.isNotEmpty() && relays.isNotEmpty()
 
-    /** The rule's fields: in [self] form the one list is both sides. */
+    /** The rule's fields. */
     val src: List<String> get() = clients
-    val dst: List<String> get() = if (self) clients else relays
+    val dst: List<String> get() = relays
 }

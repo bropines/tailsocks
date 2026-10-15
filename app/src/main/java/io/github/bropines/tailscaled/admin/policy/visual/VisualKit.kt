@@ -285,7 +285,8 @@ fun ProblemLines(problems: List<Pair<String, SelectorProblem>>) {
  *
  * [single] holds one value (a test's source): the picker chooses one, tapping the chip picks
  * another, and Add shows only while it is empty. [extraOptions] adds suggestions the slot's
- * own options lack (login names for SSH). [help] is folded under the title.
+ * own options lack (login names for SSH). [help] is folded under the title. [filter] narrows
+ * what the picker offers and takes (a template's field: groups only).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -303,6 +304,7 @@ fun SelectorField(
     extraOptions: List<SelectorOption> = emptyList(),
     help: String? = null,
     iconFor: (String) -> ImageVector? = { null },
+    filter: (SelectorOption) -> Boolean = { true },
 ) {
     var picking by remember { mutableStateOf(false) }
     val problems = values.associateWith(check)
@@ -332,7 +334,7 @@ fun SelectorField(
         ProblemLines(problems.mapNotNull { (v, p) -> p?.let { v to it } })
     }
     if (picking) {
-        SelectorPickerSheet(title, slot, env, values, onDone = { onChange(it) }, onDismiss = { picking = false }, single = single, extra = extraOptions)
+        SelectorPickerSheet(title, slot, env, values, onDone = { onChange(it) }, onDismiss = { picking = false }, single = single, extra = extraOptions, filter = filter)
     }
 }
 

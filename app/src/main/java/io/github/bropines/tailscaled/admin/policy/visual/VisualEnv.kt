@@ -10,6 +10,7 @@ import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.PolicyLint
 import io.github.bropines.tailscaled.admin.policy.RiskFinding
 import io.github.bropines.tailscaled.admin.policy.TailnetView
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateCatalog
 
 /**
  * Everything a section of the visual editor reads: the draft, the console's device and user
@@ -33,6 +34,8 @@ data class VisualEnv(
     val derpMap: Loadable<ApiDerpMap> = Loadable(),
     /** What the editor was opened to do and no page has taken up yet; the page that does says so ([VisualActions.launchTaken]). */
     val launch: VisualLaunch? = null,
+    /** The templates the console has read ([VisualActions.loadTemplates]); null: the bundled set, read where it is shown. */
+    val templates: TemplateCatalog? = null,
 ) {
     val model: PolicyModel? get() = draft.model
     val view: TailnetView get() = TailnetView(devices, users.takeIf { it.isNotEmpty() })
@@ -100,6 +103,12 @@ interface VisualActions {
 
     /** [VisualEnv.launch] is done with: its page has shown what it asked for, and will not again. */
     fun launchTaken() {}
+
+    /**
+     * Read the templates into [VisualEnv.templates]: the bundled set and the cache, and with
+     * [remote] the published set too — at most once in six hours, at once when [force]d.
+     */
+    fun loadTemplates(remote: Boolean = false, force: Boolean = false) {}
 }
 
 /**

@@ -1,6 +1,5 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,14 +14,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
@@ -48,6 +44,11 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.HuObject
 import io.github.bropines.tailscaled.admin.policy.RiskFinding
+import io.github.bropines.tailscaled.admin.policy.templates.AllTemplatesCard
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateFlow
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateNav
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateSuggestionCard
+import io.github.bropines.tailscaled.admin.policy.templates.rememberSuggested
 import io.github.bropines.tailscaled.ui.HelpText
 
 /**
@@ -65,23 +66,25 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
     val policy = remember(text) { HuJson.parseOrNull(text) }
     val findings = remember(text) { Definitions.findings(text) }
     val rules = model.nodeAttrs
-    // Taildrive in one step, while the policy gives it to no device; Headscale has no Taildrive.
-    val taildrive = env.editable && !env.headscale && !TaildriveRules.covered(model)
-    // The new rule's form, with what a template filled in; null while none is open. An editor a
-    // Taildrive screen opened starts with that template's form up, once.
+    // The templates this page offers over its list (Taildrive in one step, while the policy gives
+    // it to no device) and under it, as each one's suggestion says.
+    val over = if (env.editable) rememberSuggested(env, "attributes", "before") else emptyList()
+    val under = if (env.editable) rememberSuggested(env, "attributes", "after") else emptyList()
+    // A new rule's form, or a template's page or the catalog, in the editor's place. An editor a
+    // Taildrive screen opened starts with the Taildrive template's page up, once.
     val launched = env.launch == VisualLaunch.TAILDRIVE
-    var form by remember { mutableStateOf(if (launched && taildrive) taildrivePreset(model) else null) }
+    var creating by remember { mutableStateOf(false) }
+    var templates by remember { mutableStateOf<TemplateNav?>(if (launched) over.firstOrNull { it.id == TAILDRIVE_TEMPLATE }?.let { TemplateNav.Page(it.id) } else null) }
     LaunchedEffect(launched) { if (launched) actions.launchTaken() }
-    val creating = form != null
     val shown = shownOf(layout.selected, layout, rules) { it.origin.path }
-    val start: (AttrPreset) -> Unit = { form = it; layout.onSelect(null) }
-    val add = if (env.editable) ({ start(AttrPreset()) }) else null
+    val startTemplate: (TemplateNav) -> Unit = { templates = it; creating = false; layout.onSelect(null) }
+    val add = if (env.editable) ({ templates = null; creating = true; layout.onSelect(null) }) else null
     val addLabel = ctx.getString(R.string.admin_pvd_attr_new)
     val listState = rememberLazyListState()
     // Moved from their cards, under the file's headings as the rule pages move theirs.
     val headers = remember(model) { rules.map { it.origin.header != null } }
-    // A card's item: after the intro and the Taildrive template, each rule's own, with its heading's before it.
-    val before = if (taildrive) 2 else 1
+    // A card's item: after the intro and the templates over the list, each rule's own, with its heading's before it.
+    val before = 1 + over.size
     val mover = rememberCardMover(listState) { p ->
         val k = rules.indexOfFirst { it.origin.path == p }
         if (k < 0) null else before + (0..k).count { headers[it] } + k
@@ -91,40 +94,60 @@ fun NodeAttrsSection(env: VisualEnv, actions: VisualActions, layout: VisualLayou
         add(PageItem("intro") {
             PageIntro(ctx.getString(R.string.admin_pvd_attrs_help), addLabel.takeIf { rules.isNotEmpty() }, add, defsSectionNotes(model, Section.NODE_ATTRS), sectionErrors(env, Section.NODE_ATTRS))
         })
-        // First, where it is seen; the mover counts it ([before]).
-        if (taildrive) add(PageItem("tpl-drive") { AttrTemplateCard(AttrTemplate.TAILDRIVE) { start(taildrivePreset(model)) } })
+        // First, where they are seen; the mover counts them ([before]).
+        over.forEach { t -> add(PageItem("tpl-${t.id}") { TemplateSuggestionCard(t, inTemplates = false) { startTemplate(TemplateNav.Page(t.id)) } }) }
         if (rules.isEmpty()) add(PageItem("empty") { EmptySection(Icons.Default.Hub, ctx.getString(R.string.admin_pvd_attrs_empty), addLabel.takeIf { add != null }, add) })
         rules.forEachIndexed { i, r ->
             r.origin.header?.let { add(PageItem("h$i") { CommentHeading(it) }) }
             add(PageItem("a$i", r.origin.path) {
                 AttrCard(
                     r, env, actions, policy,
-                    selected = layout.twoPane && !creating && shown == r,
+                    selected = layout.twoPane && !creating && templates == null && shown == r,
                     moves = mover.moves(Section.NODE_ATTRS, headers, i, env, actions, layout),
                     modifier = mover.decor(r.origin.path, text),
                 ) {
-                    form = null
+                    creating = false
+                    templates = null
                     layout.onSelect(r.origin.path)
                 }
             })
         }
         // After the rules, so that a card's place in the list stays what the mover counts.
-        if (env.editable && rules.none { KnownAttrs.CACHE_NETMAPS in it.attr }) {
-            add(PageItem("tpl-cache") { AttrTemplateCard(AttrTemplate.FASTER_START) { start(AttrTemplate.FASTER_START.preset) } })
-        }
+        under.forEach { t -> add(PageItem("tpl-${t.id}") { TemplateSuggestionCard(t, inTemplates = false) { startTemplate(TemplateNav.Page(t.id)) } }) }
+        if (env.editable) add(PageItem("tpl-all") { AllTemplatesCard { startTemplate(TemplateNav.Catalog()) } })
     }
+    val flow = templates
     DefinitionsPage(
         layout = layout,
         items = items,
-        editorKey = if (creating) "new" else shown?.origin?.path,
-        onCloseEditor = { form = null; layout.onSelect(null) },
+        editorKey = when {
+            flow != null -> "templates"
+            creating -> "new"
+            else -> shown?.origin?.path
+        },
+        onCloseEditor = { creating = false; templates = null; layout.onSelect(null) },
         paneEmpty = Icons.Default.Hub to ctx.getString(R.string.admin_pvd_attrs_pane_empty),
         scrollTo = (env.focus ?: layout.selected).takeIf { it != mover.followed },
         state = listState,
+        scrolls = flow == null,
     ) {
-        val f = form
-        if (f != null) NewAttrForm(env, actions, f) { p -> form = null; layout.onSelect(p) }
-        else shown?.let { AttrEditor(it, env, actions, layout, tree, policy, findings[it.origin.path].orEmpty()) }
+        when {
+            flow != null -> TemplateFlow(flow, env, actions, onNav = { templates = it }, onApplied = { p -> templates = null; landed(p, actions, layout) }, onShow = { p -> templates = null; actions.open(VisualSection.of(p), p) })
+            creating -> NewAttrForm(env, actions) { p -> creating = false; layout.onSelect(p) }
+            else -> shown?.let { AttrEditor(it, env, actions, layout, tree, policy, findings[it.origin.path].orEmpty()) }
+        }
+    }
+}
+
+/** The template a Taildrive screen opens the editor for (VisualLaunch.TAILDRIVE). */
+private const val TAILDRIVE_TEMPLATE = "taildrive-own-devices"
+
+/** After a template's Apply: a rule of this page opens here; a test stays where it went; anything else on its own page. */
+private fun landed(p: PolicyPath?, actions: VisualActions, layout: VisualLayout) {
+    when ((p?.steps?.firstOrNull() as? PathStep.Key)?.let { Section.of(it.name) }) {
+        null, Section.TESTS, Section.SSH_TESTS -> Unit
+        Section.NODE_ATTRS -> layout.onSelect(p)
+        else -> actions.open(VisualSection.of(p), p)
     }
 }
 
@@ -373,90 +396,24 @@ internal fun AttrEditor(r: NodeAttr, env: VisualEnv, actions: VisualActions, lay
     }, more = more)
 }
 
-/**
- * A new rule's starting point: empty, or what a template fills in, with a [hint] under its
- * devices. With [driveGrant] the rule is written together with the grant Taildrive needs
- * ([TaildriveRules.withGrant]), as one step.
- */
-internal data class AttrPreset(
-    val targets: List<String> = emptyList(),
-    val attrs: List<String> = emptyList(),
-    @param:StringRes val hint: Int? = null,
-    val driveGrant: Boolean = false,
-)
-
-/**
- * Ready-made device attribute rules, offered while the policy has none like them: Taildrive
- * over the list, the rest under it.
- */
-internal enum class AttrTemplate(val preset: AttrPreset) {
-    /** Members' devices keep the network map and start from it: autogroup:member, the servers' tags to add. */
-    FASTER_START(AttrPreset(listOf("autogroup:member"), listOf(KnownAttrs.CACHE_NETMAPS), R.string.admin_pvc_tpl_faster_hint)),
-
-    /** Members' devices share folders and open those on their other devices: both attributes, and the grant with them. */
-    TAILDRIVE(AttrPreset(TaildriveRules.MEMBERS, TaildriveRules.ATTRS, R.string.admin_pvtd_hint, driveGrant = true)),
-}
-
-/** The Taildrive template's form: a policy that has a Taildrive grant keeps it as it is, and the form says so. */
-internal fun taildrivePreset(model: PolicyModel): AttrPreset =
-    AttrTemplate.TAILDRIVE.preset.let { if (TaildriveRules.hasGrant(model)) it.copy(hint = R.string.admin_pvtd_hint_grant_kept) else it }
-
-/** A template among the rules: what it does, a tap opens the form it fills. */
+/** A new rule: devices and at least one attribute before anything is written. */
 @Composable
-private fun AttrTemplateCard(t: AttrTemplate, onClick: () -> Unit) {
-    val ctx = LocalContext.current
-    Card(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(ctx.getString(R.string.admin_pv_templates), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Text(ctx.getString(templateTitle(t)), style = MaterialTheme.typography.titleSmall)
-                HelpText(ctx.getString(templateHelp(t)), inClickableRow = true)
-            }
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
-
-private fun templateTitle(t: AttrTemplate): Int = when (t) {
-    AttrTemplate.FASTER_START -> R.string.admin_pvc_tpl_faster
-    AttrTemplate.TAILDRIVE -> R.string.admin_pvtd_tpl
-}
-
-private fun templateHelp(t: AttrTemplate): Int = when (t) {
-    AttrTemplate.FASTER_START -> R.string.admin_pvc_tpl_faster_help
-    AttrTemplate.TAILDRIVE -> R.string.admin_pvtd_tpl_help
-}
-
-/** A new rule: devices and at least one attribute before anything is written; [preset] fills it in from a template. */
-@Composable
-internal fun NewAttrForm(env: VisualEnv, actions: VisualActions, preset: AttrPreset = AttrPreset(), onCreated: (PolicyPath) -> Unit) {
+internal fun NewAttrForm(env: VisualEnv, actions: VisualActions, onCreated: (PolicyPath) -> Unit) {
     val ctx = LocalContext.current
     val model = env.model ?: return
-    var targets by remember { mutableStateOf(preset.targets) }
-    var attrs by remember { mutableStateOf(preset.attrs) }
-    // The Taildrive template's grant goes with its attributes: with both switched off the rule is like any other.
-    val grant = preset.driveGrant && attrs.any { it in TaildriveRules.ATTRS }
+    var targets by remember { mutableStateOf(emptyList<String>()) }
+    var attrs by remember { mutableStateOf(emptyList<String>()) }
     EditorTop(Icons.Default.Hub, ctx.getString(R.string.admin_pvd_attr_new), ctx.getString(R.string.admin_pvd_attrs_empty), null, env, actions, monospace = false)
     SelectorField(
         ctx.getString(R.string.admin_pvd_attr_targets), targets, SelectorSlot.NODE_TARGET, env,
         onChange = { targets = it },
-        help = preset.hint?.takeIf { grant || !preset.driveGrant }?.let(ctx::getString),
     )
     EditorBlock(ctx.getString(R.string.admin_pvd_attr_turns_on)) {
         KnownAttrSwitches(attrs, true, env.headscale) { attrs = it }
     }
     OtherAttrs(attrs, true) { attrs = it }
     CreateButton(ctx.getString(R.string.admin_pvd_attr_create), enabled = targets.isNotEmpty() && attrs.isNotEmpty(), hint = ctx.getString(R.string.admin_pvd_attr_create_hint)) {
-        // One edit, so one step to undo: the rule, and the template's grant after it.
-        val written = actions.edit { text ->
-            PolicyEdits.addRule(text, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(targets, attrs)).let { if (grant) TaildriveRules.withGrant(it) else it }
-        }
+        val written = actions.edit { text -> PolicyEdits.addRule(text, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(targets, attrs)) }
         if (written) onCreated(PolicyPath.of(Section.NODE_ATTRS.key, model.nodeAttrs.size))
     }
 }

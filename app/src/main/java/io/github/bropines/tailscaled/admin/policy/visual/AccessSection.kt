@@ -12,10 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Policy
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,12 +30,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.policy.HuObject
+import io.github.bropines.tailscaled.admin.policy.templates.AllTemplatesCard
+import io.github.bropines.tailscaled.admin.policy.templates.PolicyTemplate
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateFlow
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateNav
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateSuggestionCard
+import io.github.bropines.tailscaled.admin.policy.templates.rememberSuggested
 import io.github.bropines.tailscaled.ui.PaneEmptyState
 
 /*
  * The ACCESS page: acls and grants as cards — who → can reach what → on which ports — under
- * the file's own headings, the rule editor beside or over them, templates on an empty page.
- * New rules are written in the syntax the file already uses most (RuleForms.newAccessSection).
+ * the file's own headings, the rule editor beside or over them, templates on an empty page and
+ * under the rules (policy-templates/, through TemplateFlow). New rules are written in the
+ * syntax the file already uses most (RuleForms.newAccessSection).
  */
 
 /** A rule being made: its form, and where it goes (null: the end of its section). */
@@ -57,10 +61,10 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
     val rules = remember(m) { accessRules(m) }
     var pending by remember { mutableStateOf<PendingRule?>(null) }
     var deleted by remember { mutableStateOf<DeletedRule?>(null) }
-    // The remote-management template's form while it is open; it stands in the editor's place.
-    var remote by remember { mutableStateOf<RemoteForm?>(null) }
+    // A template's page or the catalog while one is open; it stands in the editor's place.
+    var templates by remember { mutableStateOf<TemplateNav?>(null) }
     val selected = layout.selected?.let { p -> rules.firstOrNull { it.origin.path == p } }
-    val twoPane = layout.twoPane && (rules.isNotEmpty() || pending != null || remote != null)
+    val twoPane = layout.twoPane && (rules.isNotEmpty() || pending != null || templates != null)
     val shown = pending?.rule ?: selected ?: rules.firstOrNull()?.takeIf { twoPane }
     val listState = rememberLazyListState()
     val newSection = RuleForms.newAccessSection(m, env.headscale)
@@ -87,20 +91,31 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
 
     fun select(p: PolicyPath?) {
         pending = null
-        remote = null
+        templates = null
         layout.onSelect(p)
     }
 
     fun startNew(rule: AccessRule, index: Int? = null) {
         layout.onSelect(null)
-        remote = null
+        templates = null
         pending = PendingRule(rule, index)
     }
 
-    fun startRemote() {
+    fun startTemplate(nav: TemplateNav) {
         layout.onSelect(null)
         pending = null
-        remote = RemoteForm()
+        templates = nav
+    }
+
+    /** After a template's Apply: its access rule opens here; a test stays where it went; anything else on its own page. */
+    fun landed(p: PolicyPath?) {
+        templates = null
+        val section = (p?.steps?.firstOrNull() as? PathStep.Key)?.let { Section.of(it.name) }
+        when (section) {
+            null, Section.TESTS, Section.SSH_TESTS -> Unit
+            Section.ACLS, Section.GRANTS -> select(p)
+            else -> actions.open(VisualSection.of(p), p)
+        }
     }
 
     fun sizeOf(section: Section) = if (section == Section.GRANTS) m.grants.size else m.acls.size
@@ -169,16 +184,22 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
         }
     }
 
+    val after = if (env.editable) rememberSuggested(env, "access", "after") else emptyList()
+
     RulePage(
         layout = layout.copy(twoPane = twoPane),
-        sheetOpen = shown != null || remote != null,
+        sheetOpen = shown != null || templates != null,
         list = {
             RuleList(layout.copy(twoPane = twoPane), listState) {
                 if (rules.isEmpty()) {
-                    item(key = "empty") { AccessEmpty(env, m, newSection, onAdd = { startNew(RuleForms.emptyAccess(m, newSection)) }, onTemplate = { t ->
-                        val form = RuleForms.template(t, m, newSection)
-                        if (RuleForms.complete(form)) write(PendingRule(form)) else startNew(form)
-                    }, onRemote = ::startRemote) }
+                    item(key = "empty") {
+                        AccessEmpty(
+                            env,
+                            onAdd = { startNew(RuleForms.emptyAccess(m, newSection)) },
+                            onTemplate = { t -> startTemplate(TemplateNav.Page(t.id)) },
+                            onCatalog = { startTemplate(TemplateNav.Catalog()) },
+                        )
+                    }
                     return@RuleList
                 }
                 item(key = "top") {
@@ -215,7 +236,7 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                             val rule = row.item as AccessRule
                             AccessCard(
                                 rule, env, actions,
-                                selected = twoPane && shown?.origin?.path == rule.origin.path && pending == null && remote == null,
+                                selected = twoPane && shown?.origin?.path == rule.origin.path && pending == null && templates == null,
                                 policy = policy,
                                 moves = mover.moves(rule.section, headers(rule.section), rule.index, env, actions, layout),
                                 modifier = mover.decor(rule.origin.path, env.draft.text),
@@ -224,20 +245,14 @@ fun AccessSection(env: VisualEnv, actions: VisualActions, layout: VisualLayout) 
                     }
                 }
                 // After the rules, so that a card's place in the list stays what the mover counts.
-                if (env.editable) item(key = "tpl-remote") { RemoteTemplateCard(onClick = ::startRemote) }
+                after.forEach { t -> item(key = "tpl-${t.id}") { TemplateSuggestionCard(t, inTemplates = false) { startTemplate(TemplateNav.Page(t.id)) } } }
+                if (env.editable) item(key = "tpl-all") { AllTemplatesCard { startTemplate(TemplateNav.Catalog()) } }
             }
         },
         editor = {
-            remote?.let { form ->
-                EditorFrame(onDismiss = { remote = null }) {
-                    key("remote") {
-                        RemoteManagementForm(
-                            form, env, actions,
-                            onChange = { remote = it },
-                            onCreated = { p -> if (p != null) select(p) else remote = null },
-                            onShow = ::select,
-                        )
-                    }
+            templates?.let { nav ->
+                EditorFrame(onDismiss = { templates = null }) {
+                    key("templates") { TemplateFlow(nav, env, actions, onNav = { templates = it }, onApplied = ::landed, onShow = ::select) }
                 }
                 return@RulePage
             }
@@ -366,9 +381,9 @@ internal fun NothingYet() {
     Text(ctx.getString(R.string.admin_pv_c_nothing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 3.dp))
 }
 
-/** An Access page with no rules: what that means, Add, and the templates. */
+/** An Access page with no rules: what that means, Add, the templates suggested here, and the way to all of them. */
 @Composable
-private fun AccessEmpty(env: VisualEnv, m: PolicyModel, section: Section, onAdd: () -> Unit, onTemplate: (AccessTemplate) -> Unit, onRemote: () -> Unit) {
+private fun AccessEmpty(env: VisualEnv, onAdd: () -> Unit, onTemplate: (PolicyTemplate) -> Unit, onCatalog: () -> Unit) {
     val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         EmptySection(
@@ -379,42 +394,7 @@ private fun AccessEmpty(env: VisualEnv, m: PolicyModel, section: Section, onAdd:
         )
         if (!env.editable) return@Column
         Text(ctx.getString(R.string.admin_pv_templates), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-        RuleForms.templates(env.headscale).forEach { t ->
-            val form = RuleForms.template(t, m, section)
-            Card(
-                onClick = { onTemplate(t) },
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(ctx.getString(templateTitle(t)), style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            ctx.getString(templateHelp(t)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Icon(if (RuleForms.complete(form)) Icons.Default.Add else Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
-        RemoteTemplateCard(inTemplates = true, onClick = onRemote)
+        rememberSuggested(env, "access", "empty").forEach { t -> TemplateSuggestionCard(t, inTemplates = true) { onTemplate(t) } }
+        AllTemplatesCard(onCatalog)
     }
-}
-
-private fun templateTitle(t: AccessTemplate): Int = when (t) {
-    AccessTemplate.OWN_DEVICES -> R.string.admin_pv_tpl_own
-    AccessTemplate.ADMINS_EVERYTHING -> R.string.admin_pv_tpl_admins
-    AccessTemplate.GUESTS_INTERNET -> R.string.admin_pv_tpl_guests
-    AccessTemplate.GROUP_TO_TAG -> R.string.admin_pv_tpl_group_tag
-}
-
-private fun templateHelp(t: AccessTemplate): Int = when (t) {
-    AccessTemplate.OWN_DEVICES -> R.string.admin_pv_tpl_own_help
-    AccessTemplate.ADMINS_EVERYTHING -> R.string.admin_pv_tpl_admins_help
-    AccessTemplate.GUESTS_INTERNET -> R.string.admin_pv_tpl_guests_help
-    AccessTemplate.GROUP_TO_TAG -> R.string.admin_pv_tpl_group_tag_help
 }

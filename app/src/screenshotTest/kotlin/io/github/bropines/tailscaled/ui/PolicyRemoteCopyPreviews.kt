@@ -18,11 +18,11 @@ import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.policy.PolicyEditorState
 import io.github.bropines.tailscaled.admin.policy.PolicyState
+import io.github.bropines.tailscaled.admin.policy.templates.ParamValue
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateFlow
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateNav
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyEdits
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
-import io.github.bropines.tailscaled.admin.policy.visual.RemoteForm
-import io.github.bropines.tailscaled.admin.policy.visual.RemoteManagementForm
-import io.github.bropines.tailscaled.admin.policy.visual.RemoteRules
 import io.github.bropines.tailscaled.admin.policy.visual.SourceEdits
 import io.github.bropines.tailscaled.admin.policy.visual.VisualEditorScreen
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
@@ -30,11 +30,12 @@ import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
 /*
  * The remote-management template of the visual policy editor and the policy tab's copy
- * actions. The template: its card under the Access page's rules, and the form it opens —
- * empty, filled (with what Create writes), on a path a rule already opens, and with a tag that
- * cannot have "their own devices". A phone opens the form as a sheet, which the renderer does
- * not draw, so it is drawn on its own. The policy tab: Copy policy, Copy for an AI agent and
- * Share under the editing buttons. Render this class alone: `--tests '*PolicyRemoteCopyPreviews*'`.
+ * actions. The template (policy-templates/tailsocks-remote.json): its card under the Access
+ * page's rules, and the page it opens — empty, filled (with what Apply adds), on a path a rule
+ * already opens, and with a tag that cannot have "their own devices". A phone opens the page as
+ * a sheet, which the renderer does not draw, so it is drawn on its own. The policy tab: Copy
+ * policy, Copy for an AI agent and Share under the editing buttons. Render this class alone:
+ * `--tests '*PolicyRemoteCopyPreviews*'`.
  */
 
 @Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
@@ -87,9 +88,17 @@ private fun Sheet(dark: Boolean = true, content: @Composable () -> Unit) = Polic
     }
 }
 
+/** Who manages and whose devices, as the page's form holds them. */
+private data class RemoteForm(val managers: List<String> = emptyList(), val managed: List<String> = emptyList())
+
+private const val MEMBER = "autogroup:member"
+private const val SELF = "autogroup:self"
+
 @Composable
-private fun Form(form: RemoteForm, policy: String = PolicyVisualDemo.text) =
-    RemoteManagementForm(form, PolicyVisualDemo.env(policy = policy), PolicyVisualDemo.actions, onChange = {}, onCreated = {}, onShow = {})
+private fun Form(form: RemoteForm, policy: String = PolicyVisualDemo.text) = TemplateFlow(
+    TemplateNav.Page("tailsocks-remote", mapOf("managers" to ParamValue.Items(form.managers), "managed" to ParamValue.Items(form.managed))),
+    PolicyVisualDemo.env(policy = policy), PolicyVisualDemo.actions, onNav = {}, onApplied = {}, onShow = {},
+)
 
 /** The Access page: the rules, then the template's card. */
 @PreviewTest @PolicyRmPhone @Composable
@@ -108,7 +117,7 @@ fun PolicyRemoteFormFilled() = Sheet { Form(RemoteForm(listOf("group:prod-admin"
 
 /** Every member, their own devices, light: no test can name them. */
 @PreviewTest @PolicyRmPhone @Composable
-fun PolicyRemoteFormSelf() = Sheet(dark = false) { Form(RemoteForm(listOf(RemoteRules.MEMBER), listOf(RemoteRules.SELF))) }
+fun PolicyRemoteFormSelf() = Sheet(dark = false) { Form(RemoteForm(listOf(MEMBER), listOf(SELF))) }
 
 /** The admins and the homelab: the first ACL opens every port already; only the test is offered. */
 @PreviewTest @PolicyRmSheet @Composable
@@ -116,7 +125,7 @@ fun PolicyRemoteFormOpen() = Sheet { Form(RemoteForm(listOf("group:prod-admin"),
 
 /** A tag among the managers of "their own devices": said, and Create stays off. */
 @PreviewTest @PolicyRmPhone @Composable
-fun PolicyRemoteFormTagSelf() = Sheet { Form(RemoteForm(listOf("alice@example.com", "tag:master"), listOf(RemoteRules.SELF))) }
+fun PolicyRemoteFormTagSelf() = Sheet { Form(RemoteForm(listOf("alice@example.com", "tag:master"), listOf(SELF))) }
 
 /** The policy tab: the copy actions under the editing buttons. */
 @PreviewTest @PolicyRmPhone @Composable

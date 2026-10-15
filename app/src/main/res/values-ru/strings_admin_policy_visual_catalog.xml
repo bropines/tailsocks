@@ -23,9 +23,6 @@
     <string name="admin_pvc_attr_no_cache_help">Перекрывает умолчание Tailscale и выключает кеш для этих устройств; сильнее, чем «Кешировать карту сети».</string>
     <string name="admin_pvc_attr_cache_both">Включены оба: побеждает запрет, эти устройства не кешируют</string>
     <string name="admin_pvc_attr_no_effect">На Headscale ни на что не влияет</string>
-    <string name="admin_pvc_tpl_faster">Быстрый старт для ваших устройств</string>
-    <string name="admin_pvc_tpl_faster_help">Устройства участников кешируют карту сети и при запуске соединяются по ней, не дожидаясь сервера управления. Добавьте и теги своих серверов.</string>
-    <string name="admin_pvc_tpl_faster_hint">Для начала — устройства участников; добавьте теги серверов, которым тоже нужен быстрый старт.</string>
 
     <string name="admin_pvc_on_failure_help">onFailure (бета) — что увидит пользователь устройства, не прошедшего проверку: значок в консоли, предупреждение или уведомление в клиенте, ваше сообщение.</string>
     <string name="admin_pvc_pa_title">Что можно проверить</string>

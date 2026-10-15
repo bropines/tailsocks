@@ -44,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
@@ -143,7 +144,10 @@ fun VisualEditorScreen(state: ConsoleState, editor: PolicyEditorState, vm: Admin
         focus = editor.focus,
         derpMap = state.policy.derpMap,
         launch = editor.launch,
+        templates = state.policy.templates,
     )
+    // The bundled templates and the cache, for the cards the pages offer; the published set only when the catalog opens.
+    LaunchedEffect(vm) { vm?.policy?.loadTemplates() }
 
     val page = editor.page
     val pages = remember(model, headscale, page, errors, risks) { pageEntries(model, headscale, page, env) }
@@ -276,6 +280,10 @@ private fun rememberShellActions(vm: AdminConsoleViewModel?, snackbar: SnackbarH
 
             override fun launchTaken() {
                 vm?.policy?.launchTaken()
+            }
+
+            override fun loadTemplates(remote: Boolean, force: Boolean) {
+                vm?.policy?.loadTemplates(remote, force)
             }
 
             override fun notify(message: String, undoable: Boolean) {

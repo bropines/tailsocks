@@ -6,6 +6,7 @@ import io.github.bropines.tailscaled.admin.api.PolicyFile
 import io.github.bropines.tailscaled.admin.api.PolicyPreview
 import io.github.bropines.tailscaled.admin.api.PolicyPreviewType
 import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateCatalog
 import io.github.bropines.tailscaled.admin.policy.visual.DraftEdit
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyDraft
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyLocator
@@ -34,6 +35,8 @@ data class PolicyState(
     val visual: Boolean = true,
     /** Tailscale's default relay map, for the visual editor's Relays page: read once a session, kept in the console's copy. */
     val derpMap: Loadable<ApiDerpMap> = Loadable(),
+    /** The visual editor's templates (PolicyConsole.loadTemplates); null until the console has read them. */
+    val templates: TemplateCatalog? = null,
 )
 
 /**

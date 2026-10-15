@@ -106,14 +106,6 @@
     <string name="admin_pv_divider_acls">ACL rules</string>
     <string name="admin_pv_access_empty">No access rules in this policy yet</string>
     <string name="admin_pv_templates">Start from a template</string>
-    <string name="admin_pv_tpl_own">Everyone reaches their own devices</string>
-    <string name="admin_pv_tpl_own_help">Every member, on every port, to the devices they own. Added at once.</string>
-    <string name="admin_pv_tpl_admins">Admins reach everything</string>
-    <string name="admin_pv_tpl_admins_help">Users with the Admin role, to every device on every port. Added at once.</string>
-    <string name="admin_pv_tpl_guests">Guests use exit nodes only</string>
-    <string name="admin_pv_tpl_guests_help">The internet through exit nodes and nothing in the tailnet. Pick who the guests are.</string>
-    <string name="admin_pv_tpl_group_tag">A group reaches a tag on chosen ports</string>
-    <string name="admin_pv_tpl_group_tag_help">Pick the group, the tag and the ports.</string>
     <string name="admin_pv_rule_title">Access rule</string>
     <string name="admin_pv_rule_new">New access rule</string>
     <string name="admin_pv_rule_new_note">Written to the policy as soon as it says who and where. Until then nothing changes.</string>

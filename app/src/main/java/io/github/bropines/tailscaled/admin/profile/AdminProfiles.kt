@@ -181,7 +181,8 @@ object AdminProfiles {
         }
     }
 
-    private fun transport(context: Context, profile: AdminProfile, proxyPassword: String?): HttpTransport {
+    /** How [profile] reaches the network: its proxy, and for reads the direct way when the control proxy is down. */
+    internal fun transport(context: Context, profile: AdminProfile, proxyPassword: String?): HttpTransport {
         val proxy = proxyUrl(context, profile, proxyPassword)
         val primary = BridgeTransport(proxy)
         // The control proxy may be down while the network is fine: reads may then go directly.

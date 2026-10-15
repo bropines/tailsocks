@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateTestKit
 import org.junit.Test
 
 /**
@@ -80,26 +81,23 @@ class RuleFormTest {
 
     @Test
     fun templatesTakeTheSyntaxOfTheFile() {
-        val acl = RuleForms.template(AccessTemplate.OWN_DEVICES, model, Section.ACLS) as AccessRule.Acl
-        assertEquals(listOf("autogroup:member"), acl.rule.src)
-        assertEquals(listOf("autogroup:self:*"), acl.rule.dst)
-        assertTrue(RuleForms.complete(acl))
+        // The Access page's templates are data (policy-templates/); the engine writes them in the file's syntax.
+        val own = TemplateTestKit.load("own-devices")
+        val acls = PolicyEdits.addRule("{}", Section.ACLS, PolicyEdits.aclFields(listOf("group:x"), listOf("tag:y:22")))
+        val acl = read(TemplateTestKit.apply(own, acls)).acls.last()
+        assertEquals(listOf("autogroup:member"), acl.src)
+        assertEquals(listOf("autogroup:self:*"), acl.dst)
 
-        val grant = RuleForms.template(AccessTemplate.ADMINS_EVERYTHING, model, Section.GRANTS) as AccessRule.Grant
-        assertEquals(listOf("*"), grant.rule.dst)
-        assertEquals(listOf("*"), grant.rule.ip)
+        val grant = read(TemplateTestKit.apply(TemplateTestKit.load("admins-everything"), "{}")).grants.single()
+        assertEquals(listOf("*"), grant.dst)
+        assertEquals(listOf("*"), grant.ip)
 
-        // The guests and the group are the person's to pick: those forms open, not write.
-        assertFalse(RuleForms.complete(RuleForms.template(AccessTemplate.GUESTS_INTERNET, model, Section.ACLS)))
-        assertEquals(listOf("autogroup:internet:*"), (RuleForms.template(AccessTemplate.GUESTS_INTERNET, model, Section.ACLS) as AccessRule.Acl).rule.dst)
-        assertFalse(RuleForms.complete(RuleForms.template(AccessTemplate.GROUP_TO_TAG, model, Section.GRANTS)))
+        // The guests and the group are the person's to pick: Apply waits for them.
+        assertFalse(TemplateTestKit.plan(TemplateTestKit.load("guests-exit-nodes"), "{}").ready)
+        assertFalse(TemplateTestKit.plan(TemplateTestKit.load("group-to-tag"), "{}").ready)
 
-        assertFalse(AccessTemplate.ADMINS_EVERYTHING in RuleForms.templates(headscale = true))
-        assertEquals(4, RuleForms.templates(headscale = false).size)
-
-        // A template into an empty file creates the section.
-        val written = PolicyEdits.addRule("{}", Section.ACLS, RuleForms.fields(RuleForms.template(AccessTemplate.OWN_DEVICES, read("{}"), Section.ACLS)))
-        assertEquals(listOf("autogroup:self:*"), read(written).acls.single().dst)
+        // A template into an empty file creates the section; an empty file on Headscale takes ACLs.
+        assertEquals(listOf("autogroup:self:*"), read(TemplateTestKit.apply(own, "{}", headscale = true)).acls.single().dst)
     }
 
     // ---- edits touch what changed ----

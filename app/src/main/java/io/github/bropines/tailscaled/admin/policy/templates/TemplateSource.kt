@@ -67,9 +67,13 @@ data class AppIdentity(val versionName: String, val versionCode: Int)
 /** Why a file of a set is not used. */
 class TemplateFileException(message: String) : Exception(message)
 
+/**
+ * The catalog's sets. [cacheDir] null: the bundled set alone, never refreshed — what a screen
+ * shows before the console has read the cache, and what a preview renders.
+ */
 class TemplateSource(
     private val bundled: TemplateFiles,
-    private val cacheDir: File,
+    private val cacheDir: File?,
     private val fetch: TemplateFetch?,
     private val app: AppIdentity,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -82,14 +86,15 @@ class TemplateSource(
     /** A file of a set that checked out. */
     private class Entry(val index: IndexEntry, val bytes: ByteArray, val template: PolicyTemplate)
 
-    private val setDir = File(cacheDir, "set")
-    private val metaFile = File(cacheDir, META)
+    private val setDir = cacheDir?.let { File(it, "set") }
+    private val metaFile = cacheDir?.let { File(it, META) }
+    private val cached: TemplateFiles = TemplateFiles { name -> setDir?.let { TemplateFiles.dir(it).read(name) } }
 
     /** The bundled set with the cached remote one over it: files only, no network. */
     @Synchronized
     fun local(): TemplateCatalog {
         val meta = readMeta()
-        return TemplateCatalog(merge(read(bundled, "bundled"), read(TemplateFiles.dir(setDir), "cached")), meta.checkedAt, meta.updatedAt, meta.error)
+        return TemplateCatalog(merge(read(bundled, "bundled"), read(cached, "cached")), meta.checkedAt, meta.updatedAt, meta.error)
     }
 
     /** Whether the remote set was asked for less than [REFRESH_MS] ago (or the clock went back). */
@@ -107,6 +112,7 @@ class TemplateSource(
     @Synchronized
     fun refresh(force: Boolean = false): TemplateCatalog {
         val f = fetch ?: return local()
+        if (cacheDir == null) return local()
         if (!force && fresh()) return local()
         val now = clock()
         val error = try {
@@ -116,6 +122,12 @@ class TemplateSource(
             e.message
         } catch (e: TransportException) {
             e.message ?: "no answer"
+        } catch (e: java.io.IOException) {
+            // The cache could not be written (a full disk): the last good set stays.
+            e.message ?: e.javaClass.simpleName
+        } catch (e: RuntimeException) {
+            // Whatever else went wrong reading the set: never at the editor.
+            e.message ?: e.javaClass.simpleName
         }
         val old = readMeta()
         writeMeta(Meta(checkedAt = now, updatedAt = if (error == null) now else old.updatedAt, error = error))
@@ -135,7 +147,7 @@ class TemplateSource(
         if (index.schema !in 1..TemplateRules.SCHEMA) throw TemplateFileException("index.json is schema ${index.schema}")
         val base = INDEX_URL.substringBeforeLast('/') + "/"
         val have = read(bundled, "bundled").associateBy { it.template.id }
-        val cached = read(TemplateFiles.dir(setDir), "cached").associateBy { it.index.sha256 }
+        val kept = read(cached, "cached").associateBy { it.index.sha256 }
         val accepted = mutableListOf<Entry>()
         var total = indexBytes.size
         for (e in index.templates.take(MAX_TEMPLATES)) {
@@ -143,7 +155,7 @@ class TemplateSource(
             if (reason != null) { log("policy template ${e.file} skipped: $reason"); continue }
             // Nothing to gain from a version the bundled set has already.
             if ((have[e.id]?.template?.version ?: 0) >= e.version) continue
-            val bytes = cached[e.sha256]?.bytes ?: try {
+            val bytes = kept[e.sha256]?.bytes ?: try {
                 get(f, base + e.file, MAX_FILE_BYTES)
             } catch (x: TemplateFileException) {
                 log("policy template ${e.file} skipped: ${x.message}"); continue
@@ -233,6 +245,8 @@ class TemplateSource(
 
     /** The new cache: written beside the old one, then put in its place. */
     private fun writeSet(entries: List<Entry>) {
+        val cacheDir = cacheDir ?: return
+        val setDir = setDir ?: return
         val tmp = File(cacheDir, "set.tmp")
         tmp.deleteRecursively()
         tmp.mkdirs()
@@ -246,13 +260,18 @@ class TemplateSource(
         old.deleteRecursively()
     }
 
-    private fun readMeta(): Meta = runCatching { TemplateJson.decodeFromString(Meta.serializer(), metaFile.readText()) }.getOrDefault(Meta())
+    private fun readMeta(): Meta = runCatching { TemplateJson.decodeFromString(Meta.serializer(), metaFile!!.readText()) }.getOrDefault(Meta())
 
     private fun writeMeta(m: Meta) {
-        cacheDir.mkdirs()
-        val tmp = File(cacheDir, "$META.tmp")
-        tmp.writeText(TemplateJson.encodeToString(Meta.serializer(), m))
-        if (!tmp.renameTo(metaFile)) { metaFile.delete(); tmp.renameTo(metaFile) }
+        val cacheDir = cacheDir ?: return
+        val metaFile = metaFile ?: return
+        // A note of when the set was asked: losing it means only asking again sooner.
+        runCatching {
+            cacheDir.mkdirs()
+            val tmp = File(cacheDir, "$META.tmp")
+            tmp.writeText(TemplateJson.encodeToString(Meta.serializer(), m))
+            if (!tmp.renameTo(metaFile)) { metaFile.delete(); tmp.renameTo(metaFile) }
+        }.onFailure { log("policy templates: the cache's note was not written: ${it.message}") }
     }
 
     companion object {

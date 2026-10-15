@@ -22,27 +22,25 @@ import io.github.bropines.tailscaled.admin.console.ConsoleState
 import io.github.bropines.tailscaled.admin.console.Loadable
 import io.github.bropines.tailscaled.admin.policy.PolicyEditorState
 import io.github.bropines.tailscaled.admin.policy.PolicyState
-import io.github.bropines.tailscaled.admin.policy.visual.DefsEditorColumn
-import io.github.bropines.tailscaled.admin.policy.visual.NewAttrForm
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateFlow
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateNav
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyEdits
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyModel
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.SourceEdits
-import io.github.bropines.tailscaled.admin.policy.visual.TaildriveRules
 import io.github.bropines.tailscaled.admin.policy.visual.VisualEditorScreen
 import io.github.bropines.tailscaled.admin.policy.visual.VisualEnv
 import io.github.bropines.tailscaled.admin.policy.visual.VisualLaunch
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
 import io.github.bropines.tailscaled.admin.policy.visual.pv
-import io.github.bropines.tailscaled.admin.policy.visual.taildrivePreset
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
 /*
  * Taildrive in one step on the visual policy editor's Device attributes page: the template
- * over the rules of a policy that gives Taildrive to no device, the form it fills in with what
- * else Create writes, and the editor as a Taildrive screen opens it — the form already up
- * (beside the list on a tablet; a phone opens it as a sheet, which the renderer does not
- * draw, so the sheet is drawn on its own). Render this class alone:
+ * over the rules of a policy that gives Taildrive to no device, its page (policy-templates/
+ * taildrive-own-devices.json) with what Apply adds, and the editor as a Taildrive screen opens
+ * it — the page already up (beside the list on a tablet; a phone opens it as a sheet, which the
+ * renderer does not draw, so the sheet is drawn on its own). Render this class alone:
  * `--tests '*PolicyVisualTaildrivePreviews*'`.
  */
 
@@ -67,7 +65,7 @@ annotation class DriveSheet
 
 object PolicyDriveDemo {
     private fun withoutAttrs(text: String): String {
-        val attrs = PolicyModel.read(text)!!.nodeAttrs[0].attr - TaildriveRules.ATTRS.toSet()
+        val attrs = PolicyModel.read(text)!!.nodeAttrs[0].attr - setOf("drive:share", "drive:access")
         return PolicyEdits.updateRule(text, PolicyPath.of("nodeAttrs", 0), listOf("attr" to attrs.pv()))
     }
 
@@ -116,7 +114,8 @@ private fun Sheet(dark: Boolean = true, content: @Composable ColumnScope.() -> U
         ) {
             Column {
                 BottomSheetDefaults.DragHandle(Modifier.align(Alignment.CenterHorizontally))
-                DefsEditorColumn(content = content)
+                // The template's page scrolls itself, as in its sheet.
+                Column(Modifier.weight(1f), content = content)
             }
         }
     }
@@ -133,18 +132,16 @@ fun PolicyVisualTaildriveAttrsLight() = DriveTheme(dark = false) { Screen(Policy
 @PreviewTest @DrivePhone @Composable
 fun PolicyVisualTaildriveEmpty() = DriveTheme { Screen(PolicyDriveDemo.state(text = "{\n}\n")) }
 
-/** The form the template fills in: members, both attributes, and under the devices what else Create writes. */
+/** The template's page: whose devices, and what Apply adds — both attributes and the grant. */
 @PreviewTest @DriveSheet @Composable
 fun PolicyVisualTaildriveForm() = Sheet {
-    val env = PolicyDriveDemo.env()
-    NewAttrForm(env, PolicyVisualDemo.actions, taildrivePreset(env.model!!)) {}
+    TemplateFlow(TemplateNav.Page("taildrive-own-devices"), PolicyDriveDemo.env(), PolicyVisualDemo.actions, onNav = {}, onApplied = {}, onShow = {})
 }
 
-/** Over a policy that has a Taildrive grant of its own: the form says it stays. */
+/** Over a policy that has a Taildrive grant of its own: the page says it stays, and Apply adds the attributes only. */
 @PreviewTest @DrivePhone @Composable
 fun PolicyVisualTaildriveFormGrantKept() = Sheet(dark = false) {
-    val env = PolicyDriveDemo.env(PolicyDriveDemo.grantOnly)
-    NewAttrForm(env, PolicyVisualDemo.actions, taildrivePreset(env.model!!)) {}
+    TemplateFlow(TemplateNav.Page("taildrive-own-devices"), PolicyDriveDemo.env(PolicyDriveDemo.grantOnly), PolicyVisualDemo.actions, onNav = {}, onApplied = {}, onShow = {})
 }
 
 /** As a Taildrive screen opens the editor: the Device attributes page, the template's form up beside the list. */

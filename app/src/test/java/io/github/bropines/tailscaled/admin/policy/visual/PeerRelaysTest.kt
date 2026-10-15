@@ -144,13 +144,14 @@ class PeerRelaysTest {
     }
 
     @Test
-    fun templates() {
-        assertEquals(RelayForm(), PeerRelays.template(RelayTemplate.SITE))
-        val self = PeerRelays.template(RelayTemplate.SELF).copy(clients = listOf("tag:lab"))
-        assertTrue(self.complete)
-        assertEquals(listOf("tag:lab"), self.dst)
+    fun aNewRuleNeedsBothSides() {
+        // The page's templates (a site's relays, a device that relays for itself) are data now: policy-templates/relays-*.json.
+        assertFalse(RelayForm().complete)
         assertFalse(RelayForm(clients = listOf("tag:lab")).complete)
-        assertTrue(RelayForm(clients = listOf("tag:lab"), relays = listOf("tag:dns")).complete)
+        val form = RelayForm(clients = listOf("tag:lab"), relays = listOf("tag:dns"))
+        assertTrue(form.complete)
+        assertEquals(listOf("tag:lab"), form.src)
+        assertEquals(listOf("tag:dns"), form.dst)
     }
 
     // ---- what the device list says ----

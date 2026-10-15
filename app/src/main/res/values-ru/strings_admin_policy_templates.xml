@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_pvt_catalog">Шаблоны</string>
+    <string name="admin_pvt_all">Все шаблоны</string>
+    <string name="admin_pvt_all_help">Готовые правила: удалённое управление, Taildrive, гости, реле-узлы и другое. Каждый сначала показывает, что запишет, и только потом что-то меняет.</string>
+    <string name="admin_pvt_search">Найти шаблон</string>
+    <string name="admin_pvt_none_found">Подходящих шаблонов нет.</string>
+    <string name="admin_pvt_refresh">Проверить новые шаблоны</string>
+    <string name="admin_pvt_status_bundled">Шаблоны, встроенные в приложение.</string>
+    <string name="admin_pvt_status_checked">Новые шаблоны проверены %1$s.</string>
+    <string name="admin_pvt_status_checking">Проверяем, нет ли новых шаблонов…</string>
+    <string name="admin_pvt_status_error">Не удалось проверить новые шаблоны: %1$s. Те, что здесь, работают.</string>
+    <string name="admin_pvt_updated">Обновлён</string>
+    <string name="admin_pvt_hs_partial">На Headscale — не всё</string>
+    <string name="admin_pvt_hs_none">Не для Headscale</string>
+
+    <string name="admin_pvt_cat_all">Все</string>
+    <string name="admin_pvt_cat_access">Доступ</string>
+    <string name="admin_pvt_cat_ssh">SSH</string>
+    <string name="admin_pvt_cat_exit_nodes">Exit-ноды</string>
+    <string name="admin_pvt_cat_subnets">Подсети</string>
+    <string name="admin_pvt_cat_taildrive">Taildrive</string>
+    <string name="admin_pvt_cat_remote">Удалённое управление</string>
+    <string name="admin_pvt_cat_relays">Реле</string>
+    <string name="admin_pvt_cat_dns">DNS</string>
+    <string name="admin_pvt_cat_funnel">Funnel</string>
+    <string name="admin_pvt_cat_k8s">Kubernetes</string>
+    <string name="admin_pvt_cat_guests">Гости</string>
+    <string name="admin_pvt_cat_baseline">Основа</string>
+
+    <string name="admin_pvt_back">Все шаблоны</string>
+    <string name="admin_pvt_preview">Что добавит «Применить»</string>
+    <string name="admin_pvt_preview_fill">Заполните поля выше — и здесь появится то, что добавится.</string>
+    <string name="admin_pvt_nothing">Всё это в политике уже есть: добавлять нечего.</string>
+    <plurals name="admin_pvt_kept">
+        <item quantity="one">%d часть уже есть в политике, второй раз она не пишется.</item>
+        <item quantity="few">%d части уже есть в политике, второй раз они не пишутся.</item>
+        <item quantity="many">%d частей уже есть в политике, второй раз они не пишутся.</item>
+        <item quantity="other">%d части уже есть в политике, второй раз они не пишутся.</item>
+    </plurals>
+    <string name="admin_pvt_apply">Применить</string>
+    <string name="admin_pvt_apply_hint">Сначала заполните нужные поля.</string>
+    <string name="admin_pvt_applied">Добавлено из шаблона «%1$s»</string>
+    <string name="admin_pvt_read_more">Подробнее</string>
+    <string name="admin_pvt_text_problem">Такое значение здесь не подходит</string>
+
+    <string name="admin_pvt_self_tags">У тегов нет своих устройств</string>
+    <string name="admin_pvt_self_tags_help">«Свои устройства» бывают только у людей: пользователей, групп, всех участников. Уберите %1$s или «свои устройства».</string>
+    <string name="admin_pvt_bad_value">%1$s: «%2$s» сюда не подходит</string>
+    <string name="admin_pvt_conflict">%1$s в политике уже %2$s, а не %3$s</string>
+    <string name="admin_pvt_conflict_help">Поменяйте это на его странице или выберите здесь другое значение.</string>
+    <string name="admin_pvt_not_on_headscale_help">Политика Headscale не принимает того, что пишет этот шаблон.</string>
+    <string name="admin_pvt_unwritable">В эту политику так не записать: %1$s</string>
+</resources>

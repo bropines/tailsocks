@@ -1,20 +1,32 @@
-package io.github.bropines.tailscaled.admin.policy.visual
+package io.github.bropines.tailscaled.admin.policy.templates
 
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.policy.HuArray
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.HuNode
 import io.github.bropines.tailscaled.admin.policy.HuObject
+import io.github.bropines.tailscaled.admin.policy.PortSet
 import io.github.bropines.tailscaled.admin.policy.TailnetView
+import io.github.bropines.tailscaled.admin.policy.templates.AccessCoverage.MEMBER
+import io.github.bropines.tailscaled.admin.policy.templates.AccessCoverage.SELF
+import io.github.bropines.tailscaled.admin.policy.visual.Fields
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyModel
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.json
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyValue
+import io.github.bropines.tailscaled.admin.policy.visual.Section
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The remote-management template: the rule and test it writes in either syntax, and when the policy needs neither. */
-class RemoteRulesTest {
+/**
+ * The remote-management template (policy-templates/tailsocks-remote.json): the rule and test it
+ * writes in either syntax, and when the policy needs neither — AccessCoverage's access-open
+ * check and pair-test generator, which were RemoteRules before the template became data.
+ */
+class RemoteTemplateTest {
 
     private val groups = """
 	"groups": {
@@ -45,11 +57,21 @@ class RemoteRulesTest {
 
     private fun model(text: String) = PolicyModel.read(text)!!
 
+    private val remote = TemplateTestKit.load("tailsocks-remote")
+
+    private fun values(from: List<String>, to: List<String>) = mapOf("managers" to ParamValue.Items(from), "managed" to ParamValue.Items(to))
+
+    /** What the template plans: [Planned.section] the access rule's syntax, [Planned.test] the test it adds, if any. */
+    private class Planned(val plan: TemplatePlan) {
+        val section: Section get() = plan.accessSection
+        val test: Fields? get() = plan.ops.filterIsInstance<TemplateOp.Add>().firstOrNull { it.section == Section.TESTS }?.fields
+    }
+
     private fun plan(text: String, from: List<String>, to: List<String>, headscale: Boolean = false, view: TailnetView? = null) =
-        RemoteRules.plan(model(text), headscale, from, to, view, HuJson.parseOrNull(text))
+        Planned(TemplateTestKit.plan(remote, text, values(from, to), headscale, view))
 
     private fun create(text: String, from: List<String>, to: List<String>, headscale: Boolean = false, view: TailnetView? = null): String =
-        RemoteRules.write(text, plan(text, from, to, headscale, view), note = "TailSocks remote management (TCP 28115)")
+        TemplateTestKit.apply(remote, text, values(from, to), headscale, view)
 
     private fun at(text: String, section: String, index: Int): HuNode = ((HuJson.parse(text) as HuObject)[section] as HuArray).items[index]
 
@@ -79,13 +101,13 @@ class RemoteRulesTest {
 
     @Test
     fun everyMemberManagesTheirOwnDevicesWithNoTest() {
-        val acl = create(acls, listOf(RemoteRules.MEMBER), listOf(RemoteRules.SELF))
+        val acl = create(acls, listOf(MEMBER), listOf(SELF))
         assertNode("""{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:28115"], "proto": "tcp"}""", at(acl, "acls", 1))
         // A test can name neither every member nor their own devices.
-        assertNull(plan(acls, listOf(RemoteRules.MEMBER), listOf(RemoteRules.SELF)).test)
+        assertNull(plan(acls, listOf(MEMBER), listOf(SELF)).test)
         assertEquals(0, count(acl, "tests"))
         // A file of grants gets a grant.
-        val grant = create(grants, listOf(RemoteRules.MEMBER), listOf(RemoteRules.SELF))
+        val grant = create(grants, listOf(MEMBER), listOf(SELF))
         assertNode("""{"src": ["autogroup:member"], "dst": ["autogroup:self"], "ip": ["tcp:28115"]}""", at(grant, "grants", 1))
         assertEquals(0, count(grant, "acls"))
     }
@@ -100,7 +122,7 @@ class RemoteRulesTest {
     @Test
     fun aPersonAndTheirOwnDevicesAndATag() {
         // The test pins the first pair it can name: alice → the TV; "their own devices" has none.
-        val after = create(acls, listOf("alice@example.com"), listOf(RemoteRules.SELF, "tag:tv"))
+        val after = create(acls, listOf("alice@example.com"), listOf(SELF, "tag:tv"))
         assertNode("""{"action": "accept", "src": ["alice@example.com"], "dst": ["autogroup:self:28115", "tag:tv:28115"], "proto": "tcp"}""", at(after, "acls", 1))
         assertNode("""{"src": "alice@example.com", "proto": "tcp", "accept": ["tag:tv:28115"]}""", at(after, "tests", 0))
     }
@@ -139,19 +161,26 @@ class RemoteRulesTest {
 
     @Test
     fun onlyTheTestWhenTheRuleIsThereAlready() {
-        val p = plan(acls, listOf("alice@example.com"), listOf("mom@example.com"))
-        val after = RemoteRules.write(acls, p, note = "x", rule = false)
-        assertEquals(1, count(after, "acls"))
+        val open = withAcl("""{"action": "accept", "src": ["alice@example.com"], "dst": ["mom@example.com:*"]}""")
+        val p = plan(open, listOf("alice@example.com"), listOf("mom@example.com")).plan
+        assertTrue(p.checks.single { it.check.id == "open" }.holds)
+        val after = p.apply(open)
+        assertEquals(2, count(after, "acls"))
         assertEquals(1, count(after, "tests"))
-        assertFalse("x" in after.lines().map { it.trim() })
+        assertFalse("// TailSocks remote management (TCP 28115)" in after.lines().map { it.trim() })
+        // With the test there too there is nothing left to add.
+        assertEquals(listOf(TemplateIssue.NothingToAdd), plan(after, listOf("alice@example.com"), listOf("mom@example.com")).plan.issues)
     }
 
     @Test
     fun theirOwnDevicesNeedPeopleNotTags() {
-        assertEquals(listOf("tag:admin"), RemoteRules.selfWithoutOwner(listOf("alice@example.com", "tag:admin"), listOf(RemoteRules.SELF)))
-        assertEquals(listOf("autogroup:tagged"), RemoteRules.selfWithoutOwner(listOf("autogroup:tagged"), listOf(RemoteRules.SELF, "tag:tv")))
-        assertTrue(RemoteRules.selfWithoutOwner(listOf("tag:admin"), listOf("tag:tv")).isEmpty())
-        assertTrue(RemoteRules.selfWithoutOwner(listOf(RemoteRules.MEMBER, "group:admins"), listOf(RemoteRules.SELF)).isEmpty())
+        assertEquals(listOf("tag:admin"), AccessCoverage.selfWithoutOwner(listOf("alice@example.com", "tag:admin"), listOf(SELF)))
+        assertEquals(listOf("autogroup:tagged"), AccessCoverage.selfWithoutOwner(listOf("autogroup:tagged"), listOf(SELF, "tag:tv")))
+        assertTrue(AccessCoverage.selfWithoutOwner(listOf("tag:admin"), listOf("tag:tv")).isEmpty())
+        assertTrue(AccessCoverage.selfWithoutOwner(listOf(MEMBER, "group:admins"), listOf(SELF)).isEmpty())
+        // The template refuses it before Apply.
+        val p = plan(acls, listOf("alice@example.com", "tag:admin"), listOf(SELF)).plan
+        assertEquals(listOf(TemplateIssue.SelfWithoutOwner(listOf("tag:admin"))), p.issues)
     }
 
     // ---- what the file opens already ----
@@ -161,12 +190,12 @@ class RemoteRulesTest {
 
     private fun withGrant(rule: String) = grants.replace("\t],\n}", "\t\t$rule,\n\t],\n}")
 
-    private fun opened(text: String, from: List<String>, to: List<String>) = RemoteRules.openedBy(model(text), from, to)
+    private fun opened(text: String, from: List<String>, to: List<String>) = AccessCoverage.openedBy(model(text), from, to, PortSet.single(28115), "tcp")
 
     @Test
     fun everythingToEverythingOpensEveryPath() {
         val all = withAcl("""{"action": "accept", "src": ["*"], "dst": ["*:*"]}""")
-        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(all, listOf("group:admins", "alice@example.com"), listOf("tag:tv", RemoteRules.SELF, "mom@example.com")))
+        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(all, listOf("group:admins", "alice@example.com"), listOf("tag:tv", SELF, "mom@example.com")))
         assertEquals(listOf(PolicyPath.of("acls", 1)), opened(all, listOf("tag:admin"), listOf("tag:tv", "group:family")))
         val grant = withGrant("""{"src": ["*"], "dst": ["*"], "ip": ["*"]}""")
         assertEquals(listOf(PolicyPath.of("grants", 1)), opened(grant, listOf("alice@example.com"), listOf("group:family")))
@@ -196,15 +225,15 @@ class RemoteRulesTest {
         assertEquals(listOf(PolicyPath.of("acls", 1)), opened(family, listOf("group:parents"), listOf("group:family")))
         assertNull(opened(family, listOf("group:admins"), listOf("group:family")))
         // The family's own devices are among the family's devices.
-        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(family, listOf("group:parents"), listOf(RemoteRules.SELF)))
+        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(family, listOf("group:parents"), listOf(SELF)))
         // Every member reaches their own devices on every port: people managing their own, yes; a tag, or another's devices, no.
         val own = withAcl("""{"action": "accept", "src": ["autogroup:member"], "dst": ["autogroup:self:*"]}""")
-        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(own, listOf(RemoteRules.MEMBER), listOf(RemoteRules.SELF)))
-        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(own, listOf("alice@example.com", "group:family"), listOf(RemoteRules.SELF)))
-        assertNull(opened(own, listOf("tag:admin"), listOf(RemoteRules.SELF)))
+        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(own, listOf(MEMBER), listOf(SELF)))
+        assertEquals(listOf(PolicyPath.of("acls", 1)), opened(own, listOf("alice@example.com", "group:family"), listOf(SELF)))
+        assertNull(opened(own, listOf("tag:admin"), listOf(SELF)))
         assertNull(opened(own, listOf("alice@example.com"), listOf("mom@example.com")))
         // The file's own first rule opens 22 and 443 only.
-        assertNull(opened(acls, listOf(RemoteRules.MEMBER), listOf(RemoteRules.SELF)))
+        assertNull(opened(acls, listOf(MEMBER), listOf(SELF)))
         // Tagged devices as a whole hold every tag.
         assertEquals(listOf(PolicyPath.of("acls", 1)), opened(withAcl("""{"action": "accept", "src": ["autogroup:tagged"], "dst": ["autogroup:tagged:28115"]}"""), listOf("tag:admin"), listOf("tag:tv")))
     }

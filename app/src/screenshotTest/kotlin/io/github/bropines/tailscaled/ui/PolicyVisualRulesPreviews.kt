@@ -296,7 +296,14 @@ fun AccessEditorApps() = Sheet(dark = false) {
 fun AccessEditorNew() = Sheet {
     val env = RulesDemo.env()
     val m = env.model!!
-    val form = RuleForms.template(io.github.bropines.tailscaled.admin.policy.visual.AccessTemplate.GUESTS_INTERNET, m, RuleForms.newAccessSection(m, false))
+    // A form half filled in: the internet as the destination, the sources still to pick.
+    val section = RuleForms.newAccessSection(m, false)
+    val o = RuleForms.newOrigin(m, section)
+    val form = if (section == Section.GRANTS) {
+        AccessRule.Grant(io.github.bropines.tailscaled.admin.policy.visual.GrantRule(o, emptyList(), listOf("autogroup:internet"), listOf("*"), emptyList(), emptyList(), emptyList()))
+    } else {
+        AccessRule.Acl(io.github.bropines.tailscaled.admin.policy.visual.AclRule(o, "accept", emptyList(), listOf("autogroup:internet:*"), null, emptyList()))
+    }
     AccessRuleEditorContent(form, env, PolicyVisualDemo.actions, isNew = true, offers = RuleOffers(), onChange = {}, onAction = {})
 }
 

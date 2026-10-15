@@ -14,9 +14,11 @@ import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateSources
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.VisualLaunch
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
+import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.safety.ChangeOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,10 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
     private var reviewJob: Job? = null
     private val store by lazy { PolicyStore(vm.app.filesDir, KeystoreSecretBox()) }
     private val views by lazy { PolicyViewPrefs.of(vm.app) }
+    private var templateJob: Job? = null
+    private val templates by lazy {
+        TemplateSources.forApp(vm.app) { vm.state.value.active?.let { AdminProfiles.transport(vm.app, it, null) } }
+    }
 
     private val state: PolicyState get() = vm.state.value.policy
     private fun set(change: (PolicyState) -> PolicyState) = vm.update { it.copy(policy = change(it.policy)) }
@@ -78,6 +84,29 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
             set { s ->
                 s.copy(derpMap = r.fold({ Loadable(it, false, null, loadedAt = System.currentTimeMillis()) }, { s.derpMap.copy(loading = false, error = it) }))
             }
+        }
+    }
+
+    /**
+     * The visual editor's templates: the bundled set and the cache of the published one, read
+     * once; with [remote] the published set too, through the profile's connection — at most
+     * once in six hours unless [force]d (TemplateSource).
+     */
+    fun loadTemplates(remote: Boolean = false, force: Boolean = false) {
+        // A read of the local sets under way is enough for another; a refresh waits its turn.
+        val running = templateJob?.takeIf { it.isActive }
+        if (running != null && !remote) return
+        templateJob = vm.viewModelScope.launch {
+            running?.join()
+            val source = templates
+            if (state.templates == null) {
+                val local = withContext(Dispatchers.IO) { source.local() }
+                set { it.copy(templates = it.templates ?: local) }
+            }
+            if (!remote || (!force && withContext(Dispatchers.IO) { source.fresh() })) return@launch
+            set { s -> s.copy(templates = s.templates?.copy(refreshing = true)) }
+            val c = withContext(Dispatchers.IO) { source.refresh(force) }
+            set { it.copy(templates = c) }
         }
     }
 

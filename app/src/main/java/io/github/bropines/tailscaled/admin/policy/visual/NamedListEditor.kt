@@ -102,7 +102,9 @@ internal class PageItem(val key: String, val path: PolicyPath? = null, val conte
  * A definitions page: [items] in a list held to a readable width, and the editor of what is
  * open — [editorKey] non-null — as a sheet over the list on a phone, or in the pane beside it
  * when [VisualLayout.twoPane] (the pane shows [paneEmpty] while there is nothing to open). The
- * list brings [scrollTo] into view when it changes and is off screen.
+ * list brings [scrollTo] into view when it changes and is off screen. With [scrolls] false the
+ * editor is given the frame's whole height and scrolls itself (a template's catalog, which
+ * refreshes on a pull).
  */
 @Composable
 internal fun DefinitionsPage(
@@ -113,6 +115,7 @@ internal fun DefinitionsPage(
     paneEmpty: Pair<ImageVector, String>,
     scrollTo: PolicyPath?,
     state: LazyListState = rememberLazyListState(),
+    scrolls: Boolean = true,
     editor: @Composable ColumnScope.() -> Unit,
 ) {
     val target = scrollTo?.let { p -> items.indexOfFirst { it.path == p } }?.takeIf { it >= 0 }
@@ -136,24 +139,24 @@ internal fun DefinitionsPage(
             list = list,
             detail = {
                 // A pane starts each element's editor at its top.
-                if (editorKey != null) key(editorKey) { DefsEditorFrame(onCloseEditor) { editor() } }
+                if (editorKey != null) key(editorKey) { DefsEditorFrame(onCloseEditor, scrolls) { editor() } }
                 else PaneEmptyState(paneEmpty.first, paneEmpty.second)
             },
         )
     } else {
         ReadableWidth { list() }
         // Keyed inside the sheet: a rename moves the editor to the new name without closing it.
-        if (editorKey != null) DefsEditorFrame(onCloseEditor) { key(editorKey) { editor() } }
+        if (editorKey != null) DefsEditorFrame(onCloseEditor, scrolls) { key(editorKey) { editor() } }
     }
 }
 
-/** An editor's frame: a full-height sheet on a phone, the pane's scrolling column on a large window. */
+/** An editor's frame: a full-height sheet on a phone, the pane's scrolling column on a large window ([scrolls] false: a plain column). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DefsEditorFrame(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun DefsEditorFrame(onDismiss: () -> Unit, scrolls: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
     val parent = rememberParentLocals()
     SheetOrPane(onDismiss = onDismiss) {
-        parent.Provide { InPaneWidth { DefsEditorColumn(content = content) } }
+        parent.Provide { InPaneWidth { if (scrolls) DefsEditorColumn(content = content) else Column(Modifier.fillMaxSize(), content = content) } }
     }
 }
 

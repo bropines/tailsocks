@@ -13,14 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallSplit
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeviceHub
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Policy
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,13 +38,20 @@ import io.github.bropines.tailscaled.admin.policy.HuObject
 import io.github.bropines.tailscaled.admin.policy.PolicyText
 import io.github.bropines.tailscaled.admin.policy.RiskFinding
 import io.github.bropines.tailscaled.admin.policy.RiskKind
+import io.github.bropines.tailscaled.admin.policy.templates.AllTemplatesCard
+import io.github.bropines.tailscaled.admin.policy.templates.PolicyTemplate
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateFlow
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateNav
+import io.github.bropines.tailscaled.admin.policy.templates.TemplateSuggestionCard
+import io.github.bropines.tailscaled.admin.policy.templates.rememberSuggested
 import io.github.bropines.tailscaled.ui.HelpText
 
 /*
  * The PEER RELAYS page: the grants that carry the relay capability, each read as "these devices
  * relay for those", with an editor of its two sides, what the device list says about the devices
  * on each (a phone cannot relay, an old client neither relays nor uses one), the lint's word on a
- * source wide enough that every device would try the relays, and templates on an empty page. A
+ * source wide enough that every device would try the relays, and templates on an empty page
+ * (policy-templates/, through TemplateFlow). A
  * grant that also opens ports or grants something else is an access rule first: here its sides
  * are shown, and it can be split so that its relay part becomes a rule of its own.
  */
@@ -62,8 +66,11 @@ fun PeerRelaysSection(env: VisualEnv, actions: VisualActions, layout: VisualLayo
     val findings = remember(text) { Definitions.findings(text) }
     val rules = remember(model) { PeerRelays.rules(model) }
     var form by remember { mutableStateOf<RelayForm?>(null) }
+    // A template's page or the catalog, in the editor's place.
+    var templates by remember { mutableStateOf<TemplateNav?>(null) }
     val shown = shownOf(layout.selected, layout, rules) { it.origin.path }
-    val start: (RelayForm) -> Unit = { f -> form = f; layout.onSelect(null) }
+    val start: (RelayForm) -> Unit = { f -> form = f; templates = null; layout.onSelect(null) }
+    val startTemplate: (TemplateNav) -> Unit = { n -> templates = n; form = null; layout.onSelect(null) }
     val add = if (env.editable) ({ start(RelayForm()) }) else null
     val addLabel = ctx.getString(R.string.admin_pvr_add)
 
@@ -71,28 +78,55 @@ fun PeerRelaysSection(env: VisualEnv, actions: VisualActions, layout: VisualLayo
         add(PageItem("intro") {
             PageIntro(ctx.getString(R.string.admin_pvr_help), addLabel.takeIf { rules.isNotEmpty() }, add, errors = sectionErrors(env, Section.GRANTS))
         })
-        if (rules.isEmpty()) add(PageItem("empty") { RelaysEmpty(env, onAdd = add, onTemplate = { start(PeerRelays.template(it)) }) })
+        if (rules.isEmpty()) {
+            add(PageItem("empty") {
+                RelaysEmpty(env, onAdd = add, onTemplate = { startTemplate(TemplateNav.Page(it.id)) }, onCatalog = { startTemplate(TemplateNav.Catalog()) })
+            })
+        }
         rules.forEachIndexed { i, r ->
             r.origin.header?.let { add(PageItem("h$i") { CommentHeading(it) }) }
             add(PageItem("r$i", r.origin.path) {
-                RelayCard(r, env, actions, policy, selected = layout.twoPane && form == null && shown == r) {
+                RelayCard(r, env, actions, policy, selected = layout.twoPane && form == null && templates == null && shown == r) {
                     form = null
+                    templates = null
                     layout.onSelect(r.origin.path)
                 }
             })
         }
     }
+    val flow = templates
     DefinitionsPage(
         layout = layout,
         items = items,
-        editorKey = if (form != null) "new" else shown?.origin?.path,
-        onCloseEditor = { form = null; layout.onSelect(null) },
+        editorKey = when {
+            flow != null -> "templates"
+            form != null -> "new"
+            else -> shown?.origin?.path
+        },
+        onCloseEditor = { form = null; templates = null; layout.onSelect(null) },
         paneEmpty = Icons.Default.DeviceHub to ctx.getString(R.string.admin_pvr_pane_empty),
         scrollTo = env.focus ?: layout.selected,
+        scrolls = flow == null,
     ) {
         val f = form
-        if (f != null) NewRelayForm(f, env, actions, onChange = { form = it }) { p -> form = null; layout.onSelect(p) }
-        else shown?.let { RelayEditor(it, env, actions, layout, tree, policy, findings[it.origin.path].orEmpty()) }
+        when {
+            flow != null -> TemplateFlow(
+                flow, env, actions,
+                onNav = { templates = it },
+                onApplied = { p ->
+                    templates = null
+                    // A grant opens here, where a relay rule is edited; a test stays where it went; anything else on its own page.
+                    when ((p?.steps?.firstOrNull() as? PathStep.Key)?.let { Section.of(it.name) }) {
+                        null, Section.TESTS, Section.SSH_TESTS -> Unit
+                        Section.GRANTS -> layout.onSelect(p)
+                        else -> actions.open(VisualSection.of(p), p)
+                    }
+                },
+                onShow = { p -> templates = null; actions.open(VisualSection.of(p), p) },
+            )
+            f != null -> NewRelayForm(f, env, actions, onChange = { form = it }) { p -> form = null; layout.onSelect(p) }
+            else -> shown?.let { RelayEditor(it, env, actions, layout, tree, policy, findings[it.origin.path].orEmpty()) }
+        }
     }
 }
 
@@ -110,7 +144,7 @@ private fun relayCoverage(ctx: Context, c: RelayCheck, env: VisualEnv): String? 
 }
 
 /** Why a device will not take part, in a line: "pixel: Android cannot relay". */
-private fun relayNoteText(ctx: Context, n: RelayDeviceNote): String = ctx.getString(
+internal fun relayNoteText(ctx: Context, n: RelayDeviceNote): String = ctx.getString(
     when (n.problem) {
         RelayDeviceProblem.CANNOT_RELAY -> R.string.admin_pvr_note_os
         RelayDeviceProblem.TOO_OLD -> R.string.admin_pvr_note_old
@@ -174,42 +208,17 @@ private fun RelayCard(r: GrantRule, env: VisualEnv, actions: VisualActions, poli
     }
 }
 
-/** A Peer relays page with no rules: what that means, Add, and the two templates. */
+/** A Peer relays page with no rules: what that means, Add, the templates suggested here, and the way to all of them. */
 @Composable
-private fun RelaysEmpty(env: VisualEnv, onAdd: (() -> Unit)?, onTemplate: (RelayTemplate) -> Unit) {
+private fun RelaysEmpty(env: VisualEnv, onAdd: (() -> Unit)?, onTemplate: (PolicyTemplate) -> Unit, onCatalog: () -> Unit) {
     val ctx = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         EmptySection(Icons.Default.DeviceHub, ctx.getString(R.string.admin_pvr_empty), ctx.getString(R.string.admin_pvr_add).takeIf { onAdd != null }, onAdd)
         if (!env.editable) return@Column
         Text(ctx.getString(R.string.admin_pv_templates), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-        RelayTemplate.entries.forEach { t ->
-            Card(
-                onClick = { onTemplate(t) },
-                shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(ctx.getString(templateTitle(t)), style = MaterialTheme.typography.titleSmall)
-                        Text(ctx.getString(templateHelp(t)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Default.ChevronRight, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
+        rememberSuggested(env, "peer-relays", "empty").forEach { t -> TemplateSuggestionCard(t, inTemplates = true) { onTemplate(t) } }
+        AllTemplatesCard(onCatalog)
     }
-}
-
-private fun templateTitle(t: RelayTemplate): Int = when (t) {
-    RelayTemplate.SITE -> R.string.admin_pvr_tpl_site
-    RelayTemplate.SELF -> R.string.admin_pvr_tpl_self
-}
-
-private fun templateHelp(t: RelayTemplate): Int = when (t) {
-    RelayTemplate.SITE -> R.string.admin_pvr_tpl_site_help
-    RelayTemplate.SELF -> R.string.admin_pvr_tpl_self_help
 }
 
 // ---- the editor ----
@@ -310,35 +319,22 @@ internal fun RelayEditor(r: GrantRule, env: VisualEnv, actions: VisualActions, l
     )
 }
 
-/** A new rule: the relays and the devices that use them — one list for a device that relays for itself — written on Create. */
+/** A new rule: the relays and the devices that use them, written on Create. */
 @Composable
 internal fun NewRelayForm(form: RelayForm, env: VisualEnv, actions: VisualActions, onChange: (RelayForm) -> Unit, onCreated: (PolicyPath) -> Unit) {
     val ctx = LocalContext.current
     val model = env.model ?: return
-    EditorTop(
-        Icons.Default.DeviceHub,
-        ctx.getString(if (form.self) R.string.admin_pvr_tpl_self else R.string.admin_pvr_new),
-        ctx.getString(if (form.self) R.string.admin_pvr_tpl_self_help else R.string.admin_pvr_new_sub),
-        null, env, actions, monospace = false,
+    EditorTop(Icons.Default.DeviceHub, ctx.getString(R.string.admin_pvr_new), ctx.getString(R.string.admin_pvr_new_sub), null, env, actions, monospace = false)
+    SelectorField(
+        ctx.getString(R.string.admin_pvr_f_relays), form.relays, SelectorSlot.RELAY_DST, env,
+        onChange = { onChange(form.copy(relays = it)) },
+        help = ctx.getString(R.string.admin_pvr_f_relays_help),
     )
-    if (form.self) {
-        SelectorField(
-            ctx.getString(R.string.admin_pvr_f_self), form.clients, SelectorSlot.RELAY_DST, env,
-            onChange = { onChange(form.copy(clients = it)) },
-            help = ctx.getString(R.string.admin_pvr_f_relays_help),
-        )
-    } else {
-        SelectorField(
-            ctx.getString(R.string.admin_pvr_f_relays), form.relays, SelectorSlot.RELAY_DST, env,
-            onChange = { onChange(form.copy(relays = it)) },
-            help = ctx.getString(R.string.admin_pvr_f_relays_help),
-        )
-        SelectorField(
-            ctx.getString(R.string.admin_pvr_f_clients), form.clients, SelectorSlot.RELAY_SRC, env,
-            onChange = { onChange(form.copy(clients = it)) },
-            help = ctx.getString(R.string.admin_pvr_f_clients_help),
-        )
-    }
+    SelectorField(
+        ctx.getString(R.string.admin_pvr_f_clients), form.clients, SelectorSlot.RELAY_SRC, env,
+        onChange = { onChange(form.copy(clients = it)) },
+        help = ctx.getString(R.string.admin_pvr_f_clients_help),
+    )
     if (PeerRelays.broad(form.src).isNotEmpty()) {
         WarningLine(PolicyText.riskTitle(ctx, RiskKind.RELAY_BROAD), PolicyText.riskHelp(ctx, RiskKind.RELAY_BROAD))
     }

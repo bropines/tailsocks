@@ -1,8 +1,17 @@
-package io.github.bropines.tailscaled.admin.policy.visual
+package io.github.bropines.tailscaled.admin.policy.templates
 
-import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.PolicyLint
+import io.github.bropines.tailscaled.admin.policy.visual.DraftEdit
+import io.github.bropines.tailscaled.admin.policy.visual.Fields
+import io.github.bropines.tailscaled.admin.policy.visual.GrantRule
+import io.github.bropines.tailscaled.admin.policy.visual.KnownAttrs
+import io.github.bropines.tailscaled.admin.policy.visual.KnownCaps
+import io.github.bropines.tailscaled.admin.policy.visual.PeerRelays
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyDraft
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyEdits
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyModel
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.assertMeaning
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.assertOtherLinesKept
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.insertAt
@@ -11,55 +20,75 @@ import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.parsed
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.sample
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.setAt
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyTestKit.window
+import io.github.bropines.tailscaled.admin.policy.visual.PolicyValue
+import io.github.bropines.tailscaled.admin.policy.visual.Section
+import io.github.bropines.tailscaled.admin.policy.visual.SelectorRules
+import io.github.bropines.tailscaled.admin.policy.visual.SelectorSlot
+import io.github.bropines.tailscaled.admin.policy.visual.SourceEdits
+import io.github.bropines.tailscaled.admin.policy.visual.VisualEnv
+import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
+import io.github.bropines.tailscaled.admin.policy.visual.pv
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Taildrive in the policy: what the Attributes page's template writes, where, and when the policy needs none of it. */
-class TaildriveRulesTest {
+/**
+ * Taildrive in the policy: what the Attributes page's template (policy-templates/
+ * taildrive-own-devices.json) writes, where, and when the policy needs none of it — what
+ * TaildriveRules was before the template became data.
+ */
+class TaildriveTemplateTest {
 
     private fun p(vararg s: Any) = PolicyPath.of(*s)
-    private val cap = TaildriveRules.CAP
+    private val cap = "tailscale.com/cap/drive"
+    private val attrs = listOf("drive:share", "drive:access")
+    private val members = listOf("autogroup:member")
+    private val drive = TemplateTestKit.load("taildrive-own-devices")
     private val grantJson = """{"src": ["autogroup:member"], "dst": ["autogroup:self"], "app": {"$cap": [{"shares": ["*"], "access": "rw"}]}}"""
     private val attrsJson = """{"target": ["autogroup:member"], "attr": ["drive:share", "drive:access"]}"""
 
-    /** What the template's form does on Create, left as the template filled it: the rule, and the grant with it. */
-    private fun template(text: String): String {
-        val preset = AttrTemplate.TAILDRIVE.preset
-        return TaildriveRules.withGrant(PolicyEdits.addRule(text, Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(preset.targets, preset.attrs)))
-    }
+    /** What Apply writes with the form as the template fills it: the rule, and the grant with it. */
+    private fun template(text: String): String = TemplateTestKit.apply(drive, text)
+
+    private fun isDrive(g: GrantRule) = g.app.any { it.name == cap }
+    private fun hasGrant(text: String) = PolicyModel.read(text)!!.grants.any(::isDrive)
+
+    /** The grant alone, written unless one carries the capability already: a fixture. */
+    private val grantFields: Fields = listOf(
+        "src" to members.pv(),
+        "dst" to listOf("autogroup:self").pv(),
+        "app" to PolicyValue.obj(cap to PolicyValue.Arr(listOf(PolicyValue.obj("shares" to listOf("*").pv(), "access" to "rw".pv())))),
+    )
+    private fun withGrant(text: String) = if (hasGrant(text)) text else PolicyEdits.addRule(text, Section.GRANTS, grantFields)
 
     /** The author's file without its Taildrive grant: comments, other sections and both attributes still there. */
     private val noGrant = SourceEdits.remove(sample, p("grants"))
 
     /** The author's file with no Taildrive in it at all: neither attribute, a grant of relays only. */
     private val noDrive = PeerRelays.add(noGrant, listOf("tag:homelab"), listOf("tag:exit-node")).let { t ->
-        val attrs = PolicyModel.read(t)!!.nodeAttrs[0].attr - TaildriveRules.ATTRS.toSet()
-        PolicyEdits.updateRule(t, p("nodeAttrs", 0), listOf("attr" to attrs.pv()))
+        val left = PolicyModel.read(t)!!.nodeAttrs[0].attr - attrs.toSet()
+        PolicyEdits.updateRule(t, p("nodeAttrs", 0), listOf("attr" to left.pv()))
     }
 
-    private fun covered(text: String) = TaildriveRules.covered(PolicyModel.read(text)!!)
+    /** Whether the Attributes page no longer offers the template: both attributes and the grant are there. */
+    private fun covered(text: String) = !TemplateEngine.suggested(drive, "attributes", "before", TemplateContext(text, headscale = false))
 
     // ---- the template ----
 
     @Test
-    fun theTemplateFillsTheFormWithMembersAndBothAttributes() {
-        val preset = AttrTemplate.TAILDRIVE.preset
-        assertEquals(listOf("autogroup:member"), preset.targets)
-        assertEquals(listOf("drive:share", "drive:access"), preset.attrs)
-        assertTrue(preset.driveGrant)
-        // No other form writes a grant.
-        assertFalse(AttrTemplate.FASTER_START.preset.driveGrant)
-        assertFalse(AttrPreset().driveGrant)
-        // Under the devices: the grant that Create writes too, or that the policy's own one stays.
-        assertEquals(R.string.admin_pvtd_hint, taildrivePreset(PolicyModel.read(noDrive)!!).hint)
-        assertEquals(R.string.admin_pvtd_hint, taildrivePreset(PolicyModel.read("{}")!!).hint)
+    fun theTemplateFillsTheFormWithMembersAndWritesBothAttributes() {
+        assertEquals(mapOf("devices" to ParamValue.Items(members)), TemplateEngine.defaults(drive))
+        assertEquals(HeadscaleLevel.NONE, drive.headscale.supported)
+        // The page says the policy's own grant stays, when it has one.
+        fun grantKept(text: String) = TemplateTestKit.plan(drive, text).checks.single { it.check.id == "grant" }.holds
+        assertFalse(grantKept(noDrive))
+        assertFalse(grantKept("{}"))
         val grantOnly = PolicyEdits.updateRule(sample, p("nodeAttrs", 0), listOf("attr" to listOf("funnel").pv()))
         assertFalse(covered(grantOnly))
-        assertEquals(R.string.admin_pvtd_hint_grant_kept, taildrivePreset(PolicyModel.read(grantOnly)!!).hint)
-        assertEquals(preset.copy(hint = R.string.admin_pvtd_hint_grant_kept), taildrivePreset(PolicyModel.read(grantOnly)!!))
+        assertTrue(grantKept(grantOnly))
+        assertTrue(drive.checks.single { it.id == "grant" }.note!!["en"]!!.startsWith("The policy has a Taildrive grant already"))
     }
 
     // ---- writing ----
@@ -122,7 +151,7 @@ class TaildriveRulesTest {
 
     @Test
     fun aFileWithoutGrantsGetsTheSection() {
-        val out = TaildriveRules.withGrant(noGrant)
+        val out = withGrant(noGrant)
         assertEquals("only an insertion", "", window(noGrant, out).removed)
         assertMeaning(setAt(parsed(noGrant), listOf("grants"), json("[$grantJson]")), out)
         // In the place the editor gives a new grants section: after the ACLs, before SSH.
@@ -133,16 +162,16 @@ class TaildriveRulesTest {
     @Test
     fun theGrantIsWrittenOnce() {
         // The author's own grant carries the capability, for other devices: it is their answer, and stays.
-        assertEquals(sample, TaildriveRules.withGrant(sample))
-        val once = TaildriveRules.withGrant(noGrant)
-        assertEquals(once, TaildriveRules.withGrant(once))
+        val onSample = template(sample)
+        assertEquals(PolicyModel.read(sample)!!.grants.size, PolicyModel.read(onSample)!!.grants.size)
         // Beside another capability it is still there.
         val mixed = SourceEdits.put(sample, p("grants", 0, "app"), PeerRelays.CAP, PolicyValue.Arr(emptyList()), emptyList())
-        assertEquals(mixed, TaildriveRules.withGrant(mixed))
-        // The template a second time adds its rule again, as any new rule would be, and no second grant.
-        val twice = template(template("{}"))
-        assertEquals(1, PolicyModel.read(twice)!!.grants.size)
-        assertEquals(2, PolicyModel.read(twice)!!.nodeAttrs.size)
+        assertEquals(PolicyModel.read(mixed)!!.grants.size, PolicyModel.read(template(mixed))!!.grants.size)
+        // The template a second time has nothing to add: its rule and its grant are there.
+        val once = template("{}")
+        assertEquals(listOf(TemplateIssue.NothingToAdd), TemplateTestKit.plan(drive, once).issues)
+        assertEquals(1, PolicyModel.read(once)!!.grants.size)
+        assertEquals(1, PolicyModel.read(once)!!.nodeAttrs.size)
     }
 
     @Test
@@ -161,8 +190,8 @@ class TaildriveRulesTest {
     fun whatIsWrittenReadsBackAsRulesTheEditorEdits() {
         val m = PolicyModel.read(template(noDrive))!!
         val rule = m.nodeAttrs.last()
-        assertEquals(TaildriveRules.MEMBERS, rule.target)
-        assertEquals(TaildriveRules.ATTRS, rule.attr)
+        assertEquals(members, rule.target)
+        assertEquals(attrs, rule.attr)
         assertTrue(rule.origin.editable)
         assertTrue(rule.origin.extra.isEmpty())
         assertEquals(p("nodeAttrs", 2), rule.origin.path)
@@ -174,7 +203,7 @@ class TaildriveRulesTest {
         assertTrue(grant.ip.isEmpty() && grant.via.isEmpty() && grant.srcPosture.isEmpty())
         assertTrue(grant.origin.editable)
         assertTrue(grant.origin.extra.isEmpty())
-        assertTrue(TaildriveRules.isDrive(grant))
+        assertTrue(isDrive(grant))
         assertFalse(PeerRelays.isRelay(grant))
         // The capability's parameters as Tailscale's own example writes them.
         assertEquals(HuJson.canonical(json("""[{"shares": ["*"], "access": "rw"}]""")), HuJson.canonical(json(grant.app.single().source)))
@@ -183,7 +212,7 @@ class TaildriveRulesTest {
         assertEquals(VisualSection.ATTRIBUTES, VisualSection.of(rule.origin.path))
         // The editor knows the capability and both attributes by name.
         assertEquals(cap, KnownCaps.grant(cap)?.name)
-        assertEquals(TaildriveRules.ATTRS, TaildriveRules.ATTRS.mapNotNull { KnownAttrs.of(it)?.key })
+        assertEquals(attrs, attrs.mapNotNull { KnownAttrs.of(it)?.key })
     }
 
     @Test
@@ -198,24 +227,26 @@ class TaildriveRulesTest {
 
     @Test
     fun coveredTakesBothAttributesAndTheGrant() {
+        // On Headscale the template is never offered: Headscale has no Taildrive.
+        assertFalse(TemplateEngine.suggested(drive, "attributes", "before", TemplateContext("{}", headscale = true)))
         assertTrue("the author's own policy", covered(sample))
         assertFalse(covered("{}"))
         assertFalse("no grant", covered(noGrant))
         assertFalse(covered(noDrive))
         // The attributes without the grant, the grant without the attributes.
-        assertFalse(covered(PolicyEdits.addRule("{}", Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(TaildriveRules.MEMBERS, TaildriveRules.ATTRS))))
-        assertFalse(covered(TaildriveRules.withGrant("{}")))
+        assertFalse(covered(PolicyEdits.addRule("{}", Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(members, attrs))))
+        assertFalse(covered(withGrant("{}")))
         // One attribute is half of it, whichever.
-        fun with(vararg attrs: String) = PolicyEdits.addRule(TaildriveRules.withGrant("{}"), Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(listOf("tag:nas"), attrs.toList()))
+        fun with(vararg attrs: String) = PolicyEdits.addRule(withGrant("{}"), Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(listOf("tag:nas"), attrs.toList()))
         assertFalse(covered(with("drive:share")))
         assertFalse(covered(with("drive:access", "funnel")))
         assertTrue(covered(with("drive:access", "drive:share")))
         // In two rules — a server that shares, people who open — it is all there.
         assertTrue(covered(PolicyEdits.addRule(with("drive:share"), Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(listOf("autogroup:member"), listOf("drive:access")))))
         // The capability beside another in one grant counts; a grant of relays alone does not.
-        val relays = PeerRelays.add(PolicyEdits.addRule("{}", Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(TaildriveRules.MEMBERS, TaildriveRules.ATTRS)), listOf("tag:a"), listOf("tag:b"))
+        val relays = PeerRelays.add(PolicyEdits.addRule("{}", Section.NODE_ATTRS, PolicyEdits.nodeAttrFields(members, attrs)), listOf("tag:a"), listOf("tag:b"))
         assertFalse(covered(relays))
-        assertFalse(TaildriveRules.hasGrant(PolicyModel.read(relays)!!))
+        assertFalse(hasGrant(relays))
         val both = SourceEdits.put(relays, p("grants", 0, "app"), cap, PolicyValue.Arr(emptyList()), emptyList())
         assertTrue(covered(both))
     }
@@ -227,7 +258,7 @@ class TaildriveRulesTest {
         fun introduced(before: String, after: String) = PolicyLint.introduced(HuJson.parse(before), HuJson.parse(after))
         assertTrue(introduced("{}", template("{}")).isEmpty())
         assertTrue(introduced(noDrive, template(noDrive)).isEmpty())
-        assertTrue(introduced(noGrant, TaildriveRules.withGrant(noGrant)).isEmpty())
+        assertTrue(introduced(noGrant, withGrant(noGrant)).isEmpty())
         // Nothing lands on a card either, and the written rules have no finding of their own.
         assertTrue(VisualEnv.risks(noDrive, template(noDrive)).isEmpty())
         assertTrue(PolicyLint.findings(HuJson.parse(template("{}"))).isEmpty())

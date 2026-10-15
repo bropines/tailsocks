@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's templates: the catalog, a template's page, the cards that offer them. -->
+    <string name="admin_pvt_catalog">Templates</string>
+    <string name="admin_pvt_all">All templates</string>
+    <string name="admin_pvt_all_help">Ready-made rules: remote management, Taildrive, guests, peer relays and more. Each shows what it writes before anything changes.</string>
+    <string name="admin_pvt_search">Find a template</string>
+    <string name="admin_pvt_none_found">No template matches.</string>
+    <string name="admin_pvt_refresh">Check for new templates</string>
+    <string name="admin_pvt_status_bundled">The templates built into the app.</string>
+    <string name="admin_pvt_status_checked">Checked for new templates %1$s.</string>
+    <string name="admin_pvt_status_checking">Checking for new templates…</string>
+    <string name="admin_pvt_status_error">Could not check for new templates: %1$s. The ones here still work.</string>
+    <string name="admin_pvt_updated">Updated</string>
+    <string name="admin_pvt_hs_partial">Partly on Headscale</string>
+    <string name="admin_pvt_hs_none">Not on Headscale</string>
+
+    <string name="admin_pvt_cat_all">All</string>
+    <string name="admin_pvt_cat_access">Access</string>
+    <string name="admin_pvt_cat_ssh">SSH</string>
+    <string name="admin_pvt_cat_exit_nodes">Exit nodes</string>
+    <string name="admin_pvt_cat_subnets">Subnets</string>
+    <string name="admin_pvt_cat_taildrive">Taildrive</string>
+    <string name="admin_pvt_cat_remote">Remote management</string>
+    <string name="admin_pvt_cat_relays">Relays</string>
+    <string name="admin_pvt_cat_dns">DNS</string>
+    <string name="admin_pvt_cat_funnel">Funnel</string>
+    <string name="admin_pvt_cat_k8s">Kubernetes</string>
+    <string name="admin_pvt_cat_guests">Guests</string>
+    <string name="admin_pvt_cat_baseline">Basics</string>
+
+    <string name="admin_pvt_back">All templates</string>
+    <string name="admin_pvt_preview">What Apply adds</string>
+    <string name="admin_pvt_preview_fill">Fill in the fields above to see what will be added.</string>
+    <string name="admin_pvt_nothing">The policy has all of it already: there is nothing to add.</string>
+    <plurals name="admin_pvt_kept">
+        <item quantity="one">%d part the policy has already is not written again.</item>
+        <item quantity="other">%d parts the policy has already are not written again.</item>
+    </plurals>
+    <string name="admin_pvt_apply">Apply</string>
+    <string name="admin_pvt_apply_hint">Fill in the fields it needs first.</string>
+    <string name="admin_pvt_applied">Added from “%1$s”</string>
+    <string name="admin_pvt_read_more">Read more</string>
+    <string name="admin_pvt_text_problem">Not a value this field takes</string>
+
+    <string name="admin_pvt_self_tags">Tags own no devices</string>
+    <string name="admin_pvt_self_tags_help">\"Their own devices\" works only for people: users, groups or every member. Take %1$s out, or \"their own devices\".</string>
+    <string name="admin_pvt_bad_value">%1$s: \"%2$s\" does not fit here</string>
+    <string name="admin_pvt_conflict">%1$s is %2$s in the policy already, not %3$s</string>
+    <string name="admin_pvt_conflict_help">Change it on its own page, or choose another value here.</string>
+    <string name="admin_pvt_not_on_headscale_help">Headscale\'s policy does not take what this template writes.</string>
+    <string name="admin_pvt_unwritable">Cannot be written into this policy: %1$s</string>
+</resources>

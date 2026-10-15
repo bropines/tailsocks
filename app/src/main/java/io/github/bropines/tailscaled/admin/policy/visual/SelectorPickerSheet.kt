@@ -53,6 +53,7 @@ import kotlinx.coroutines.launch
  * hosts, IP sets, the tailnet's users — with device counts, a search, and a typed entry checked
  * as it is typed. Several can be ticked; [onDone] gets the new list, the values that stay in
  * their old order and the new ones after them. A bottom sheet, its words in the app's locale.
+ * [filter] keeps only the options it accepts, and a typed value of another kind is refused.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,13 +66,14 @@ fun SelectorPickerSheet(
     onDismiss: () -> Unit,
     single: Boolean = false,
     extra: List<SelectorOption> = emptyList(),
+    filter: (SelectorOption) -> Boolean = { true },
 ) {
     val parent = rememberParentLocals()
     val sheetState = rememberFullSheetState()
     val scope = rememberCoroutineScope()
     AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         parent.Provide {
-            SelectorPickerContent(title, slot, env, selected, single = single, extra = extra) { picked ->
+            SelectorPickerContent(title, slot, env, selected, single = single, extra = extra, filter = filter) { picked ->
                 onDone(picked)
                 scope.launch { sheetState.hide() }.invokeOnCompletion { onDismiss() }
             }
@@ -91,6 +93,7 @@ fun SelectorPickerContent(
     selected: List<String>,
     single: Boolean = false,
     extra: List<SelectorOption> = emptyList(),
+    filter: (SelectorOption) -> Boolean = { true },
     onDone: (List<String>) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -99,7 +102,7 @@ fun SelectorPickerContent(
     val model = env.model
     val options = remember(model, env.users, env.devices, env.headscale, slot, extra) {
         val own = model?.let { SelectorRules.options(slot, it, env.headscale, env.users, env.devices) }.orEmpty()
-        extra.filter { e -> own.none { it.value == e.value } } + own
+        (extra.filter { e -> own.none { it.value == e.value } } + own).filter(filter)
     }
     // Values already in the field that no option offers (typed earlier, defined nowhere) stay pickable.
     val all = remember(options, selected) {
@@ -107,7 +110,8 @@ fun SelectorPickerContent(
     }
     val q = query.trim()
     val shown = all.filter { o -> q.isEmpty() || o.value.contains(q, ignoreCase = true) || VisualText.label(ctx, o.value).contains(q, ignoreCase = true) }
-    val typedProblem = if (q.isEmpty() || all.any { it.value == q } || model == null) null else SelectorRules.check(q, slot, model, env.headscale)
+    val typedProblem = if (q.isEmpty() || all.any { it.value == q } || model == null) null
+    else SelectorRules.check(q, slot, model, env.headscale) ?: SelectorProblem.NOT_ALLOWED_HERE.takeIf { !filter(SelectorOption(q, Selectors.parse(q).kind)) }
     // Undefined names can be used: the server will say so, and the person may define them next.
     val typedUsable = q.isNotEmpty() && all.none { it.value == q } && (typedProblem == null || typedProblem == SelectorProblem.UNDEFINED)
 

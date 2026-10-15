@@ -29,9 +29,6 @@
     <string name="admin_pvc_attr_cache_both">Both are on: never caching wins, these devices do not cache</string>
     <!-- Under a switch on Headscale: the attribute is accepted but only Tailscale's control plane reads it. -->
     <string name="admin_pvc_attr_no_effect">Does nothing on Headscale</string>
-    <string name="admin_pvc_tpl_faster">Faster start for your devices</string>
-    <string name="admin_pvc_tpl_faster_help">Members\' devices cache the network map and connect from it at start, before the control server answers. Add your servers\' tags too.</string>
-    <string name="admin_pvc_tpl_faster_hint">Members\' devices to start with; add the tags of servers that should start faster too.</string>
 
     <!-- Device posture. -->
     <string name="admin_pvc_on_failure_help">onFailure (beta) is what the user of a failing device sees: a badge in the console, a warning or a notification in the client, a message of yours.</string>

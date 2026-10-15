@@ -8,10 +8,6 @@
     <string name="admin_pvr_add">Add rule</string>
     <string name="admin_pvr_pane_empty">Pick a rule to see and change it</string>
     <string name="admin_pvr_empty">No peer relays yet: devices that cannot connect directly go through Tailscale\'s DERP servers</string>
-    <string name="admin_pvr_tpl_site">Relays for devices behind a strict NAT</string>
-    <string name="admin_pvr_tpl_site_help">Choose the relays and the devices that use them: servers in an office or a cloud network, not phones and laptops.</string>
-    <string name="admin_pvr_tpl_self">A device relays for itself</string>
-    <string name="admin_pvr_tpl_self_help">A server behind a firewall that lets in only its relay port is its own relay.</string>
     <!-- "2 relays for 5 devices": %1$s is admin_pvr_n_relays, %2$s admin_pvr_n_clients. -->
     <string name="admin_pvr_coverage">%1$s for %2$s</string>
     <plurals name="admin_pvr_n_relays">
@@ -49,7 +45,6 @@
     <string name="admin_pvr_f_relays_help">The devices that relay, by tag, host, IP set or Tailscale address. Each relays only once it is switched on there: tailscale set --relay-server-port=40000.</string>
     <string name="admin_pvr_f_clients">May use them</string>
     <string name="admin_pvr_f_clients_help">Devices that stay in one place behind a strict NAT or firewall, in an office or a cloud network. Not phones and laptops that change networks, and not everyone: each of them would try the relays.</string>
-    <string name="admin_pvr_f_self">Devices that relay for themselves</string>
     <string name="admin_pvr_d_relays">Would relay</string>
     <string name="admin_pvr_d_clients">Would use them</string>
     <string name="admin_pvr_d_none">No device from the list</string>
