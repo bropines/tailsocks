@@ -26,6 +26,20 @@ No VPN permission, so it lives next to any other VPN or ad blocker. TailSocks se
 - **Expose proxies to local network** opens all three to your Wi-Fi. Set the SOCKS5 password first — without it anyone on the network can use your tailnet.
 - Without an exit node, internet traffic through the proxy leaves through the phone's own network; with one, through the exit node.
 
+### Reachable from the tailnet
+
+In proxy mode, with the hev-socks5-tunnel engine, and in Root Mode without its interface, the daemon runs in userspace. A connection from another tailnet device to this device's tailnet address, on a port the daemon itself does not serve, goes to the same port on `127.0.0.1` — that is how Tailscale works there. So devices the tailnet policy lets reach this one could use TailSocks's proxies, its Web UI and TailCat's forwards as if they ran on them.
+
+Since 5.1.0 TailSocks's own listeners are closed to the tailnet. Settings → Local proxies → **Reachable from the tailnet** opens the proxies one by one: **SOCKS5 from the tailnet**, **HTTP proxy from the tailnet**, **DNS proxy from the tailnet**, **Taildrive proxy from the tailnet**. The Web UI and TailCat's forwards have no switch and stay closed.
+
+- Used this phone's proxy from another tailnet device before? Switch it on here. Set a SOCKS5 password first; the HTTP proxy never asks for one.
+- Other apps' services — adb over the network on 5555, an SSH server, Syncthing — stay reachable, as on any Tailscale node in userspace. **Strict: close everything else too** closes them, except the ports in **Also open these ports** under it: `5555, 8022, udp:1234`.
+- Remote management's port, 28115, follows only **Allow remote management**. Taildrop, Taildrive folders and Serve need none of these switches.
+- The daemon follows a change within about a second, without a restart.
+- With a real interface — the native TUN engine, Root Mode's `tailscale0` — these switches change nothing: a listener on `127.0.0.1` is never reached from the tailnet there. Under Root Mode's interface, proxies opened to the local network are reached from the tailnet too.
+
+Settings → Advanced → **What this device exposes** lists everything reachable from the internet, the tailnet or the local network, each with the switch that closes it. The diagnostics report has the same list.
+
 ### With AdGuard
 
 AdGuard can send tailnet names to TailSocks and keep filtering the rest.
