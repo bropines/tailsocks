@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exposure_title">Что открыто на этом устройстве</string>
+    <string name="exposure_entry_desc">Всё, что здесь слушает или доступно извне, кому, и каким переключателем это выключить</string>
+    <string name="exposure_card">Безопасность</string>
+    <string name="exposure_advanced_desc">Что открыто на устройстве; экспериментальное: удалённое управление</string>
+    <string name="search_kw_exposure">что открыто, порты, открытые порты, безопасность, доступ извне, кто может подключиться, входящие, слушает, чёрный ящик</string>
+
+    <plurals name="exposure_sum_internet">
+        <item quantity="one">для всего интернета открыто: %1$d</item>
+        <item quantity="few">для всего интернета открыто: %1$d</item>
+        <item quantity="many">для всего интернета открыто: %1$d</item>
+        <item quantity="other">для всего интернета открыто: %1$d</item>
+    </plurals>
+    <plurals name="exposure_sum_tailnet">
+        <item quantity="one">из tailnet доступно: %1$d</item>
+        <item quantity="few">из tailnet доступно: %1$d</item>
+        <item quantity="many">из tailnet доступно: %1$d</item>
+        <item quantity="other">из tailnet доступно: %1$d</item>
+    </plurals>
+    <plurals name="exposure_sum_lan">
+        <item quantity="one">из локальной сети: %1$d</item>
+        <item quantity="few">из локальной сети: %1$d</item>
+        <item quantity="many">из локальной сети: %1$d</item>
+        <item quantity="other">из локальной сети: %1$d</item>
+    </plurals>
+    <string name="exposure_sum_no_internet">из интернета — ничего</string>
+    <string name="exposure_sum_quiet">Ни из tailnet, ни из локальной сети, ни из интернета сюда не попасть</string>
+    <string name="exposure_stopped">TailSocks остановлен: вот что откроется, когда он запустится.</string>
+    <string name="exposure_shields">Входящие подключения заблокированы: ни одно устройство tailnet не подключится к этому.</string>
+    <string name="exposure_reading">Смотрю…</string>
+
+    <string name="exposure_group_internet">Весь интернет</string>
+    <string name="exposure_group_internet_note">Это доступно любому в интернете.</string>
+    <string name="exposure_group_tailnet">Tailnet</string>
+    <string name="exposure_group_lan">Локальная сеть</string>
+    <string name="exposure_group_device">Только это устройство</string>
+    <string name="exposure_group_off">Выключено</string>
+
+    <string name="exposure_on">Вкл.</string>
+    <string name="exposure_off">Выкл.</string>
+    <string name="exposure_reach_device">только это устройство</string>
+    <string name="exposure_reach_tailnet">tailnet</string>
+    <string name="exposure_reach_lan">локальная сеть</string>
+    <string name="exposure_reach_lan_tailnet">локальная сеть и tailnet</string>
+    <string name="exposure_reach_internet">весь интернет</string>
+    <string name="exposure_password">с паролем</string>
+    <string name="exposure_no_password">без пароля</string>
+    <string name="exposure_login">нужен вход</string>
+    <string name="exposure_no_login">без входа</string>
+    <plurals name="exposure_folders">
+        <item quantity="one">%1$d папка</item>
+        <item quantity="few">%1$d папки</item>
+        <item quantity="many">%1$d папок</item>
+        <item quantity="other">%1$d папки</item>
+    </plurals>
+    <string name="exposure_whole_storage">вся память</string>
+    <plurals name="exposure_paired">
+        <item quantity="one">%1$d сопряжённое устройство</item>
+        <item quantity="few">%1$d сопряжённых устройства</item>
+        <item quantity="many">%1$d сопряжённых устройств</item>
+        <item quantity="other">%1$d сопряжённого устройства</item>
+    </plurals>
+    <string name="exposure_none_paired">сопряжённых устройств нет</string>
+    <plurals name="exposure_owners">
+        <item quantity="one">%1$d владелец</item>
+        <item quantity="few">%1$d владельца</item>
+        <item quantity="many">%1$d владельцев</item>
+        <item quantity="other">%1$d владельца</item>
+    </plurals>
+    <string name="exposure_owner">владелец</string>
+    <string name="exposure_guest">гость</string>
+    <string name="exposure_until">до %1$s</string>
+    <plurals name="exposure_routes">
+        <item quantity="one">%1$d маршрут</item>
+        <item quantity="few">%1$d маршрута</item>
+        <item quantity="many">%1$d маршрутов</item>
+        <item quantity="other">%1$d маршрута</item>
+    </plurals>
+    <plurals name="exposure_keys">
+        <item quantity="one">%1$d ключ клиента</item>
+        <item quantity="few">%1$d ключа клиентов</item>
+        <item quantity="many">%1$d ключей клиентов</item>
+        <item quantity="other">%1$d ключа клиентов</item>
+    </plurals>
+    <string name="exposure_anyone">любой, у кого есть адрес</string>
+    <string name="exposure_ports">порты %1$s</string>
+    <string name="exposure_inbox">во входящие</string>
+    <string name="exposure_to_folder">в %1$s</string>
+    <string name="exposure_changes_allowed">могут и менять</string>
+    <string name="exposure_reading_only">только чтение</string>
+    <string name="exposure_port_any">любой свободный порт</string>
+    <string name="exposure_random_loopback">случайный адрес loopback</string>
+    <string name="exposure_ports_netstack">127.0.0.1 и все адреса</string>
+    <string name="exposure_ports_interface">все адреса</string>
+    <string name="exposure_note_policy_unknown">политика tailnet пока неизвестна</string>
+    <string name="exposure_note_policy_denied">политика tailnet не разрешает делиться</string>
+    <string name="exposure_note_no_storage">нет доступа к памяти</string>
+    <string name="exposure_note_no_token">нет токена: любая команда отклоняется</string>
+    <string name="exposure_note_not_known">известно, только пока TailSocks работает</string>
+    <string name="exposure_note_not_checked">не проверено</string>
+    <string name="exposure_note_blocked">входящие подключения заблокированы</string>
+
+    <string name="exposure_turn_off">Выключить</string>
+    <string name="exposure_open_setting">Открыть настройку</string>
+
+    <string name="exposure_funnel">Funnel</string>
+    <string name="exposure_funnel_help">Порты, которые любой в интернете откроет по публичному имени устройства. Аккаунт в tailnet для этого не нужен.</string>
+    <string name="exposure_tailcat_server">Сервер TailCat</string>
+    <string name="exposure_tailcat_server_help">Это устройство как сервер TailCat: клиенты, знающие его адрес, откуда угодно через ретрансляторы Tailscale попадают на выданные порты, а если он выходной узел — и в интернет через него. Без списка ключей клиентов это может любой, у кого есть адрес.</string>
+    <string name="exposure_remote">Удалённое управление</string>
+    <string name="exposure_remote_help">Сопряжённые устройства с TailSocks управляют этим через tailnet. Остальным устройствам tailnet отказывают, а код сопряжения можно попробовать, только пока он показан здесь.</string>
+    <string name="exposure_remote_full">Полный контроль</string>
+    <string name="exposure_remote_full_help">Сопряжённым владельцам можно больше базового: делиться папками, предлагать выходной узел, объявлять маршруты, читать диагностику.</string>
+    <string name="exposure_remote_files">Сетевой доступ к файлам</string>
+    <string name="exposure_remote_files_help">Сопряжённые устройства видят папки этого устройства и могут через tailnet отправлять и забирать файлы.</string>
+    <string name="exposure_remote_elevated">Полные права на время</string>
+    <string name="exposure_remote_elevated_help">Гостю дали права владельца до указанного времени. Они закончатся сами; если выключить — закончатся сейчас.</string>
+    <string name="exposure_taildrive_shares">Папки Taildrive</string>
+    <string name="exposure_taildrive_shares_help">Папки этого устройства, которые открывают устройства tailnet, — там, где политика tailnet даёт им Taildrive.</string>
+    <string name="exposure_taildrop">Приём Taildrop</string>
+    <string name="exposure_taildrop_help">Ваши устройства — и те, кому политика tailnet разрешает отправку, — могут присылать сюда файлы, пока TailSocks работает. Отдельного переключателя нет: остановит только блокировка входящих подключений.</string>
+    <string name="exposure_serve">Serve</string>
+    <string name="exposure_serve_help">Порты, которые это устройство отдаёт в tailnet: веб-страницы, прокси к службам на устройстве, проброс TCP.</string>
+    <string name="exposure_exit_node">Предлагается как выходной узел</string>
+    <string name="exposure_exit_node_help">Устройства tailnet могут выпускать весь свой интернет-трафик через это устройство — после того как администратор tailnet одобрит.</string>
+    <string name="exposure_routes_title">Маршруты подсетей</string>
+    <string name="exposure_routes_help">Устройства tailnet попадают в эти сети через это устройство — после того как администратор tailnet одобрит маршруты.</string>
+    <string name="exposure_app_connector">Коннектор приложений</string>
+    <string name="exposure_app_connector_help">Трафик, который tailnet направляет через коннекторы приложений, выходит в интернет через подключение этого устройства.</string>
+    <string name="exposure_relay">Ретранслятор</string>
+    <string name="exposure_relay_help">Устройства tailnet, которые не видят друг друга напрямую, гонят трафик через UDP-порт этого устройства — там, где это разрешает политика. Порт открыт в настоящих сетях устройства.</string>
+    <string name="exposure_lan_access">Прокси открыты в локальную сеть</string>
+    <string name="exposure_lan_access_help">SOCKS5, HTTP-прокси и DNS-прокси слушают на всех адресах: ими может пользоваться любой в той же Wi-Fi сети, и tailnet тоже.</string>
+    <string name="exposure_socks5">SOCKS5-прокси</string>
+    <string name="exposure_socks5_help">Через него приложения ходят в tailnet и в интернет через выходной узел. Кто до него достучится, пользуется подключением этого устройства; имя и пароль закрывают его от чужих.</string>
+    <string name="exposure_http">HTTP-прокси</string>
+    <string name="exposure_http_help">То же для приложений, которые говорят по HTTP. Пароля у него нет: им может пользоваться любой, кто до него достучится.</string>
+    <string name="exposure_dns">DNS-прокси</string>
+    <string name="exposure_dns_help">Отвечает на запросы имён, включая имена MagicDNS: кто до него достучится, узнаёт имена tailnet.</string>
+    <string name="exposure_web_ui">Веб-интерфейс</string>
+    <string name="exposure_web_ui_help">Веб-страница Tailscale для этого устройства: кто её откроет, видит состояние устройства и может выполнить вход.</string>
+    <string name="exposure_drive_proxy">Прокси Taildrive</string>
+    <string name="exposure_drive_proxy_help">Вход по WebDAV во все папки, которыми tailnet делится с этим устройством: кто до него достучится, открывает их от имени этого устройства. Если он открыт в локальную сеть, он всегда спрашивает логин.</string>
+    <string name="exposure_tailcat_forwards">Пробросы TailCat</string>
+    <string name="exposure_tailcat_forwards_help">Порты, ведущие к серверам TailCat, и SOCKS5-прокси TailCat. Слушают на 127.0.0.1.</string>
+    <string name="exposure_byedpi">Прокси обхода DPI</string>
+    <string name="exposure_byedpi_help">Прокси ByeDPI для управляющего соединения — на случайном адресе loopback, до которого снаружи устройства не достучаться.</string>
+    <string name="exposure_device_ports">Порты устройства</string>
+    <string name="exposure_device_ports_help_netstack">В этом режиме Tailscale передаёт каждое подключение к tailnet-адресу устройства на тот же порт 127.0.0.1. Поэтому устройства tailnet, которым это разрешают правила доступа, достают до любого порта, который слушает там или на всех адресах, — и до портов других приложений тоже. Блокировка входящих подключений закрывает всё это.</string>
+    <string name="exposure_device_ports_help_interface">Tailnet-адрес висит на настоящем интерфейсе: устройства tailnet, которым это разрешают правила доступа, достают до любого порта, который слушает на всех адресах, — и до портов других приложений тоже. Блокировка входящих подключений закрывает всё это.</string>
+    <string name="exposure_root_tun">Интерфейс ядра (root)</string>
+    <string name="exposure_root_tun_help">tailscale0 ведёт tailnet ниже VPN Android: tailnet достаёт до сетевого стека самого устройства, включая любые приложения, которые слушают на всех адресах.</string>
+    <string name="exposure_root_boot">Скрипт автозапуска (root)</string>
+    <string name="exposure_root_boot_help">Запускает Tailscale при загрузке, раньше приложения: всё из этого списка открывается, даже если TailSocks не открывали.</string>
+    <string name="exposure_root_cli">Утилита CLI (root)</string>
+    <string name="exposure_root_cli_help">Root-оболочки и приложения с root могут запускать %1$s и управлять Tailscale на этом устройстве. Установлена в /data/adb/service.d и модулем поверх /system/bin.</string>
+    <string name="exposure_automation">Команды автоматизации</string>
+    <string name="exposure_automation_help">Приложения на этом устройстве, знающие токен, — Tasker, MacroDroid — могут подключать и отключать, менять выходной узел и аккаунт.</string>
+    <string name="exposure_app_functions">AppFunctions</string>
+    <string name="exposure_app_functions_help">Приложения-ассистенты, которых пускает Android, видят подключение, устройства и аккаунты; если внешняя автоматизация разрешена — ещё и подключают и меняют настройки.</string>
+
+    <string name="exposure_why_device">До него достают только приложения на этом устройстве.</string>
+    <string name="exposure_why_netstack">В этом режиме Tailscale передаёт подключения к tailnet-адресу устройства на тот же порт 127.0.0.1 — так до него и достаёт tailnet.</string>
+    <string name="exposure_why_wildcard">Слушает на всех адресах: до него достаёт локальная сеть, а заодно и tailnet.</string>
+    <string name="exposure_why_lan">Слушает на адресе локальной сети — она до него и достаёт.</string>
+    <string name="exposure_why_tailnet">Слушает на tailnet-адресе устройства.</string>
+</resources>

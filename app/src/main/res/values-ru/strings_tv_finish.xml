@@ -2,7 +2,6 @@
 <resources>
     <string name="tv_field_done">Готово</string>
 
-    <string name="settings_advanced_experimental_desc">Экспериментальное: удалённое управление</string>
     <string name="settings_remote_entry_desc">Разрешить другому устройству с TailSocks в вашей сети управлять этим — после сопряжения по коду, который покажет это устройство</string>
 
     <string name="tv_add_account_authkey_hint">С ключом устройство зарегистрируется само при первом запуске; оставьте пустым, чтобы войти по коду с телефона.</string>

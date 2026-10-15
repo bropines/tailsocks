@@ -156,7 +156,7 @@ object SettingsCatalog {
         page(SettingsPage.BACKUP, R.string.settings_cat_backup_desc, R.string.search_kw_backup, suggested = true)
         page(SettingsPage.AUTOMATION, R.string.settings_cat_automation_desc, R.string.search_kw_automation)
         page(SettingsPage.DIAGNOSTICS, R.string.settings_cat_diagnostics_desc, R.string.search_kw_diagnostics)
-        page(SettingsPage.ADVANCED, R.string.settings_advanced_experimental_desc, R.string.search_kw_advanced)
+        page(SettingsPage.ADVANCED, R.string.exposure_advanced_desc, R.string.search_kw_advanced)
         page(SettingsPage.THEME, R.string.tv_settings_theme_desc, R.string.search_kw_theme)
         page(SettingsPage.ROOT, R.string.tv_settings_root_desc, R.string.search_kw_mode_root)
 
@@ -304,6 +304,7 @@ object SettingsCatalog {
         row("show_onboarding", SettingsPage.DIAGNOSTICS, R.string.settings_show_onboarding, R.string.settings_show_onboarding_desc, R.string.search_kw_show_onboarding, R.string.settings_sect_troubleshooting)
 
         // ─── Advanced ────────────────────────────────────────────────────────────────────
+        row("exposure", SettingsPage.ADVANCED, R.string.exposure_title, R.string.exposure_entry_desc, R.string.search_kw_exposure, R.string.exposure_card)
         row("remote_management", SettingsPage.ADVANCED, R.string.remote_title, R.string.settings_remote_entry_desc, R.string.search_kw_remote_management, R.string.remote_experimental)
     }
 

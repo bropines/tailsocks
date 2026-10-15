@@ -9,7 +9,6 @@
     <string name="tv_field_done">Done</string>
 
     <!-- Settings → Advanced on a device that keeps every other page in its usual place. -->
-    <string name="settings_advanced_experimental_desc">Experimental: remote management</string>
     <!-- The row that opens the remote management page; its card is titled "Experimental". -->
     <string name="settings_remote_entry_desc">Let another device with TailSocks on your tailnet manage this one, once it is paired with a code this device shows</string>
 

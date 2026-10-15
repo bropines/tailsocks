@@ -134,12 +134,15 @@ private val settingsCategories = listOf(
 private val advancedCategory =
     SettingsCategory("advanced", R.string.tv_settings_advanced, R.string.tv_settings_advanced_desc, Icons.Default.Tune, cards = 2)
 
-/** [advancedCategory] on a handheld: the same row and page, said for the one card they hold there. */
+/** [advancedCategory] on a handheld: the same row and page, said for the two cards they hold there. */
 private val experimentalCategory =
-    advancedCategory.copy(descRes = R.string.settings_advanced_experimental_desc, cards = 1)
+    advancedCategory.copy(descRes = R.string.exposure_advanced_desc, cards = 2)
 
 /** The Advanced page's row for remote management, as the row the remote comes back to. */
 private const val REMOTE_ROW = "remote"
+
+/** And its row for what this device exposes (ExposureScreen). */
+private const val EXPOSURE_ROW = "exposure"
 
 /**
  * Two parts of a category that are features of their own, as pages for the Advanced page:
@@ -403,6 +406,8 @@ fun SettingsScreen(
     var openSection by rememberSaveable { mutableStateOf(landing) }
     // The remote management page (RemoteManagedScreen), which takes the whole screen while open.
     var remoteOpen by rememberSaveable { mutableStateOf(false) }
+    // What this device exposes (ExposureScreen): a page of the same kind.
+    var exposureOpen by rememberSaveable { mutableStateOf(false) }
 
     // A television's remote. It needs something in focus at every moment, and Settings swaps
     // what is on screen under it — one page for another, a page for the file browser. So
@@ -2606,6 +2611,21 @@ fun SettingsScreen(
     // pages that left the hub, and the screens that left the main screen. The lists come
     // from the gate (`place`), so the page holds whatever the device keeps for it.
     val sectionAdvanced: @Composable () -> Unit = {
+        // On every device, first: everything that listens or can be reached here, in one list.
+        SettingsCard(title = stringResource(R.string.exposure_card)) {
+            SettingsClickableItem(
+                title = stringResource(R.string.exposure_title),
+                subtitle = stringResource(R.string.exposure_entry_desc),
+                icon = Icons.Default.GppMaybe,
+                modifier = if (tv && advancedRow == EXPOSURE_ROW) Modifier.focusRequester(rowFocus) else Modifier,
+                onClick = {
+                    advancedRow = EXPOSURE_ROW
+                    stepOutOfPage()
+                    exposureOpen = true
+                }
+            )
+        }
+        SettingsCardGap()
         if (advancedPages.isNotEmpty()) {
             SettingsCard(title = stringResource(R.string.tv_settings_more)) {
                 advancedPages.forEachIndexed { index, page ->
@@ -3213,6 +3233,8 @@ fun SettingsScreen(
     if (remoteOpen) {
         // A page of its own, with its own Back: it hands the settings back as it closes.
         RemoteManagedScreen(onBack = { remoteOpen = false; focus(SettingsFocus.ROW) })
+    } else if (exposureOpen) {
+        ExposureScreen(onBack = { exposureOpen = false; focus(SettingsFocus.ROW) })
     } else if (browsing != null) {
         val source = remember { RealFileSource(context) }
         val downloads = remember { Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) }

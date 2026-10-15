@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Advanced → What this device exposes (ui/ExposureScreen.kt, core/Exposure.kt). -->
+    <string name="exposure_title">What this device exposes</string>
+    <string name="exposure_entry_desc">Everything that listens here or can be reached, who reaches it, and the switch that turns it off</string>
+    <string name="exposure_card">Security</string>
+    <!-- The Advanced row of the settings list on a phone or a tablet: what its page holds there. -->
+    <string name="exposure_advanced_desc">What this device exposes; experimental: remote management</string>
+    <string name="search_kw_exposure">open ports, listening, exposed, security, reachable, who can connect, firewall, incoming, black box</string>
+
+    <!-- The line at the top. -->
+    <plurals name="exposure_sum_internet">
+        <item quantity="one">%1$d thing open to the public internet</item>
+        <item quantity="other">%1$d things open to the public internet</item>
+    </plurals>
+    <plurals name="exposure_sum_tailnet">
+        <item quantity="one">%1$d thing reachable from the tailnet</item>
+        <item quantity="other">%1$d things reachable from the tailnet</item>
+    </plurals>
+    <plurals name="exposure_sum_lan">
+        <item quantity="one">%1$d from the local network</item>
+        <item quantity="other">%1$d from the local network</item>
+    </plurals>
+    <string name="exposure_sum_no_internet">nothing from the internet</string>
+    <string name="exposure_sum_quiet">Nothing here can be reached from the tailnet, the local network or the internet</string>
+    <string name="exposure_stopped">TailSocks is stopped: this is what opens when it starts.</string>
+    <string name="exposure_shields">Incoming connections are blocked: no tailnet device can open one to this device.</string>
+    <string name="exposure_reading">Looking…</string>
+
+    <!-- The groups. -->
+    <string name="exposure_group_internet">Public internet</string>
+    <string name="exposure_group_internet_note">Anyone on the internet can reach these.</string>
+    <string name="exposure_group_tailnet">Tailnet</string>
+    <string name="exposure_group_lan">Local network</string>
+    <string name="exposure_group_device">This device only</string>
+    <string name="exposure_group_off">Off</string>
+
+    <!-- A row's state line: "On · 127.0.0.1:48115 · this device only". -->
+    <string name="exposure_on">On</string>
+    <string name="exposure_off">Off</string>
+    <string name="exposure_reach_device">this device only</string>
+    <string name="exposure_reach_tailnet">tailnet</string>
+    <string name="exposure_reach_lan">local network</string>
+    <string name="exposure_reach_lan_tailnet">local network and tailnet</string>
+    <string name="exposure_reach_internet">public internet</string>
+    <string name="exposure_password">password</string>
+    <string name="exposure_no_password">no password</string>
+    <string name="exposure_login">login required</string>
+    <string name="exposure_no_login">no login</string>
+    <plurals name="exposure_folders">
+        <item quantity="one">%1$d folder</item>
+        <item quantity="other">%1$d folders</item>
+    </plurals>
+    <string name="exposure_whole_storage">the whole storage</string>
+    <plurals name="exposure_paired">
+        <item quantity="one">%1$d paired device</item>
+        <item quantity="other">%1$d paired devices</item>
+    </plurals>
+    <string name="exposure_none_paired">no device paired</string>
+    <plurals name="exposure_owners">
+        <item quantity="one">%1$d owner</item>
+        <item quantity="other">%1$d owners</item>
+    </plurals>
+    <string name="exposure_owner">owner</string>
+    <string name="exposure_guest">guest</string>
+    <string name="exposure_until">until %1$s</string>
+    <plurals name="exposure_routes">
+        <item quantity="one">%1$d route</item>
+        <item quantity="other">%1$d routes</item>
+    </plurals>
+    <plurals name="exposure_keys">
+        <item quantity="one">%1$d client key</item>
+        <item quantity="other">%1$d client keys</item>
+    </plurals>
+    <string name="exposure_anyone">anyone with the address</string>
+    <string name="exposure_ports">ports %1$s</string>
+    <string name="exposure_inbox">to the inbox</string>
+    <string name="exposure_to_folder">to %1$s</string>
+    <string name="exposure_changes_allowed">changes allowed</string>
+    <string name="exposure_reading_only">reading only</string>
+    <string name="exposure_port_any">any free port</string>
+    <string name="exposure_random_loopback">a random loopback address</string>
+    <string name="exposure_ports_netstack">127.0.0.1 and every address</string>
+    <string name="exposure_ports_interface">every address</string>
+    <string name="exposure_note_policy_unknown">the tailnet\'s policy is not known yet</string>
+    <string name="exposure_note_policy_denied">the tailnet\'s policy does not allow sharing</string>
+    <string name="exposure_note_no_storage">no access to storage</string>
+    <string name="exposure_note_no_token">no token: every broadcast is refused</string>
+    <string name="exposure_note_not_known">known only while TailSocks runs</string>
+    <string name="exposure_note_not_checked">not checked</string>
+    <string name="exposure_note_blocked">incoming connections are blocked</string>
+
+    <!-- What a press does, for a screen reader. -->
+    <string name="exposure_turn_off">Turn off</string>
+    <string name="exposure_open_setting">Open its setting</string>
+
+    <!-- The rows: a title and a folded explanation each. -->
+    <string name="exposure_funnel">Funnel</string>
+    <string name="exposure_funnel_help">Served ports anyone on the internet can open, at this device\'s public name. No tailnet account is needed to connect.</string>
+    <string name="exposure_tailcat_server">TailCat server</string>
+    <string name="exposure_tailcat_server_help">This device as a TailCat server: clients that hold its address reach the ports it hands out, and its exit node if it offers one, from anywhere, through Tailscale\'s relays. Without a list of client keys anyone with the address can.</string>
+    <string name="exposure_remote">Remote management</string>
+    <string name="exposure_remote_help">Paired TailSocks devices manage this one over the tailnet. Every other device of the tailnet gets a refusal, and can try a pairing code only while one is shown here.</string>
+    <string name="exposure_remote_full">Full control</string>
+    <string name="exposure_remote_full_help">Paired owners may do more than the basics: share folders, offer the exit node, advertise routes, read diagnostics.</string>
+    <string name="exposure_remote_files">Network access to files</string>
+    <string name="exposure_remote_files_help">Paired devices may list this device\'s folders and send or fetch files over the tailnet.</string>
+    <string name="exposure_remote_elevated">Full rights for a while</string>
+    <string name="exposure_remote_elevated_help">A guest was given an owner\'s rights until the time shown. They end by themselves; turning this off ends them now.</string>
+    <string name="exposure_taildrive_shares">Taildrive folders</string>
+    <string name="exposure_taildrive_shares_help">Folders of this device that tailnet devices open, wherever the tailnet\'s policy grants them Taildrive.</string>
+    <string name="exposure_taildrop">Taildrop receiving</string>
+    <string name="exposure_taildrop_help">Your own devices — and any the tailnet\'s policy lets send files — can send files here while TailSocks runs. It has no switch: only blocking incoming connections stops it.</string>
+    <string name="exposure_serve">Serve</string>
+    <string name="exposure_serve_help">Ports this device serves to the tailnet: web pages, proxies to services on this device, TCP forwards.</string>
+    <string name="exposure_exit_node">Exit node offered</string>
+    <string name="exposure_exit_node_help">Tailnet devices may send all their internet traffic out through this device, once the tailnet\'s admin approves the offer.</string>
+    <string name="exposure_routes_title">Subnet routes</string>
+    <string name="exposure_routes_help">Tailnet devices reach these networks through this device, once the tailnet\'s admin approves the routes.</string>
+    <string name="exposure_app_connector">App connector</string>
+    <string name="exposure_app_connector_help">Traffic the tailnet routes through app connectors goes out through this device\'s internet connection.</string>
+    <string name="exposure_relay">Peer relay</string>
+    <string name="exposure_relay_help">Tailnet devices that cannot reach each other directly pass their traffic through a UDP port of this device, where the policy lets them. The port is open on this device\'s real networks.</string>
+    <string name="exposure_lan_access">Proxies open to the local network</string>
+    <string name="exposure_lan_access_help">The SOCKS5 proxy, the HTTP proxy and the DNS proxy listen on every address: anyone on the same Wi-Fi can use them, and the tailnet too.</string>
+    <string name="exposure_socks5">SOCKS5 proxy</string>
+    <string name="exposure_socks5_help">Apps send their traffic into the tailnet through it, and out through the exit node. Whoever reaches it uses this device\'s connection; a username and a password keep others out.</string>
+    <string name="exposure_http">HTTP proxy</string>
+    <string name="exposure_http_help">The same for apps that speak HTTP. It has no password: whoever reaches it can use it.</string>
+    <string name="exposure_dns">DNS proxy</string>
+    <string name="exposure_dns_help">Answers name lookups, MagicDNS names included: whoever reaches it can look up the tailnet\'s names.</string>
+    <string name="exposure_web_ui">Web UI</string>
+    <string name="exposure_web_ui_help">Tailscale\'s web page for this device: whoever opens it sees the device\'s state and can sign it in.</string>
+    <string name="exposure_drive_proxy">Taildrive proxy</string>
+    <string name="exposure_drive_proxy_help">A WebDAV door to every folder the tailnet shares with this device: whoever reaches it opens those folders as this device. Open to the local network, it always asks for a login.</string>
+    <string name="exposure_tailcat_forwards">TailCat forwards</string>
+    <string name="exposure_tailcat_forwards_help">Ports here that lead to TailCat servers, and TailCat\'s SOCKS5 proxies. They listen on 127.0.0.1.</string>
+    <string name="exposure_byedpi">DPI bypass proxy</string>
+    <string name="exposure_byedpi_help">ByeDPI\'s proxy for the control connection, on a random loopback address that nothing outside this device reaches.</string>
+    <string name="exposure_device_ports">Ports of this device</string>
+    <string name="exposure_device_ports_help_netstack">In this mode Tailscale hands every connection to this device\'s tailnet address to the same port on 127.0.0.1. So tailnet devices the access rules allow reach every port that listens there or on every address — other apps\' ports too. Blocking incoming connections closes all of it.</string>
+    <string name="exposure_device_ports_help_interface">The tailnet address is on a real interface: tailnet devices the access rules allow reach every port that listens on every address — other apps\' ports too. Blocking incoming connections closes all of it.</string>
+    <string name="exposure_root_tun">Kernel interface (Root)</string>
+    <string name="exposure_root_tun_help">tailscale0 carries the tailnet below Android\'s VPN: the tailnet reaches this device\'s own network stack, every app that listens on every address included.</string>
+    <string name="exposure_root_boot">Boot script (Root)</string>
+    <string name="exposure_root_boot_help">Starts Tailscale at boot, before the app: what this list shows opens without TailSocks being opened.</string>
+    <string name="exposure_root_cli">CLI wrapper (Root)</string>
+    <string name="exposure_root_cli_help">Root shells and apps with root can run %1$s and control this device\'s Tailscale. It is installed in /data/adb/service.d and as a module over /system/bin.</string>
+    <string name="exposure_automation">Automation broadcasts</string>
+    <string name="exposure_automation_help">Apps on this device that know the token — Tasker, MacroDroid — can connect and disconnect, and switch exit nodes and accounts.</string>
+    <string name="exposure_app_functions">AppFunctions</string>
+    <string name="exposure_app_functions_help">Assistant apps Android lets in can read the connection, the devices and the accounts; with external automation allowed they can also connect and change settings.</string>
+
+    <!-- Appended to a listener's explanation: why it is reached from where it is. -->
+    <string name="exposure_why_device">Only apps on this device reach it.</string>
+    <string name="exposure_why_netstack">In this mode Tailscale hands connections to this device\'s tailnet address to the same port on 127.0.0.1: that is how the tailnet reaches it.</string>
+    <string name="exposure_why_wildcard">It listens on every address: the local network reaches it, and so does the tailnet.</string>
+    <string name="exposure_why_lan">It listens on an address of the local network, which reaches it.</string>
+    <string name="exposure_why_tailnet">It listens on this device\'s tailnet address.</string>
+</resources>
