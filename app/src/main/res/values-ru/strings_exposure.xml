@@ -113,7 +113,7 @@
     <string name="exposure_remote_help">Сопряжённые устройства с TailSocks управляют этим через tailnet. Остальным устройствам tailnet отказывают, а код сопряжения можно попробовать, только пока он показан здесь.</string>
     <string name="exposure_remote_full">Полный контроль</string>
     <string name="exposure_remote_full_help">Сопряжённым владельцам можно больше базового: делиться папками, предлагать выходной узел, объявлять маршруты, читать диагностику.</string>
-    <string name="exposure_remote_files">Сетевой доступ к файлам</string>
+    <string name="exposure_remote_files">Доступ к файлам по сети</string>
     <string name="exposure_remote_files_help">Сопряжённые устройства видят папки этого устройства и могут через tailnet отправлять и забирать файлы.</string>
     <string name="exposure_remote_elevated">Полные права на время</string>
     <string name="exposure_remote_elevated_help">Гостю дали права владельца до указанного времени. Они закончатся сами; если выключить — закончатся сейчас.</string>
