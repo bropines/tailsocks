@@ -38,6 +38,7 @@ object Diagnostics {
         appendLine(permissions(context))
         appendLine(network(context))
         appendLine(tunnel(context))
+        appendLine(exposure(context))
         // What the service is doing now, next to what it is configured to do. The log
         // lines stay out: they name nodes and addresses, which this report promises not to.
         appendLine(liveText(live(context), logLines = false))
@@ -136,6 +137,15 @@ object Diagnostics {
             Auto-reconnect: ${GlobalSettings.isAutoReconnectEnabled(context)}, watchdog: ${GlobalSettings.isServiceWatchdogEnabled(context)}, autostart: ${GlobalSettings.isAutoStartEnabled(context)}
         """.trimIndent()
     }
+
+    /**
+     * What listens or can be reached here, and by whom: the list of Settings → Advanced → What
+     * this device exposes, as text (core/Exposure.kt). It names nothing of the tailnet either.
+     * Root is not asked: a root manager may announce every shell it grants.
+     */
+    private fun exposure(context: Context): String =
+        runCatching { Exposure.reportText(ExposureRead.facts(context, probeRoot = false)) }
+            .getOrElse { "Exposure: not read (${it.javaClass.simpleName})" }
 
     private fun profiles(context: Context): String {
         val accounts = AccountManager.getAccounts(context)
