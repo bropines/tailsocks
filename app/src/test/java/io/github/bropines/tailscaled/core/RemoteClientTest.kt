@@ -285,7 +285,12 @@ class RemoteClientTest {
         assertTrue(a.levelKnown)
         assertFalse(a.full)
         for (op in ManagedOp.entries) {
-            val expected = if (op.full) ManagedGate.Closed(ManagedDenial.NEEDS_FULL) else ManagedGate.Open
+            val expected = when {
+                // A guest's own: nothing for an owner.
+                op.guestOnly -> ManagedGate.Absent
+                op.full -> ManagedGate.Closed(ManagedDenial.NEEDS_FULL)
+                else -> ManagedGate.Open
+            }
             assertEquals(op.name, expected, a.gate(op))
         }
     }
@@ -294,7 +299,40 @@ class RemoteClientTest {
     fun aFullOwnerHasEverything() {
         val a = access(owner = true, full = true)
         assertTrue(a.full)
-        for (op in ManagedOp.entries) assertEquals(op.name, ManagedGate.Open, a.gate(op))
+        for (op in ManagedOp.entries) assertEquals(op.name, if (op.guestOnly) ManagedGate.Absent else ManagedGate.Open, a.gate(op))
+    }
+
+    @Test
+    fun aGuestGivenFullRightsIsAnOwnerUntilTheyEnd() {
+        device.become(owner = false, elevated = ManagedElevated(left = 2_400, until = 1_791_816_180, seconds = 3_600))
+        paired(false)
+        val status = client.status().ok()
+        assertTrue(status.you.owner)
+        assertEquals(2_400L, status.you.elevated!!.left)
+        val a = ManagedAccess(status)
+        assertEquals(ManagedGate.Open, a.gate(ManagedOp.SETTINGS_SET))
+        assertEquals(ManagedGate.Absent, a.gate(ManagedOp.ELEVATE_REQUEST))
+        assertEquals(ManagedGate.Closed(ManagedDenial.NEEDS_FULL), a.gate(ManagedOp.DIAG_LOG))
+        // With full control as part of them, the full tier too.
+        device.become(owner = false, elevated = ManagedElevated(left = 600, seconds = 900, full = true))
+        assertEquals(ManagedGate.Open, ManagedAccess(client.status().ok()).gate(ManagedOp.DIAG_LOG))
+    }
+
+    @Test
+    fun aGuestAsksForFullRightsAndIsGivenNothingByAsking() {
+        device.become(owner = false)
+        paired(false)
+        assertEquals(ManagedGate.Open, ManagedAccess(client.status().ok()).gate(ManagedOp.ELEVATE_REQUEST))
+        device.elevateResult = "notified"
+        assertEquals(ManagedShown.NOTIFIED, ManagedShown.of(client.askFullRights(3_600).ok().result))
+        assertEquals("POST /v1/elevate/request {\"seconds\":3600}", device.sent.last().toString())
+        assertFalse(client.status().ok().you.owner)
+        // A length the device does not give is its 400.
+        assertEquals(ManagedRefusal.FAILED, client.askFullRights(7_200).failed?.refusal)
+        // A device that does not give them, or an older one, says so.
+        device.become(owner = false, caps = RemoteContract.ALL_CAPS - ManagedCaps.ELEVATE)
+        assertEquals(ManagedGate.Absent, ManagedAccess(client.status().ok()).gate(ManagedOp.ELEVATE_REQUEST))
+        assertEquals(ManagedRefusal.NOT_FOUND, client.askFullRights(900).failed?.refusal)
     }
 
     @Test

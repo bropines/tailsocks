@@ -67,6 +67,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.ManagedCaps
 import io.github.bropines.tailscaled.core.ManagedDenial
 import io.github.bropines.tailscaled.core.ManagedDeviceInfo
+import io.github.bropines.tailscaled.core.ManagedElevated
 import io.github.bropines.tailscaled.core.ManagedExitNode
 import io.github.bropines.tailscaled.core.ManagedFetch
 import io.github.bropines.tailscaled.core.ManagedKeys
@@ -82,6 +83,7 @@ import io.github.bropines.tailscaled.core.isOlderAppVersion
 import io.github.bropines.tailscaled.core.lock
 import io.github.bropines.tailscaled.core.setting
 import io.github.bropines.tailscaled.core.switches
+import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -102,6 +104,8 @@ internal sealed interface ManageAsk {
     data object BrowseFiles : ManageAsk
     /** The device's storage, for a folder to share. */
     data object BrowseFolder : ManageAsk
+    /** For how long to ask the device for full rights. */
+    data object FullRights : ManageAsk
 }
 
 internal fun ManageGroup.icon(): ImageVector = when (this) {
@@ -802,6 +806,24 @@ internal fun validText(ui: RemoteManageUi.Managing): String =
 internal fun levelText(level: String): String =
     stringResource(if (level == ManagedLevel.FULL) R.string.rmanage_level_full else R.string.rmanage_level_basic)
 
+/**
+ * Full rights for a while as this device says them: until when by its own clock — the device's
+ * "left" counted from when it was heard, so a clock that disagrees does not move it — and how
+ * long that is.
+ */
+@Composable
+internal fun rightsText(rights: ManagedElevated, now: Long): String {
+    val locale = LocalConfiguration.current.locales[0]
+    val until = remember(now, rights.left, locale) {
+        DateFormat.getTimeInstance(DateFormat.SHORT, locale).format(Date(now + rights.left * 1000))
+    }
+    return stringResource(
+        if (rights.full) R.string.rmanage_rights_until_full else R.string.rmanage_rights_until,
+        until,
+        remoteDurationText(rights.left),
+    )
+}
+
 @Composable
 private fun PairingGroup(ui: RemoteManageUi.Managing, ask: (ManageAsk) -> Unit) {
     val access = ui.access
@@ -812,6 +834,11 @@ private fun PairingGroup(ui: RemoteManageUi.Managing, ask: (ManageAsk) -> Unit) 
         HelpText(stringResource(R.string.rmanage_level_help))
     }
     ManageFact(stringResource(R.string.rmanage_fact_valid), validText(ui))
+    // Full rights for a while: an owner until they end, and when that is.
+    ui.elevated?.let { rights ->
+        ManageFact(stringResource(R.string.rmanage_fact_rights), rightsText(rights, ui.now))
+        HelpText(stringResource(R.string.rmanage_rights_help, ui.name))
+    }
     // Since when, by this device's own note of it; a pairing made before that was noted has none.
     if (ui.pairedAt > 0) ManageFact(stringResource(R.string.rmanage_fact_paired), dayText(ui.pairedAt, ui.now))
 

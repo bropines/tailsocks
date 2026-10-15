@@ -5,6 +5,7 @@ import io.github.bropines.tailscaled.admin.secure.MemoryKeyValueStore
 import io.github.bropines.tailscaled.core.FakeManagedDevice
 import io.github.bropines.tailscaled.core.Listing
 import io.github.bropines.tailscaled.core.ManagedDenial
+import io.github.bropines.tailscaled.core.ManagedElevated
 import io.github.bropines.tailscaled.core.ManagedGate
 import io.github.bropines.tailscaled.core.ManagedKeys
 import io.github.bropines.tailscaled.core.ManagedOp
@@ -1673,6 +1674,38 @@ class RemoteManageControllerTest {
     }
 
     // ─── The devices this one manages ────────────────────────────────────────────────────────
+
+    @Test
+    fun aGuestAsksForFullRightsAndThePageFollowsWhenTheyAreGiven() {
+        open(owner = false)
+        assertEquals(ManagedGate.Open, ui.access.gate(ManagedOp.ELEVATE_REQUEST))
+        assertFalse(ui.settings.first { it.key == ManagedKeys.ACCEPT_ROUTES }.writable)
+        device.elevateResult = "notified"
+        controller.askFullRights(3_600)
+        assertEquals(listOf("""POST /v1/elevate/request {"seconds":3600}"""), posts())
+        assertEquals(ManagedShown.NOTIFIED, ui.rightsAsked)
+        // Asking gives nothing: the status is watched for what a person there does.
+        assertTrue(ui.watching(clock))
+        assertNull(ui.elevated)
+        // A length nobody gives is not sent.
+        device.sent.clear()
+        controller.askFullRights(7_200)
+        assertTrue(posts().isEmpty())
+
+        // Someone there gave them: the next look finds an owner, and the switches are read again as one.
+        device.become(owner = false, elevated = ManagedElevated(left = 3_500, until = 1_791_817_280, seconds = 3_600))
+        tick()
+        assertTrue(ui.owner)
+        assertEquals(3_500L, ui.elevated?.left)
+        assertNull(ui.rightsAsked)
+        assertEquals(ManagedGate.Absent, ui.access.gate(ManagedOp.ELEVATE_REQUEST))
+        assertTrue(ui.settings.first { it.key == ManagedKeys.ACCEPT_ROUTES }.writable)
+        assertTrue(sent().contains("GET /v1/settings"))
+        // And an owner is never offered to ask.
+        device.sent.clear()
+        controller.askFullRights(900)
+        assertTrue(posts().isEmpty())
+    }
 
     @Test
     fun thePairedDevicesAreListedWithWhatThisDeviceKnowsOfThem() {

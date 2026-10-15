@@ -155,13 +155,16 @@ object RemoteContract {
     val ALL_CAPS = listOf(
         ManagedCaps.REPORT, ManagedCaps.PERMISSIONS, ManagedCaps.ONEWAY, ManagedCaps.SUGGEST, ManagedCaps.CAN,
         ManagedCaps.DEVICE, ManagedCaps.GUARD, ManagedCaps.MODE, ManagedCaps.IDENTIFY, ManagedCaps.STORAGE,
-        ManagedCaps.SHARES, ManagedCaps.ADVERTISE, ManagedCaps.DIAG, ManagedCaps.RELAYS, ManagedCaps.SAVE,
+        ManagedCaps.SHARES, ManagedCaps.ADVERTISE, ManagedCaps.DIAG, ManagedCaps.RELAYS, ManagedCaps.SAVE, ManagedCaps.ELEVATE,
     )
 
     /** The ops of §3 by the class and level that open them. */
     val GUEST_OPS = listOf("status", "exit_nodes", "exit_node.set", "settings", "files", "unpair", "confirm", "identify")
     val OWNER_OPS = GUEST_OPS + listOf("settings.set", "action", "files.delete", "permission.request", "folders", "shares.remove")
     val FULL_OPS = OWNER_OPS + listOf("shares.add", "storage.list", "storage.send", "diag.report", "diag.log")
+
+    /** Asking for full rights: a guest's, while it has none and the device gives them. */
+    const val ELEVATE_OP = "elevate.request"
 }
 
 /**
@@ -205,6 +208,8 @@ class FakeManagedDevice(
     /** What the device answers to a permission request and to identify: "shown", "notified", "waiting" / "unseen". */
     var permissionResult = "shown"
     var identifyResult = "shown"
+    /** What it answers to a guest's request for full rights: "shown", "notified" or "waiting". */
+    var elevateResult = "shown"
     var guardSeconds = 60L
     var guardAfter = 5L
     /** The next guarded change is answered `504 pending`, with its guard beside the error (§7). */
@@ -269,9 +274,19 @@ class FakeManagedDevice(
     /**
      * Another caller, level or build. [caps] null makes it the first build: no `caps`, no
      * `level`, no `you.can`, none of the later fields, and the first build's settings.
+     * [elevated] makes a guest one that was given full rights for a while: an owner until they
+     * end, with the full tier where they carry it.
      */
-    fun become(owner: Boolean = true, full: Boolean = false, caps: List<String>? = RemoteContract.ALL_CAPS, left: Long = if (owner) -1 else 75_600) {
-        val role = if (owner) REMOTE_CLASS_OWNER else REMOTE_CLASS_GUEST
+    fun become(
+        owner: Boolean = true,
+        full: Boolean = false,
+        caps: List<String>? = RemoteContract.ALL_CAPS,
+        left: Long = if (owner) -1 else 75_600,
+        elevated: ManagedElevated? = null,
+    ) {
+        val acting = owner || elevated != null
+        val tier = full || elevated?.full == true
+        val role = if (acting) REMOTE_CLASS_OWNER else REMOTE_CLASS_GUEST
         if (caps == null) {
             status = buildJsonObject {
                 status.filterKeys { it !in LATER_FIELDS }.forEach { (k, v) -> put(k, v) }
@@ -282,22 +297,24 @@ class FakeManagedDevice(
             return
         }
         val ops = when {
-            !owner -> RemoteContract.GUEST_OPS
-            full -> RemoteContract.FULL_OPS
+            // A guest may ask for full rights where the device can give them.
+            !acting -> RemoteContract.GUEST_OPS + listOfNotNull(RemoteContract.ELEVATE_OP.takeIf { ManagedCaps.ELEVATE in caps })
+            tier -> RemoteContract.FULL_OPS
             else -> RemoteContract.OWNER_OPS
         }
         status = status
             .with("caps", buildJsonArray { caps.forEach { add(JsonPrimitive(it)) } })
-            .with("level", JsonPrimitive(if (full) ManagedLevel.FULL else ManagedLevel.BASIC))
+            .with("level", JsonPrimitive(if (tier) ManagedLevel.FULL else ManagedLevel.BASIC))
             .with("you", buildJsonObject {
                 put("class", role)
                 put("left", left)
                 if (ManagedCaps.CAN in caps) put("can", buildJsonArray { ops.forEach { add(JsonPrimitive(it)) } })
+                if (elevated != null) put("elevated", AppJson.encodeToJsonElement(ManagedElevated.serializer(), elevated))
             })
         val app = status["app"] as? JsonObject
         if (app != null) {
             // A guest reads no folder names and can ask for nothing.
-            val seen = if (owner) app else app.without("folders").with(
+            val seen = if (acting) app else app.without("folders").with(
                 "permissions",
                 JsonArray(app["permissions"]?.jsonArray.orEmpty().map { it.jsonObject.with("ask", JsonPrimitive(false)) })
             )
@@ -305,13 +322,13 @@ class FakeManagedDevice(
         }
         settings = settings.map { row ->
             val changeable = row.text("kind") != ManagedSetting.TEXT
-            var next = row.with("writable", JsonPrimitive(owner && changeable))
+            var next = row.with("writable", JsonPrimitive(acting && changeable))
             when {
                 // It reads "true" while the device is at the full level, and can only be given up.
                 row.text("key") == ManagedKeys.FULL_CONTROL -> next = next.with("value", JsonPrimitive(full.toString()))
                 // With Full control on, what needed it arrives without its one-way mark.
-                full && row.text("needs") == ManagedLevel.FULL -> next = next.without("only", "needs")
-                !full && row.text("key") in NEEDS_FULL -> {
+                tier && row.text("needs") == ManagedLevel.FULL -> next = next.without("only", "needs")
+                !tier && row.text("key") in NEEDS_FULL -> {
                     next = next.with("needs", JsonPrimitive(ManagedLevel.FULL))
                     if (row.text("kind") == ManagedSetting.BOOL) next = next.with("only", JsonPrimitive("false"))
                 }
@@ -430,6 +447,7 @@ class FakeManagedDevice(
             "POST " + ManagedPaths.SHARES_REMOVE -> removeShare(body)
             "GET " + ManagedPaths.DIAG_REPORT -> diag(ManagedOp.DIAG_REPORT, RemoteContract.DIAG_REPORT)
             "GET " + ManagedPaths.DIAG_LOG -> diag(ManagedOp.DIAG_LOG, RemoteContract.DIAG_LOG)
+            "POST " + ManagedPaths.ELEVATE_REQUEST -> askFullRights(body)
             else -> refuse(404, "not_found")
         }
     }
@@ -628,6 +646,17 @@ class FakeManagedDevice(
         if (body.isNotEmpty()) return refuse(400, "bad_request")
         denied(ManagedOp.IDENTIFY)?.let { return it }
         return ok(buildJsonObject { put("result", identifyResult) })
+    }
+
+    /** A guest's request for full rights: put in front of the person at the device, and nothing given by it. */
+    private fun askFullRights(body: JsonObject): RemoteAnswer {
+        if (!has(ManagedCaps.ELEVATE)) return refuse(404, "not_found")
+        unknownField(body, "seconds")?.let { return it }
+        val seconds = body["seconds"]?.jsonPrimitive?.content?.toLongOrNull()
+        if (seconds == null || seconds !in RemoteElevateLengths.ALL) return refuse(400, "bad_request")
+        if (you().text("class") == REMOTE_CLASS_OWNER) return refuse(409, "refused", "full rights are given already")
+        if (you()["can"]?.jsonArray?.any { it.jsonPrimitive.content == RemoteContract.ELEVATE_OP } != true) return refuse(403, "forbidden")
+        return ok(buildJsonObject { put("result", elevateResult) })
     }
 
     private fun storageList(body: JsonObject): RemoteAnswer {

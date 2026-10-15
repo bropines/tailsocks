@@ -126,6 +126,7 @@ object ManagedPaths {
     const val SHARES_REMOVE = "/v1/shares/remove"
     const val DIAG_REPORT = "/v1/diag/report"
     const val DIAG_LOG = "/v1/diag/log"
+    const val ELEVATE_REQUEST = "/v1/elevate/request"
 }
 
 /**
@@ -199,6 +200,13 @@ class RemoteClient(
 
     /** The device shows "Managed from <this device>" for a few seconds. */
     fun identify(): ManagedResult<ManagedIdentified> = post(ManagedPaths.IDENTIFY) {}
+
+    /**
+     * A guest asks the person at the device for full rights for [seconds] (0: until the pairing
+     * ends). It gives nothing: they come, if they come, when someone there confirms with the
+     * device's lock, and the status says so.
+     */
+    fun askFullRights(seconds: Long): ManagedResult<ManagedElevateAsked> = post(ManagedPaths.ELEVATE_REQUEST) { put("seconds", seconds) }
 
     /** [path] empty for the roots. [offset] asks for the next part of a folder longer than one answer. */
     fun storageList(path: String, offset: Int = 0): ManagedResult<ManagedStorageList> =

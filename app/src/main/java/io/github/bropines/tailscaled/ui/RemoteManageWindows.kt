@@ -66,6 +66,7 @@ import io.github.bropines.tailscaled.core.ManagedCaps
 import io.github.bropines.tailscaled.core.ManagedExitNode
 import io.github.bropines.tailscaled.core.ManagedKeys
 import io.github.bropines.tailscaled.core.ManagedOp
+import io.github.bropines.tailscaled.core.RemoteElevateLengths
 import io.github.bropines.tailscaled.core.ManagedPermission
 import io.github.bropines.tailscaled.core.ManagedSetting
 import io.github.bropines.tailscaled.core.clearOnly
@@ -136,6 +137,7 @@ internal fun ManageWindows(
             onClose = close,
         )
         ManageAsk.Routes -> RoutesDialog(ui, actions, close)
+        ManageAsk.FullRights -> RightsDialog(ui, actions, close)
         ManageAsk.BrowseFiles, ManageAsk.BrowseFolder -> {
             val storage = hooks.storage
             if (storage == null) LaunchedEffect(asked) { close() }
@@ -348,6 +350,36 @@ private fun RoutesDialog(ui: RemoteManageUi.Managing, actions: RemoteManageActio
             }
         },
         confirmButton = { TextButton(onClick = submit, enabled = !row.clearOnly || row.value.isNotEmpty()) { Text(save) } },
+        dismissButton = { TextButton(onClick = onClose) { Text(cancel) } }
+    )
+}
+
+/**
+ * For how long to ask the managed device for full rights: the lengths it gives, those this
+ * pairing still has. Asking gives nothing; someone there confirms with the device's lock.
+ */
+@Composable
+private fun RightsDialog(ui: RemoteManageUi.Managing, actions: RemoteManageActions, onClose: () -> Unit) {
+    val title = stringResource(R.string.rmanage_rights_dialog_title, ui.name)
+    val text = stringResource(R.string.rmanage_rights_dialog_text, ui.name)
+    val send = stringResource(R.string.rmanage_rights_send)
+    val cancel = stringResource(R.string.action_cancel)
+    val lengths = RemoteElevateLengths.offered(ui.left).map { it to remoteElevateLengthText(it, ui.left) }
+    val first = RemoteElevateLengths.DEFAULT.takeIf { d -> lengths.any { it.first == d } } ?: RemoteElevateLengths.UNTIL_PAIRING_ENDS
+    var choice by remember { mutableStateOf(first) }
+    AppAlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+                lengths.forEach { (seconds, label) ->
+                    // The remote starts on the length that is chosen already.
+                    RemoteChoiceRow(label, selected = seconds == choice, modifier = if (seconds == first) Modifier.tvInitialFocus() else Modifier) { choice = seconds }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onClose(); actions.askFullRights(choice) }) { Text(send) } },
         dismissButton = { TextButton(onClick = onClose) { Text(cancel) } }
     )
 }

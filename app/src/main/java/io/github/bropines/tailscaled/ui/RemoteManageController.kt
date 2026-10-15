@@ -9,6 +9,7 @@ import io.github.bropines.tailscaled.core.ManagedAccess
 import io.github.bropines.tailscaled.core.ManagedApp
 import io.github.bropines.tailscaled.core.ManagedCaps
 import io.github.bropines.tailscaled.core.ManagedChanged
+import io.github.bropines.tailscaled.core.ManagedElevated
 import io.github.bropines.tailscaled.core.ManagedExitNode
 import io.github.bropines.tailscaled.core.ManagedFetch
 import io.github.bropines.tailscaled.core.ManagedGuard
@@ -23,6 +24,7 @@ import io.github.bropines.tailscaled.core.ManagedSettings
 import io.github.bropines.tailscaled.core.ManagedShown
 import io.github.bropines.tailscaled.core.ManagedStatus
 import io.github.bropines.tailscaled.core.RemoteClient
+import io.github.bropines.tailscaled.core.RemoteElevateLengths
 import io.github.bropines.tailscaled.core.RemoteFile
 import io.github.bropines.tailscaled.core.RemoteFiles
 import io.github.bropines.tailscaled.core.RemoteJson
@@ -349,6 +351,8 @@ sealed interface RemoteManageUi {
         val identified: ManagedShown? = null,
         /** How the last request for each permission ended, until it is granted. */
         val asked: Map<String, ManagedShown> = emptyMap(),
+        /** How the last request for full rights ended; they come, if they come, in the status. */
+        val rightsAsked: ManagedShown? = null,
         /** The status is read more often until this moment of this device's clock. */
         val watchUntil: Long = 0,
         /** Why this device's own daemon will not send the peer a file; null when it will. */
@@ -400,6 +404,9 @@ sealed interface RemoteManageUi {
         /** The exit node as the device has it now. */
         val exitNode: ManagedExitNode? get() = status?.exitNode
 
+        /** This device's full rights for a while, while the device says they last. */
+        val elevated: ManagedElevated? get() = status?.you?.elevated?.takeIf { access.has(ManagedCaps.ELEVATE) }
+
         /** This device's last "send me this file": under way, or ended within the ten minutes the device keeps it. */
         val fetch: ManagedFetch? get() = status?.fetch?.takeIf { access.has(ManagedCaps.STORAGE) && it.id.isNotEmpty() }
     }
@@ -430,6 +437,8 @@ interface RemoteManageActions {
 
     fun identify()
     fun askPermission(id: String)
+    /** A guest asks the person at the device for full rights for [seconds] (0: until the pairing ends). */
+    fun askFullRights(seconds: Long) {}
     fun deleteFile(name: String)
     /** "Send me this file": the device sends it with its own Taildrop. */
     fun fetch(path: String)
@@ -638,6 +647,8 @@ private const val RELAYS_WAIT_MS = 4_000L
 /** How long the status is read often after a page was put in front of someone there, and after a file was sent. */
 internal const val WATCH_SHOWN_MS = 120_000L
 internal const val WATCH_SENT_MS = 20_000L
+/** After asking for full rights: how long the status is read more often for a person there to give them. */
+internal const val WATCH_RIGHTS_MS = 120_000L
 /** After this device's own TailSocks was started from the page: how often it is looked at, and how many times. */
 private const val START_EVERY_MS = 1_000L
 private const val START_TRIES = 45
@@ -809,6 +820,7 @@ internal class RemoteManageController(
                 guards.heardAgain(client.peerId)
                 // What it undid while it was away makes everything it showed old.
                 if (m.guard?.phase == GuardPhase.REVERTED_AWAY) load()
+                else if (rightsMoved(m.status, status.value)) readSettings()
                 else if (now() < m.watchUntil) readFiles()
             }
             // A poll nobody asked for raises no banner over a passing refusal.
@@ -836,6 +848,13 @@ internal class RemoteManageController(
         }
     }
 
+    /**
+     * Full rights for a while given or ended there — or the level moved: what the settings' rows
+     * let this device do is another class's now, and they are read again.
+     */
+    private fun rightsMoved(before: ManagedStatus?, now: ManagedStatus): Boolean =
+        before != null && (before.you.role != now.you.role || before.level != now.level)
+
     private fun RemoteManageUi.Managing.withStatus(status: ManagedStatus): RemoteManageUi.Managing {
         val report = status.app ?: app
         val granted = report?.permissions.orEmpty().filter { it.state == ManagedPermission.GRANTED }.map { it.id }.toSet()
@@ -848,6 +867,8 @@ internal class RemoteManageController(
             owner = status.you.owner,
             left = status.you.left,
             asked = asked - granted,
+            // Given: the request is answered.
+            rightsAsked = rightsAsked.takeIf { status.you.elevated == null },
             now = time,
             heardAt = time,
             remembered = false,
@@ -1372,6 +1393,17 @@ internal class RemoteManageController(
             val shown = ManagedShown.of(answer.result) ?: ManagedShown.WAITING
             // It grants nothing, and no answer means "granted": the status is watched for that.
             update { it.copy(asked = it.asked + (id to shown), watchUntil = maxOf(it.watchUntil, now() + WATCH_SHOWN_MS)) }
+            readStatus()
+        }
+    }
+
+    override fun askFullRights(seconds: Long) {
+        val m = managing ?: return
+        if (m.owner || m.elevated != null || !m.access.gate(ManagedOp.ELEVATE_REQUEST).open || RemoteElevateLengths.of(seconds) == null) return
+        change({ client.askFullRights(seconds) }) { answer ->
+            val shown = ManagedShown.of(answer.result) ?: ManagedShown.WAITING
+            // It gives nothing: the status is watched for the rights a person there may give.
+            update { it.copy(rightsAsked = shown, watchUntil = maxOf(it.watchUntil, now() + WATCH_RIGHTS_MS)) }
             readStatus()
         }
     }

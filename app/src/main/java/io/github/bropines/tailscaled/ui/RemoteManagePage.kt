@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
@@ -282,14 +283,14 @@ private fun Managing(
                 // The device and how it is connected on one side, everything it holds on the other.
                 val (left, right) = groups.partition { it == ManageGroup.CONNECTION }
                 PageColumn(Modifier.weight(1f)) {
-                    Box(dimmed) { DeviceHeader(ui, status, actions, start = identify) }
+                    Box(dimmed) { DeviceHeader(ui, status, actions, start = identify) { asked = ManageAsk.FullRights } }
                     left.forEach { card(it, focusOf(it)) }
                 }
                 PageColumn(Modifier.weight(1f)) { right.forEach { card(it, focusOf(it)) } }
             }
             else -> ReadableWidth {
                 PageColumn(Modifier.fillMaxSize().padding(horizontal = layout.margin)) {
-                    Box(dimmed) { DeviceHeader(ui, status, actions, start = identify) }
+                    Box(dimmed) { DeviceHeader(ui, status, actions, start = identify) { asked = ManageAsk.FullRights } }
                     groups.forEach { card(it, focusOf(it)) }
                 }
             }
@@ -534,7 +535,13 @@ internal fun deviceGlyph(deviceClass: String, tv: Boolean): ImageVector = when {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, actions: RemoteManageActions, start: Boolean = false) {
+private fun DeviceHeader(
+    ui: RemoteManageUi.Managing,
+    status: ManagedStatus,
+    actions: RemoteManageActions,
+    start: Boolean = false,
+    onAskRights: () -> Unit = {},
+) {
     val scheme = MaterialTheme.colorScheme
     val warnings = status.health.size
     val troubled = !status.running && status.backendState in setOf("NeedsLogin", "NeedsMachineAuth") || status.running && warnings > 0
@@ -636,8 +643,37 @@ private fun DeviceHeader(ui: RemoteManageUi.Managing, status: ManagedStatus, act
                     else HelpText(stringResource(R.string.rmanage_identify_help), Modifier.weight(1f), color = ink.copy(alpha = 0.8f))
                 }
             }
+            RightsRow(ui, ink, onAskRights)
         }
     }
+}
+
+/**
+ * A guest's way to full rights for a while: "Ask for full rights", and what came of asking.
+ * Nothing for an owner, nor where the device does not give them; while they last, the header's
+ * tag says so and the pairing group says until when.
+ */
+@Composable
+private fun RightsRow(ui: RemoteManageUi.Managing, ink: Color, onAsk: () -> Unit) {
+    if (ui.owner || !ui.access.gate(ManagedOp.ELEVATE_REQUEST).open) return
+    Spacer(Modifier.height(12.dp))
+    // The words under the button, not beside it: the button is long in some languages, and a
+    // column beside it would be a word wide.
+    ManageButton(
+        stringResource(R.string.rmanage_rights_ask),
+        onClick = onAsk,
+        icon = Icons.Default.LockOpen,
+        enabled = ui.usable,
+    )
+    Spacer(Modifier.height(6.dp))
+    val told = when (ui.rightsAsked) {
+        ManagedShown.SHOWN -> stringResource(R.string.rmanage_rights_asked_shown, ui.name)
+        ManagedShown.NOTIFIED -> stringResource(R.string.rmanage_rights_asked_notified, ui.name)
+        ManagedShown.WAITING -> stringResource(R.string.rmanage_rights_asked_waiting, ui.name)
+        null -> null
+    }
+    if (told != null) Text(told, style = MaterialTheme.typography.bodySmall)
+    else HelpText(stringResource(R.string.rmanage_rights_ask_help, ui.name), color = ink.copy(alpha = 0.8f))
 }
 
 /** A tag on a header's own colour: one in a container colour of its own would fight it. */
@@ -648,12 +684,14 @@ private fun HeaderTag(text: String, ink: Color) {
     }
 }
 
-/** What this device is to the managed one: an owner, or a guest and for how long. */
+/** What this device is to the managed one: an owner, a guest with full rights and for how long, or a guest and for how long. */
 @Composable
-private fun roleTag(ui: RemoteManageUi.Managing): String =
-    if (ui.owner) stringResource(R.string.remote_role_owner)
+private fun roleTag(ui: RemoteManageUi.Managing): String {
+    ui.elevated?.let { return stringResource(R.string.rmanage_rights_left, remoteDurationText(it.left)) }
+    return if (ui.owner) stringResource(R.string.remote_role_owner)
     else if (ui.left < 0) stringResource(R.string.remote_role_guest)
     else stringResource(R.string.remote_guest_left, remoteDurationText(ui.left))
+}
 
 /** A day in the app's own language, with its year when that is not this one. */
 @Composable

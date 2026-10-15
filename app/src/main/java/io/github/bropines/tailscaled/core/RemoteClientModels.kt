@@ -32,6 +32,8 @@ object ManagedCaps {
     const val DIAG = "diag"
     const val RELAYS = "relays"
     const val SAVE = "save"
+    /** A guest may ask for full rights for a while, and is told while it has them (`you.elevated`). */
+    const val ELEVATE = "elevate"
 }
 
 /** `status.level`: what the device lets its owners do. Chosen at the device, never from afar. */
@@ -71,7 +73,10 @@ data class ManagedStatus(
     val tv: Boolean get() = deviceClass == RemoteProbe.DEVICE_TV
 }
 
-/** What the caller is to the device, and what it may use right now. */
+/**
+ * What the caller is to the device, and what it may use right now. A guest given full rights
+ * for a while is an owner until they end: its class says so, and [elevated] says until when.
+ */
 @Serializable
 data class ManagedYou(
     @SerialName("class") val role: String = "",
@@ -79,9 +84,18 @@ data class ManagedYou(
     val left: Long = -1,
     /** The ops this caller may use; null where the device does not say (no `can` capability). */
     val can: List<String>? = null,
+    val elevated: ManagedElevated? = null,
 ) {
     val owner: Boolean get() = role == REMOTE_CLASS_OWNER
 }
+
+/** Full rights for a while: [left] seconds, ending at [until] by the device's clock, given for [seconds]; [full] with full control. */
+@Serializable
+data class ManagedElevated(val left: Long = 0, val until: Long = 0, val seconds: Long = 0, val full: Boolean = false)
+
+/** POST /v1/elevate/request: what the device did with the question — "shown", "notified" or "waiting". */
+@Serializable
+data class ManagedElevateAsked(val result: String = "")
 
 @Serializable
 data class ManagedExitNode(
@@ -382,7 +396,7 @@ data class ManagedLog(val lines: List<String> = emptyList(), val scrubbed: Int =
  * `you.can`; [cap] the capability a build must announce for it — null for what the first
  * build already did; [owner] and [full] the lowest class and level the contract gives it.
  */
-enum class ManagedOp(val word: String, val cap: String?, val owner: Boolean, val full: Boolean = false) {
+enum class ManagedOp(val word: String, val cap: String?, val owner: Boolean, val full: Boolean = false, val guestOnly: Boolean = false) {
     EXIT_NODE_SET("exit_node.set", null, owner = false),
     SETTINGS_SET("settings.set", null, owner = true),
     ACTION("action", null, owner = true),
@@ -396,6 +410,8 @@ enum class ManagedOp(val word: String, val cap: String?, val owner: Boolean, val
     STORAGE_SEND("storage.send", ManagedCaps.STORAGE, owner = true, full = true),
     DIAG_REPORT("diag.report", ManagedCaps.DIAG, owner = true, full = true),
     DIAG_LOG("diag.log", ManagedCaps.DIAG, owner = true, full = true),
+    /** A guest's alone — an owner has nothing to ask for — and in `you.can` only while it may ask. */
+    ELEVATE_REQUEST("elevate.request", ManagedCaps.ELEVATE, owner = false, guestOnly = true),
 }
 
 /** The one reason a thing that exists is not this caller's to use. */
@@ -455,6 +471,8 @@ class ManagedAccess(
 
     fun gate(op: ManagedOp): ManagedGate {
         if (op.cap != null && !has(op.cap)) return ManagedGate.Absent
+        // What only a guest does is nothing to draw for an owner.
+        if (op.guestOnly && owner) return ManagedGate.Absent
         val allowed = can?.contains(op.word)
             // No list: the class decides, as on the first build, and the level where it is told.
             ?: ((owner || !op.owner) && !(op.full && level == ManagedLevel.BASIC))
