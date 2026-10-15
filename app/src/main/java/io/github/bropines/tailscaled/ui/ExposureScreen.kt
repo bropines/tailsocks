@@ -159,10 +159,12 @@ fun ExposureScreen(onBack: () -> Unit) {
         pending = pending,
         onBack = onBack,
         onTurnOff = { row ->
-            pending = pending + row.key
-            scope.launch {
-                withContext(Dispatchers.IO) { runCatching { ExposureSwitches.turnOff(context, row) } }
-                wake.trySend(Unit)
+            facts?.let { read ->
+                pending = pending + row.key
+                scope.launch {
+                    withContext(Dispatchers.IO) { runCatching { ExposureSwitches.turnOff(context, row, read) } }
+                    wake.trySend(Unit)
+                }
             }
         },
         onOpen = { item -> openSettingOf(context, item) },
@@ -363,7 +365,13 @@ private fun ExposureRowItem(
     ExplainedRow(
         onClick = { if (!switchable) onOpen() else if (!pending) onTurnOff() },
         help = help,
-        onClickLabel = stringResource(if (switchable) R.string.exposure_turn_off else R.string.exposure_open_setting),
+        onClickLabel = stringResource(
+            when {
+                !switchable -> R.string.exposure_open_setting
+                Exposure.openedToTailnet(row, facts) -> R.string.exposure_close_tailnet
+                else -> R.string.exposure_turn_off
+            }
+        ),
         modifier = modifier.padding(vertical = 2.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (row.on) 0.3f else 0.15f),
     ) {
@@ -431,7 +439,8 @@ private fun stateLine(row: ExposureRow, facts: ExposureFacts): String {
     when (row.item) {
         ExposureItem.BYEDPI -> parts += row.address.ifEmpty { stringResource(R.string.exposure_random_loopback) }
         ExposureItem.PEER_RELAY -> parts += row.address.removePrefix(":").ifEmpty { stringResource(R.string.exposure_port_any) }.let { if (it.first().isDigit()) "UDP $it" else it }
-        ExposureItem.DEVICE_PORTS -> parts += stringResource(if (facts.net == ExposureNet.NETSTACK) R.string.exposure_ports_netstack else R.string.exposure_ports_interface)
+        // On only where a real interface carries the tailnet address.
+        ExposureItem.DEVICE_PORTS -> parts += stringResource(R.string.exposure_ports_interface)
         ExposureItem.ROOT_CLI -> parts += row.address
         ExposureItem.REMOTE -> parts += "TCP ${row.address.removePrefix(":")}"
         else -> if (row.address.isNotEmpty() && row.item != ExposureItem.TAILCAT_FORWARDS) parts += row.address
@@ -475,17 +484,26 @@ private fun stateLine(row: ExposureRow, facts: ExposureFacts): String {
 @Composable
 private fun explanation(row: ExposureRow, facts: ExposureFacts): String {
     val own = when (row.item) {
-        ExposureItem.DEVICE_PORTS -> stringResource(if (facts.net == ExposureNet.NETSTACK) R.string.exposure_device_ports_help_netstack else R.string.exposure_device_ports_help_interface)
+        ExposureItem.DEVICE_PORTS -> stringResource(
+            when (facts.net) {
+                ExposureNet.NETSTACK -> R.string.exposure_device_ports_help_netstack
+                ExposureNet.VPN -> R.string.exposure_device_ports_help_vpn
+                ExposureNet.INTERFACE -> R.string.exposure_device_ports_help_interface
+            }
+        )
         ExposureItem.ROOT_CLI -> stringResource(R.string.exposure_root_cli_help, facts.cliName)
         else -> stringResource(itemHelp(row.item))
     }
     val listener = row.on && row.address.isNotEmpty() && row.item.local && row.item != ExposureItem.ROOT_CLI
     if (!listener) return own
     val host = NetAddr.host(row.address)
+    val wildcard = NetAddr.isWildcard(row.address)
+    val opened = Exposure.openedToTailnet(row, facts)
     val why = when {
-        ExposureReach.LAN in row.reach && ExposureReach.TAILNET in row.reach -> R.string.exposure_why_wildcard
-        ExposureReach.LAN in row.reach -> R.string.exposure_why_lan
-        ExposureReach.TAILNET in row.reach && (host.startsWith("127.") || host.equals("localhost", ignoreCase = true)) -> R.string.exposure_why_netstack
+        ExposureReach.LAN in row.reach && ExposureReach.TAILNET in row.reach ->
+            if (opened) R.string.exposure_why_wildcard_opened else R.string.exposure_why_wildcard
+        ExposureReach.LAN in row.reach -> if (wildcard) R.string.exposure_why_wildcard_closed else R.string.exposure_why_lan
+        ExposureReach.TAILNET in row.reach && (host.startsWith("127.") || host.equals("localhost", ignoreCase = true)) -> R.string.exposure_why_opened
         ExposureReach.TAILNET in row.reach -> R.string.exposure_why_tailnet
         else -> R.string.exposure_why_device
     }

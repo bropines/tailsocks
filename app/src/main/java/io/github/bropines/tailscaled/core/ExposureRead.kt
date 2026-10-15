@@ -68,9 +68,7 @@ object ExposureRead {
         val sharesJson = profile.getString("taildrive_shares", "[]") ?: "[]"
         val shares = runCatching { AppJson.decodeFromString<List<Share>>(sharesJson) }.getOrDefault(emptyList())
         val drive = DriveProxy.read(profile)
-        val driveIp = profile.getString(DriveProxy.KEY_IP, DriveLan.LOOPBACK) ?: DriveLan.LOOPBACK
-        // An address stored empty listens on every interface (core/TaildriveLan.kt).
-        val driveBind = if (drive.enabled) "${driveIp.ifBlank { DriveLan.EVERY_INTERFACE }}:${drive.port}" else ""
+        val driveBind = TailnetReach.bind(ctx, TailnetListener.TAILDRIVE_PROXY)
 
         val remoteOn = RemoteManage.isEnabled(ctx)
         val remoteState = runCatching { RemoteJson.state(Appctr.remoteStateJSON()) }.getOrNull()
@@ -94,6 +92,7 @@ object ExposureRead {
             socks5Login = GlobalSettings.getString(ctx, "socks5_user", "").isNotEmpty() && GlobalSettings.getString(ctx, "socks5_pass", "").isNotEmpty(),
             http = GlobalSettings.getHttpProxyBindAddr(ctx),
             dns = GlobalSettings.getDnsProxyBindAddr(ctx),
+            tailnetOpen = TailnetReach.opened(ctx).map { it.item }.toSet(),
             lanAccess = GlobalSettings.isLanAccessEnabled(ctx),
             webUi = if (profile.getBoolean("enable_webui", false)) profile.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080" else "",
             // On until switched off, with Downloads shared: what the service sets on a profile's first start.
@@ -154,24 +153,32 @@ object ExposureRead {
  * The switches of the rows that can be turned off where they are listed. Each does what the
  * same switch turned off does on its own page, and asks nothing the page does not ask: no page
  * confirms turning one of these off. Nothing here turns anything on.
+ *
+ * A local proxy the tailnet reaches because it was opened to it (TailnetReach) is closed to the
+ * tailnet first — its row moves to the local network or this device — and stays on.
  */
 object ExposureSwitches {
 
     /** Whether [row] has a switch here: it is on, and its own page turns it off with one. */
-    fun canTurnOff(row: ExposureRow, f: ExposureFacts): Boolean = row.on && when (row.item) {
+    fun canTurnOff(row: ExposureRow, f: ExposureFacts): Boolean = row.on && (Exposure.openedToTailnet(row, f) || when (row.item) {
         ExposureItem.HTTP_PROXY, ExposureItem.LAN_ACCESS, ExposureItem.WEB_UI, ExposureItem.TAILDRIVE_SHARES,
         ExposureItem.TAILDRIVE_PROXY, ExposureItem.REMOTE, ExposureItem.REMOTE_FULL, ExposureItem.REMOTE_FILES,
         ExposureItem.REMOTE_ELEVATED, ExposureItem.AUTOMATION, ExposureItem.TAILCAT_SERVER -> true
         // Only what the app's own switch set: an extra argument or the console would put it back.
         ExposureItem.EXIT_NODE -> f.exitNodeSwitch
         else -> false
-    }
+    })
 
     /** Turns [row] off. Blocking for remote management, whose switches are files and bridge calls. */
-    fun turnOff(context: Context, row: ExposureRow) {
+    fun turnOff(context: Context, row: ExposureRow, f: ExposureFacts) {
         val ctx = context.applicationContext
         val profile = ctx.getSharedPreferences("appctr_${AccountManager.getActiveAccount(ctx).id}", Context.MODE_PRIVATE)
         fun apply() = ctx.startService(Intent(ctx, TailscaledService::class.java).apply { action = TailscaledService.ACTION_APPLY_SETTINGS })
+        // Settings → Local proxies → Reachable from the tailnet: the daemon follows its list.
+        if (Exposure.openedToTailnet(row, f)) {
+            TailnetListener.of(row.item)?.let { TailnetReach.setOpen(ctx, it, false) }
+            return
+        }
         when (row.item) {
             // Settings → Local proxies → Enable HTTP proxy.
             ExposureItem.HTTP_PROXY -> { GlobalSettings.setString(ctx, "httpproxy", ""); apply() }

@@ -80,7 +80,6 @@
     <string name="exposure_reading_only">reading only</string>
     <string name="exposure_port_any">any free port</string>
     <string name="exposure_random_loopback">a random loopback address</string>
-    <string name="exposure_ports_netstack">127.0.0.1 and every address</string>
     <string name="exposure_ports_interface">every address</string>
     <string name="exposure_note_policy_unknown">the tailnet\'s policy is not known yet</string>
     <string name="exposure_note_policy_denied">the tailnet\'s policy does not allow sharing</string>
@@ -92,6 +91,7 @@
 
     <!-- What a press does, for a screen reader. -->
     <string name="exposure_turn_off">Turn off</string>
+    <string name="exposure_close_tailnet">Close it to the tailnet</string>
     <string name="exposure_open_setting">Open its setting</string>
 
     <!-- The rows: a title and a folded explanation each. -->
@@ -122,7 +122,7 @@
     <string name="exposure_relay">Peer relay</string>
     <string name="exposure_relay_help">Tailnet devices that cannot reach each other directly pass their traffic through a UDP port of this device, where the policy lets them. The port is open on this device\'s real networks.</string>
     <string name="exposure_lan_access">Proxies open to the local network</string>
-    <string name="exposure_lan_access_help">The SOCKS5 proxy, the HTTP proxy and the DNS proxy listen on every address: anyone on the same Wi-Fi can use them, and the tailnet too.</string>
+    <string name="exposure_lan_access_help">The SOCKS5 proxy, the HTTP proxy and the DNS proxy listen on every address: anyone on the same Wi-Fi can use them. With Root Mode\'s interface the tailnet can too.</string>
     <string name="exposure_socks5">SOCKS5 proxy</string>
     <string name="exposure_socks5_help">Apps send their traffic into the tailnet through it, and out through the exit node. Whoever reaches it uses this device\'s connection; a username and a password keep others out.</string>
     <string name="exposure_http">HTTP proxy</string>
@@ -138,7 +138,8 @@
     <string name="exposure_byedpi">DPI bypass proxy</string>
     <string name="exposure_byedpi_help">ByeDPI\'s proxy for the control connection, on a random loopback address that nothing outside this device reaches.</string>
     <string name="exposure_device_ports">Ports of this device</string>
-    <string name="exposure_device_ports_help_netstack">In this mode Tailscale hands every connection to this device\'s tailnet address to the same port on 127.0.0.1. So tailnet devices the access rules allow reach every port that listens there or on every address — other apps\' ports too. Blocking incoming connections closes all of it.</string>
+    <string name="exposure_device_ports_help_netstack">In this mode Tailscale itself answers connections to this device\'s tailnet address: tailnet devices reach what it serves and nothing else of this device — no other app\'s port, and none of the app\'s proxies unless you open it to the tailnet in Settings → Local proxies.</string>
+    <string name="exposure_device_ports_help_vpn">The tailnet address is on Android\'s VPN: tailnet devices the access rules allow reach every port of another app that listens on every address. TailSocks itself is outside that VPN, so none of its own proxies answer the tailnet. Blocking incoming connections closes all of it.</string>
     <string name="exposure_device_ports_help_interface">The tailnet address is on a real interface: tailnet devices the access rules allow reach every port that listens on every address — other apps\' ports too. Blocking incoming connections closes all of it.</string>
     <string name="exposure_root_tun">Kernel interface (Root)</string>
     <string name="exposure_root_tun_help">tailscale0 carries the tailnet below Android\'s VPN: the tailnet reaches this device\'s own network stack, every app that listens on every address included.</string>
@@ -153,8 +154,10 @@
 
     <!-- Appended to a listener's explanation: why it is reached from where it is. -->
     <string name="exposure_why_device">Only apps on this device reach it.</string>
-    <string name="exposure_why_netstack">In this mode Tailscale hands connections to this device\'s tailnet address to the same port on 127.0.0.1: that is how the tailnet reaches it.</string>
+    <string name="exposure_why_opened">It is open to the tailnet (Settings → Local proxies): tailnet devices reach it at this device\'s tailnet address.</string>
     <string name="exposure_why_wildcard">It listens on every address: the local network reaches it, and so does the tailnet.</string>
+    <string name="exposure_why_wildcard_opened">It listens on every address, which the local network reaches, and it is open to the tailnet (Settings → Local proxies).</string>
+    <string name="exposure_why_wildcard_closed">It listens on every address: the local network reaches it. In this mode the tailnet does not.</string>
     <string name="exposure_why_lan">It listens on an address of the local network, which reaches it.</string>
     <string name="exposure_why_tailnet">It listens on this device\'s tailnet address.</string>
 </resources>

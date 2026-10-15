@@ -10,13 +10,17 @@ package io.github.bropines.tailscaled.core
  *
  * Who reaches a local listener depends on how the daemon carries this device's tailnet
  * address ([ExposureNet]). In userspace networking — proxy mode, the hev TUN engine, Root
- * Mode without its kernel interface — netstack ends every connection to that address and
- * dials the same port on 127.0.0.1 (wgengine/netstack acceptTCP and forwardUDP): whatever
- * listens on 127.0.0.1 or on every address is open to the tailnet, as far as its access rules
- * and Shields up let anyone in. Remote management relies on exactly that. A loopback alias
- * (127.x.y.z other than .0.0.1) is not dialed, so it stays this device's. With a real
- * interface — the native TUN engine, Root Mode's tailscale0 — the address belongs to the
- * host stack, and only what listens on every address answers it.
+ * Mode without its kernel interface — netstack ends every connection to that address. Upstream
+ * dials the same port on 127.0.0.1 for whatever nothing else took (wgengine/netstack acceptTCP
+ * and forwardUDP), which made every loopback listener a service of the tailnet; patch 23
+ * refuses that unless the port is open (core/TailnetReach.kt): remote management's while it
+ * is on, and the proxies the person opened under Settings → Local proxies → Reachable from the
+ * tailnet ([ExposureFacts.tailnetOpen]). Everything else listening on 127.0.0.1 or on every
+ * address is this device's, or its local network's. With a real interface — the native TUN
+ * engine, Root Mode's tailscale0 — the address belongs to the host stack: what listens on
+ * 127.0.0.1 never answers it and the switches change nothing; what listens on every address
+ * does, except the app's own listeners under the native engine, whose answers leave outside the
+ * VPN the app is excluded from ([ExposureNet.VPN]).
  *
  * Every listener the code opens is a row here or is left out for a reason:
  *  - the daemon: SOCKS5 and HTTP proxies (rows), the peer API — Taildrop and Taildrive
@@ -37,17 +41,29 @@ package io.github.bropines.tailscaled.core
 
 /** How the daemon receives connections to this device's tailnet address; see the header. */
 enum class ExposureNet {
-    /** Userspace networking: netstack hands each connection to the same port on 127.0.0.1. */
+    /** Userspace networking: netstack hands a connection to the same port on 127.0.0.1 when that port is open. */
     NETSTACK,
 
-    /** A real interface carries the address: the host stack answers it. */
+    /**
+     * The native TUN engine: Android's VPN carries the address and the host stack answers it, but
+     * the app itself is outside its own VPN, so answers from its listeners are never routed back
+     * into the tunnel (measured 2026-10-15: SOCKS5 on every address did not answer the tailnet).
+     * Other apps' listeners on every address do.
+     */
+    VPN,
+
+    /**
+     * Root Mode's tailscale0 carries the address: the host stack answers it, and the root
+     * daemon's answers are routed back into it — the app's listeners on every address are taken
+     * to be reached (not measured on a device; the safe side of not knowing).
+     */
     INTERFACE;
 
     companion object {
         fun of(rootMode: Boolean, rootTun: Boolean, tunMode: Boolean, tunEngine: String): ExposureNet = when {
             // Root Mode routes by itself and never uses TUN mode.
             rootMode -> if (rootTun) INTERFACE else NETSTACK
-            tunMode && tunEngine == TunEngines.NATIVE -> INTERFACE
+            tunMode && tunEngine == TunEngines.NATIVE -> VPN
             // Proxy mode, and the hev engine, which only pushes packets into the SOCKS5 port.
             else -> NETSTACK
         }
@@ -162,6 +178,8 @@ data class ExposureFacts(
     val socks5Login: Boolean = false,
     val http: String = "",
     val dns: String = "",
+    /** The local proxies opened to the tailnet (TailnetReach): SOCKS5, HTTP, DNS, Taildrive's. */
+    val tailnetOpen: Set<ExposureItem> = emptySet(),
     val lanAccess: Boolean = false,
     /** The app's Web UI, where it listens; empty when off. */
     val webUi: String = "",
@@ -255,21 +273,34 @@ object Exposure {
     const val REMOTE_PORT = 28115
 
     /**
-     * Who reaches a listener on [bind] beside this device itself. Every address: the local
-     * network and the tailnet. 127.0.0.1: the tailnet where netstack hands connections to it.
-     * Another loopback address: nobody. A tailnet address: the tailnet; any other: its network.
+     * Who reaches one of the app's listeners on [bind] beside this device itself. Every address:
+     * the local network, and the tailnet where Root Mode's interface carries the tailnet address
+     * or where netstack lets the tailnet in to it ([openToTailnet], TailnetReach). 127.0.0.1: the
+     * tailnet only that way. Another loopback address: nobody. A tailnet address: the tailnet; any
+     * other: its network. Under the native engine the app's answers never go back into the tunnel,
+     * so the tailnet reaches none of its listeners ([ExposureNet.VPN]).
      */
-    fun listenerReach(bind: String, net: ExposureNet): Set<ExposureReach> {
+    fun listenerReach(bind: String, net: ExposureNet, openToTailnet: Boolean = false): Set<ExposureReach> {
         val host = NetAddr.host(bind)
-        return when {
-            host.isEmpty() || host == NetAddr.WILDCARD_V4 || host == "::" -> setOf(ExposureReach.LAN, ExposureReach.TAILNET)
+        val letIn = net == ExposureNet.NETSTACK && openToTailnet
+        val reach = when {
+            host.isEmpty() || host == NetAddr.WILDCARD_V4 || host == "::" ->
+                if (net == ExposureNet.INTERFACE || letIn) setOf(ExposureReach.LAN, ExposureReach.TAILNET) else setOf(ExposureReach.LAN)
             host == NetAddr.LOOPBACK_V4 || host.equals("localhost", ignoreCase = true) ->
-                if (net == ExposureNet.NETSTACK) setOf(ExposureReach.TAILNET) else emptySet()
+                if (letIn) setOf(ExposureReach.TAILNET) else emptySet()
             host.startsWith("127.") || host == "::1" -> emptySet()
             isTailnetAddress(host) -> setOf(ExposureReach.TAILNET)
             else -> setOf(ExposureReach.LAN)
         }
+        return if (net == ExposureNet.VPN) reach - ExposureReach.TAILNET else reach
     }
+
+    /**
+     * Whether [row]'s reach into the tailnet is its "Reachable from the tailnet" switch, so that
+     * switching that off is what closes it: in userspace networking, for a proxy opened to it.
+     */
+    fun openedToTailnet(row: ExposureRow, f: ExposureFacts): Boolean =
+        row.on && f.net == ExposureNet.NETSTACK && row.item in f.tailnetOpen && ExposureReach.TAILNET in row.reach
 
     /** 100.64.0.0/10 or fd7a:115c:a1e0::/48. */
     private fun isTailnetAddress(host: String): Boolean {
@@ -288,7 +319,7 @@ object Exposure {
             out += row.copy(effective = effective, note = row.note ?: ExposureNote.BLOCKED.takeIf { row.on && effective != row.reach })
         }
         fun listener(item: ExposureItem, bind: String, guarded: Boolean? = null) =
-            ExposureRow(item, bind.isNotBlank(), if (bind.isBlank()) emptySet() else listenerReach(bind, f.net), address = bind, guarded = guarded)
+            ExposureRow(item, bind.isNotBlank(), if (bind.isBlank()) emptySet() else listenerReach(bind, f.net, item in f.tailnetOpen), address = bind, guarded = guarded)
 
         // ─── Served, and how far ─────────────────────────────────────────────────────────
         val funnel = f.served.filter { it.funnel }
@@ -350,8 +381,10 @@ object Exposure {
             add(ExposureRow(ExposureItem.TAILCAT_FORWARDS, ports.isNotEmpty(), reach, address = NetAddr.LOOPBACK_V4, names = ports.map { it.toString() }))
         }
         add(ExposureRow(ExposureItem.BYEDPI, f.byedpi, if (f.byedpiAddress.isBlank()) emptySet() else listenerReach(f.byedpiAddress, f.net), address = f.byedpiAddress))
-        // The ports of this device as a whole, other apps' among them: what the mode lets the tailnet reach.
-        add(ExposureRow(ExposureItem.DEVICE_PORTS, true, tailnet))
+        // The ports of this device as a whole, other apps' among them: what the mode lets the tailnet
+        // reach. With a real interface, whatever listens on every address; in userspace networking
+        // nothing beyond what the rows above open.
+        add(ExposureRow(ExposureItem.DEVICE_PORTS, f.net != ExposureNet.NETSTACK, tailnet))
 
         // ─── Root Mode ───────────────────────────────────────────────────────────────────
         if (f.rootMode) {

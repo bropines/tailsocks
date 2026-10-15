@@ -37,21 +37,32 @@ class ExposureTest {
     @Test
     fun aListenerIsReachedByWhoeverItsAddressLetsIn() {
         val tailnet = setOf(ExposureReach.TAILNET)
+        val lan = setOf(ExposureReach.LAN)
         val both = setOf(ExposureReach.LAN, ExposureReach.TAILNET)
-        // netstack hands the tailnet's connections to 127.0.0.1, and only to that address.
-        assertEquals(tailnet, Exposure.listenerReach("127.0.0.1:48115", ExposureNet.NETSTACK))
-        assertEquals(tailnet, Exposure.listenerReach("localhost:8080", ExposureNet.NETSTACK))
-        assertEquals(emptySet<ExposureReach>(), Exposure.listenerReach("127.0.0.1:48115", ExposureNet.INTERFACE))
-        assertEquals(emptySet<ExposureReach>(), Exposure.listenerReach("127.44.12.9:1053", ExposureNet.NETSTACK))
-        assertEquals(emptySet<ExposureReach>(), Exposure.listenerReach("[::1]:53", ExposureNet.NETSTACK))
-        // Every address: the local network, and the tailnet either way.
-        for (net in ExposureNet.entries) {
-            assertEquals(both, Exposure.listenerReach("0.0.0.0:48115", net))
-            assertEquals(both, Exposure.listenerReach("[::]:48115", net))
-            assertEquals(both, Exposure.listenerReach(":33445", net))
+        val nobody = emptySet<ExposureReach>()
+        // netstack hands the tailnet's connections to 127.0.0.1 only where the port is opened to it.
+        assertEquals(nobody, Exposure.listenerReach("127.0.0.1:48115", ExposureNet.NETSTACK))
+        assertEquals(tailnet, Exposure.listenerReach("127.0.0.1:48115", ExposureNet.NETSTACK, openToTailnet = true))
+        assertEquals(tailnet, Exposure.listenerReach("localhost:8080", ExposureNet.NETSTACK, openToTailnet = true))
+        // A real interface never leads to loopback, opened or not.
+        assertEquals(nobody, Exposure.listenerReach("127.0.0.1:48115", ExposureNet.INTERFACE))
+        assertEquals(nobody, Exposure.listenerReach("127.0.0.1:48115", ExposureNet.INTERFACE, openToTailnet = true))
+        // Another loopback address is not dialed at all.
+        assertEquals(nobody, Exposure.listenerReach("127.44.12.9:1053", ExposureNet.NETSTACK, openToTailnet = true))
+        assertEquals(nobody, Exposure.listenerReach("[::1]:53", ExposureNet.NETSTACK))
+        // Every address: the local network; the tailnet with a real interface, or where it is opened to it.
+        for (bind in listOf("0.0.0.0:48115", "[::]:48115", ":33445")) {
+            assertEquals(both, Exposure.listenerReach(bind, ExposureNet.INTERFACE))
+            assertEquals(both, Exposure.listenerReach(bind, ExposureNet.INTERFACE, openToTailnet = true))
+            assertEquals(lan, Exposure.listenerReach(bind, ExposureNet.NETSTACK))
+            assertEquals(both, Exposure.listenerReach(bind, ExposureNet.NETSTACK, openToTailnet = true))
         }
         assertEquals(tailnet, Exposure.listenerReach("100.101.102.103:80", ExposureNet.INTERFACE))
         assertEquals(tailnet, Exposure.listenerReach("[fd7a:115c:a1e0::1]:80", ExposureNet.INTERFACE))
+        // The native engine: the app's answers never go back into the tunnel, so the tailnet reaches none of its listeners.
+        for (bind in listOf("0.0.0.0:48115", ":33445")) assertEquals(lan, Exposure.listenerReach(bind, ExposureNet.VPN, openToTailnet = true))
+        assertEquals(nobody, Exposure.listenerReach("127.0.0.1:48115", ExposureNet.VPN, openToTailnet = true))
+        assertEquals(nobody, Exposure.listenerReach("100.101.102.103:80", ExposureNet.VPN))
         assertEquals(setOf(ExposureReach.LAN), Exposure.listenerReach("192.168.1.20:8080", ExposureNet.NETSTACK))
         // A carrier's 100.x address outside the tailnet's range is a network of its own.
         assertEquals(setOf(ExposureReach.LAN), Exposure.listenerReach("100.200.1.1:80", ExposureNet.NETSTACK))
@@ -60,7 +71,7 @@ class ExposureTest {
     @Test
     fun theModeDecidesHowTheDaemonCarriesTheAddress() {
         assertEquals(ExposureNet.NETSTACK, ExposureNet.of(rootMode = false, rootTun = false, tunMode = false, tunEngine = TunEngines.NATIVE))
-        assertEquals(ExposureNet.INTERFACE, ExposureNet.of(rootMode = false, rootTun = false, tunMode = true, tunEngine = TunEngines.NATIVE))
+        assertEquals(ExposureNet.VPN, ExposureNet.of(rootMode = false, rootTun = false, tunMode = true, tunEngine = TunEngines.NATIVE))
         assertEquals(ExposureNet.NETSTACK, ExposureNet.of(rootMode = false, rootTun = false, tunMode = true, tunEngine = TunEngines.HEV))
         assertEquals(ExposureNet.INTERFACE, ExposureNet.of(rootMode = true, rootTun = true, tunMode = false, tunEngine = TunEngines.HEV))
         // Root Mode never uses TUN mode: without its kernel interface the daemon is userspace.
@@ -68,13 +79,14 @@ class ExposureTest {
     }
 
     @Test
-    fun aQuietDeviceStillHasTheTailnetAtItsLoopback() {
+    fun aQuietDeviceKeepsItsProxiesToItself() {
         val rows = quiet.rows()
-        // Proxy mode: the default SOCKS5 port is the tailnet's as much as this device's.
-        assertEquals(TAILNET, rows.groupOf(ExposureItem.SOCKS5))
-        assertEquals(TAILNET, rows.groupOf(ExposureItem.DNS_PROXY))
+        // Proxy mode: the daemon no longer hands the tailnet's connections to loopback (patch 23).
+        assertEquals(DEVICE, rows.groupOf(ExposureItem.SOCKS5))
+        assertEquals(DEVICE, rows.groupOf(ExposureItem.DNS_PROXY))
         assertEquals(TAILNET, rows.groupOf(ExposureItem.TAILDROP))
-        assertEquals(TAILNET, rows.groupOf(ExposureItem.DEVICE_PORTS))
+        // Nor anything else of the device: no other app's port is the tailnet's.
+        assertEquals(OFF, rows.groupOf(ExposureItem.DEVICE_PORTS))
         // The policy says no: the folders are set, and nobody opens them.
         val shares = rows.of(ExposureItem.TAILDRIVE_SHARES)
         assertFalse(shares.on)
@@ -88,12 +100,40 @@ class ExposureTest {
         }
         // Remote management's levels are not listed while it is off.
         assertTrue(rows.none { it.item == ExposureItem.REMOTE_FULL || it.item == ExposureItem.REMOTE_FILES })
-        assertEquals(ExposureSummary(internet = 0, tailnet = 4, lan = 0, device = 0), Exposure.summary(rows))
+        assertEquals(ExposureSummary(internet = 0, tailnet = 1, lan = 0, device = 2), Exposure.summary(rows))
+    }
+
+    @Test
+    fun aProxyOpenedToTheTailnetIsTheTailnetsAndItsSwitchClosesIt() {
+        val opened = quiet.copy(tailnetOpen = setOf(ExposureItem.SOCKS5))
+        val rows = opened.rows()
+        val socks5 = rows.of(ExposureItem.SOCKS5)
+        assertEquals(TAILNET, socks5.group)
+        assertEquals(DEVICE, rows.groupOf(ExposureItem.DNS_PROXY))
+        // The row's switch closes it to the tailnet; one never opened has none here.
+        assertTrue(Exposure.openedToTailnet(socks5, opened))
+        assertTrue(ExposureSwitches.canTurnOff(socks5, opened))
+        assertFalse(ExposureSwitches.canTurnOff(rows.of(ExposureItem.DNS_PROXY), opened))
+        // On every address it is the local network's too; the group is the wider one.
+        val lan = opened.copy(lanAccess = true, socks5 = "0.0.0.0:48115")
+        val wide = lan.rows().of(ExposureItem.SOCKS5)
+        assertEquals(setOf(ExposureReach.LAN, ExposureReach.TAILNET), wide.reach)
+        assertEquals(LAN, wide.group)
+        assertTrue(Exposure.openedToTailnet(wide, lan))
+        // A real interface does not lead to loopback: the switch opens nothing there.
+        for (net in listOf(ExposureNet.VPN, ExposureNet.INTERFACE)) {
+            val real = opened.copy(net = net)
+            val realSocks5 = real.rows().of(ExposureItem.SOCKS5)
+            assertEquals(net.name, DEVICE, realSocks5.group)
+            assertFalse(net.name, Exposure.openedToTailnet(realSocks5, real))
+        }
+        // A proxy that is off is off, opened or not.
+        assertEquals(OFF, quiet.copy(tailnetOpen = setOf(ExposureItem.HTTP_PROXY)).rows().groupOf(ExposureItem.HTTP_PROXY))
     }
 
     @Test
     fun theNativeEngineKeepsLoopbackToThisDevice() {
-        val rows = quiet.copy(net = ExposureNet.INTERFACE).rows()
+        val rows = quiet.copy(net = ExposureNet.VPN).rows()
         assertEquals(DEVICE, rows.groupOf(ExposureItem.SOCKS5))
         assertEquals(DEVICE, rows.groupOf(ExposureItem.DNS_PROXY))
         assertEquals(ExposureSummary(internet = 0, tailnet = 2, lan = 0, device = 2), Exposure.summary(rows))
@@ -107,8 +147,19 @@ class ExposureTest {
         assertEquals(LAN, rows.groupOf(ExposureItem.HTTP_PROXY))
         assertEquals(LAN, rows.groupOf(ExposureItem.DNS_PROXY))
         assertEquals(false, rows.of(ExposureItem.SOCKS5).guarded)
-        // Counted by group, as the groups' headers count them: what the Wi-Fi reaches is not counted again as the tailnet's.
-        assertEquals(ExposureSummary(internet = 0, tailnet = 2, lan = 4, device = 0), Exposure.summary(rows))
+        // In proxy mode the Wi-Fi reaches them and the tailnet does not.
+        assertEquals(setOf(ExposureReach.LAN), rows.of(ExposureItem.SOCKS5).reach)
+        assertEquals(ExposureSummary(internet = 0, tailnet = 1, lan = 4, device = 0), Exposure.summary(rows))
+        // With Root Mode's interface the tailnet reaches every address; counted by group, as the
+        // groups' headers count them, what the Wi-Fi reaches is not counted again as the tailnet's.
+        val lanAccess = quiet.copy(lanAccess = true, socks5 = "0.0.0.0:48115", dns = "0.0.0.0:1053", http = "0.0.0.0:8080")
+        val root = lanAccess.copy(net = ExposureNet.INTERFACE).rows()
+        assertEquals(setOf(ExposureReach.LAN, ExposureReach.TAILNET), root.of(ExposureItem.SOCKS5).reach)
+        assertEquals(ExposureSummary(internet = 0, tailnet = 2, lan = 4, device = 0), Exposure.summary(root))
+        // Under the native engine the app's own listeners are outside the VPN: the Wi-Fi only.
+        val native = lanAccess.copy(net = ExposureNet.VPN).rows()
+        assertEquals(setOf(ExposureReach.LAN), native.of(ExposureItem.SOCKS5).reach)
+        assertEquals(TAILNET, native.groupOf(ExposureItem.DEVICE_PORTS))
     }
 
     @Test
@@ -214,7 +265,8 @@ class ExposureTest {
         // Running anyway — set up before the device was taken for a television — it is listed.
         val rows = quiet.copy(tailcatOffered = false, tailcatPorts = listOf(8022, 1080)).rows()
         val forwards = rows.of(ExposureItem.TAILCAT_FORWARDS)
-        assertEquals(TAILNET, forwards.group)
+        // On 127.0.0.1, which the tailnet no longer reaches.
+        assertEquals(DEVICE, forwards.group)
         assertEquals(listOf("1080", "8022"), forwards.names)
     }
 
@@ -237,7 +289,7 @@ class ExposureTest {
         assertTrue(text, text.startsWith("Exposure (running, net netstack, shields up false):"))
         assertTrue(text, "Widest reach: internet 1, tailnet " in text)
         assertTrue(text, "[internet] Funnel: ports 443" in text)
-        assertTrue(text, "[tailnet] SOCKS5: 127.0.0.1:48115, password" in text)
+        assertTrue(text, "[device] SOCKS5: 127.0.0.1:48115, password" in text)
         assertTrue(text, "[tailnet] Remote management: port 28115, paired: 1" in text)
         assertTrue(text, "[tailnet] Taildrive shares: folders: 1" in text)
         assertTrue(text, "[tailnet] Subnet routes advertised: routes: 1" in text)

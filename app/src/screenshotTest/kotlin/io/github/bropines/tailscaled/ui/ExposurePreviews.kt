@@ -5,6 +5,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.android.tools.screenshot.PreviewTest
 import io.github.bropines.tailscaled.core.DeviceClass
 import io.github.bropines.tailscaled.core.ExposureFacts
+import io.github.bropines.tailscaled.core.ExposureItem
 import io.github.bropines.tailscaled.core.ExposureNet
 import io.github.bropines.tailscaled.core.RemotePairing
 import io.github.bropines.tailscaled.core.ServedPort
@@ -89,7 +90,7 @@ fun ExposureBusyWhole() = ExposurePage(busy, offOpen = true)
 
 /** The quiet page on the native engine, stopped, incoming connections blocked: the notes under the line at the top. */
 @PreviewTest @ExposureTall @Composable
-fun ExposureStoppedShields() = ExposurePage(quiet.copy(running = false, net = ExposureNet.INTERFACE, shieldsUp = true, serveKnown = false), offOpen = true)
+fun ExposureStoppedShields() = ExposurePage(quiet.copy(running = false, net = ExposureNet.VPN, shieldsUp = true, serveKnown = false), offOpen = true)
 
 @Preview(name = "6-tv", device = "spec:width=960dp,height=540dp,dpi=320")
 @Preview(name = "6-tv-ru", device = "spec:width=960dp,height=540dp,dpi=320", locale = "ru")
@@ -100,6 +101,15 @@ fun ExposureQuietTv() = ExposurePage(quiet, DeviceClass.TV)
 
 @PreviewTest @ExposureTv @Composable
 fun ExposureBusyTv() = ExposurePage(tvBusy, DeviceClass.TV)
+
+/** SOCKS5 opened to the tailnet without a password: in the tailnet's group, its switch closing it to the tailnet. */
+private val opened = quiet.copy(tailnetOpen = setOf(ExposureItem.SOCKS5))
+
+@PreviewTest @ExposureSizes @Composable
+fun ExposureOpenedToTailnet() = ExposurePage(opened)
+
+@PreviewTest @ExposureTv @Composable
+fun ExposureOpenedToTailnetTv() = ExposurePage(opened, DeviceClass.TV)
 
 /** A television has no TailCat (core/DeviceProfile.kt): its rows are not there. */
 private val tvBusy = busy.copy(tailcatOffered = false, tailcatServer = null)

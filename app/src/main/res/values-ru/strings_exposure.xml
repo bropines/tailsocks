@@ -91,7 +91,6 @@
     <string name="exposure_reading_only">только чтение</string>
     <string name="exposure_port_any">любой свободный порт</string>
     <string name="exposure_random_loopback">случайный адрес loopback</string>
-    <string name="exposure_ports_netstack">127.0.0.1 и все адреса</string>
     <string name="exposure_ports_interface">все адреса</string>
     <string name="exposure_note_policy_unknown">политика tailnet пока неизвестна</string>
     <string name="exposure_note_policy_denied">политика tailnet не разрешает делиться</string>
@@ -102,6 +101,7 @@
     <string name="exposure_note_blocked">входящие подключения заблокированы</string>
 
     <string name="exposure_turn_off">Выключить</string>
+    <string name="exposure_close_tailnet">Закрыть для tailnet</string>
     <string name="exposure_open_setting">Открыть настройку</string>
 
     <string name="exposure_funnel">Funnel</string>
@@ -131,7 +131,7 @@
     <string name="exposure_relay">Ретранслятор</string>
     <string name="exposure_relay_help">Устройства tailnet, которые не видят друг друга напрямую, гонят трафик через UDP-порт этого устройства — там, где это разрешает политика. Порт открыт в настоящих сетях устройства.</string>
     <string name="exposure_lan_access">Прокси открыты в локальную сеть</string>
-    <string name="exposure_lan_access_help">SOCKS5, HTTP-прокси и DNS-прокси слушают на всех адресах: ими может пользоваться любой в той же Wi-Fi сети, и tailnet тоже.</string>
+    <string name="exposure_lan_access_help">SOCKS5, HTTP-прокси и DNS-прокси слушают на всех адресах: ими может пользоваться любой в той же Wi-Fi сети. С интерфейсом Root-режима — и tailnet тоже.</string>
     <string name="exposure_socks5">SOCKS5-прокси</string>
     <string name="exposure_socks5_help">Через него приложения ходят в tailnet и в интернет через выходной узел. Кто до него достучится, пользуется подключением этого устройства; имя и пароль закрывают его от чужих.</string>
     <string name="exposure_http">HTTP-прокси</string>
@@ -147,7 +147,8 @@
     <string name="exposure_byedpi">Прокси обхода DPI</string>
     <string name="exposure_byedpi_help">Прокси ByeDPI для управляющего соединения — на случайном адресе loopback, до которого снаружи устройства не достучаться.</string>
     <string name="exposure_device_ports">Порты устройства</string>
-    <string name="exposure_device_ports_help_netstack">В этом режиме Tailscale передаёт каждое подключение к tailnet-адресу устройства на тот же порт 127.0.0.1. Поэтому устройства tailnet, которым это разрешают правила доступа, достают до любого порта, который слушает там или на всех адресах, — и до портов других приложений тоже. Блокировка входящих подключений закрывает всё это.</string>
+    <string name="exposure_device_ports_help_netstack">В этом режиме на подключения к tailnet-адресу устройства отвечает сам Tailscale: устройства tailnet достают только до того, что он обслуживает, — ни до портов других приложений, ни до прокси TailSocks, пока вы не откроете их для tailnet в «Настройки → Локальные прокси».</string>
+    <string name="exposure_device_ports_help_vpn">Tailnet-адрес висит на VPN Android: устройства tailnet, которым это разрешают правила доступа, достают до любого порта другого приложения, который слушает на всех адресах. Сам TailSocks в этот VPN не входит, поэтому ни один из его прокси tailnet не отвечает. Блокировка входящих подключений закрывает всё это.</string>
     <string name="exposure_device_ports_help_interface">Tailnet-адрес висит на настоящем интерфейсе: устройства tailnet, которым это разрешают правила доступа, достают до любого порта, который слушает на всех адресах, — и до портов других приложений тоже. Блокировка входящих подключений закрывает всё это.</string>
     <string name="exposure_root_tun">Интерфейс ядра (root)</string>
     <string name="exposure_root_tun_help">tailscale0 ведёт tailnet ниже VPN Android: tailnet достаёт до сетевого стека самого устройства, включая любые приложения, которые слушают на всех адресах.</string>
@@ -161,8 +162,10 @@
     <string name="exposure_app_functions_help">Приложения-ассистенты, которых пускает Android, видят подключение, устройства и аккаунты; если внешняя автоматизация разрешена — ещё и подключают и меняют настройки.</string>
 
     <string name="exposure_why_device">До него достают только приложения на этом устройстве.</string>
-    <string name="exposure_why_netstack">В этом режиме Tailscale передаёт подключения к tailnet-адресу устройства на тот же порт 127.0.0.1 — так до него и достаёт tailnet.</string>
+    <string name="exposure_why_opened">Открыт для tailnet («Настройки → Локальные прокси»): устройства tailnet достают до него по tailnet-адресу этого устройства.</string>
     <string name="exposure_why_wildcard">Слушает на всех адресах: до него достаёт локальная сеть, а заодно и tailnet.</string>
+    <string name="exposure_why_wildcard_opened">Слушает на всех адресах, до которых достаёт локальная сеть, и открыт для tailnet («Настройки → Локальные прокси»).</string>
+    <string name="exposure_why_wildcard_closed">Слушает на всех адресах: до него достаёт локальная сеть. Tailnet в этом режиме — нет.</string>
     <string name="exposure_why_lan">Слушает на адресе локальной сети — она до него и достаёт.</string>
     <string name="exposure_why_tailnet">Слушает на tailnet-адресе устройства.</string>
 </resources>
