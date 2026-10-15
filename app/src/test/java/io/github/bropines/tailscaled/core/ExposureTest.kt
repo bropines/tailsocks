@@ -85,8 +85,10 @@ class ExposureTest {
         assertEquals(DEVICE, rows.groupOf(ExposureItem.SOCKS5))
         assertEquals(DEVICE, rows.groupOf(ExposureItem.DNS_PROXY))
         assertEquals(TAILNET, rows.groupOf(ExposureItem.TAILDROP))
-        // Nor anything else of the device: no other app's port is the tailnet's.
-        assertEquals(OFF, rows.groupOf(ExposureItem.DEVICE_PORTS))
+        // Other apps' servers are, as on any node in userspace networking; "the device's ports"
+        // is a row of the real interfaces.
+        assertEquals(TAILNET, rows.groupOf(ExposureItem.OTHER_APPS))
+        assertTrue(rows.none { it.item == ExposureItem.DEVICE_PORTS })
         // The policy says no: the folders are set, and nobody opens them.
         val shares = rows.of(ExposureItem.TAILDRIVE_SHARES)
         assertFalse(shares.on)
@@ -100,7 +102,42 @@ class ExposureTest {
         }
         // Remote management's levels are not listed while it is off.
         assertTrue(rows.none { it.item == ExposureItem.REMOTE_FULL || it.item == ExposureItem.REMOTE_FILES })
-        assertEquals(ExposureSummary(internet = 0, tailnet = 1, lan = 0, device = 2), Exposure.summary(rows))
+        assertEquals(ExposureSummary(internet = 0, tailnet = 2, lan = 0, device = 2), Exposure.summary(rows))
+    }
+
+    @Test
+    fun otherAppsServicesAreTheTailnetsUnlessStrict() {
+        val other = quiet.rows().of(ExposureItem.OTHER_APPS)
+        assertTrue(other.on)
+        assertEquals(setOf(ExposureReach.TAILNET), other.reach)
+        assertEquals(emptyList<String>(), other.names)
+        // Its switch is strict mode, which closes them.
+        assertTrue(ExposureSwitches.canTurnOff(other, quiet))
+        // Strict, nothing left open: off, and the proxies stay this device's.
+        val strict = quiet.copy(tailnetStrict = true)
+        val closed = strict.rows()
+        assertEquals(OFF, closed.groupOf(ExposureItem.OTHER_APPS))
+        assertEquals(DEVICE, closed.groupOf(ExposureItem.SOCKS5))
+        assertEquals(ExposureSummary(internet = 0, tailnet = 1, lan = 0, device = 2), Exposure.summary(closed))
+        // Strict with ports left open: those, and no switch here — the field is on its page.
+        val some = quiet.copy(tailnetStrict = true, tailnetExtra = listOf("5555", "udp:1234"))
+        val open = some.rows().of(ExposureItem.OTHER_APPS)
+        assertEquals(TAILNET, open.group)
+        assertEquals(listOf("5555", "udp:1234"), open.names)
+        assertFalse(ExposureSwitches.canTurnOff(open, some))
+        // A real interface has the device's ports instead, as before.
+        for (net in listOf(ExposureNet.VPN, ExposureNet.INTERFACE)) {
+            val rows = quiet.copy(net = net, tailnetStrict = true).rows()
+            assertTrue(net.name, rows.none { it.item == ExposureItem.OTHER_APPS })
+            assertEquals(net.name, TAILNET, rows.groupOf(ExposureItem.DEVICE_PORTS))
+        }
+        // The report says which, by port numbers only.
+        val report = Exposure.reportText(quiet)
+        assertTrue(report, "[tailnet] Other apps' services: every port but the app's own" in report)
+        val someReport = Exposure.reportText(some)
+        assertTrue(someReport, "[tailnet] Other apps' services: strict, ports 5555,udp:1234" in someReport)
+        val strictReport = Exposure.reportText(strict)
+        assertTrue(strictReport, "Other apps' services" in strictReport.substringAfter("Off: "))
     }
 
     @Test
@@ -149,7 +186,7 @@ class ExposureTest {
         assertEquals(false, rows.of(ExposureItem.SOCKS5).guarded)
         // In proxy mode the Wi-Fi reaches them and the tailnet does not.
         assertEquals(setOf(ExposureReach.LAN), rows.of(ExposureItem.SOCKS5).reach)
-        assertEquals(ExposureSummary(internet = 0, tailnet = 1, lan = 4, device = 0), Exposure.summary(rows))
+        assertEquals(ExposureSummary(internet = 0, tailnet = 2, lan = 4, device = 0), Exposure.summary(rows))
         // With Root Mode's interface the tailnet reaches every address; counted by group, as the
         // groups' headers count them, what the Wi-Fi reaches is not counted again as the tailnet's.
         val lanAccess = quiet.copy(lanAccess = true, socks5 = "0.0.0.0:48115", dns = "0.0.0.0:1053", http = "0.0.0.0:8080")
@@ -207,10 +244,11 @@ class ExposureTest {
             relayPort = 41641,
             tailcatServer = TailcatServing(anyone = false, keys = 2),
         ).rows()
-        // Taildrop and the device's ports: nobody reaches them now.
+        // Taildrop and other apps' servers: nobody reaches them now.
         assertEquals(OFF, rows.groupOf(ExposureItem.TAILDROP))
         assertEquals(ExposureNote.BLOCKED, rows.of(ExposureItem.TAILDROP).note)
-        assertEquals(OFF, rows.groupOf(ExposureItem.DEVICE_PORTS))
+        assertEquals(OFF, rows.groupOf(ExposureItem.OTHER_APPS))
+        assertEquals(ExposureNote.BLOCKED, rows.of(ExposureItem.OTHER_APPS).note)
         // A listener is still this device's, and the Wi-Fi still reaches what listens on every address.
         assertEquals(DEVICE, rows.groupOf(ExposureItem.DNS_PROXY))
         assertEquals(LAN, rows.groupOf(ExposureItem.SOCKS5))

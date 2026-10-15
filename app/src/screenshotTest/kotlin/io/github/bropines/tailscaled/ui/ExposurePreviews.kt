@@ -111,6 +111,15 @@ fun ExposureOpenedToTailnet() = ExposurePage(opened)
 @PreviewTest @ExposureTv @Composable
 fun ExposureOpenedToTailnetTv() = ExposurePage(opened, DeviceClass.TV)
 
+/** Strict mode with adb and an SSH server left open: other apps' services list those ports. */
+private val strict = quiet.copy(tailnetStrict = true, tailnetExtra = listOf("5555", "8022"))
+
+@PreviewTest @ExposureSizes @Composable
+fun ExposureStrict() = ExposurePage(strict)
+
+@PreviewTest @ExposureTv @Composable
+fun ExposureStrictTv() = ExposurePage(strict, DeviceClass.TV)
+
 /** A television has no TailCat (core/DeviceProfile.kt): its rows are not there. */
 private val tvBusy = busy.copy(tailcatOffered = false, tailcatServer = null)
 

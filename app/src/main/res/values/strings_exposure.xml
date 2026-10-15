@@ -92,6 +92,7 @@
     <!-- What a press does, for a screen reader. -->
     <string name="exposure_turn_off">Turn off</string>
     <string name="exposure_close_tailnet">Close it to the tailnet</string>
+    <string name="exposure_other_apps_close">Close them to the tailnet</string>
     <string name="exposure_open_setting">Open its setting</string>
 
     <!-- The rows: a title and a folded explanation each. -->
@@ -138,7 +139,10 @@
     <string name="exposure_byedpi">DPI bypass proxy</string>
     <string name="exposure_byedpi_help">ByeDPI\'s proxy for the control connection, on a random loopback address that nothing outside this device reaches.</string>
     <string name="exposure_device_ports">Ports of this device</string>
-    <string name="exposure_device_ports_help_netstack">In this mode Tailscale itself answers connections to this device\'s tailnet address: tailnet devices reach what it serves and nothing else of this device — no other app\'s port, and none of the app\'s proxies unless you open it to the tailnet in Settings → Local proxies.</string>
+    <string name="exposure_other_apps">Other apps\' services</string>
+    <string name="exposure_other_apps_all">every port but TailSocks\'s own</string>
+    <string name="exposure_other_apps_help">Other apps\' servers on this device — adb over the network, an SSH server, Syncthing — answer tailnet devices the access rules allow, as on any Tailscale node in proxy mode. TailSocks\'s own proxies do not unless you open them. Strict mode in Settings → Local proxies closes the rest too.</string>
+    <string name="exposure_other_apps_help_strict">Strict mode is on: of other apps\' servers on this device, tailnet devices reach only the ports listed in Settings → Local proxies.</string>
     <string name="exposure_device_ports_help_vpn">The tailnet address is on Android\'s VPN: tailnet devices the access rules allow reach every port of another app that listens on every address. TailSocks itself is outside that VPN, so none of its own proxies answer the tailnet. Blocking incoming connections closes all of it.</string>
     <string name="exposure_device_ports_help_interface">The tailnet address is on a real interface: tailnet devices the access rules allow reach every port that listens on every address — other apps\' ports too. Blocking incoming connections closes all of it.</string>
     <string name="exposure_root_tun">Kernel interface (Root)</string>

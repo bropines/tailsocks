@@ -12,12 +12,13 @@ package io.github.bropines.tailscaled.core
  * address ([ExposureNet]). In userspace networking — proxy mode, the hev TUN engine, Root
  * Mode without its kernel interface — netstack ends every connection to that address. Upstream
  * dials the same port on 127.0.0.1 for whatever nothing else took (wgengine/netstack acceptTCP
- * and forwardUDP), which made every loopback listener a service of the tailnet; patch 23
- * refuses that unless the port is open (core/TailnetReach.kt): remote management's while it
- * is on, and the proxies the person opened under Settings → Local proxies → Reachable from the
- * tailnet ([ExposureFacts.tailnetOpen]). Everything else listening on 127.0.0.1 or on every
- * address is this device's, or its local network's. With a real interface — the native TUN
- * engine, Root Mode's tailscale0 — the address belongs to the host stack: what listens on
+ * and forwardUDP), which makes every loopback listener a service of the tailnet; patch 23
+ * refuses that for the app's own listeners unless the person opened them under Settings →
+ * Local proxies → Reachable from the tailnet ([ExposureFacts.tailnetOpen]) — remote
+ * management's port follows its switch — and serves other apps' as upstream does, or, in strict
+ * mode, only the ports listed there ([ExposureItem.OTHER_APPS], core/TailnetReach.kt). The
+ * app's listeners not opened are this device's, or its local network's. With a real interface —
+ * the native TUN engine, Root Mode's tailscale0 — the address belongs to the host stack: what listens on
  * 127.0.0.1 never answers it and the switches change nothing; what listens on every address
  * does, except the app's own listeners under the native engine, whose answers leave outside the
  * VPN the app is excluded from ([ExposureNet.VPN]).
@@ -104,6 +105,8 @@ enum class ExposureItem(
     TAILDRIVE_PROXY(local = true),
     TAILCAT_FORWARDS(local = true),
     BYEDPI(local = true),
+    /** Other apps' servers on 127.0.0.1 or every address, in userspace networking: the tailnet's unless strict. */
+    OTHER_APPS,
     DEVICE_PORTS,
     ROOT_KERNEL_TUN,
     ROOT_BOOT_SCRIPT(local = true),
@@ -180,6 +183,9 @@ data class ExposureFacts(
     val dns: String = "",
     /** The local proxies opened to the tailnet (TailnetReach): SOCKS5, HTTP, DNS, Taildrive's. */
     val tailnetOpen: Set<ExposureItem> = emptySet(),
+    /** Strict mode (TailnetReach): other apps' services closed to the tailnet but for [tailnetExtra], "5555", "udp:1234". */
+    val tailnetStrict: Boolean = false,
+    val tailnetExtra: List<String> = emptyList(),
     val lanAccess: Boolean = false,
     /** The app's Web UI, where it listens; empty when off. */
     val webUi: String = "",
@@ -382,9 +388,13 @@ object Exposure {
         }
         add(ExposureRow(ExposureItem.BYEDPI, f.byedpi, if (f.byedpiAddress.isBlank()) emptySet() else listenerReach(f.byedpiAddress, f.net), address = f.byedpiAddress))
         // The ports of this device as a whole, other apps' among them: what the mode lets the tailnet
-        // reach. With a real interface, whatever listens on every address; in userspace networking
-        // nothing beyond what the rows above open.
-        add(ExposureRow(ExposureItem.DEVICE_PORTS, f.net != ExposureNet.NETSTACK, tailnet))
+        // reach. In userspace networking every port but the app's own, or in strict mode the ports
+        // left open; with a real interface, whatever listens on every address.
+        if (f.net == ExposureNet.NETSTACK) {
+            add(ExposureRow(ExposureItem.OTHER_APPS, !f.tailnetStrict || f.tailnetExtra.isNotEmpty(), tailnet, names = if (f.tailnetStrict) f.tailnetExtra else emptyList()))
+        } else {
+            add(ExposureRow(ExposureItem.DEVICE_PORTS, true, tailnet))
+        }
 
         // ─── Root Mode ───────────────────────────────────────────────────────────────────
         if (f.rootMode) {
@@ -444,6 +454,7 @@ object Exposure {
             ExposureItem.TAILDRIVE_PROXY -> "Taildrive proxy"
             ExposureItem.TAILCAT_FORWARDS -> "TailCat forwards"
             ExposureItem.BYEDPI -> "ByeDPI proxy"
+            ExposureItem.OTHER_APPS -> "Other apps' services"
             ExposureItem.DEVICE_PORTS -> "This device's ports"
             ExposureItem.ROOT_KERNEL_TUN -> "Root kernel interface"
             ExposureItem.ROOT_BOOT_SCRIPT -> "Root boot script"
@@ -508,6 +519,7 @@ object Exposure {
             // Port numbers only: a service's name is the tailnet's.
             ExposureItem.FUNNEL, ExposureItem.SERVE -> add("ports " + row.names.map { it.substringBefore(' ') }.distinct().joinToString(","))
             ExposureItem.TAILCAT_FORWARDS -> add("ports " + row.names.joinToString(","))
+            ExposureItem.OTHER_APPS -> add(if (row.names.isEmpty()) "every port but the app's own" else "strict, ports " + row.names.joinToString(","))
             ExposureItem.APP_FUNCTIONS -> add(if (row.guarded == true) "changes allowed" else "reading only")
             else -> Unit
         }

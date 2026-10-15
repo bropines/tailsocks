@@ -102,6 +102,7 @@
 
     <string name="exposure_turn_off">Выключить</string>
     <string name="exposure_close_tailnet">Закрыть для tailnet</string>
+    <string name="exposure_other_apps_close">Закрыть их для tailnet</string>
     <string name="exposure_open_setting">Открыть настройку</string>
 
     <string name="exposure_funnel">Funnel</string>
@@ -147,7 +148,10 @@
     <string name="exposure_byedpi">Прокси обхода DPI</string>
     <string name="exposure_byedpi_help">Прокси ByeDPI для управляющего соединения — на случайном адресе loopback, до которого снаружи устройства не достучаться.</string>
     <string name="exposure_device_ports">Порты устройства</string>
-    <string name="exposure_device_ports_help_netstack">В этом режиме на подключения к tailnet-адресу устройства отвечает сам Tailscale: устройства tailnet достают только до того, что он обслуживает, — ни до портов других приложений, ни до прокси TailSocks, пока вы не откроете их для tailnet в «Настройки → Локальные прокси».</string>
+    <string name="exposure_other_apps">Службы других приложений</string>
+    <string name="exposure_other_apps_all">все порты, кроме портов TailSocks</string>
+    <string name="exposure_other_apps_help">Серверы других приложений на этом устройстве — adb по сети, SSH-сервер, Syncthing — отвечают устройствам tailnet, которым это разрешают правила доступа, как на любом узле Tailscale в режиме прокси. Прокси самого TailSocks — нет, пока вы их не откроете. Строгий режим в «Настройки → Локальные прокси» закрывает и остальное.</string>
+    <string name="exposure_other_apps_help_strict">Включён строгий режим: из серверов других приложений на этом устройстве устройства tailnet достают только до портов, перечисленных в «Настройки → Локальные прокси».</string>
     <string name="exposure_device_ports_help_vpn">Tailnet-адрес висит на VPN Android: устройства tailnet, которым это разрешают правила доступа, достают до любого порта другого приложения, который слушает на всех адресах. Сам TailSocks в этот VPN не входит, поэтому ни один из его прокси tailnet не отвечает. Блокировка входящих подключений закрывает всё это.</string>
     <string name="exposure_device_ports_help_interface">Tailnet-адрес висит на настоящем интерфейсе: устройства tailnet, которым это разрешают правила доступа, достают до любого порта, который слушает на всех адресах, — и до портов других приложений тоже. Блокировка входящих подключений закрывает всё это.</string>
     <string name="exposure_root_tun">Интерфейс ядра (root)</string>

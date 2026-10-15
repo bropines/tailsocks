@@ -93,6 +93,8 @@ object ExposureRead {
             http = GlobalSettings.getHttpProxyBindAddr(ctx),
             dns = GlobalSettings.getDnsProxyBindAddr(ctx),
             tailnetOpen = TailnetReach.opened(ctx).map { it.item }.toSet(),
+            tailnetStrict = TailnetReach.isStrict(ctx),
+            tailnetExtra = TailnetReach.extraOpen(ctx).map { it.label },
             lanAccess = GlobalSettings.isLanAccessEnabled(ctx),
             webUi = if (profile.getBoolean("enable_webui", false)) profile.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080" else "",
             // On until switched off, with Downloads shared: what the service sets on a profile's first start.
@@ -166,6 +168,8 @@ object ExposureSwitches {
         ExposureItem.REMOTE_ELEVATED, ExposureItem.AUTOMATION, ExposureItem.TAILCAT_SERVER -> true
         // Only what the app's own switch set: an extra argument or the console would put it back.
         ExposureItem.EXIT_NODE -> f.exitNodeSwitch
+        // Off is strict mode; the ports it leaves open are a field, edited on its page.
+        ExposureItem.OTHER_APPS -> !f.tailnetStrict
         else -> false
     })
 
@@ -174,7 +178,7 @@ object ExposureSwitches {
         val ctx = context.applicationContext
         val profile = ctx.getSharedPreferences("appctr_${AccountManager.getActiveAccount(ctx).id}", Context.MODE_PRIVATE)
         fun apply() = ctx.startService(Intent(ctx, TailscaledService::class.java).apply { action = TailscaledService.ACTION_APPLY_SETTINGS })
-        // Settings → Local proxies → Reachable from the tailnet: the daemon follows its list.
+        // Settings → Local proxies → Reachable from the tailnet: the daemon follows its policy.
         if (Exposure.openedToTailnet(row, f)) {
             TailnetListener.of(row.item)?.let { TailnetReach.setOpen(ctx, it, false) }
             return
@@ -199,6 +203,8 @@ object ExposureSwitches {
             ExposureItem.REMOTE_FULL -> RemoteLevel.setFullControl(ctx, false)
             ExposureItem.REMOTE_FILES -> RemoteLevel.setFilesOpen(ctx, false)
             ExposureItem.REMOTE_ELEVATED -> RemoteElevate.takeBack(ctx, row.key.substringAfter(':'))
+            // Settings → Local proxies → Strict: close everything else too.
+            ExposureItem.OTHER_APPS -> TailnetReach.setStrict(ctx, true)
             // Settings → Automation → Allow external automation.
             ExposureItem.AUTOMATION -> GlobalSettings.setAutomationEnabled(ctx, false)
             // TailCat's server card.

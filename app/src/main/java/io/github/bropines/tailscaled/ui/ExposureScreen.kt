@@ -424,6 +424,7 @@ private fun ExposureRowItem(
             when {
                 !switchable -> R.string.exposure_open_setting
                 Exposure.openedToTailnet(row, facts) -> R.string.exposure_close_tailnet
+                row.item == ExposureItem.OTHER_APPS -> R.string.exposure_other_apps_close
                 else -> R.string.exposure_turn_off
             }
         ),
@@ -496,6 +497,8 @@ private fun stateLine(row: ExposureRow, facts: ExposureFacts): String {
         ExposureItem.PEER_RELAY -> parts += row.address.removePrefix(":").ifEmpty { stringResource(R.string.exposure_port_any) }.let { if (it.first().isDigit()) "UDP $it" else it }
         // On only where a real interface carries the tailnet address.
         ExposureItem.DEVICE_PORTS -> parts += stringResource(R.string.exposure_ports_interface)
+        // Every port but the app's own, or the ones strict mode leaves open.
+        ExposureItem.OTHER_APPS -> parts += if (row.names.isEmpty()) stringResource(R.string.exposure_other_apps_all) else stringResource(R.string.exposure_ports, row.names.joinToString(", "))
         ExposureItem.ROOT_CLI -> parts += row.address
         ExposureItem.REMOTE -> parts += "TCP ${row.address.removePrefix(":")}"
         else -> if (row.address.isNotEmpty() && row.item != ExposureItem.TAILCAT_FORWARDS) parts += row.address
@@ -539,13 +542,11 @@ private fun stateLine(row: ExposureRow, facts: ExposureFacts): String {
 @Composable
 private fun explanation(row: ExposureRow, facts: ExposureFacts): String {
     val own = when (row.item) {
+        // Listed only with a real interface; in userspace networking it is OTHER_APPS.
         ExposureItem.DEVICE_PORTS -> stringResource(
-            when (facts.net) {
-                ExposureNet.NETSTACK -> R.string.exposure_device_ports_help_netstack
-                ExposureNet.VPN -> R.string.exposure_device_ports_help_vpn
-                ExposureNet.INTERFACE -> R.string.exposure_device_ports_help_interface
-            }
+            if (facts.net == ExposureNet.VPN) R.string.exposure_device_ports_help_vpn else R.string.exposure_device_ports_help_interface
         )
+        ExposureItem.OTHER_APPS -> stringResource(if (facts.tailnetStrict) R.string.exposure_other_apps_help_strict else R.string.exposure_other_apps_help)
         ExposureItem.ROOT_CLI -> stringResource(R.string.exposure_root_cli_help, facts.cliName)
         else -> stringResource(itemHelp(row.item))
     }
@@ -608,6 +609,7 @@ private fun itemTitle(item: ExposureItem): Int = when (item) {
     ExposureItem.TAILDRIVE_PROXY -> R.string.exposure_drive_proxy
     ExposureItem.TAILCAT_FORWARDS -> R.string.exposure_tailcat_forwards
     ExposureItem.BYEDPI -> R.string.exposure_byedpi
+    ExposureItem.OTHER_APPS -> R.string.exposure_other_apps
     ExposureItem.DEVICE_PORTS -> R.string.exposure_device_ports
     ExposureItem.ROOT_KERNEL_TUN -> R.string.exposure_root_tun
     ExposureItem.ROOT_BOOT_SCRIPT -> R.string.exposure_root_boot
@@ -639,7 +641,8 @@ private fun itemHelp(item: ExposureItem): Int = when (item) {
     ExposureItem.TAILDRIVE_PROXY -> R.string.exposure_drive_proxy_help
     ExposureItem.TAILCAT_FORWARDS -> R.string.exposure_tailcat_forwards_help
     ExposureItem.BYEDPI -> R.string.exposure_byedpi_help
-    ExposureItem.DEVICE_PORTS -> R.string.exposure_device_ports_help_netstack
+    ExposureItem.OTHER_APPS -> R.string.exposure_other_apps_help
+    ExposureItem.DEVICE_PORTS -> R.string.exposure_device_ports_help_interface
     ExposureItem.ROOT_KERNEL_TUN -> R.string.exposure_root_tun_help
     ExposureItem.ROOT_BOOT_SCRIPT -> R.string.exposure_root_boot_help
     ExposureItem.ROOT_CLI -> R.string.exposure_root_cli_help
@@ -669,7 +672,7 @@ private fun itemIcon(item: ExposureItem): ImageVector = when (item) {
     ExposureItem.TAILDRIVE_PROXY -> Icons.Default.CloudSync
     ExposureItem.TAILCAT_FORWARDS -> Icons.Default.Pets
     ExposureItem.BYEDPI -> Icons.Default.Shield
-    ExposureItem.DEVICE_PORTS -> Icons.Default.SettingsEthernet
+    ExposureItem.OTHER_APPS, ExposureItem.DEVICE_PORTS -> Icons.Default.SettingsEthernet
     ExposureItem.ROOT_KERNEL_TUN -> Icons.Default.Memory
     ExposureItem.ROOT_BOOT_SCRIPT -> Icons.Default.PowerSettingsNew
     ExposureItem.ROOT_CLI -> Icons.Default.Terminal
@@ -698,6 +701,8 @@ internal fun settingOf(item: ExposureItem): Pair<String?, String?> = when (item)
     ExposureItem.DNS_PROXY -> "dns_proxy_address" to null
     ExposureItem.WEB_UI -> "web_ui" to null
     ExposureItem.BYEDPI -> "byedpi" to null
+    // Strict mode, which closes them and lists the ports it leaves open.
+    ExposureItem.OTHER_APPS -> "tailnet_strict" to null
     // What closes every port at once.
     ExposureItem.DEVICE_PORTS -> "shields_up" to null
     ExposureItem.ROOT_KERNEL_TUN -> "root_tun" to null
