@@ -6,7 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Security
 
-- In proxy mode, devices of the tailnet that the policy let reach this one could use its local proxies — SOCKS5, HTTP, DNS and the Taildrive proxy — as if they ran on it. They are now closed to the tailnet; a proxy that other devices are meant to use opens again under Settings → Local proxies → Reachable from the tailnet.
+- In proxy mode, devices of the tailnet that the policy let reach this one could use its local proxies — SOCKS5, HTTP, DNS and the Taildrive proxy — as if they ran on it. TailSocks's own proxies are now closed to the tailnet unless opened under Settings → Local proxies → Reachable from the tailnet; other apps' services (adb over the network, an SSH server, Syncthing) stay reachable as before, and Strict mode closes them too.
 
 ### Added
 
