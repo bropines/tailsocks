@@ -238,9 +238,9 @@ real network while an exit node is on.
 <details>
 <summary>Excluded IP Ranges in Root Mode</summary>
 
-- **Where it is set.** Settings → Tunnel mode → **VPN (TUN)** → **Excluded IP
-  Ranges** (`tun_excluded_cidrs`). That card is shown only while VPN mode is
-  selected; Root Mode uses the value saved there — by default
+- **Where it is set.** Settings → Tunnel mode → the Root Mode card, under
+  **Excluded Apps**, while **Native Linux TUN (tailscale0)** is on — the same
+  list (`tun_excluded_cidrs`) as the VPN (TUN) card's, by default
   `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` and
   `fe80::/10`, is always added (`RootUtils.localExclusions`).
 - **What is written.** `ip route replace throw <prefix> table 52` for every
