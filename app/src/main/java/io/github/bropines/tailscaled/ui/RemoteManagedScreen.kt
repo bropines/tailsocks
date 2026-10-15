@@ -326,14 +326,8 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
                 // The switch answers at once; the endpoint follows when the service has applied it.
                 val reach = if (on) RemoteReach.APPLYING else RemoteReach.of(false, ui.state)
                 ui = ui.copy(enabled = on, reach = reach, fullControl = false, files = false)
-                change {
-                    // Full control and the files go off with the switch, whichever way it is
-                    // turned: they do not outlive management, and switching management on again
-                    // next month never brings them back unasked.
-                    val level = RemoteLevel.setFullControl(context, false)
-                    val files = RemoteLevel.setFilesOpen(context, false)
-                    if (RemoteManage.setEnabled(context, on) && level && files) null else RemoteNotice.NO_SWITCH
-                }
+                // Full control and the files go off with the switch, whichever way it is turned.
+                change { if (RemoteManage.setManaged(context, on)) null else RemoteNotice.NO_SWITCH }
             }
 
             override fun setFiles(open: Boolean) {

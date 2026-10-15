@@ -80,6 +80,17 @@ object RemoteManage {
     }
 
     /**
+     * The page's switch: management on or off, and full control and the files off either way —
+     * they do not outlive management, and switching it on again next month never brings them
+     * back unasked. False when any of the three could not be written. Blocking: files.
+     */
+    fun setManaged(context: Context, on: Boolean): Boolean {
+        val level = RemoteLevel.setFullControl(context, false)
+        val files = RemoteLevel.setFilesOpen(context, false)
+        return setEnabled(context, on) && level && files
+    }
+
+    /**
      * The switch, for StartOptions.remoteManagement — and the app's half follows it: registered
      * with the bridge while the switch is on, taken away when it is off. Called wherever the
      * service builds its options, so a change reaches the bridge with the settings it applies.
