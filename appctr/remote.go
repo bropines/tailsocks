@@ -41,7 +41,10 @@ package appctr
 //     received files, permissions seen and asked for. A second switch gives
 //     full control — the storage by name, shares, routes, the diagnostics and
 //     the scrubbed log — and only to an owner. A paired device can give that
-//     level up; it cannot take it.
+//     level up; it cannot take it. Over both, a third switch there, network
+//     access to files: while it is off — and it is, unless a person turned it
+//     on at the device — the storage, the shares, the report and the log are
+//     nobody's at any level (remote_files.go).
 //
 // What each addition is worth to whoever holds a pairing, since this file
 // started out saying "never" to most of it:
@@ -134,13 +137,16 @@ package appctr
 //	  file's name outside the received ones and no file's contents; it can
 //	  change the connection (and has to confirm what it changes, which it
 //	  can), put a permission's page in front of whoever is at the device a
-//	  few times a minute, and switch sharing off. At the full level, which
-//	  the device's user switched on knowing this: every file's name on the
-//	  shared storage, any of those files sent to that phone, a new share, the
-//	  device offered as an exit node or a router (the tailnet's admin still
-//	  has to approve those), and the scrubbed log. Still no credential and no
-//	  stop. The device's page lists exactly this, from the same table
-//	  (RemoteAccessJSON), next to the switch.
+//	  few times a minute, and, with network access to files on, see the
+//	  shared folders and switch sharing off. At the full level, which the
+//	  device's user switched on knowing this: the device offered as an exit
+//	  node or a router (the tailnet's admin still has to approve those), and,
+//	  with network access to files on as well, every file's name on the shared
+//	  storage, any of those files sent to that phone, a new share, and the
+//	  scrubbed log. Still no credential and no stop. The device's page lists
+//	  exactly this, from the same table (RemoteAccessJSON), next to the
+//	  switches. The managing app asks for its own phone's lock again before
+//	  it shows another device's files, unless that phone has none.
 //
 //	A paired guest
 //	  looks, picks the exit node — guarded if it asks, like anyone — and can
@@ -415,6 +421,8 @@ type remoteManager struct {
 	// (remote_elevate.go).
 	noElevate    bool
 	elevateTimer *time.Timer
+	// files is the device's network access to files (remote_files.go).
+	files bool
 	// guard is the change that waits for its confirmation, if one does;
 	// guarding serialises the making of such changes (remote_guard.go).
 	guard    *remoteGuard
@@ -527,6 +535,7 @@ func remoteApply(opt *StartOptions) {
 	}
 	remote.setAccess(opt.RemoteFullControl, opt.RemoteNoGuests)
 	remote.setElevation(!opt.RemoteNoElevation)
+	remote.setFiles(opt.RemoteFiles)
 	remote.apply(opt.RemoteManagement, remoteStorePath(opt), remoteListenAddr())
 	// A guarded change left over from an earlier run of the app was never
 	// confirmed (remote_guard.go); full rights given before may be over.
@@ -544,6 +553,7 @@ func remoteSwitch(opt *StartOptions) {
 	}
 	remote.setAccess(opt.RemoteFullControl, opt.RemoteNoGuests)
 	remote.setElevation(!opt.RemoteNoElevation)
+	remote.setFiles(opt.RemoteFiles)
 	remote.apply(opt.RemoteManagement, "", remoteListenAddr())
 }
 
@@ -967,15 +977,16 @@ type remotePairedView struct {
 	Left    int64 `json:"left"`
 	Expires int64 `json:"expires"`
 	// Elevated is a guest's full rights in force (remote_elevate.go): the
-	// seconds they have left, their end, their length, and whether the
-	// full-control tier is part of them. Absent otherwise.
+	// seconds they have left, their end, their length, whether the
+	// full-control tier is part of them, and whether the device's files are
+	// left out of them. Absent otherwise.
 	Elevated *remoteElevatedView `json:"elevated,omitempty"`
 }
 
 // RemotePairedJSON lists the devices that may manage this one, oldest first:
 // [{"nodeId","name","login","class","created","lastUsed","left","expires",
-// "elevated":{"left","until","seconds","full"}}]. Expired pairings and full
-// rights that are over are dropped before the list is made.
+// "elevated":{"left","until","seconds","full","noFiles"}}]. Expired pairings
+// and full rights that are over are dropped before the list is made.
 func RemotePairedJSON() string { return remoteReply(remote.paired()) }
 
 func (m *remoteManager) paired() []remotePairedView {

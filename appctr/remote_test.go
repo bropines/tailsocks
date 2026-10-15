@@ -563,6 +563,10 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	r.m.sendFile = func(string, string) string { return "Error: no transfer in this test" }
 	r.m.logText = func() string { return "" }
 	r.m.relays = func() string { return "" }
+	// The device's network access to files is a ceiling with tests of its own
+	// (remote_files_test.go); everywhere else it is open, as on a device that
+	// had it on before the levels were tested, and what is tested is the rest.
+	r.m.setFiles(true)
 	// As SetRemoteDelegate does, but here and now rather than on a thread of
 	// its own, so that a test knows which calls the app has seen.
 	r.m.setDelegate(r.app)
@@ -618,11 +622,12 @@ func (r *remoteRig) restart() {
 	m.delegateWait, m.delegateAnswer = r.m.delegateWait, r.m.delegateAnswer
 	m.reportWait, m.reportAnswer = r.m.reportWait, r.m.reportAnswer
 	m.sendFile, m.logText, m.relays = r.m.sendFile, r.m.logText, r.m.relays
-	// The two switches are files of the app's: they are there after a restart.
+	// The switches are files of the app's: they are there after a restart.
 	r.m.mu.Lock()
-	full, noGuests := r.m.full, r.m.noGuests
+	full, noGuests, files := r.m.full, r.m.noGuests, r.m.files
 	r.m.mu.Unlock()
 	m.setAccess(full, noGuests)
+	m.setFiles(files)
 	m.setDelegate(r.app)
 	m.loadFacts()
 	r.m = m

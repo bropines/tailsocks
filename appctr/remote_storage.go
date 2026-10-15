@@ -2,7 +2,8 @@ package appctr
 
 // remote_storage.go — the device's storage by name, "send me this file", and
 // the folders the device shares. All of it but removing a share takes full
-// control, and all of it is the owner's.
+// control, all of it is the owner's, and none of it is anybody's while the
+// device's network access to files is off (remote_files.go).
 //
 // No file's bytes travel over the management channel, in either direction. A
 // listing is names, sizes and dates. "Send me this file" makes the device send

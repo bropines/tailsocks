@@ -46,13 +46,15 @@
       "key": "taildrive_enabled",
       "kind": "bool",
       "writable": true,
-      "full": "true"
+      "full": "true",
+      "files": true
     },
     {
       "key": "taildrive_proxy_enabled",
       "kind": "bool",
       "writable": true,
-      "full": "true"
+      "full": "true",
+      "files": true
     },
     {
       "key": "advertise_exit_node",
@@ -195,7 +197,8 @@
     },
     {
       "op": "folders",
-      "class": "owner"
+      "class": "owner",
+      "files": true
     },
     {
       "op": "confirm",
@@ -207,32 +210,38 @@
     },
     {
       "op": "shares.remove",
-      "class": "owner"
+      "class": "owner",
+      "files": true
     },
     {
       "op": "shares.add",
       "class": "owner",
-      "full": true
+      "full": true,
+      "files": true
     },
     {
       "op": "storage.list",
       "class": "owner",
-      "full": true
+      "full": true,
+      "files": true
     },
     {
       "op": "storage.send",
       "class": "owner",
-      "full": true
+      "full": true,
+      "files": true
     },
     {
       "op": "diag.report",
       "class": "owner",
-      "full": true
+      "full": true,
+      "files": true
     },
     {
       "op": "diag.log",
       "class": "owner",
-      "full": true
+      "full": true,
+      "files": true
     },
     {
       "op": "elevate.request",
@@ -255,7 +264,8 @@
     "shares",
     "advertise",
     "diag",
-    "elevate"
+    "elevate",
+    "files"
   ],
   "never": [
     "stop",
@@ -265,7 +275,8 @@
     "control_proxy",
     "root_mode",
     "grant_permission",
-    "full_control_on"
+    "full_control_on",
+    "files_on"
   ],
   "notices": [
     "action",
@@ -288,7 +299,9 @@
     "setting_needs_full",
     "action_unknown",
     "permission_unknown",
-    "file_outside_storage"
+    "file_outside_storage",
+    "op_needs_files",
+    "setting_needs_files"
   ],
   "guardSeconds": 60,
   "guardSettle": 5,

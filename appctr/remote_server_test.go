@@ -60,8 +60,8 @@ type rtAllowList struct {
 	Identify []string `json:"identifyResults"`
 	Requests []string `json:"requests"`
 	Routes   []string `json:"routes"`
-	// Ops is every operation with its lowest class, and "full" where it takes
-	// full control.
+	// Ops is every operation with its lowest class, "full" where it takes full
+	// control, and "files" where the device's network access to files.
 	Ops   []rtAllowedOp `json:"ops"`
 	Caps  []string      `json:"caps"`
 	Never []string      `json:"never"`
@@ -89,12 +89,14 @@ type rtAllowedSetting struct {
 	Only     string `json:"only,omitempty"`
 	Full     string `json:"full,omitempty"`
 	Guard    string `json:"guard,omitempty"`
+	Files    bool   `json:"files,omitempty"`
 }
 
 type rtAllowedOp struct {
 	Op    string `json:"op"`
 	Class string `json:"class"`
 	Full  bool   `json:"full,omitempty"`
+	Files bool   `json:"files,omitempty"`
 }
 
 func rtSortedKeys(m map[string]bool) []string {
@@ -124,7 +126,7 @@ func rtCurrentAllowList() rtAllowList {
 		ElevateEnds:    append([]string(nil), remoteElevateEnds...),
 	}
 	for _, s := range remoteSettings {
-		l.Settings = append(l.Settings, rtAllowedSetting{Key: s.key, Kind: s.kind, Writable: s.writable, Only: s.only, Full: s.full, Guard: s.guard})
+		l.Settings = append(l.Settings, rtAllowedSetting{Key: s.key, Kind: s.kind, Writable: s.writable, Only: s.only, Full: s.full, Guard: s.guard, Files: s.files})
 	}
 	for _, id := range remotePermissions {
 		if remoteAskable[id] {
@@ -135,7 +137,7 @@ func rtCurrentAllowList() rtAllowList {
 		l.Routes = append(l.Routes, rt.method+" "+rt.path)
 	}
 	for _, op := range remoteOps {
-		l.Ops = append(l.Ops, rtAllowedOp{Op: op, Class: p.Rights[op].String(), Full: p.Full[op]})
+		l.Ops = append(l.Ops, rtAllowedOp{Op: op, Class: p.Rights[op].String(), Full: p.Full[op], Files: p.Files[op]})
 	}
 	return l
 }

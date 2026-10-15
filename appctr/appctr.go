@@ -237,6 +237,11 @@ type StartOptions struct {
 	// rights for a while, and ends those in force (remote_elevate.go). The
 	// zero value lets them be given.
 	RemoteNoElevation bool
+	// RemoteFiles is the device's network access to files: its storage by
+	// name, its shared folders, its log and its report are reachable from afar
+	// only while it is on, whatever the level and the class (remote_files.go).
+	// The zero value keeps them closed.
+	RemoteFiles bool
 }
 
 func SetLogLevel(level int32) {

@@ -115,7 +115,11 @@ type remoteElevation struct {
 	Seconds int64 `json:"seconds"`
 	// Full: the full-control tier is part of them, whatever the device's own
 	// switch says.
-	Full         bool   `json:"full,omitempty"`
+	Full bool `json:"full,omitempty"`
+	// NoFiles: given while the device's network access to files was off, they
+	// never include the files (remote_files.go). Absent in a store written
+	// before the switch existed: such rights follow the switch.
+	NoFiles      bool   `json:"noFiles,omitempty"`
 	Boot         string `json:"boot,omitempty"`
 	BootDeadline int64  `json:"bootDeadline,omitempty"`
 	Left         int64  `json:"left,omitempty"`
@@ -282,10 +286,10 @@ func remoteElevationWallLeft(e *remoteElevation, now int64) int64 {
 }
 
 // elevate gives p full rights for seconds from now, in place of any it had.
-func (s *remoteStore) elevate(p *remotePairing, seconds int64, full bool) {
+func (s *remoteStore) elevate(p *remotePairing, seconds int64, full, noFiles bool) {
 	boot, up := s.clock.Boot()
 	p.Elevation = &remoteElevation{
-		Granted: s.clock.Now().Unix(), Seconds: seconds, Full: full,
+		Granted: s.clock.Now().Unix(), Seconds: seconds, Full: full, NoFiles: noFiles,
 		Boot: boot, BootDeadline: int64(up/time.Second) + seconds, Left: seconds,
 	}
 }

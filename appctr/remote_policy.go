@@ -7,7 +7,7 @@ package appctr
 // permissions in remotePermissions, the capabilities in remoteCaps. remote.go
 // has the threat model these are measured against.
 //
-// Three things decide whether a request is carried out:
+// Four things decide whether a request is carried out:
 //
 //   - the caller's class: an owner — an untagged node of this node's own
 //     user — or a guest, anyone else (remote_auth.go, classOf);
@@ -15,6 +15,10 @@ package appctr
 //     which the feature's switch gives, or full control, a second switch
 //     (remote_level.go). Full control is for what shows more of the device to
 //     a network or shows what is on it, and is the owner's only;
+//   - the device's network access to files, a third switch there and a
+//     ceiling over the other two: while it is off, nothing that lists, sends
+//     or shares the device's files, and neither the log nor the report, is
+//     anybody's, whatever the class and the level (remote_files.go);
 //   - the name: an operation, a setting, an action or a permission that is not
 //     on its list here does not exist.
 //
@@ -84,6 +88,9 @@ type remotePolicy struct {
 	Rights map[string]remoteClass
 	// Full names the operations that need full control on top of their class.
 	Full map[string]bool
+	// Files names the operations that need the device's network access to
+	// files on top of their class and level (remote_files.go).
+	Files map[string]bool
 	// GuardTTL is how long a guarded change waits for its confirmation before
 	// the device puts the old value back; GuardSettle how long after the
 	// change a confirmation is not yet taken — it has to come over a channel
@@ -181,6 +188,17 @@ func remoteDefaultPolicy() remotePolicy {
 			remoteOpDiagReport:  true,
 			remoteOpDiagLog:     true,
 		},
+		// The device's files by name, the folders it shares, and what it
+		// writes down about itself.
+		Files: map[string]bool{
+			remoteOpFolders:      true,
+			remoteOpSharesRemove: true,
+			remoteOpSharesAdd:    true,
+			remoteOpStorageList:  true,
+			remoteOpStorageSend:  true,
+			remoteOpDiagReport:   true,
+			remoteOpDiagLog:      true,
+		},
 		GuardTTL:    60 * time.Second,
 		GuardSettle: 5 * time.Second,
 	}
@@ -194,6 +212,12 @@ func (p remotePolicy) allows(op string, class remoteClass) bool {
 		min = remoteOwner
 	}
 	return class >= min && class > remoteNobody
+}
+
+// opens reports whether class may use op with the full-control tier and the
+// device's files open to it or closed.
+func (p remotePolicy) opens(op string, class remoteClass, full, files bool) bool {
+	return p.allows(op, class) && (full || !p.Full[op]) && (files || !p.Files[op])
 }
 
 // remoteSetting is one entry of the settings allow-list.
@@ -215,6 +239,9 @@ type remoteSetting struct {
 	// the caller asks for that, "always" when it is whatever the caller asks
 	// (remote_guard.go).
 	guard string
+	// files: the setting is part of the device's files too — written neither
+	// way, by nobody, while network access to them is closed (remote_files.go).
+	files bool
 }
 
 // remoteSettings is the whole list of what /v1/settings shows and changes.
@@ -253,6 +280,9 @@ type remoteSetting struct {
 //   - advertise_exit_node: offering the device as an exit node.
 //   - advertise_routes: the subnets it offers to route; an empty list clears.
 //
+// The first two are the shared folders' as well: while the device's network
+// access to files is closed, they are written neither way (remote_files.go).
+//
 // And full_control itself, off only: a paired owner can give the level up and
 // never take it.
 //
@@ -266,8 +296,8 @@ var remoteSettings = []remoteSetting{
 	{key: "auto_reconnect", kind: "bool", writable: true, only: "true"},
 	{key: "auto_start", kind: "bool", writable: true, only: "true"},
 	{key: "keep_awake", kind: "bool", writable: true, only: "true"},
-	{key: "taildrive_enabled", kind: "bool", writable: true, full: "true"},
-	{key: "taildrive_proxy_enabled", kind: "bool", writable: true, full: "true"},
+	{key: "taildrive_enabled", kind: "bool", writable: true, full: "true", files: true},
+	{key: "taildrive_proxy_enabled", kind: "bool", writable: true, full: "true", files: true},
 	{key: "advertise_exit_node", kind: "bool", writable: true, full: "true"},
 	{key: "advertise_routes", kind: "cidrs", writable: true, full: "*"},
 	{key: remoteKeyFullControl, kind: "bool", writable: true, only: "false"},
@@ -344,6 +374,7 @@ var remoteCaps = []string{
 	"advertise",   // advertise_exit_node, advertise_routes, status.advertise
 	"diag",        // GET /v1/diag/report, GET /v1/diag/log
 	"elevate",     // POST /v1/elevate/request, status.you.elevated
+	"files",       // status.files, status.you.elevated.noFiles: the device's network access to files
 }
 
 func remoteSettingFor(key string) (remoteSetting, bool) {

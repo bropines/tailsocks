@@ -17,7 +17,10 @@ package appctr
 // switch for it is on — or when the person who gave the rights added it to
 // them. That second way is part of the grant, not a turn of the device's
 // switch: it ends with the grant by construction, no write can leave it on
-// behind, and the owners' devices get nothing from it meanwhile. Nothing on
+// behind, and the owners' devices get nothing from it meanwhile. The device's
+// network access to files is a ceiling here as everywhere (remote_files.go),
+// and the grant keeps what it was when they were given: given while it was
+// off, they never include the files, whatever it is later. Nothing on
 // the lists of remote_policy.go grows: what no owner may do from afar — stop
 // TailSocks for good, sign out, accounts and the login server, credentials,
 // the control proxy and bypass, Root Mode, granting a permission, switching
@@ -96,6 +99,9 @@ type remoteElevatedView struct {
 	Until   int64 `json:"until"`
 	Seconds int64 `json:"seconds"`
 	Full    bool  `json:"full,omitempty"`
+	// NoFiles: they were given while the device's network access to files
+	// was off, and never include the files (remote_files.go).
+	NoFiles bool `json:"noFiles,omitempty"`
 }
 
 // elevationAllowedLocked is whether full rights may be given and used here
@@ -124,7 +130,7 @@ func (m *remoteManager) elevatedViewLocked(p *remotePairing, named bool) *remote
 	if e == nil {
 		return nil
 	}
-	v := &remoteElevatedView{Left: left, Until: m.clock.Now().Unix() + left, Seconds: e.Seconds, Full: e.Full}
+	v := &remoteElevatedView{Left: left, Until: m.clock.Now().Unix() + left, Seconds: e.Seconds, Full: e.Full, NoFiles: e.NoFiles}
 	if named {
 		v.NodeID, v.Name = p.NodeID, p.Name
 	}
@@ -267,20 +273,22 @@ type remoteElevateAnswer struct {
 	// given; for a take-back: it holds from now on and is being written.
 	Error string `json:"error,omitempty"`
 	// What was given: the seconds left, the end by this device's clock, the
-	// length — a pairing that ends sooner shortens it — and the full-control
-	// tier.
+	// length — a pairing that ends sooner shortens it — the full-control
+	// tier, and whether the device's files were left out of them.
 	Left    int64 `json:"left,omitempty"`
 	Until   int64 `json:"until,omitempty"`
 	Seconds int64 `json:"seconds,omitempty"`
 	Full    bool  `json:"full,omitempty"`
+	NoFiles bool  `json:"noFiles,omitempty"`
 }
 
 // RemoteElevate gives the guest paired as nodeID an owner's rights for seconds
 // — 900, 3600, 28800, or 0 for "until its pairing ends" — and the full-control
 // tier as well when full. For the app alone, after a person at the device
 // unlocked it: no route of the endpoint leads here. Giving again replaces what
-// was given. Returns {"ok","left","until","seconds","full"} or {"ok":false,
-// "error"}; see remoteElevateAnswer.
+// was given. The device's files come with the rights only while its network
+// access to files is on (remote_files.go). Returns {"ok","left","until",
+// "seconds","full","noFiles"} or {"ok":false,"error"}; see remoteElevateAnswer.
 func RemoteElevate(nodeID string, seconds int64, full bool) string {
 	return remoteReply(remote.elevate(nodeID, seconds, full))
 }
@@ -318,7 +326,10 @@ func (m *remoteManager) elevate(nodeID string, seconds int64, full bool) remoteE
 		return remoteElevateAnswer{Error: "not_paired"}
 	}
 	before, wasUnsaved := p.Elevation, m.store.unsaved
-	m.store.elevate(p, length, full)
+	// The files as they are now are part of the grant: the person giving it
+	// was told whether they come with it.
+	noFiles := !m.files
+	m.store.elevate(p, length, full, noFiles)
 	detail := strconv.FormatInt(length, 10)
 	if full {
 		detail += ": full"
@@ -329,10 +340,10 @@ func (m *remoteManager) elevate(nodeID string, seconds int64, full bool) remoteE
 		m.store.unsaved = wasUnsaved
 		return remoteElevateAnswer{Error: "not_saved"}
 	}
-	slog.Info("Remote management: full rights given", "device", p.Name, "node", p.NodeID, "seconds", length, "full", full)
+	slog.Info("Remote management: full rights given", "device", p.Name, "node", p.NodeID, "seconds", length, "full", full, "files", !noFiles)
 	m.armElevationTimerLocked()
 	m.tellElevations()
-	return remoteElevateAnswer{OK: true, Left: length, Until: m.clock.Now().Unix() + length, Seconds: length, Full: full}
+	return remoteElevateAnswer{OK: true, Left: length, Until: m.clock.Now().Unix() + length, Seconds: length, Full: full, NoFiles: noFiles}
 }
 
 // RemoteElevateEnd takes the full rights of the guest paired as nodeID back, at
@@ -421,7 +432,7 @@ func (m *remoteManager) canFor(rq *remoteRequest) []string {
 	ask := rq.paired == remoteGuest && rq.elevated == nil && m.elevationAllowedLocked()
 	m.mu.Unlock()
 	out := []string{}
-	for _, op := range m.can(rq.class, rq.full) {
+	for _, op := range m.can(rq.class, rq.full, rq.files) {
 		if op != remoteOpElevateAsk || ask {
 			out = append(out, op)
 		}

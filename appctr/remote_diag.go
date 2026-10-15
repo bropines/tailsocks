@@ -1,7 +1,8 @@
 package appctr
 
 // remote_diag.go — the diagnostics report and the tail of the log, for an
-// owner, with full control on.
+// owner, with full control and the device's network access to files on
+// (remote_files.go).
 //
 // The report is the app's own "report a problem": versions, device,
 // permissions, network, mode. It is written to be handed to a stranger and

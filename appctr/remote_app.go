@@ -48,7 +48,7 @@ import (
 //	share_remove    {"name"}                        ""
 //	diag_report     ""                              the diagnostics report, text
 //	elevate_ask     {"from","nodeId","seconds"}     "shown" | "notified" | "waiting"
-//	elevations      {"elevations":[{"nodeId","name","left","until","seconds","full"}]}   ""
+//	elevations      {"elevations":[{"nodeId","name","left","until","seconds","full","noFiles"}]}   ""
 //
 // elevate_ask puts a guest's request for full rights in front of the person at
 // the device, and elevations tells the app which full rights are in force after
@@ -330,15 +330,16 @@ func (m *remoteManager) forgetReport() {
 	m.mu.Unlock()
 }
 
-// appReport is the report as a caller of this class may see it — only an
-// owner is told that a permission can be asked for or the folder reset, and
-// only an owner is given the shared folders' names and paths — and, apart
-// from it, what the app said the device is.
-func (m *remoteManager) appReport(class remoteClass) (*remoteAppReport, *remoteDeviceFacts) {
+// appReport is the report as this caller may see it — only an owner is told
+// that a permission can be asked for or the folder reset, and only an owner
+// with the device's files open to it is given the shared folders' names and
+// paths — and, apart from it, what the app said the device is.
+func (m *remoteManager) appReport(rq *remoteRequest) (*remoteAppReport, *remoteDeviceFacts) {
 	rep := m.freshReport()
 	if rep == nil {
 		return nil, nil
 	}
+	class := rq.class
 	out := *rep
 	mayAsk := m.policy.allows(remoteOpAskPermission, class)
 	out.Permissions = make([]remotePermission, len(rep.Permissions))
@@ -347,7 +348,7 @@ func (m *remoteManager) appReport(class remoteClass) (*remoteAppReport, *remoteD
 		out.Permissions[i] = p
 	}
 	out.Receive.Reset = rep.Receive.Reset && m.policy.allows(remoteOpAction, class)
-	if !m.policy.allows(remoteOpFolders, class) {
+	if !m.policy.opens(remoteOpFolders, class, rq.full, rq.files) {
 		out.Folders = nil
 	}
 	out.Device = nil

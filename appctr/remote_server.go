@@ -43,11 +43,13 @@ type remoteRequest struct {
 	// the two routes that need none. class is what the caller acts as — an
 	// owner, for a guest whose full rights are in force (remote_elevate.go) —
 	// and paired what it paired as; elevated describes those rights, nil
-	// while there are none. full: the full-control tier is open to it.
+	// while there are none. full: the full-control tier is open to it; files:
+	// the device's files are (remote_files.go).
 	class    remoteClass
 	paired   remoteClass
 	left     int64
 	full     bool
+	files    bool
 	elevated *remoteElevatedView
 	body     []byte
 	// modern: the caller's bridge knows more than the first build's API
@@ -91,7 +93,8 @@ type remoteRoute struct {
 // show a page. What comes after it in the list is newer: a confirmation of a
 // guarded change, "say whose hands you are in", and what takes full control —
 // the storage by name, shares, the diagnostics and the scrubbed log
-// (remote_level.go).
+// (remote_level.go) — and the device's network access to files as well
+// (remote_files.go).
 var remoteRoutes = []remoteRoute{
 	{"GET", "/v1/hello", "", (*remoteManager).handleHello},
 	{"POST", "/v1/pair", "", (*remoteManager).handlePair},
@@ -206,18 +209,23 @@ func (m *remoteManager) serveHTTP(w http.ResponseWriter, r *http.Request) {
 			remoteWrite(w, http.StatusUnauthorized, remoteError{Error: "unauthorized"})
 			return
 		}
-		if ok, needsFull := m.may(route.op, auth.class, auth.full); !ok {
-			if needsFull {
+		if ok, needs := m.may(route.op, auth.class, auth.full, auth.files); !ok {
+			switch needs {
+			case remoteNeedsFiles:
+				// The caller's, but for the device's files, which are closed.
+				m.noteDenied(caller, auth.class, remoteDeniedOpFiles, route.op)
+				remoteWrite(w, http.StatusForbidden, remoteFilesClosed)
+			case remoteNeedsFullTier:
 				// The caller's, at a level the device is not at.
 				m.noteDenied(caller, auth.class, remoteDeniedOpLevel, route.op)
 				remoteWrite(w, http.StatusForbidden, remoteNeedsFull)
-				return
+			default:
+				m.noteDenied(caller, auth.class, remoteDeniedOp, route.op)
+				remoteWrite(w, http.StatusForbidden, remoteError{Error: "forbidden"})
 			}
-			m.noteDenied(caller, auth.class, remoteDeniedOp, route.op)
-			remoteWrite(w, http.StatusForbidden, remoteError{Error: "forbidden"})
 			return
 		}
-		rq.class, rq.paired, rq.left, rq.full, rq.elevated = auth.class, auth.paired, auth.left, auth.full, auth.elevated
+		rq.class, rq.paired, rq.left, rq.full, rq.files, rq.elevated = auth.class, auth.paired, auth.left, auth.full, auth.files, auth.elevated
 	}
 	if r.Method == http.MethodPost {
 		body, status := remoteReadBody(w, r)
@@ -278,12 +286,14 @@ var remoteDummyHash = remoteHashToken("no such pairing")
 // remoteAuth is what authorize found the caller may act as: class, which is an
 // owner's for a guest whose full rights are in force, paired, the class it
 // paired as, the seconds its pairing has left (-1: until revoked), whether the
-// full-control tier is open to it, and those full rights.
+// full-control tier and the device's files are open to it, and those full
+// rights.
 type remoteAuth struct {
 	class    remoteClass
 	paired   remoteClass
 	left     int64
 	full     bool
+	files    bool
 	elevated *remoteElevatedView
 }
 
@@ -330,11 +340,13 @@ func (m *remoteManager) authorize(c remoteCaller, self remoteSelf, token string)
 	if m.store.stale() {
 		m.saveLocked()
 	}
-	auth := remoteAuth{class: class, paired: class, left: m.store.left(p), full: m.full}
+	auth := remoteAuth{class: class, paired: class, left: m.store.left(p), full: m.full, files: m.files}
 	if v := m.elevatedViewLocked(p, false); v != nil {
 		// Full rights for a while: an owner until they end, with the full
-		// tier when the device's switch or the grant opens it.
+		// tier when the device's switch or the grant opens it, and the files
+		// only if they were open when the rights were given.
 		auth.class, auth.full, auth.elevated = remoteOwner, m.full || v.Full, v
+		auth.files = m.files && !v.NoFiles
 	}
 	return auth, true
 }
@@ -364,6 +376,8 @@ const (
 	remoteDeniedAction                           // + the name as it came: not an action
 	remoteDeniedPermission                       // + the name as it came: not a permission that can be asked for
 	remoteDeniedFile                             // + the file's name: the app named a file outside the storage
+	remoteDeniedOpFiles                          // + the operation: the device's network access to files is off
+	remoteDeniedSettingFiles                     // + key=value: the same, for a setting that belongs to the files
 	remoteDenialCount
 )
 
@@ -379,6 +393,8 @@ var remoteDenialNames = [remoteDenialCount]string{
 	remoteDeniedAction:       "action_unknown",
 	remoteDeniedPermission:   "permission_unknown",
 	remoteDeniedFile:         "file_outside_storage",
+	remoteDeniedOpFiles:      "op_needs_files",
+	remoteDeniedSettingFiles: "setting_needs_files",
 }
 
 // detail is the "denied" line's detail for this reason and what it was about.
@@ -779,6 +795,11 @@ type remoteStatus struct {
 	// "basic" or "full" (remote_level.go).
 	Caps  []string `json:"caps"`
 	Level string   `json:"level"`
+	// Files is "open" or "closed": whether the device's network access to
+	// files lets this caller at them (remote_files.go). Said to an owner, and
+	// to a guest while its full rights last; absent for anyone else, who has
+	// none of them to be let at.
+	Files string `json:"files,omitempty"`
 	// Guard is the caller's change that waits for a confirmation, if one
 	// does (remote_guard.go); Fetch its last "send me this file"
 	// (remote_storage.go).
@@ -817,6 +838,9 @@ func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
 	if st.Since < 0 {
 		st.Since = 0
 	}
+	if rq.class == remoteOwner {
+		st.Files = remoteFilesWord(rq.files)
+	}
 	for i, h := range s.Health {
 		if i == 10 {
 			break
@@ -829,7 +853,7 @@ func (m *remoteManager) handleStatus(rq *remoteRequest) (int, any) {
 			st.ExitNode.Name, st.ExitNode.Country, st.ExitNode.City = n.Name, n.Country, n.City
 		}
 	}
-	st.App, st.Device = m.appReport(rq.class)
+	st.App, st.Device = m.appReport(rq)
 	if st.Device == nil {
 		st.Device = &remoteDeviceFacts{}
 	} else {
@@ -1027,13 +1051,12 @@ type remoteSettingView struct {
 
 func (m *remoteManager) handleSettings(rq *remoteRequest) (int, any) {
 	mayWrite := m.policy.allows(remoteOpSetSetting, rq.class)
-	full := rq.full
 	out := []remoteSettingView{}
 	for _, s := range remoteSettings {
 		if !rq.modern && !remoteFirstSettings[s.key] {
 			continue
 		}
-		v := remoteSettingViewOf(s, mayWrite, full)
+		v := remoteSettingViewOf(s, mayWrite, rq.full, rq.files)
 		if !rq.modern {
 			// As the first build said them: none of the newer marks.
 			v.Guard = ""
@@ -1099,7 +1122,11 @@ func (m *remoteManager) handleSetSetting(rq *remoteRequest) (int, any) {
 		// The app is handed the list as the bridge read it, not as it came.
 		value, _ = remoteRoutesValue(in.Value)
 	}
-	switch remoteSettingRefusal(s, value, rq.full) {
+	switch remoteSettingRefusal(s, value, rq.full, rq.files) {
+	case "files":
+		// The app is not asked: neither way while the device's files are closed.
+		m.noteDenied(rq.caller, rq.class, remoteDeniedSettingFiles, s.key+"="+value)
+		return http.StatusForbidden, remoteFilesClosed
 	case "only":
 		// The app is not asked: from afar this switch goes one way.
 		m.noteDenied(rq.caller, rq.class, remoteDeniedSettingOnly, s.key+"="+value)
