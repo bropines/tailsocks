@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Policy editor: a "TailSocks remote management" template — choose who manages whose devices; it writes the rule for port 28115 and a test.
 - Policy tab: copy the policy, or copy or share it for an AI agent together with the network's map, behind fingerprint or screen lock.
 - Remote management: pull the page down to read the device again.
+- Remote management: a "Network access to files" switch — off unless Full control was on — opens or closes storage, shared folders, the log and the report; temporary rights never go past it, and the managing phone asks its own lock before showing them.
 
 ### Fixed
 
