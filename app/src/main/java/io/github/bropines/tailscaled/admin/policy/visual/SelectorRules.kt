@@ -29,6 +29,10 @@ enum class SelectorSlot {
     RELAY_SRC,
     /** The devices that relay for them (a grant's `dst`). */
     RELAY_DST,
+    /** Who manages other devices' TailSocks (the remote-management template's `src`): people and tags. */
+    REMOTE_FROM,
+    /** Whose devices they manage (its destinations): people, tags, or each manager's own devices. */
+    REMOTE_TO,
 }
 
 /** Why a selector cannot go where it was put. */
@@ -84,6 +88,7 @@ object SelectorRules {
         SelectorSlot.POSTURE -> kinds(SelectorKind.POSTURE)
         // Relays serve only devices of their own tailnet: no other tailnet's groups or tags.
         SelectorSlot.RELAY_SRC, SelectorSlot.RELAY_DST -> ACCESS_SRC
+        SelectorSlot.REMOTE_FROM, SelectorSlot.REMOTE_TO -> kinds(SelectorKind.AUTOGROUP, SelectorKind.GROUP, SelectorKind.TAG, SelectorKind.USER)
     }
 
     private val HEADSCALE_NEVER = kinds(SelectorKind.USER_DOMAIN, SelectorKind.IPSET, SelectorKind.SERVICE, SelectorKind.POSTURE,
@@ -105,6 +110,9 @@ object SelectorRules {
             }
             // An app capability takes no role or internet autogroup as its destination.
             SelectorSlot.RELAY_DST -> return Selectors.AUTOGROUPS.filter { it.raw in RELAY_DST_AUTOGROUPS }
+            // Every member on the managing side, their own devices on the managed one; both on Headscale too.
+            SelectorSlot.REMOTE_FROM -> return Selectors.AUTOGROUPS.filter { it.raw == "autogroup:member" }
+            SelectorSlot.REMOTE_TO -> return Selectors.AUTOGROUPS.filter { it.raw == "autogroup:self" }
             else -> return emptyList()
         }
         return Selectors.AUTOGROUPS.filter { use in it.uses && (!headscale || (it.headscale && headscaleAllows(it.raw, slot))) }
