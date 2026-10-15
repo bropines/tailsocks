@@ -9,6 +9,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Remote management: a guest can be given an owner's rights for 15 minutes up to a day, confirmed at the device with its lock; a guest can ask for them, and Settings can turn this off.
 - Policy editor: a "TailSocks remote management" template — choose who manages whose devices; it writes the rule for port 28115 and a test.
 - Policy templates are data: each opens a page with its fields, a preview of exactly what it adds, and Apply; a catalog lists them and fetches new ones from the project site.
+- Eleven more policy templates: lock it down, exit nodes and subnets by tag, SSH for admins, a DNS server, k3s, Taildrive between groups, Funnel, Mullvad, an app connector, device posture.
 - Policy tab: copy the policy, or copy or share it for an AI agent together with the network's map, behind fingerprint or screen lock.
 - Remote management: pull the page down to read the device again.
 - Remote management: a "Network access to files" switch — off unless Full control was on — opens or closes storage, shared folders, the log and the report; temporary rights never go past it, and the managing phone asks its own lock before showing them.
