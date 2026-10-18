@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Words a television is told instead of a phone's, where the phone's are worth keeping on a phone
+  (chosen at run time by isTv): a battery and a charger, a phone as the device in hand. And the
+  words the walk through the app in Russian found written into the code.
+--><resources>
+    <string name="client_prefs_relay_desc_tv"></string>
+    <string name="client_prefs_connector_desc_tv"></string>
+    <string name="tka_state_off_help_tv"></string>
+    <string name="first_start_chip_proxy"></string>
+    <string name="first_start_chip_vpn"></string>
+    <string name="settings_diag_service_script"></string>
+</resources>
