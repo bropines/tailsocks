@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Local proxies → Reachable from the tailnet (ui/TailnetReachSettings.kt, core/TailnetReach.kt). -->
+    <string name="tailnet_reach_card"></string>
+    <string name="tailnet_reach_intro"></string>
+    <string name="tailnet_reach_vpn"></string>
+    <string name="tailnet_reach_interface"></string>
+    <!-- The rows. -->
+    <string name="tailnet_reach_socks5"></string>
+    <string name="tailnet_reach_socks5_help"></string>
+    <string name="tailnet_reach_http"></string>
+    <string name="tailnet_reach_http_help"></string>
+    <string name="tailnet_reach_dns"></string>
+    <string name="tailnet_reach_dns_help"></string>
+    <string name="tailnet_reach_drive"></string>
+    <string name="tailnet_reach_drive_help"></string>
+    <!-- A row's state, before its explanation. -->
+    <string name="tailnet_reach_state_closed"></string>
+    <string name="tailnet_reach_state_open"></string>
+    <string name="tailnet_reach_state_open_port"></string>
+    <string name="tailnet_reach_state_off"></string>
+    <string name="tailnet_reach_state_alias"></string>
+    <string name="tailnet_reach_state_interface"></string>
+    <string name="tailnet_reach_state_interface_wildcard"></string>
+    <!-- Warnings and the question before SOCKS5 opens without a password. -->
+    <string name="tailnet_reach_socks5_no_password"></string>
+    <string name="tailnet_reach_set_password"></string>
+    <string name="tailnet_reach_drive_no_login"></string>
+    <string name="tailnet_reach_socks5_ask_title"></string>
+    <string name="tailnet_reach_socks5_ask_text"></string>
+    <string name="tailnet_reach_set_password_and_open"></string>
+    <string name="tailnet_reach_open_anyway"></string>
+    <!-- Strict mode: other apps' services closed too, and the ports it leaves open. -->
+    <string name="tailnet_reach_strict"></string>
+    <string name="tailnet_reach_strict_help"></string>
+    <string name="tailnet_reach_extra"></string>
+    <string name="tailnet_reach_extra_desc"></string>
+    <string name="tailnet_reach_extra_bad"></string>
+    <string name="tailnet_reach_extra_own"></string>
+    <!-- What the settings search finds these rows by. -->
+    <string name="search_kw_tailnet_socks5"></string>
+    <string name="search_kw_tailnet_http_proxy"></string>
+    <string name="search_kw_tailnet_dns_proxy"></string>
+    <string name="search_kw_tailnet_drive_proxy"></string>
+    <string name="search_kw_tailnet_strict"></string>
+    <string name="search_kw_tailnet_extra_ports"></string>
+    <string name="search_need_tailnet_strict"></string>
+</resources>
