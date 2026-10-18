@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's safety pipeline, profiles and credential handling (4.9.0). --><resources>
+    <!-- Opening the console -->
+    <string name="admin2_view_unlock_title"></string>
+    <string name="admin2_view_unlock_subtitle"></string>
+    <string name="admin2_view_unlock_unavailable"></string>
+    <!-- Read-only states -->
+    <string name="admin2_readonly_no_lock_title"></string>
+    <string name="admin2_readonly_no_lock_desc"></string>
+    <string name="admin2_readonly_profile_title"></string>
+    <string name="admin2_readonly_profile_desc"></string>
+    <string name="admin2_readonly_scope_title"></string>
+    <!-- Unlocking a change -->
+    <string name="admin2_write_unlock_title"></string>
+    <string name="admin2_unlock_cancelled"></string>
+    <string name="admin2_unlock_lockout"></string>
+    <string name="admin2_unlock_unavailable"></string>
+    <string name="admin2_unlock_not_proven"></string>
+    <string name="admin2_unlock_no_lock"></string>
+    <string name="admin2_unlock_error"></string>
+    <!-- Refusals -->
+    <string name="admin2_refused_read_only"></string>
+    <string name="admin2_refused_not_allowed"></string>
+    <string name="admin2_refused_own_credential"></string>
+    <string name="admin2_refused_own_user"></string>
+    <string name="admin2_refused_shared"></string>
+    <string name="admin2_refused_gates"></string>
+    <string name="admin2_refused_policy"></string>
+    <!-- The confirm dialog -->
+    <string name="admin2_class_low"></string>
+    <string name="admin2_class_medium"></string>
+    <string name="admin2_class_high"></string>
+    <string name="admin2_class_policy"></string>
+    <string name="admin2_confirm_target"></string>
+    <string name="admin2_confirm_diff"></string>
+    <string name="admin2_confirm_before"></string>
+    <string name="admin2_confirm_after"></string>
+    <string name="admin2_confirm_nothing"></string>
+    <string name="admin2_confirm_type"></string>
+    <string name="admin2_confirm_type_label"></string>
+    <string name="admin2_confirm_unlock_note"></string>
+    <string name="admin2_confirm_apply"></string>
+    <string name="admin2_confirm_this_device"></string>
+    <string name="admin2_applying"></string>
+    <!-- Outcomes -->
+    <string name="admin2_outcome_verified"></string>
+    <string name="admin2_outcome_applied"></string>
+    <string name="admin2_outcome_mismatch"></string>
+    <string name="admin2_outcome_failed"></string>
+    <string name="admin2_undo"></string>
+    <!-- API errors -->
+    <string name="admin2_error_unauthorized"></string>
+    <string name="admin2_error_payment"></string>
+    <string name="admin2_error_forbidden_scope"></string>
+    <string name="admin2_error_forbidden"></string>
+    <string name="admin2_error_not_found"></string>
+    <string name="admin2_error_conflict"></string>
+    <string name="admin2_error_precondition"></string>
+    <string name="admin2_error_bad_request"></string>
+    <string name="admin2_error_bad_request_plain"></string>
+    <string name="admin2_error_rate_limited"></string>
+    <string name="admin2_error_server"></string>
+    <string name="admin2_error_network"></string>
+    <string name="admin2_error_decode"></string>
+    <string name="admin2_error_unsupported"></string>
+    <string name="admin2_error_other"></string>
+    <string name="admin2_error_request_id"></string>
+    <string name="admin2_retry"></string>
+    <plurals name="admin2_unreadable_items">
+    </plurals>
+    <!-- Credentials -->
+    <string name="admin2_credential_missing"></string>
+    <string name="admin2_credential_unreadable"></string>
+    <string name="admin2_credential_fix"></string>
+    <string name="admin2_secret_show"></string>
+    <string name="admin2_secret_hide"></string>
+    <string name="admin2_secret_stored"></string>
+    <string name="admin2_secret_copy"></string>
+    <string name="admin2_secret_saved"></string>
+    <string name="admin2_secret_copied"></string>
+    <string name="admin2_secret_once"></string>
+    <string name="admin2_webhook_secret_title"></string>
+    <string name="admin2_webhook_secret_text"></string>
+    <!-- Profiles -->
+    <string name="admin2_profile_add"></string>
+    <string name="admin2_profile_new_title"></string>
+    <string name="admin2_profile_edit_title"></string>
+    <string name="admin2_profile_edit"></string>
+    <string name="admin2_profile_delete"></string>
+    <string name="admin2_profile_delete_title"></string>
+    <string name="admin2_profile_delete_text"></string>
+    <string name="admin2_profile_intro"></string>
+    <string name="admin2_profile_name"></string>
+    <string name="admin2_profile_name_placeholder"></string>
+    <string name="admin2_profile_advanced"></string>
+    <string name="admin2_profile_base_url"></string>
+    <string name="admin2_profile_base_url_help"></string>
+    <string name="admin2_profile_url_https"></string>
+    <string name="admin2_profile_url_malformed"></string>
+    <string name="admin2_profile_url_userinfo"></string>
+    <string name="admin2_profile_tailnet"></string>
+    <string name="admin2_profile_tailnet_help"></string>
+    <string name="admin2_profile_read_only"></string>
+    <string name="admin2_profile_read_only_desc"></string>
+    <string name="admin2_profile_save"></string>
+    <string name="admin2_profile_save_anyway"></string>
+    <string name="admin2_profile_checking"></string>
+    <string name="admin2_profile_check_failed"></string>
+    <string name="admin2_profile_secret_required"></string>
+    <string name="admin2_profile_client_id_required"></string>
+    <string name="admin2_profile_switch_title"></string>
+    <string name="admin2_profile_read_only_badge"></string>
+    <string name="admin2_auth_token_help"></string>
+    <string name="admin2_auth_oauth_help"></string>
+    <string name="admin2_unlock_to_allow_writes"></string>
+    <string name="admin2_settings_none"></string>
+    <!-- Devices -->
+    <plurals name="admin2_devices_count">
+    </plurals>
+    <string name="admin2_device_online"></string>
+    <string name="admin2_device_last_seen"></string>
+    <string name="admin2_device_shared"></string>
+    <string name="admin2_device_this_phone"></string>
+    <string name="admin2_device_multiple_connections"></string>
+    <string name="admin2_device_lock_error"></string>
+    <string name="admin2_device_rename_help"></string>
+    <string name="admin2_device_tags_owner_warning"></string>
+    <string name="admin2_device_tags_none"></string>
+    <string name="admin2_device_tags_new"></string>
+    <string name="admin2_device_tags_invalid"></string>
+    <string name="admin2_device_routes_unreadable"></string>
+    <!-- Users -->
+    <string name="admin2_user_you"></string>
+    <string name="admin2_role_owner"></string>
+    <string name="admin2_role_admin"></string>
+    <string name="admin2_role_it_admin"></string>
+    <string name="admin2_role_network_admin"></string>
+    <string name="admin2_role_billing_admin"></string>
+    <string name="admin2_role_auditor"></string>
+    <string name="admin2_role_member"></string>
+    <string name="admin2_status_active"></string>
+    <string name="admin2_status_idle"></string>
+    <string name="admin2_status_suspended"></string>
+    <string name="admin2_status_needs_approval"></string>
+    <string name="admin2_status_over_billing_limit"></string>
+    <string name="admin2_user_type_member"></string>
+    <string name="admin2_user_type_shared"></string>
+    <plurals name="admin2_user_devices">
+    </plurals>
+    <!-- Keys -->
+    <string name="admin2_key_type_auth"></string>
+    <string name="admin2_key_type_api"></string>
+    <string name="admin2_key_type_client"></string>
+    <string name="admin2_key_type_federated"></string>
+    <string name="admin2_key_type_unknown"></string>
+    <string name="admin2_key_reusable"></string>
+    <string name="admin2_key_reusable_desc"></string>
+    <string name="admin2_key_ephemeral_desc"></string>
+    <string name="admin2_key_preauth_desc"></string>
+    <!-- Webhooks -->
+    <plurals name="admin2_webhook_events">
+    </plurals>
+    <string name="admin2_webhook_provider"></string>
+    <string name="admin2_webhook_provider_plain"></string>
+    <string name="admin2_webhook_provider_slack" translatable="false"></string>
+    <string name="admin2_webhook_provider_mattermost" translatable="false"></string>
+    <string name="admin2_webhook_provider_googlechat" translatable="false"></string>
+    <string name="admin2_webhook_provider_discord" translatable="false"></string>
+    <!-- Tailnet settings -->
+    <string name="admin2_settings_https_title"></string>
+    <string name="admin2_settings_route_selection_title"></string>
+    <string name="admin2_route_failover"></string>
+    <string name="admin2_route_regional"></string>
+    <string name="admin2_route_regional_failover"></string>
+    <string name="admin2_settings_unknown"></string>
+    <!-- The console's own log -->
+    <string name="admin2_result_verified"></string>
+    <string name="admin2_result_applied"></string>
+    <string name="admin2_result_mismatch"></string>
+    <string name="admin2_result_failed"></string>
+    <string name="admin2_result_refused"></string>
+    <!-- Changes: titles and effects -->
+    <string name="admin2_change_rename"></string>
+    <string name="admin2_change_rename_effect"></string>
+    <string name="admin2_change_tags"></string>
+    <string name="admin2_change_tags_effect"></string>
+    <string name="admin2_change_routes"></string>
+    <string name="admin2_change_routes_effect"></string>
+    <string name="admin2_change_exit_on"></string>
+    <string name="admin2_change_exit_off"></string>
+    <string name="admin2_change_exit_effect"></string>
+    <string name="admin2_change_authorize"></string>
+    <string name="admin2_change_authorize_effect"></string>
+    <string name="admin2_change_deauthorize"></string>
+    <string name="admin2_change_deauthorize_effect"></string>
+    <string name="admin2_change_expiry_off"></string>
+    <string name="admin2_change_expiry_off_effect"></string>
+    <string name="admin2_change_expiry_on"></string>
+    <string name="admin2_change_expiry_on_effect"></string>
+    <string name="admin2_change_expire"></string>
+    <string name="admin2_change_expire_effect"></string>
+    <string name="admin2_change_delete_device"></string>
+    <string name="admin2_change_delete_device_effect"></string>
+    <string name="admin2_change_key_create"></string>
+    <string name="admin2_change_key_create_effect"></string>
+    <string name="admin2_change_key_revoke"></string>
+    <string name="admin2_change_key_revoke_effect"></string>
+    <string name="admin2_change_user_approve"></string>
+    <string name="admin2_change_user_approve_effect"></string>
+    <string name="admin2_change_user_role"></string>
+    <string name="admin2_change_user_role_effect"></string>
+    <string name="admin2_change_user_suspend"></string>
+    <string name="admin2_change_user_suspend_effect"></string>
+    <string name="admin2_change_user_restore"></string>
+    <string name="admin2_change_user_restore_effect"></string>
+    <string name="admin2_change_user_delete"></string>
+    <string name="admin2_change_user_delete_effect"></string>
+    <string name="admin2_change_magicdns_on"></string>
+    <string name="admin2_change_magicdns_off"></string>
+    <string name="admin2_change_magicdns_on_effect"></string>
+    <string name="admin2_change_magicdns_off_effect"></string>
+    <string name="admin2_change_nameservers"></string>
+    <string name="admin2_change_nameservers_effect"></string>
+    <string name="admin2_change_nameservers_none_effect"></string>
+    <string name="admin2_change_split_add"></string>
+    <string name="admin2_change_split_add_effect"></string>
+    <string name="admin2_change_split_remove"></string>
+    <string name="admin2_change_split_remove_effect"></string>
+    <string name="admin2_change_search"></string>
+    <string name="admin2_change_search_effect"></string>
+    <string name="admin2_change_setting"></string>
+    <string name="admin2_change_setting_effect"></string>
+    <string name="admin2_change_webhook_create"></string>
+    <string name="admin2_change_webhook_create_effect"></string>
+    <string name="admin2_change_webhook_test"></string>
+    <string name="admin2_change_webhook_delete"></string>
+    <string name="admin2_change_webhook_delete_effect"></string>
+    <string name="admin2_change_service_host_on"></string>
+    <string name="admin2_change_service_host_off"></string>
+    <string name="admin2_change_service_host_effect"></string>
+    <string name="admin2_change_service_publish"></string>
+    <string name="admin2_change_service_publish_effect"></string>
+    <string name="admin2_diff_name"></string>
+    <string name="admin2_diff_tags"></string>
+    <string name="admin2_diff_routes"></string>
+    <string name="admin2_diff_role"></string>
+    <string name="admin2_diff_status"></string>
+    <string name="admin2_diff_authorized"></string>
+    <string name="admin2_diff_device"></string>
+    <string name="admin2_diff_key"></string>
+    <string name="admin2_diff_nameservers"></string>
+    <string name="admin2_diff_search"></string>
+    <string name="admin2_diff_url"></string>
+    <string name="admin2_yes"></string>
+    <string name="admin2_no"></string>
+    <string name="admin2_on"></string>
+    <string name="admin2_off"></string>
+</resources>
