@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Television: Settings → Appearance → Interface, the switch between the usual interface and the TV one -->
+    <string name="tv_interface_title"></string>
+    <string name="tv_interface_auto"></string>
+    <string name="tv_interface_handheld"></string>
+    <string name="tv_interface_tv"></string>
+    <string name="tv_interface_desc"></string>
+</resources>
