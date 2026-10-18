@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Policy tab: copying the policy file, and the network's map for an AI agent. -->
+    <string name="admin_pex_copy"></string>
+    <string name="admin_pex_copy_ai"></string>
+    <string name="admin_pex_share_ai"></string>
+    <string name="admin_pex_help"></string>
+    <string name="admin_pex_unlock_policy"></string>
+    <string name="admin_pex_unlock_ai"></string>
+    <string name="admin_pex_unlock_share"></string>
+    <string name="admin_pex_unlock_subtitle"></string>
+    <string name="admin_pex_copied_policy"></string>
+    <string name="admin_pex_copied_ai"></string>
+    <string name="admin_pex_clip_policy"></string>
+    <string name="admin_pex_clip_ai"></string>
+    <!-- The text for an AI agent (Markdown). Written to the agent, in the app's language. -->
+    <string name="admin_pex_title"></string>
+    <string name="admin_pex_title_hs"></string>
+    <string name="admin_pex_task"></string>
+    <string name="admin_pex_task_hs"></string>
+    <string name="admin_pex_task_end"></string>
+    <string name="admin_pex_link_syntax"></string>
+    <string name="admin_pex_link_acls"></string>
+    <string name="admin_pex_link_grants"></string>
+    <string name="admin_pex_link_tags"></string>
+    <string name="admin_pex_link_tests"></string>
+    <string name="admin_pex_link_autogroups"></string>
+    <string name="admin_pex_link_remote"></string>
+    <string name="admin_pex_link_hs_policy"></string>
+    <string name="admin_pex_link_hs_features"></string>
+    <string name="admin_pex_h_tailnet"></string>
+    <string name="admin_pex_tailnet_name"></string>
+    <string name="admin_pex_tailnet_dns"></string>
+    <string name="admin_pex_server_tailscale"></string>
+    <string name="admin_pex_server_hs"></string>
+    <string name="admin_pex_hs_policy_db"></string>
+    <string name="admin_pex_hs_policy_file"></string>
+    <string name="admin_pex_hs_no_roles"></string>
+    <string name="admin_pex_external"></string>
+    <string name="admin_pex_made"></string>
+    <string name="admin_pex_h_users"></string>
+    <!-- Column headers of the users table, separated by |. -->
+    <string name="admin_pex_users_cols"></string>
+    <string name="admin_pex_h_groups"></string>
+    <string name="admin_pex_h_devices"></string>
+    <!-- Column headers of the devices table, separated by |. -->
+    <string name="admin_pex_devices_cols"></string>
+    <string name="admin_pex_h_policy"></string>
+    <string name="admin_pex_none"></string>
+    <string name="admin_pex_not_loaded"></string>
+    <string name="admin_pex_unknown"></string>
+    <string name="admin_pex_policy_unparsed"></string>
+    <string name="admin_pex_shared_in"></string>
+    <string name="admin_pex_not_authorized"></string>
+    <string name="admin_pex_online"></string>
+    <string name="admin_pex_last_seen"></string>
+    <string name="admin_pex_offline"></string>
+    <string name="admin_pex_approved"></string>
+    <string name="admin_pex_not_approved"></string>
+    <string name="admin_pex_advertised"></string>
+    <string name="admin_pex_expiry_off"></string>
+</resources>
