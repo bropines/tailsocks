@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's definitions pages: groups, tags, hosts and IP sets, auto approval, device attributes, postures. --><resources>
+    <!-- Shared by the pages' editors. -->
+    <string name="admin_pvd_name"></string>
+    <string name="admin_pvd_rename"></string>
+    <string name="admin_pvd_rename_title"></string>
+    <plurals name="admin_pvd_rename_text">
+    </plurals>
+    <string name="admin_pvd_rename_text_unused"></string>
+    <plurals name="admin_pvd_rename_hint">
+    </plurals>
+    <string name="admin_pvd_apply"></string>
+    <string name="admin_pvd_note"></string>
+    <string name="admin_pvd_note_help"></string>
+    <string name="admin_pvd_heading"></string>
+    <string name="admin_pvd_heading_help"></string>
+    <string name="admin_pvd_used_in"></string>
+    <string name="admin_pvd_unused"></string>
+    <plurals name="admin_pvd_places">
+    </plurals>
+    <string name="admin_pvd_line"></string>
+    <string name="admin_pvd_show_all"></string>
+    <string name="admin_pvd_more"></string>
+    <string name="admin_pvd_and_more"></string>
+    <plurals name="admin_pvd_delete_blocked">
+    </plurals>
+    <string name="admin_pvd_deleted"></string>
+    <string name="admin_pvd_delete"></string>
+    <string name="admin_pvd_duplicate"></string>
+    <string name="admin_pvd_move_up"></string>
+    <string name="admin_pvd_move_down"></string>
+    <string name="admin_pvd_remove_row"></string>
+    <string name="admin_pvd_create"></string>
+    <string name="admin_pvd_create_needs_name"></string>
+    <string name="admin_pvd_not_on_headscale"></string>
+    <!-- Names and addresses. -->
+    <string name="admin_pvd_name_empty"></string>
+    <string name="admin_pvd_name_tag_start"></string>
+    <string name="admin_pvd_name_tag_chars"></string>
+    <string name="admin_pvd_name_service_chars"></string>
+    <string name="admin_pvd_name_host_chars"></string>
+    <string name="admin_pvd_name_chars"></string>
+    <string name="admin_pvd_name_taken"></string>
+    <string name="admin_pvd_addr_empty"></string>
+    <string name="admin_pvd_addr_bad"></string>
+    <string name="admin_pvd_addr_needs_prefix"></string>
+    <string name="admin_pvd_addr_bits"></string>
+    <!-- Where a name is used, as the rows that lead there say it. -->
+    <string name="admin_pvd_place_acl"></string>
+    <string name="admin_pvd_place_grant"></string>
+    <string name="admin_pvd_place_ssh"></string>
+    <string name="admin_pvd_place_attr"></string>
+    <string name="admin_pvd_place_test"></string>
+    <string name="admin_pvd_place_ssh_test"></string>
+    <string name="admin_pvd_place_owners"></string>
+    <string name="admin_pvd_place_members"></string>
+    <string name="admin_pvd_place_ipset"></string>
+    <string name="admin_pvd_place_posture"></string>
+    <string name="admin_pvd_place_default_posture"></string>
+    <string name="admin_pvd_place_route"></string>
+    <string name="admin_pvd_place_exit"></string>
+    <string name="admin_pvd_place_service"></string>
+    <!-- Groups. -->
+    <string name="admin_pvd_groups_help"></string>
+    <string name="admin_pvd_groups_empty"></string>
+    <string name="admin_pvd_groups_pane_empty"></string>
+    <string name="admin_pvd_group_new"></string>
+    <string name="admin_pvd_group_members"></string>
+    <string name="admin_pvd_group_members_help"></string>
+    <string name="admin_pvd_group_no_members"></string>
+    <plurals name="admin_pvd_n_members">
+    </plurals>
+    <string name="admin_pvd_group_devices"></string>
+    <string name="admin_pvd_group_devices_help"></string>
+    <string name="admin_pvd_group_no_devices"></string>
+    <string name="admin_pvd_group_delete"></string>
+    <!-- Tags. -->
+    <string name="admin_pvd_tags_help"></string>
+    <string name="admin_pvd_tags_empty"></string>
+    <string name="admin_pvd_tags_pane_empty"></string>
+    <string name="admin_pvd_tag_new"></string>
+    <string name="admin_pvd_tag_owners"></string>
+    <string name="admin_pvd_tag_owners_help"></string>
+    <string name="admin_pvd_tag_owners_empty"></string>
+    <string name="admin_pvd_tag_owned_by"></string>
+    <string name="admin_pvd_tag_admins_only"></string>
+    <string name="admin_pvd_tag_devices"></string>
+    <string name="admin_pvd_tag_no_devices"></string>
+    <string name="admin_pvd_tag_delete"></string>
+    <plurals name="admin_pvd_tag_delete_carried">
+    </plurals>
+    <plurals name="admin_pvd_tag_rename_carried">
+    </plurals>
+    <plurals name="admin_pvd_unowned_title">
+    </plurals>
+    <string name="admin_pvd_unowned_help"></string>
+    <string name="admin_pvd_unowned_help_hs"></string>
+    <string name="admin_pvd_unowned_add"></string>
+    <string name="admin_pvd_unowned_added"></string>
+    <!-- Hosts and IP sets. -->
+    <string name="admin_pvd_hosts_help"></string>
+    <string name="admin_pvd_hosts_pane_empty"></string>
+    <string name="admin_pvd_hosts_title"></string>
+    <string name="admin_pvd_hosts_empty"></string>
+    <string name="admin_pvd_hosts_empty_page"></string>
+    <string name="admin_pvd_host_new"></string>
+    <string name="admin_pvd_host_address"></string>
+    <string name="admin_pvd_host_address_help"></string>
+    <string name="admin_pvd_host_devices"></string>
+    <string name="admin_pvd_host_no_device"></string>
+    <string name="admin_pvd_host_delete"></string>
+    <string name="admin_pvd_host_create_hint"></string>
+    <string name="admin_pvd_ipsets_title"></string>
+    <string name="admin_pvd_ipsets_help"></string>
+    <string name="admin_pvd_ipsets_empty"></string>
+    <string name="admin_pvd_ipset_new"></string>
+    <string name="admin_pvd_ipset_rows"></string>
+    <string name="admin_pvd_ipset_rows_help"></string>
+    <plurals name="admin_pvd_n_rows">
+    </plurals>
+    <string name="admin_pvd_ipset_op_add"></string>
+    <string name="admin_pvd_ipset_op_remove"></string>
+    <string name="admin_pvd_ipset_target"></string>
+    <string name="admin_pvd_ipset_target_short"></string>
+    <string name="admin_pvd_ipset_add_row"></string>
+    <string name="admin_pvd_ipset_first_row"></string>
+    <string name="admin_pvd_ipset_create_hint"></string>
+    <string name="admin_pvd_ipset_delete"></string>
+    <!-- Auto approval. -->
+    <string name="admin_pvd_approvers_help"></string>
+    <string name="admin_pvd_approvers_pane_empty"></string>
+    <string name="admin_pvd_approvers"></string>
+    <string name="admin_pvd_approvers_help_short"></string>
+    <string name="admin_pvd_approvers_empty"></string>
+    <string name="admin_pvd_approvers_create_hint"></string>
+    <string name="admin_pvd_approver_devices"></string>
+    <string name="admin_pvd_approver_no_devices"></string>
+    <plurals name="admin_pvd_qualify">
+    </plurals>
+    <string name="admin_pvd_approved_for"></string>
+    <string name="admin_pvd_routes_title"></string>
+    <string name="admin_pvd_routes_empty"></string>
+    <string name="admin_pvd_route_new"></string>
+    <string name="admin_pvd_route_prefix"></string>
+    <string name="admin_pvd_route_prefix_help"></string>
+    <string name="admin_pvd_route_taken"></string>
+    <string name="admin_pvd_route_delete"></string>
+    <string name="admin_pvd_route_create_hint"></string>
+    <string name="admin_pvd_exit_title"></string>
+    <string name="admin_pvd_exit_card"></string>
+    <string name="admin_pvd_exit_help"></string>
+    <string name="admin_pvd_exit_empty"></string>
+    <string name="admin_pvd_exit_new"></string>
+    <string name="admin_pvd_exit_delete"></string>
+    <string name="admin_pvd_exit_deleted"></string>
+    <string name="admin_pvd_services_title"></string>
+    <string name="admin_pvd_services_empty"></string>
+    <string name="admin_pvd_service_new"></string>
+    <string name="admin_pvd_service_help"></string>
+    <string name="admin_pvd_service_delete"></string>
+    <string name="admin_pvd_service_create_hint"></string>
+    <!-- Device attributes. -->
+    <string name="admin_pvd_attrs_help"></string>
+    <string name="admin_pvd_attrs_empty"></string>
+    <string name="admin_pvd_attrs_pane_empty"></string>
+    <string name="admin_pvd_attr_new"></string>
+    <string name="admin_pvd_attr_create"></string>
+    <string name="admin_pvd_attr_create_hint"></string>
+    <string name="admin_pvd_attr_targets"></string>
+    <string name="admin_pvd_attr_turns_on"></string>
+    <string name="admin_pvd_attr_none"></string>
+    <string name="admin_pvd_attr_other"></string>
+    <string name="admin_pvd_attr_other_help"></string>
+    <string name="admin_pvd_attr_type"></string>
+    <string name="admin_pvd_attr_type_problem"></string>
+    <string name="admin_pvd_attr_profile"></string>
+    <string name="admin_pvd_attr_profile_problem"></string>
+    <string name="admin_pvd_attr_app"></string>
+    <string name="admin_pvd_attr_ip_pool"></string>
+    <string name="admin_pvd_attr_json_only"></string>
+    <string name="admin_pvd_attr_json_only_help"></string>
+    <string name="admin_pvd_attr_devices"></string>
+    <string name="admin_pvd_attr_no_devices"></string>
+    <string name="admin_pvd_attr_unresolved"></string>
+    <string name="admin_pvd_rule_deleted"></string>
+    <string name="admin_pvd_attr_funnel"></string>
+    <string name="admin_pvd_attr_funnel_help"></string>
+    <string name="admin_pvd_attr_drive_share"></string>
+    <string name="admin_pvd_attr_drive_share_help"></string>
+    <string name="admin_pvd_attr_drive_access"></string>
+    <string name="admin_pvd_attr_drive_access_help"></string>
+    <string name="admin_pvd_attr_mullvad"></string>
+    <string name="admin_pvd_attr_mullvad_help"></string>
+    <string name="admin_pvd_attr_random_port"></string>
+    <string name="admin_pvd_attr_random_port_help"></string>
+    <string name="admin_pvd_attr_no_ipv4"></string>
+    <string name="admin_pvd_attr_no_ipv4_help"></string>
+    <string name="admin_pvd_attr_no_captive"></string>
+    <string name="admin_pvd_attr_no_captive_help"></string>
+    <string name="admin_pvd_attr_aaaa"></string>
+    <string name="admin_pvd_attr_aaaa_help"></string>
+    <string name="admin_pvd_attr_nextdns_private"></string>
+    <string name="admin_pvd_attr_nextdns_private_help"></string>
+    <string name="admin_pvd_attr_nextdns"></string>
+    <string name="admin_pvd_attr_nextdns_help"></string>
+    <string name="admin_pvd_attr_controld"></string>
+    <string name="admin_pvd_attr_controld_help"></string>
+    <!-- Device posture. -->
+    <string name="admin_pvd_postures_help"></string>
+    <string name="admin_pvd_postures_empty"></string>
+    <string name="admin_pvd_postures_pane_empty"></string>
+    <string name="admin_pvd_posture_new"></string>
+    <string name="admin_pvd_posture_conditions"></string>
+    <string name="admin_pvd_posture_conditions_help"></string>
+    <string name="admin_pvd_posture_condition"></string>
+    <string name="admin_pvd_posture_condition_empty"></string>
+    <string name="admin_pvd_posture_add_condition"></string>
+    <plurals name="admin_pvd_n_conditions">
+    </plurals>
+    <string name="admin_pvd_posture_on_failure"></string>
+    <string name="admin_pvd_posture_delete"></string>
+    <string name="admin_pvd_posture_create_hint"></string>
+    <string name="admin_pvd_default_posture"></string>
+    <string name="admin_pvd_default_posture_help"></string>
+    <string name="admin_pvd_default_posture_none"></string>
+</resources>
