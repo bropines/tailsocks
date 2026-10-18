@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Account & connection: the node's own switches (shields up, LAN access,
+         posture, peer relay, app connector) and the Tailnet Lock row. -->
+    <string name="client_prefs_sect_security"></string>
+    <string name="client_prefs_lan_title"></string>
+    <string name="client_prefs_lan_desc"></string>
+    <string name="client_prefs_shields_title"></string>
+    <string name="client_prefs_shields_desc"></string>
+    <string name="client_prefs_posture_title"></string>
+    <string name="client_prefs_posture_desc"></string>
+    <string name="client_prefs_relay_title"></string>
+    <string name="client_prefs_relay_desc"></string>
+    <string name="client_prefs_relay_refused_by_control"></string>
+    <string name="client_prefs_relay_port_title"></string>
+    <string name="client_prefs_relay_port_any"></string>
+    <string name="client_prefs_relay_port_desc"></string>
+    <string name="client_prefs_relay_port_invalid"></string>
+    <plurals name="client_prefs_relay_sessions">
+    </plurals>
+    <string name="client_prefs_connector_title"></string>
+    <string name="client_prefs_connector_desc"></string>
+    <string name="client_prefs_set_by_flag"></string>
+    <string name="client_prefs_refused"></string>
+    <!-- The Tailnet Lock row in Settings. -->
+    <string name="tka_title"></string>
+    <string name="tka_row_help"></string>
+    <string name="tka_summary_offline"></string>
+    <string name="tka_summary_off"></string>
+    <string name="tka_summary_signed"></string>
+    <string name="tka_summary_signer"></string>
+    <string name="tka_summary_locked_out"></string>
+    <plurals name="tka_summary_waiting">
+    </plurals>
+    <!-- The Tailnet Lock screen. -->
+    <string name="tka_screen_help"></string>
+    <string name="tka_offline"></string>
+    <string name="tka_load_failed"></string>
+    <string name="tka_state_on"></string>
+    <string name="tka_state_off"></string>
+    <string name="tka_state_off_help"></string>
+    <plurals name="tka_trusted_keys">
+    </plurals>
+    <string name="tka_sect_device"></string>
+    <string name="tka_device_signer"></string>
+    <string name="tka_device_signed"></string>
+    <string name="tka_device_locked_out"></string>
+    <string name="tka_device_no_key"></string>
+    <string name="tka_key_title"></string>
+    <string name="tka_key_help"></string>
+    <string name="tka_sign_me_title"></string>
+    <string name="tka_sign_me_help"></string>
+    <string name="tka_sect_waiting"></string>
+    <string name="tka_waiting_none"></string>
+    <string name="tka_waiting_not_signer"></string>
+    <string name="tka_waiting_no_lock"></string>
+    <string name="tka_sign"></string>
+    <string name="tka_sign_dialog_title"></string>
+    <string name="tka_sign_dialog_body"></string>
+    <string name="tka_sign_unlock_title"></string>
+    <string name="tka_signed"></string>
+    <string name="tka_sign_failed"></string>
+    <string name="tka_copied"></string>
+</resources>
