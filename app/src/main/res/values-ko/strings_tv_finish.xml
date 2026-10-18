@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the last pass over the television work added: the dialog a field in a page opens on a
+  television (ui/PageTextField.kt), and the Advanced page where every device has one — a phone's
+  holds only what is still an experiment.
+--><resources>
+    <!-- The button under a field a television opened in a dialog: what is typed is already applied. -->
+    <string name="tv_field_done"></string>
+    <!-- Settings → Advanced on a device that keeps every other page in its usual place. -->
+    <!-- The row that opens the remote management page; its card is titled "Experimental". -->
+    <string name="settings_remote_entry_desc"></string>
+    <!-- "Add account" where signing in is a code for another device, not a browser tab. -->
+    <string name="tv_add_account_authkey_hint"></string>
+</resources>
