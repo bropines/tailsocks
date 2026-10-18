@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Taildrive proxy's "Allow from the local network" switch and what comes with it
+     (core/TaildriveLan.kt, ui/TaildriveLanParts.kt, the address card of ui/TaildriveParts.kt).
+     Kept apart from strings.xml; Android merges every file under values/. --><resources>
+    <!-- The switch. Named as Settings → Local proxies names its own section for the same thing. -->
+    <string name="taildrive_lan_title"></string>
+    <string name="taildrive_lan_off_desc"></string>
+    <!-- The one line that says why the login cannot be switched off; folded after its first sentence. -->
+    <string name="taildrive_lan_on_desc"></string>
+    <!-- On, as an install older than the switch may have it: no login. The notice under the row says the rest. -->
+    <string name="taildrive_lan_on_open_desc"></string>
+    <!-- The third state: an address typed by hand under Advanced. %1$s is that address. -->
+    <string name="taildrive_lan_custom_desc"></string>
+    <string name="taildrive_lan_custom_badge"></string>
+    <!-- "Require authentication" while the switch is on. -->
+    <string name="taildrive_lan_auth_locked"></string>
+    <!-- What the switch offers at a custom address. %1$s is the address. -->
+    <string name="taildrive_lan_choice_text"></string>
+    <string name="taildrive_lan_choice_on_desc"></string>
+    <string name="taildrive_lan_choice_off_title"></string>
+    <string name="taildrive_lan_choice_off_desc"></string>
+    <!-- An install that already listened on every interface with no login: said once, until it is closed. -->
+    <string name="taildrive_lan_open_title"></string>
+    <string name="taildrive_lan_open_text"></string>
+    <string name="taildrive_lan_open_action"></string>
+    <!-- The bind address, for those who need a particular one. -->
+    <string name="taildrive_lan_advanced"></string>
+    <string name="taildrive_lan_bind_help"></string>
+    <!-- The address card. -->
+    <string name="taildrive_address_this_device"></string>
+    <string name="taildrive_address_no_network"></string>
+    <!-- %1$s is another address of this device, on another local network. -->
+    <string name="taildrive_address_also"></string>
+</resources>
