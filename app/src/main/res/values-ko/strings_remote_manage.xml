@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Remote management, the managing device's page (ui/RemoteManage*.kt): another device's
+  TailSocks run from this one. A file of its own; the pairing form and the problems of the
+  first version are in strings_remote.xml. "This device" is the one in hand, which may be a
+  phone, a tablet or a television: nothing here says "phone" or "tap".
+--><resources>
+    <string name="rmanage_subtitle"></string>
+    <string name="rmanage_paired"></string>
+    <string name="rmanage_fold_open"></string>
+    <string name="rmanage_fold_close"></string>
+    <!-- Why a thing is there and does not answer: one sentence, and its two-word form for a folded card -->
+    <string name="rmanage_deny_full"></string>
+    <string name="rmanage_deny_owner"></string>
+    <string name="rmanage_deny_full_short"></string>
+    <string name="rmanage_deny_owner_short"></string>
+    <string name="rmanage_guest_note"></string>
+    <!-- The header -->
+    <string name="rmanage_android"></string>
+    <plurals name="rmanage_warnings">
+    </plurals>
+    <string name="rmanage_level_basic"></string>
+    <string name="rmanage_level_full"></string>
+    <string name="rmanage_until_revoked"></string>
+    <string name="rmanage_left"></string>
+    <string name="rmanage_identify"></string>
+    <string name="rmanage_identify_help"></string>
+    <string name="rmanage_identify_shown"></string>
+    <string name="rmanage_identify_notified"></string>
+    <string name="rmanage_identify_unseen"></string>
+    <!-- A change that is confirmed by itself -->
+    <string name="rmanage_guard_checking"></string>
+    <string name="rmanage_guard_applied"></string>
+    <string name="rmanage_guard_silent"></string>
+    <string name="rmanage_guard_away"></string>
+    <string name="rmanage_guard_reverted"></string>
+    <string name="rmanage_guard_unclear"></string>
+    <string name="rmanage_value_now"></string>
+    <string name="rmanage_on"></string>
+    <string name="rmanage_off"></string>
+    <!-- Problems the first version did not have -->
+    <string name="rmanage_problem_guard_pending"></string>
+    <string name="rmanage_problem_unclear"></string>
+    <!-- The page before the device answers, and a device that cannot be asked. %1$s in "As of" and "Paired" is a time: "5 min ago", "12 Oct" -->
+    <string name="rmanage_heard"></string>
+    <string name="rmanage_paired_since"></string>
+    <string name="rmanage_fact_paired"></string>
+    <string name="rmanage_problem_offline_since"></string>
+    <string name="rmanage_problem_left"></string>
+    <string name="rmanage_one_tailnet"></string>
+    <string name="rmanage_start_own"></string>
+    <string name="rmanage_starting_own"></string>
+    <!-- Connection -->
+    <string name="rmanage_group_connection"></string>
+    <string name="rmanage_sum_no_exit"></string>
+    <string name="rmanage_sum_exit"></string>
+    <string name="rmanage_exit_suggested"></string>
+    <string name="rmanage_setting_accept_dns_help"></string>
+    <string name="rmanage_setting_accept_routes_help"></string>
+    <string name="rmanage_setting_lan_help"></string>
+    <string name="rmanage_relays"></string>
+    <string name="rmanage_relays_help"></string>
+    <string name="rmanage_reconnect_help"></string>
+    <!-- Why a switch does not move -->
+    <string name="rmanage_lock_needs_full"></string>
+    <string name="rmanage_lock_off_at_device"></string>
+    <string name="rmanage_lock_on_at_device"></string>
+    <string name="rmanage_lock_read_only"></string>
+    <!-- Files -->
+    <string name="rmanage_group_files"></string>
+    <string name="rmanage_send"></string>
+    <string name="rmanage_send_progress"></string>
+    <string name="rmanage_send_done_one"></string>
+    <plurals name="rmanage_send_done">
+    </plurals>
+    <string name="rmanage_send_failed"></string>
+    <string name="rmanage_cannot_receive"></string>
+    <string name="rmanage_cannot_send"></string>
+    <string name="rmanage_receive_ready"></string>
+    <string name="rmanage_receive_ready_free"></string>
+    <string name="rmanage_receive_needs_access"></string>
+    <string name="rmanage_receive_unavailable"></string>
+    <string name="rmanage_receive_inbox"></string>
+    <string name="rmanage_receive_reset"></string>
+    <string name="rmanage_ask_storage"></string>
+    <string name="rmanage_files_waiting"></string>
+    <string name="rmanage_files_saved"></string>
+    <string name="rmanage_files_saved_help"></string>
+    <string name="rmanage_save_received"></string>
+    <string name="rmanage_browse"></string>
+    <string name="rmanage_browse_help"></string>
+    <string name="rmanage_browse_title"></string>
+    <string name="rmanage_fetch_confirm"></string>
+    <string name="rmanage_fetch_title"></string>
+    <string name="rmanage_fetch_text"></string>
+    <string name="rmanage_fetch_sending"></string>
+    <string name="rmanage_fetch_sent"></string>
+    <string name="rmanage_fetch_sent_ago"></string>
+    <string name="rmanage_fetch_failed"></string>
+    <string name="rmanage_fetch_failed_plain"></string>
+    <string name="rmanage_fetch_open"></string>
+    <string name="rmanage_sum_saves_to"></string>
+    <string name="rmanage_sum_inbox"></string>
+    <string name="rmanage_sum_not_connected"></string>
+    <plurals name="rmanage_sum_waiting">
+    </plurals>
+    <!-- Shared folders -->
+    <string name="rmanage_group_shares"></string>
+    <string name="rmanage_shares_none"></string>
+    <plurals name="rmanage_shares_count">
+    </plurals>
+    <plurals name="rmanage_shares_guest">
+    </plurals>
+    <string name="rmanage_sum_shares_off"></string>
+    <string name="rmanage_share_add"></string>
+    <string name="rmanage_share_add_help"></string>
+    <string name="rmanage_share_pick_title"></string>
+    <string name="rmanage_share_pick_confirm"></string>
+    <string name="rmanage_share_name_title"></string>
+    <string name="rmanage_share_name_label"></string>
+    <string name="rmanage_share_name_rule"></string>
+    <string name="rmanage_share_name_action"></string>
+    <string name="rmanage_share_remove"></string>
+    <string name="rmanage_share_remove_title"></string>
+    <string name="rmanage_share_remove_text"></string>
+    <string name="rmanage_share_remove_action"></string>
+    <string name="rmanage_setting_taildrive"></string>
+    <string name="rmanage_setting_taildrive_help"></string>
+    <string name="rmanage_setting_taildrive_proxy"></string>
+    <string name="rmanage_setting_taildrive_proxy_help"></string>
+    <!-- Permissions -->
+    <string name="rmanage_group_permissions"></string>
+    <string name="rmanage_permissions_help"></string>
+    <string name="rmanage_perm_storage"></string>
+    <string name="rmanage_perm_notifications"></string>
+    <string name="rmanage_perm_battery"></string>
+    <string name="rmanage_perm_vpn"></string>
+    <string name="rmanage_perm_alarms"></string>
+    <string name="rmanage_perm_install"></string>
+    <string name="rmanage_perm_autostart"></string>
+    <string name="rmanage_perm_granted"></string>
+    <string name="rmanage_perm_missing"></string>
+    <string name="rmanage_perm_unknown"></string>
+    <string name="rmanage_perm_ask"></string>
+    <string name="rmanage_perm_ask_named"></string>
+    <string name="rmanage_perm_vpn_note"></string>
+    <string name="rmanage_asked_shown"></string>
+    <string name="rmanage_asked_notified"></string>
+    <string name="rmanage_asked_waiting"></string>
+    <string name="rmanage_sum_perm_ok"></string>
+    <plurals name="rmanage_sum_perm_missing">
+    </plurals>
+    <!-- Device -->
+    <string name="rmanage_group_device"></string>
+    <string name="rmanage_fact_app"></string>
+    <string name="rmanage_fact_app_older"></string>
+    <string name="rmanage_fact_daemon"></string>
+    <string name="rmanage_fact_android"></string>
+    <string name="rmanage_fact_android_value"></string>
+    <string name="rmanage_fact_model"></string>
+    <string name="rmanage_fact_mode"></string>
+    <string name="rmanage_mode_proxy"></string>
+    <string name="rmanage_mode_tun"></string>
+    <string name="rmanage_mode_tun_native"></string>
+    <string name="rmanage_mode_tun_hev"></string>
+    <string name="rmanage_mode_root"></string>
+    <string name="rmanage_fact_key"></string>
+    <string name="rmanage_key_never"></string>
+    <string name="rmanage_key_expired"></string>
+    <string name="rmanage_key_in"></string>
+    <string name="rmanage_fact_build"></string>
+    <string name="rmanage_fact_state"></string>
+    <string name="rmanage_health_title"></string>
+    <string name="rmanage_setting_tun"></string>
+    <string name="rmanage_setting_tun_help"></string>
+    <string name="rmanage_setting_auto_reconnect_help"></string>
+    <string name="rmanage_setting_auto_start"></string>
+    <string name="rmanage_setting_auto_start_help"></string>
+    <string name="rmanage_setting_keep_awake_help"></string>
+    <string name="rmanage_setting_advertise_exit_help"></string>
+    <string name="rmanage_not_approved"></string>
+    <string name="rmanage_routes"></string>
+    <string name="rmanage_routes_none"></string>
+    <string name="rmanage_routes_pending"></string>
+    <string name="rmanage_routes_label"></string>
+    <string name="rmanage_routes_help"></string>
+    <string name="rmanage_routes_bad"></string>
+    <string name="rmanage_routes_full"></string>
+    <string name="rmanage_routes_clear"></string>
+    <string name="rmanage_first_build"></string>
+    <string name="rmanage_sum_device"></string>
+    <string name="rmanage_sum_device_android"></string>
+    <!-- Diagnostics -->
+    <string name="rmanage_group_diag"></string>
+    <string name="rmanage_sum_diag"></string>
+    <string name="rmanage_diag_log"></string>
+    <string name="rmanage_diag_log_help"></string>
+    <string name="rmanage_diag_report"></string>
+    <string name="rmanage_diag_report_help"></string>
+    <string name="rmanage_diag_log_title"></string>
+    <string name="rmanage_diag_report_title"></string>
+    <string name="rmanage_diag_empty"></string>
+    <plurals name="rmanage_diag_scrubbed">
+    </plurals>
+    <string name="rmanage_share"></string>
+    <string name="rmanage_copied"></string>
+    <!-- Pairing -->
+    <string name="rmanage_group_pairing"></string>
+    <string name="rmanage_fact_class"></string>
+    <string name="rmanage_class_help"></string>
+    <string name="rmanage_fact_level"></string>
+    <string name="rmanage_level_help"></string>
+    <string name="rmanage_fact_valid"></string>
+    <string name="rmanage_full_off"></string>
+    <string name="rmanage_full_off_title"></string>
+    <string name="rmanage_full_off_text"></string>
+    <string name="rmanage_full_off_action"></string>
+    <!-- The devices this one manages -->
+    <string name="rmanage_devices_title"></string>
+    <string name="rmanage_device_online"></string>
+    <string name="rmanage_device_offline"></string>
+    <string name="rmanage_device_gone"></string>
+</resources>
