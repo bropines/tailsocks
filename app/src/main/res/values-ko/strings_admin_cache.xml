@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The copy of the console's lists kept on the phone, shown while the server is asked again. -->
+    <string name="admin_cache_note_loading"></string>
+    <string name="admin_cache_note_failed"></string>
+    <string name="admin_cache_wait"></string>
+    <string name="admin_cache_stale"></string>
+</resources>
