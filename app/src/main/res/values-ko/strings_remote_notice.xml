@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: the bar a managed device says a paired device's line in, on whatever screen of the app is open.
+         The device's name is the bar's first line; these are the second. -->
+    <string name="remote_notice_identify"></string>
+    <string name="remote_notice_ask"></string>
+</resources>
