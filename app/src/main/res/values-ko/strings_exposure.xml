@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Advanced → What this device exposes (ui/ExposureScreen.kt, core/Exposure.kt). -->
+    <string name="exposure_title"></string>
+    <string name="exposure_entry_desc"></string>
+    <string name="exposure_card"></string>
+    <!-- The Advanced row of the settings list on a phone or a tablet: what its page holds there. -->
+    <string name="exposure_advanced_desc"></string>
+    <string name="search_kw_exposure"></string>
+    <!-- The line at the top. -->
+    <plurals name="exposure_sum_internet">
+    </plurals>
+    <plurals name="exposure_sum_tailnet">
+    </plurals>
+    <plurals name="exposure_sum_lan">
+    </plurals>
+    <string name="exposure_sum_no_internet"></string>
+    <string name="exposure_sum_quiet"></string>
+    <string name="exposure_stopped"></string>
+    <string name="exposure_shields"></string>
+    <string name="exposure_reading"></string>
+    <!-- The groups. -->
+    <string name="exposure_group_internet"></string>
+    <string name="exposure_group_internet_note"></string>
+    <string name="exposure_group_tailnet"></string>
+    <string name="exposure_group_lan"></string>
+    <string name="exposure_group_device"></string>
+    <string name="exposure_group_off"></string>
+    <!-- A row's state line: "On · 127.0.0.1:48115 · this device only". -->
+    <string name="exposure_on"></string>
+    <string name="exposure_off"></string>
+    <string name="exposure_reach_device"></string>
+    <string name="exposure_reach_tailnet"></string>
+    <string name="exposure_reach_lan"></string>
+    <string name="exposure_reach_lan_tailnet"></string>
+    <string name="exposure_reach_internet"></string>
+    <string name="exposure_password"></string>
+    <string name="exposure_no_password"></string>
+    <string name="exposure_login"></string>
+    <string name="exposure_no_login"></string>
+    <plurals name="exposure_folders">
+    </plurals>
+    <string name="exposure_whole_storage"></string>
+    <plurals name="exposure_paired">
+    </plurals>
+    <string name="exposure_none_paired"></string>
+    <plurals name="exposure_owners">
+    </plurals>
+    <string name="exposure_owner"></string>
+    <string name="exposure_guest"></string>
+    <string name="exposure_until"></string>
+    <plurals name="exposure_routes">
+    </plurals>
+    <plurals name="exposure_keys">
+    </plurals>
+    <string name="exposure_anyone"></string>
+    <string name="exposure_ports"></string>
+    <string name="exposure_inbox"></string>
+    <string name="exposure_to_folder"></string>
+    <string name="exposure_changes_allowed"></string>
+    <string name="exposure_reading_only"></string>
+    <string name="exposure_port_any"></string>
+    <string name="exposure_random_loopback"></string>
+    <string name="exposure_ports_interface"></string>
+    <string name="exposure_note_policy_unknown"></string>
+    <string name="exposure_note_policy_denied"></string>
+    <string name="exposure_note_no_storage"></string>
+    <string name="exposure_note_no_token"></string>
+    <string name="exposure_note_not_known"></string>
+    <string name="exposure_note_not_checked"></string>
+    <string name="exposure_note_blocked"></string>
+    <!-- What a press does, for a screen reader. -->
+    <string name="exposure_turn_off"></string>
+    <string name="exposure_close_tailnet"></string>
+    <string name="exposure_other_apps_close"></string>
+    <string name="exposure_open_setting"></string>
+    <!-- The rows: a title and a folded explanation each. -->
+    <string name="exposure_funnel"></string>
+    <string name="exposure_funnel_help"></string>
+    <string name="exposure_tailcat_server"></string>
+    <string name="exposure_tailcat_server_help"></string>
+    <string name="exposure_remote"></string>
+    <string name="exposure_remote_help"></string>
+    <string name="exposure_remote_full"></string>
+    <string name="exposure_remote_full_help"></string>
+    <string name="exposure_remote_files"></string>
+    <string name="exposure_remote_files_help"></string>
+    <string name="exposure_remote_elevated"></string>
+    <string name="exposure_remote_elevated_help"></string>
+    <string name="exposure_taildrive_shares"></string>
+    <string name="exposure_taildrive_shares_help"></string>
+    <string name="exposure_taildrop"></string>
+    <string name="exposure_taildrop_help"></string>
+    <string name="exposure_serve"></string>
+    <string name="exposure_serve_help"></string>
+    <string name="exposure_exit_node"></string>
+    <string name="exposure_exit_node_help"></string>
+    <string name="exposure_routes_title"></string>
+    <string name="exposure_routes_help"></string>
+    <string name="exposure_app_connector"></string>
+    <string name="exposure_app_connector_help"></string>
+    <string name="exposure_relay"></string>
+    <string name="exposure_relay_help"></string>
+    <string name="exposure_lan_access"></string>
+    <string name="exposure_lan_access_help"></string>
+    <string name="exposure_socks5"></string>
+    <string name="exposure_socks5_help"></string>
+    <string name="exposure_http"></string>
+    <string name="exposure_http_help"></string>
+    <string name="exposure_dns"></string>
+    <string name="exposure_dns_help"></string>
+    <string name="exposure_web_ui"></string>
+    <string name="exposure_web_ui_help"></string>
+    <string name="exposure_drive_proxy"></string>
+    <string name="exposure_drive_proxy_help"></string>
+    <string name="exposure_tailcat_forwards"></string>
+    <string name="exposure_tailcat_forwards_help"></string>
+    <string name="exposure_byedpi"></string>
+    <string name="exposure_byedpi_help"></string>
+    <string name="exposure_device_ports"></string>
+    <string name="exposure_other_apps"></string>
+    <string name="exposure_other_apps_all"></string>
+    <string name="exposure_other_apps_help"></string>
+    <string name="exposure_other_apps_help_strict"></string>
+    <string name="exposure_device_ports_help_vpn"></string>
+    <string name="exposure_device_ports_help_interface"></string>
+    <string name="exposure_root_tun"></string>
+    <string name="exposure_root_tun_help"></string>
+    <string name="exposure_root_boot"></string>
+    <string name="exposure_root_boot_help"></string>
+    <string name="exposure_root_cli"></string>
+    <string name="exposure_root_cli_help"></string>
+    <string name="exposure_automation"></string>
+    <string name="exposure_automation_help"></string>
+    <string name="exposure_app_functions"></string>
+    <string name="exposure_app_functions_help"></string>
+    <!-- Appended to a listener's explanation: why it is reached from where it is. -->
+    <string name="exposure_why_device"></string>
+    <string name="exposure_why_opened"></string>
+    <string name="exposure_why_wildcard"></string>
+    <string name="exposure_why_wildcard_opened"></string>
+    <string name="exposure_why_wildcard_closed"></string>
+    <string name="exposure_why_lan"></string>
+    <string name="exposure_why_tailnet"></string>
+</resources>
