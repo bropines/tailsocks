@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor: moving elements from their cards. --><resources>
+    <string name="admin_pv_nav_move_up"></string>
+    <string name="admin_pv_nav_move_down"></string>
+</resources>
