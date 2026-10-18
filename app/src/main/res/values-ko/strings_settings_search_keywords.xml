@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Settings search: the words people type to find a setting, one string per setting
+        (search_kw_<id>, the ids of ui/SettingsCatalog.kt).
+
+        For translators: this is a list, not a sentence. Separate the entries with commas; an
+        entry may be several words ("kill switch"). Write what a person would type in your
+        language when looking for the setting: other names for it, abbreviations, slang, the
+        problem it solves, typical values. Words of the setting's own title need not be
+        repeated, the order does not matter, and more is better. English and Russian are always
+        searched as well, whatever the language of the interface.
+    -->
+
+    <!-- The little words of a question, which a query is understood without: "how do I change the port" is "port". -->
+    <string name="search_stop_words"></string>
+    <!-- The sections -->
+    <string name="search_kw_appearance"></string>
+    <string name="search_kw_account"></string>
+    <string name="search_kw_tunnel"></string>
+    <string name="search_kw_proxies"></string>
+    <string name="search_kw_dns"></string>
+    <string name="search_kw_bypass"></string>
+    <string name="search_kw_sharing"></string>
+    <string name="search_kw_background"></string>
+    <string name="search_kw_backup"></string>
+    <string name="search_kw_automation"></string>
+    <string name="search_kw_diagnostics"></string>
+    <string name="search_kw_advanced"></string>
+    <!-- Appearance & language -->
+    <string name="search_kw_theme"></string>
+    <string name="search_kw_language"></string>
+    <string name="search_kw_ui_scale"></string>
+    <string name="search_kw_interface"></string>
+    <string name="search_kw_palette"></string>
+    <string name="search_kw_app_icon"></string>
+    <string name="search_kw_qr_style"></string>
+    <string name="search_kw_dynamic_color"></string>
+    <string name="search_kw_amoled"></string>
+    <string name="search_kw_show_changelog"></string>
+    <string name="search_kw_managed_on_main"></string>
+    <string name="search_kw_connection_summary"></string>
+    <string name="search_kw_update_check"></string>
+    <!-- Account & connection -->
+    <string name="search_kw_login_server"></string>
+    <string name="search_kw_auth_key"></string>
+    <string name="search_kw_device_name"></string>
+    <string name="search_kw_exit_node"></string>
+    <string name="search_kw_exit_node_lan"></string>
+    <string name="search_kw_accept_routes"></string>
+    <string name="search_kw_advertise_exit_node"></string>
+    <string name="search_kw_honest_hostinfo"></string>
+    <string name="search_kw_shields_up"></string>
+    <string name="search_kw_posture"></string>
+    <string name="search_kw_tailnet_lock"></string>
+    <string name="search_kw_advertise_routes"></string>
+    <string name="search_kw_advertise_tags"></string>
+    <string name="search_kw_relay"></string>
+    <string name="search_kw_relay_port"></string>
+    <string name="search_kw_app_connector"></string>
+    <string name="search_kw_logout"></string>
+    <!-- Tunnel mode -->
+    <string name="search_kw_mode_proxy"></string>
+    <string name="search_kw_mode_vpn"></string>
+    <string name="search_kw_mode_root"></string>
+    <string name="search_kw_tun_engine"></string>
+    <string name="search_kw_tun_uses_socks"></string>
+    <string name="search_kw_tun_ipv6"></string>
+    <string name="search_kw_tun_address"></string>
+    <string name="search_kw_tun_excluded_cidrs"></string>
+    <string name="search_kw_tun_excluded_apps"></string>
+    <string name="search_kw_root_tun"></string>
+    <string name="search_kw_root_service"></string>
+    <string name="search_kw_root_cli"></string>
+    <string name="search_kw_root_vpn_bypass"></string>
+    <string name="search_kw_root_take_device"></string>
+    <string name="search_kw_root_kill_daemon"></string>
+    <!-- Local proxies -->
+    <string name="search_kw_socks5_address"></string>
+    <string name="search_kw_socks5_username"></string>
+    <string name="search_kw_socks5_password"></string>
+    <string name="search_kw_sagernet_link"></string>
+    <string name="search_kw_http_enable"></string>
+    <string name="search_kw_http_address"></string>
+    <string name="search_kw_lan_access"></string>
+    <!-- DNS -->
+    <string name="search_kw_magicdns"></string>
+    <string name="search_kw_dns_proxy_address"></string>
+    <string name="search_kw_root_dns_redirect"></string>
+    <string name="search_kw_dns_fallbacks"></string>
+    <string name="search_kw_doh_fallback"></string>
+    <string name="search_kw_dns_screen"></string>
+    <!-- Censorship bypass -->
+    <string name="search_kw_control_proxy"></string>
+    <string name="search_kw_byedpi"></string>
+    <string name="search_kw_byedpi_flags"></string>
+    <string name="search_kw_byedpi_ipv6"></string>
+    <string name="search_kw_control_port"></string>
+    <string name="search_kw_netmap_cache"></string>
+    <string name="search_kw_netmap_cache_clear"></string>
+    <!-- Sharing & access -->
+    <string name="search_kw_taildrop_folder"></string>
+    <string name="search_kw_taildrive"></string>
+    <string name="search_kw_serve"></string>
+    <string name="search_kw_web_ui"></string>
+    <string name="search_kw_web_ui_address"></string>
+    <!-- Background & permissions -->
+    <string name="search_kw_permissions"></string>
+    <string name="search_kw_autostart"></string>
+    <string name="search_kw_auto_reconnect"></string>
+    <string name="search_kw_auto_reconnect_attempts"></string>
+    <string name="search_kw_watchdog"></string>
+    <string name="search_kw_keep_awake"></string>
+    <!-- Backup & restore -->
+    <string name="search_kw_backup_full"></string>
+    <string name="search_kw_restore_full"></string>
+    <string name="search_kw_profile_export"></string>
+    <string name="search_kw_profile_import"></string>
+    <!-- Automation & API -->
+    <string name="search_kw_automation_enable"></string>
+    <string name="search_kw_automation_token"></string>
+    <string name="search_kw_admin_console"></string>
+    <!-- Diagnostics & developer -->
+    <string name="search_kw_live_state"></string>
+    <string name="search_kw_detailed_logs"></string>
+    <string name="search_kw_extra_args"></string>
+    <string name="search_kw_root_daemon_info"></string>
+    <string name="search_kw_logs"></string>
+    <string name="search_kw_console"></string>
+    <string name="search_kw_netcheck"></string>
+    <string name="search_kw_show_onboarding"></string>
+    <!-- Advanced -->
+    <string name="search_kw_remote_management"></string>
+</resources>
