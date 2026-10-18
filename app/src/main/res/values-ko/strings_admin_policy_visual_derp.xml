@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's Relays page: Tailscale's DERP regions, excluded or used through the policy's derpMap. -->
+    <string name="admin_pv_derp_page"></string>
+    <!-- Under the icon in the narrow page rail, about 80dp. -->
+    <string name="admin_pv_derp_page_short"></string>
+    <string name="admin_pv_derp_title"></string>
+    <string name="admin_pv_derp_help"></string>
+    <string name="admin_pv_derp_in_use"></string>
+    <string name="admin_pv_derp_loading"></string>
+    <string name="admin_pv_derp_failed_hint"></string>
+    <string name="admin_pv_derp_none_left"></string>
+    <string name="admin_pv_derp_omit"></string>
+    <string name="admin_pv_derp_headscale"></string>
+    <string name="admin_pv_derp_lock_spelling"></string>
+    <string name="admin_pv_derp_lock_shape"></string>
+    <string name="admin_pv_derp_lock_twice"></string>
+    <string name="admin_pv_derp_group_home"></string>
+    <string name="admin_pv_derp_group_other"></string>
+    <string name="admin_pv_derp_group_all"></string>
+    <string name="admin_pv_derp_group_file"></string>
+    <string name="admin_pv_derp_group_own"></string>
+    <string name="admin_pv_derp_region"></string>
+    <plurals name="admin_pv_derp_servers">
+    </plurals>
+    <plurals name="admin_pv_derp_home">
+    </plurals>
+    <string name="admin_pv_derp_latency"></string>
+    <plurals name="admin_pv_derp_latency_desc">
+    </plurals>
+    <string name="admin_pv_derp_used"></string>
+    <string name="admin_pv_derp_excluded"></string>
+    <string name="admin_pv_derp_replaced"></string>
+    <string name="admin_pv_derp_unknown"></string>
+    <string name="admin_pv_derp_last"></string>
+    <string name="admin_pv_derp_odd_entry"></string>
+    <string name="admin_pv_derp_confirm_title"></string>
+    <plurals name="admin_pv_derp_confirm_homes">
+    </plurals>
+    <string name="admin_pv_derp_confirm_more"></string>
+    <string name="admin_pv_derp_confirm_only_own"></string>
+    <string name="admin_pv_derp_confirm_ok"></string>
+</resources>
