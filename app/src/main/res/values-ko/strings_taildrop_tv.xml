@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Taildrop where the system has no file picker and no notification shade — a television,
+  mostly: the app's own browser in the picker's place, a receive folder by its path, and
+  what the inbox says about a new file. A file of its own so it lands without touching
+  strings.xml; Android merges every values/*.xml into one table.
+--><resources>
+    <!-- The app's browser asked for files to send: its title, and its button for the number checked. -->
+    <string name="taildrop_pick_files_title"></string>
+    <string name="taildrop_pick_send_to_format"></string>
+    <plurals name="taildrop_pick_send_files">
+    </plurals>
+    <!-- The app's browser asked for the folder received files go to. -->
+    <string name="taildrop_pick_folder_title"></string>
+    <string name="taildrop_pick_folder_confirm"></string>
+    <!-- The app's browser asked where to save one file of the inbox. %1$s is the file's name. -->
+    <string name="taildrop_save_copy_title_format"></string>
+    <string name="taildrop_save_copy_confirm"></string>
+    <!-- The receive folder's line at the top of the inbox, for a folder chosen by its path. %1$s is the folder. -->
+    <string name="taildrop_folder_line_format"></string>
+    <string name="taildrop_folder_change"></string>
+    <string name="taildrop_folder_needs_access_format"></string>
+    <string name="taildrop_folder_unwritable_format"></string>
+    <string name="taildrop_folder_allow"></string>
+    <!-- Labels over the inbox's cards where the newest stand apart. -->
+    <string name="taildrop_inbox_new"></string>
+    <string name="taildrop_inbox_earlier"></string>
+    <!-- One line on the screen when a file arrives while the app is open on a television. %1$s is "a.jpg from laptop · Saved to Download/Taildrop". -->
+    <string name="taildrop_tv_arrival_format"></string>
+    <string name="taildrop_tv_arrival_waits"></string>
+    <!-- Delete on a file of the inbox asks first where a remote does the pressing. %1$s is the file's name. -->
+    <string name="taildrop_delete_confirm_title_format"></string>
+    <string name="taildrop_delete_confirm_text"></string>
+    <!-- Opening a received file. %1$s is the extension with its dot, ".pdf". -->
+    <string name="taildrop_no_viewer_format"></string>
+    <string name="taildrop_no_viewer"></string>
+    <string name="taildrop_saved_gone_format"></string>
+</resources>
