@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's shared parts: selector chips, the selector picker, element cards. --><resources>
+    <!-- Selectors in plain words: the chip shows these, the picker adds the explanation. -->
+    <string name="admin_pv_sel_any"></string>
+    <string name="admin_pv_sel_any_help"></string>
+    <string name="admin_pv_ag_member"></string>
+    <string name="admin_pv_ag_member_help"></string>
+    <string name="admin_pv_ag_tagged"></string>
+    <string name="admin_pv_ag_tagged_help"></string>
+    <string name="admin_pv_ag_self"></string>
+    <string name="admin_pv_ag_self_help"></string>
+    <string name="admin_pv_ag_internet"></string>
+    <string name="admin_pv_ag_internet_help"></string>
+    <string name="admin_pv_ag_nonroot"></string>
+    <string name="admin_pv_ag_nonroot_help"></string>
+    <string name="admin_pv_ag_shared"></string>
+    <string name="admin_pv_ag_shared_help"></string>
+    <string name="admin_pv_ag_admin"></string>
+    <string name="admin_pv_ag_owner"></string>
+    <string name="admin_pv_ag_it_admin"></string>
+    <string name="admin_pv_ag_network_admin"></string>
+    <string name="admin_pv_ag_billing_admin"></string>
+    <string name="admin_pv_ag_auditor"></string>
+    <string name="admin_pv_ag_role_help"></string>
+    <string name="admin_pv_ag_danger_all"></string>
+    <string name="admin_pv_ag_danger_all_help"></string>
+    <!-- Picker groups. -->
+    <string name="admin_pv_group_everyone"></string>
+    <string name="admin_pv_group_groups"></string>
+    <string name="admin_pv_group_tags"></string>
+    <string name="admin_pv_group_users"></string>
+    <string name="admin_pv_group_hosts"></string>
+    <string name="admin_pv_group_ipsets"></string>
+    <string name="admin_pv_group_postures"></string>
+    <string name="admin_pv_picker_search"></string>
+    <string name="admin_pv_picker_use"></string>
+    <string name="admin_pv_picker_none"></string>
+    <string name="admin_pv_picker_done"></string>
+    <string name="admin_pv_tag_undefined"></string>
+    <plurals name="admin_pv_devices">
+    </plurals>
+    <!-- Why a selector cannot go where it was put. -->
+    <string name="admin_pv_problem_empty"></string>
+    <string name="admin_pv_problem_not_here"></string>
+    <string name="admin_pv_problem_undefined"></string>
+    <string name="admin_pv_problem_headscale"></string>
+    <string name="admin_pv_problem_ports"></string>
+    <string name="admin_pv_problem_one_port"></string>
+    <string name="admin_pv_problem_unknown"></string>
+    <!-- Element cards. -->
+    <string name="admin_pv_add"></string>
+    <string name="admin_pv_remove"></string>
+    <string name="admin_pv_edit_in_json"></string>
+    <string name="admin_pv_more_in_json"></string>
+    <string name="admin_pv_read_only"></string>
+    <string name="admin_pv_issue_list"></string>
+    <string name="admin_pv_issue_duplicate"></string>
+    <string name="admin_pv_issue_case"></string>
+    <string name="admin_pv_issue_legacy"></string>
+    <string name="admin_pv_server_error"></string>
+    <!-- The pages of the visual editor. -->
+    <string name="admin_pv_section_access"></string>
+    <string name="admin_pv_section_ssh"></string>
+    <string name="admin_pv_section_approvers"></string>
+    <string name="admin_pv_section_tests"></string>
+    <string name="admin_pv_section_groups"></string>
+    <string name="admin_pv_section_tags"></string>
+    <string name="admin_pv_section_hosts"></string>
+    <string name="admin_pv_section_attributes"></string>
+    <string name="admin_pv_section_posture"></string>
+    <string name="admin_pv_section_network"></string>
+    <string name="admin_pv_section_pending"></string>
+</resources>
