@@ -5,9 +5,9 @@
   account the app was installed with.
 --><resources>
     <!-- Edit mode, under the sheet's title: what the star means -->
-    <string name="accounts_primary_help"></string>
+    <string name="accounts_primary_help">★는 주 계정을 표시합니다: 삭제 불가능하며, 현재 사용 중인 계정을 삭제하면 대신 사용합니다. 어떤 계정이든 주 계정으로 선택할 수 있으며, 다른 계정을 선택하면 첫번째 계정을 삭제 가능합니다.</string>
     <!-- Star button on an account that is not the main one -->
-    <string name="accounts_make_primary"></string>
+    <string name="accounts_make_primary">주 계정으로 만들기</string>
     <!-- The filled star on the main account -->
-    <string name="accounts_primary"></string>
+    <string name="accounts_primary">주 계정</string>
 </resources>
