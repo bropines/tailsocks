@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive on a television and the way into the other devices' shares (ui/TaildriveActivity.kt,
+     ui/TaildriveParts.kt). Kept apart from strings.xml; Android merges every file under values/. --><resources>
+    <!-- The same line as taildrive_enable_needs_access, for a screen with a remote instead of a finger. -->
+    <string name="taildrive_enable_needs_access_tv"></string>
+    <!-- The way into the other devices' shares: the row, and the icon's description. -->
+    <string name="taildrive_browse_title"></string>
+    <string name="taildrive_browse_desc"></string>
+    <!-- Adding a share where the system has no folder picker: the app\'s own. -->
+    <string name="taildrive_add_browse_title"></string>
+    <string name="taildrive_add_browse_desc"></string>
+    <string name="taildrive_pick_title"></string>
+    <string name="taildrive_pick_confirm"></string>
+    <!-- The address card of a screen with no clipboard. -->
+    <string name="taildrive_address_title"></string>
+    <string name="taildrive_address_login_hidden"></string>
+    <string name="taildrive_address_show_login"></string>
+    <string name="taildrive_address_hide_login"></string>
+    <string name="taildrive_address_qr"></string>
+    <string name="taildrive_address_qr_login"></string>
+    <!-- Removing a share: asked on a television only. %1$s is the share\'s name. -->
+    <string name="taildrive_remove_title"></string>
+    <string name="taildrive_remove_body"></string>
+    <string name="taildrive_remove_confirm"></string>
+</resources>
