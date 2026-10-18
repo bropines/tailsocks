@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The installed Root Mode boot script and its version (Settings → Tunnel mode → Root).
+     Kept apart from strings.xml so work on it does not collide with edits there. --><resources>
+    <string name="settings_root_script_outdated"></string>
+    <string name="settings_root_script_outdated_unknown"></string>
+</resources>
