@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Browser of the other devices' Taildrive shares (ui/TaildriveBrowser.kt). Kept apart from
+     strings.xml so the page's text can change without touching the shared file; Android merges
+     every file under values/. --><resources>
+    <string name="taildrive_browser_title"></string>
+    <!-- The line under the title at the top: what the list below holds. -->
+    <string name="taildrive_browser_level_devices"></string>
+    <string name="taildrive_browser_level_tailnets"></string>
+    <string name="taildrive_browser_loading"></string>
+    <!-- Empty lists. -->
+    <string name="taildrive_browser_empty_folder"></string>
+    <string name="taildrive_browser_empty_shares"></string>
+    <string name="taildrive_browser_empty_devices"></string>
+    <string name="taildrive_browser_empty_devices_help"></string>
+    <!-- Errors: a title, and under it what usually causes it. -->
+    <string name="taildrive_browser_error_unreachable"></string>
+    <string name="taildrive_browser_error_unreachable_help"></string>
+    <string name="taildrive_browser_error_denied"></string>
+    <string name="taildrive_browser_error_denied_help"></string>
+    <string name="taildrive_browser_error_not_found"></string>
+    <string name="taildrive_browser_error_not_found_help"></string>
+    <string name="taildrive_browser_error_timeout"></string>
+    <string name="taildrive_browser_error_timeout_help"></string>
+    <string name="taildrive_browser_error_proxy"></string>
+    <string name="taildrive_browser_error_proxy_help"></string>
+    <string name="taildrive_browser_error_failed"></string>
+    <!-- The local proxy: what opening a file by link needs, and what other devices on the network use. -->
+    <string name="taildrive_browser_proxy_off"></string>
+    <string name="taildrive_browser_proxy_off_help"></string>
+    <string name="taildrive_browser_proxy_turn_on"></string>
+    <string name="taildrive_browser_proxy_starting"></string>
+    <!-- No installed app takes the file. -->
+    <string name="taildrive_browser_noapp_title"></string>
+    <string name="taildrive_browser_noapp_body"></string>
+    <!-- For a file that is not media: a player is no use, and none is offered. -->
+    <string name="taildrive_browser_noapp_other_body"></string>
+    <string name="taildrive_browser_noapp_show_address"></string>
+    <string name="taildrive_browser_address_title"></string>
+    <string name="taildrive_browser_address_help"></string>
+    <string name="taildrive_browser_open_failed_title"></string>
+</resources>
