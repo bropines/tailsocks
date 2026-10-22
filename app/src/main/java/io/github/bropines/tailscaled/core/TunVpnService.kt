@@ -109,6 +109,21 @@ class TunVpnService : VpnService() {
         /** The same gap while the native engine's last rebuild moved the daemon in place, which costs nothing. */
         private const val ROUTE_SWAP_MIN_GAP_MS = 30_000L
 
+        /**
+         * Another VPN app took the slot ([onRevoke]) while the connection is
+         * wanted. The daemon runs on as a proxy, and the slot is not taken back
+         * behind the user's back — a settings change leaves it — only by a start
+         * they make (Connect, the always-on VPN, TUN mode switched on again).
+         * Stored, so the main screen can say so.
+         */
+        fun isDisplaced(context: Context): Boolean = GlobalSettings.getBoolean(context, DISPLACED_PREF, false)
+
+        fun setDisplaced(context: Context, displaced: Boolean) {
+            if (isDisplaced(context) != displaced) GlobalSettings.setBoolean(context, DISPLACED_PREF, displaced)
+        }
+
+        const val DISPLACED_PREF = "tun_displaced"
+
         /** Whether the native engine's last rebuild moved the running daemon onto the new device. */
         @Volatile private var lastSwapWorked = false
 
@@ -184,13 +199,17 @@ class TunVpnService : VpnService() {
          *    went, the user accepted routes — throttled, see the constants.
          *
          * Never while the VPN permission is missing: the prompt belongs to a
-         * start the user made, not to a background tick.
+         * start the user made, not to a background tick. And never by
+         * VpnService.prepare(), which takes the slot from another VPN app
+         * (see [VpnConsent]): a device that is up holds the slot already, and a
+         * start that waits goes ahead only with the consent given and no other
+         * VPN up.
          */
         fun rebuildReason(context: Context): String? {
             if (!GlobalSettings.isTunModeEnabled(context) || GlobalSettings.isRootModeEnabled(context)) return null
             if (!ProxyState.isUserLetRunning(context)) return null
-            if (runCatching { VpnService.prepare(context) }.getOrNull() != null) return null
             if (waitingForAddresses) {
+                if (VpnConsent.given(context) != true || VpnConsent.vpnUp(context)) return null
                 return if (selfIpsNow().isNotEmpty()) "the node's addresses are known now" else null
             }
             if (!isRunning) return null
@@ -376,6 +395,12 @@ class TunVpnService : VpnService() {
         executor.submit {
             waitingForAddresses = false
             stopTunInternal()
+            // Another VPN app took the slot (or the user revoked it in Android's
+            // settings): the connection stays, as a proxy, until the user takes
+            // the slot back; see [isDisplaced]. Set here, on the executor, after
+            // any start that was still running: a start clears it when done, and
+            // a revoke that landed during a device swap must come out last.
+            if (ProxyState.isUserLetRunning(this)) setDisplaced(this, true)
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 stopSelf()
             }
@@ -453,6 +478,7 @@ class TunVpnService : VpnService() {
             android.os.Handler(android.os.Looper.getMainLooper()).post { stopSelf() }
             return
         }
+        setDisplaced(this, false)
         builtEngine = engine
         builtSelfIps = if (engine == ENGINE_NATIVE) nativeSelfIps else emptyList()
         builtDefaultV4 = defaultV4

@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.net.VpnService
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
@@ -69,7 +68,8 @@ object AppPermissions {
         AppPermission.BATTERY -> batteryState(context)
         AppPermission.VPN -> vpnState(
             wanted = GlobalSettings.isTunModeEnabled(context) && !GlobalSettings.isRootModeEnabled(context),
-            prepared = { runCatching { VpnService.prepare(context) == null }.getOrNull() },
+            // Never VpnService.prepare(): it takes the slot from another VPN app.
+            prepared = { VpnConsent.given(context) },
         )
         // Before Android 12 an exact alarm needs no permission at all.
         AppPermission.ALARMS -> when {

@@ -9,4 +9,6 @@
     <string name="tun_engine_hev_desc">hev-socks5-tunnel — движок для совместимости. Каждый пакет идёт через локальный SOCKS5-прокси.\n• Выберите его, если нативный движок плохо работает на этом устройстве.\n• Смена движка перезапускает демона на несколько секунд.</string>
     <!-- Root Mode with the native TUN: the same excluded ranges, as throw routes in the daemon's table -->
     <string name="settings_root_excluded_cidrs_desc">Подсети через запятую, которые при включённом exit node остаются в реальной сети, — тот же список, что в режиме VPN. Link-local-адреса остаются там всегда.</string>
+    <!-- TUN mode on, the VPN slot taken by another VPN app (TunVpnService.isDisplaced) -->
+    <string name="main_tun_displaced_desc">Слот VPN занял другой VPN. TailSocks продолжает работать как прокси; переподключитесь, чтобы вернуть слот.</string>
 </resources>

@@ -1692,7 +1692,13 @@ class TailscaledService : Service() {
                 applyTagsAndRoutes(this@TailscaledService)
                 applyTaildrive(this@TailscaledService)
                 if (GlobalSettings.isTunModeEnabled(this@TailscaledService)) {
-                    startTunMode()
+                    // A settings change is not a request for the VPN slot: another
+                    // VPN app that took it keeps it until the user reconnects.
+                    if (TunVpnService.isDisplaced(this@TailscaledService)) {
+                        Log.i(TAG, "TUN: another VPN app holds the slot; a settings change does not take it back")
+                    } else {
+                        startTunMode()
+                    }
                 } else {
                     stopTunMode()
                 }
@@ -2424,7 +2430,14 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * The user wants the tunnel now — a start, a rebuild of a device that is up,
+     * a settings change while nothing else holds the slot. VpnService.prepare()
+     * here may take the slot from another VPN app, and that is the point; it is
+     * never a mere check (see [VpnConsent]).
+     */
     private fun startTunMode() {
+        TunVpnService.setDisplaced(this, false)
         try {
             val prepareIntent = android.net.VpnService.prepare(this)
             tunRequested = true
@@ -2447,6 +2460,7 @@ class TailscaledService : Service() {
     }
 
     private fun stopTunMode() {
+        TunVpnService.setDisplaced(this, false)
         try {
             if (!TunVpnService.isRunning && !tunRequested) {
                 // Nothing to stop. Starting the VpnService only to stop it again

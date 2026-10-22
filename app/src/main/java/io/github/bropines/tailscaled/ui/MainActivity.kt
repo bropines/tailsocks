@@ -534,6 +534,9 @@ fun MainScreen(
     val prefs = remember(activeAccount.id) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
     val globalPrefs = remember { context.getSharedPreferences("tailsocks_global", Context.MODE_PRIVATE) }
     var isTunEnabled by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
+    // TUN mode is on, but another VPN app took the slot: the card must not say
+    // "+ TUN" over a phone that has no TailSocks VPN (TunVpnService.isDisplaced).
+    var isTunDisplaced by remember { mutableStateOf(TunVpnService.isDisplaced(context)) }
     // Root Mode routes through the kernel interface, not the VpnService, so the
     // card has to name it: "Active" alone reads as plain proxy mode.
     var isRootEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
@@ -553,6 +556,9 @@ fun MainScreen(
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
             if (key == "tun_mode_enabled") {
                 isTunEnabled = sharedPreferences.getBoolean("tun_mode_enabled", false)
+            }
+            if (key == TunVpnService.DISPLACED_PREF) {
+                isTunDisplaced = sharedPreferences.getBoolean(TunVpnService.DISPLACED_PREF, false)
             }
             if (key == "root_routing_yielded") {
                 isRootYielded = sharedPreferences.getBoolean("root_routing_yielded", false)
@@ -890,6 +896,7 @@ fun MainScreen(
     DisposableEffect(globalPrefs) {
         globalPrefs.registerOnSharedPreferenceChangeListener(globalPrefsListener)
         isTunEnabled = globalPrefs.getBoolean("tun_mode_enabled", false)
+        isTunDisplaced = globalPrefs.getBoolean(TunVpnService.DISPLACED_PREF, false)
         isRootYielded = globalPrefs.getBoolean("root_routing_yielded", false)
         isRootShared = globalPrefs.getBoolean("root_routing_shared", false)
         onDispose {
@@ -904,6 +911,7 @@ fun MainScreen(
                 showConnectionSummary = GlobalSettings.isConnectionSummaryShown(context)
                 showManagedOnMain = GlobalSettings.isManagedOnMainShown(context)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
+                isTunDisplaced = TunVpnService.isDisplaced(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
                 dnsHasFallback = GlobalSettings.dnsHasFallback(context)
                 isRootYielded = GlobalSettings.isRootRoutingYielded(context)
@@ -1571,6 +1579,7 @@ fun MainScreen(
                 issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
                 isProcessing = isProcessing,
                 isTunEnabled = isTunEnabled,
+                isTunDisplaced = isTunDisplaced,
                 isFullTunnel = isFullTunnel,
                 isRootEnabled = isRootEnabled,
                 isYieldedToForeignVpn = yieldedToForeignVpn,
@@ -2366,6 +2375,8 @@ fun StatusCard(
     isProcessing: Boolean,
     isTunEnabled: Boolean,
     isFullTunnel: Boolean,
+    /** TUN mode, with the slot taken by another VPN app: a proxy for now. */
+    isTunDisplaced: Boolean = false,
     isRootEnabled: Boolean = false,
     isYieldedToForeignVpn: Boolean = false,
     isSharedWithForeignVpn: Boolean = false,
@@ -2470,7 +2481,7 @@ fun StatusCard(
             val title = when (state) {
                 "ACTIVE" -> when {
                     isRootEnabled -> "${stringResource(R.string.main_status_active)} + Root"
-                    isTunEnabled -> "${stringResource(R.string.main_status_active)} + TUN"
+                    isTunEnabled && !isTunDisplaced -> "${stringResource(R.string.main_status_active)} + TUN"
                     else -> stringResource(R.string.main_status_active)
                 }
                 "STARTING" -> stringResource(R.string.main_status_starting)
@@ -2530,6 +2541,7 @@ fun StatusCard(
                         isRootEnabled && isYieldedToForeignVpn ->
                             stringResource(if (touchWording) R.string.main_status_active_root_yielded_desc else R.string.tv_home_active_root_yielded)
                         isRootEnabled -> stringResource(if (touchWording) R.string.main_status_active_root_desc else R.string.tv_home_active_root)
+                        isTunEnabled && isTunDisplaced -> stringResource(R.string.main_tun_displaced_desc)
                         isTunEnabled -> if (isFullTunnel) stringResource(R.string.main_tun_full_tunnel_desc)
                                         else stringResource(R.string.main_tun_split_tunnel_desc)
                         else -> stringResource(if (touchWording) R.string.main_status_active_desc else R.string.tv_home_active)

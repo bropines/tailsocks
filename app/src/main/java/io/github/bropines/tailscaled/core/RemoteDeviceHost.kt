@@ -2,7 +2,6 @@ package io.github.bropines.tailscaled.core
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.net.VpnService
 import android.os.Build
 import android.os.StatFs
 import io.github.bropines.tailscaled.BuildConfig
@@ -47,7 +46,8 @@ internal class AppRemoteDeviceHost(context: Context) : RemoteDeviceHost {
                 if (GlobalSettings.isRootModeEnabled(context)) throw RemoteRefusal("Root Mode is on; the mode is changed on the device")
                 // The consent is a dialog only a person at the device can answer, and the
                 // tunnel does not start without it.
-                if (on && runCatching { VpnService.prepare(context) }.getOrNull() != null) {
+                // Asked without VpnService.prepare(), which would take the slot from another VPN app.
+                if (on && VpnConsent.given(context) != true) {
                     throw RemoteRefusal("TUN mode needs the VPN consent, which is given on the device")
                 }
                 GlobalSettings.setTunModeEnabled(context, on)
