@@ -20,7 +20,7 @@
     <string name="settings_tun_transparent_lockdown">При блокировке Android</string>
     <string name="settings_tun_transparent_always">Всегда</string>
     <string name="settings_tun_transparent_off_short">Без выходного узла через VPN идёт только tailnet</string>
-    <string name="settings_tun_transparent_lockdown_short">Весь трафик, только пока включено «Блокировать соединения без VPN»</string>
+    <string name="settings_tun_transparent_lockdown_short">Только пока в Android включена блокировка</string>
     <string name="settings_tun_transparent_always_short">Весь трафик через TailSocks, с выходным узлом и без</string>
     <string name="settings_tun_transparent_off_desc">Выключен. Без выходного узла через VPN идёт только tailnet; при «Блокировать соединения без VPN» в Android интернета тогда нет.</string>
     <string name="settings_tun_transparent_lockdown_desc">Когда в Android включено «Блокировать соединения без VPN», а выходной узел не выбран, TailSocks забирает весь трафик и сам отправляет в интернет всё, что не для tailnet, — интернет не пропадает. Медленнее прямого пути; ping не проходит.</string>

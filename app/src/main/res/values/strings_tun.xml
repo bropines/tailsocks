@@ -21,7 +21,7 @@
     <string name="settings_tun_transparent_lockdown">Under Android lockdown</string>
     <string name="settings_tun_transparent_always">Always</string>
     <string name="settings_tun_transparent_off_short">Without an exit node only the tailnet goes through the VPN</string>
-    <string name="settings_tun_transparent_lockdown_short">All traffic only while “Block connections without VPN” is on</string>
+    <string name="settings_tun_transparent_lockdown_short">Only while Android\'s lockdown is on</string>
     <string name="settings_tun_transparent_always_short">All traffic through TailSocks, exit node or not</string>
     <string name="settings_tun_transparent_off_desc">Off. Without an exit node only the tailnet goes through the VPN; under Android\'s “Block connections without VPN” that leaves no internet.</string>
     <string name="settings_tun_transparent_lockdown_desc">Under Android\'s “Block connections without VPN” and without an exit node, TailSocks takes all traffic and sends what is not for the tailnet out itself, so the internet keeps working. Slower than the direct path; ping does not go through.</string>
