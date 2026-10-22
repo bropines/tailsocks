@@ -123,7 +123,7 @@ Settings → Tunnel mode picks exactly one:
 | Mode | How traffic gets in | What it needs |
 |---|---|---|
 | **Proxy** (default) | Apps are pointed at the local SOCKS5 / HTTP proxy and the local DNS server. Nothing is captured. | Nothing — no VPN permission, no root |
-| **VPN (TUN)** | Android's `VpnService` device, with two engines. Native (the default): the bridge relaunches `tailscaled` with `--tun=android-vpn` on a duplicate of the fd, and the daemon reads and writes it itself. Compatibility: `hev-socks5-tunnel` (`app/src/main/jni/`) reads the device and forwards into that same local SOCKS5 proxy. | The system VPN permission |
+| **VPN (TUN)** | Android's `VpnService` device, with two engines. Native (the default): the bridge launches `tailscaled` with `--tun=android-vpn` on a duplicate of the fd, and the daemon reads and writes it itself. Compatibility: `hev-socks5-tunnel` (`app/src/main/jni/`) reads the device and forwards into that same local SOCKS5 proxy. | The system VPN permission |
 | **Root** | The daemon runs through `su` on a real kernel interface `tailscale0`, with policy routing in table `53` and the `TAILSOCKS_MARK` / `TAILSOCKS_DNS` iptables chains. Android's VPN slot stays free. | Magisk / KernelSU / APatch |
 
 :::caution
@@ -159,11 +159,11 @@ Concretely:
   establishes the device with what the daemon's no-op router would install — the
   node's addresses, the tailnet ranges, accepted subnet routes
   (`core/TunRoutes.kt`), the default route behind an exit node — and Android fixes
-  those at `establish()`, so a change rebuilds the device and relaunches the
-  daemon. `hev-socks5-tunnel` stays as the compatibility engine; keep both
-  working. The fd swap, `CallbackRouter` and `SCM_RIGHTS` in
-  [`docs/NATIVE_TUN_PLAN.md`](https://github.com/bropines/tailsocks/blob/main/docs/NATIVE_TUN_PLAN.md) are kept there for the record
-  and are not wanted: switching engines restarts the daemon by design.
+  those at `establish()`, so a change rebuilds the device. The running daemon
+  moves onto the new device in place (patch 24, `net/androidvpn`: the fd goes over
+  `files/tun-swap.sock`), and is relaunched on it only when that fails.
+  `hev-socks5-tunnel` stays as the compatibility engine; keep both working.
+  Switching engines restarts the daemon by design.
 
 State the modes you tested in the pull request. "Proxy only" is a fine answer;
 silently untested is not.
