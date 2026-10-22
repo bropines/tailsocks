@@ -1,12 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Launcher shortcuts (ui/AppShortcuts.kt): short labels fit about 10 characters. -->
-    <string name="shortcut_toggle_short"></string>
-    <string name="shortcut_toggle_long"></string>
-    <string name="shortcut_exit_node_short"></string>
-    <string name="shortcut_exit_node_long"></string>
-    <string name="shortcut_tailcat_short"></string>
-    <string name="shortcut_tailcat_long"></string>
-    <string name="shortcut_send_file_short"></string>
-    <string name="shortcut_send_file_long"></string>
-</resources>
+    </resources>
