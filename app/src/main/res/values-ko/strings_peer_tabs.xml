@@ -4,15 +4,4 @@
   top of the list or the top bar's search button brings out. A file of its own
   so it lands without touching strings.xml.
 --><resources>
-    <!-- Tabs over the list; each is followed by how many devices it holds. -->
-    <string name="peers_tab_all"></string>
-    <string name="peers_tab_online"></string>
-    <string name="peers_tab_offline"></string>
-    <!-- Untagged devices of the user this device belongs to. -->
-    <string name="peers_tab_mine"></string>
-    <string name="peers_tab_tagged"></string>
-    <string name="peers_tab_exit_nodes"></string>
-    <!-- The top bar's search button, as a screen reader names it. -->
-    <string name="peers_search_open"></string>
-    <string name="peers_search_close"></string>
-</resources>
+    </resources>
