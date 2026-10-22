@@ -1,13 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Network diagnostics. Kept apart from strings.xml so work on this screen does
      not collide with edits there; Android merges every file in values/. --><resources>
-    <string name="netcheck_home_derp"></string>
-    <string name="netcheck_home_derp_latency"></string>
-    <string name="netcheck_no_home_derp"></string>
-    <string name="netcheck_no_home_derp_help"></string>
-    <string name="netcheck_report_home_derp"></string>
-    <string name="netcheck_report_no_home_derp"></string>
-    <string name="netcheck_starting_service"></string>
-    <string name="netcheck_starting_service_desc"></string>
-    <string name="netcheck_service_stopped"></string>
-</resources>
+    </resources>
