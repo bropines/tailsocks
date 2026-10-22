@@ -10,6 +10,21 @@ tableOfContents:
 
 The app shows the same list: once after each update, and any time under **What's new** in **About TailSocks** (the ⓘ on the main screen).
 
+## 5.2.0 — 2026-10-22
+
+### Added
+
+- TUN mode: transparent mode — without an exit node, all traffic goes through TailSocks and what is not for the tailnet goes out directly, so Android's "Block connections without VPN" no longer cuts the internet. Off, under that lockdown (the default) or always; ping does not go through it.
+
+### Changed
+
+- Native TUN engine: switching an exit node on or off, or a change in accepted subnet routes, no longer restarts the connection — the daemon moves to the new tunnel in place, and is relaunched only if that fails or "Rebuild the tunnel in place" is off.
+
+### Fixed
+
+- TUN mode: a VPN app that takes the VPN slot keeps it. TailSocks took it back a second later — through a permission check — and established nothing, leaving the phone with no VPN at all; now it runs on as a proxy, says so on the main screen, and takes the slot back when you reconnect.
+- Root Mode with the native TUN: Excluded IP Ranges is on its card too — Root Mode always kept those ranges off the exit node, but the list could only be changed from VPN mode.
+
 ## 5.1.0 — 2026-10-15
 
 ### Security

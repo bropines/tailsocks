@@ -98,9 +98,11 @@ Every page and every row, as the app names them. A note under a row says when it
 | Root<br><small>On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/mode_root` |
 | TUN engine<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_engine` |
 | Forwards into the local SOCKS5 proxy<br><small>Shown with the hev-socks5-tunnel engine</small> | `tailsocks://settings/tunnel/tun_uses_socks` |
+| Rebuild the tunnel in place<br><small>Shown with the native TUN engine</small> | `tailsocks://settings/tunnel/tun_swap_in_place` |
 | Route all IPv6 through the tunnel<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_ipv6` |
+| Transparent mode<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_transparent` |
 | TUN Address<br><small>Shown with the hev-socks5-tunnel engine</small> | `tailsocks://settings/tunnel/tun_address` |
-| Excluded IP Ranges<br><small>Shown in VPN (TUN) mode</small> | `tailsocks://settings/tunnel/tun_excluded_cidrs` |
+| Excluded IP Ranges<br><small>Shown in VPN (TUN) mode, and in Root mode with the native TUN on</small> | `tailsocks://settings/tunnel/tun_excluded_cidrs` |
 | Excluded Apps<br><small>Shown in VPN (TUN) and Root modes</small> | `tailsocks://settings/tunnel/tun_excluded_apps` |
 | Native Linux TUN (tailscale0)<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_tun` |
 | Autostart Magisk/KernelSU Service (EXPERIMENTAL)<br><small>Shown in Root mode · On a TV: under Advanced → Root mode</small> | `tailsocks://settings/tunnel/root_service` |

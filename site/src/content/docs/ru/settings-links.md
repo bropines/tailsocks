@@ -98,9 +98,11 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 | Root<br><small>На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/mode_root` |
 | Движок TUN<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_engine` |
 | Отдаёт трафик в локальный SOCKS5<br><small>Появляется с движком hev-socks5-tunnel</small> | `tailsocks://settings/tunnel/tun_uses_socks` |
+| Пересобирать туннель на ходу<br><small>Появляется с нативным движком TUN</small> | `tailsocks://settings/tunnel/tun_swap_in_place` |
 | Весь IPv6 через туннель<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_ipv6` |
+| Прозрачный режим<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_transparent` |
 | Адрес TUN-интерфейса<br><small>Появляется с движком hev-socks5-tunnel</small> | `tailsocks://settings/tunnel/tun_address` |
-| Исключенные подсети IP<br><small>Появляется в режиме VPN (TUN)</small> | `tailsocks://settings/tunnel/tun_excluded_cidrs` |
+| Исключенные подсети IP<br><small>Появляется в режиме VPN (TUN) и в режиме Root с нативным TUN</small> | `tailsocks://settings/tunnel/tun_excluded_cidrs` |
 | Исключенные приложения<br><small>Появляется в режимах VPN (TUN) и Root</small> | `tailsocks://settings/tunnel/tun_excluded_apps` |
 | Нативный Linux TUN (tailscale0)<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_tun` |
 | Автозапуск Magisk/KernelSU службы (ЭКСПЕРИМЕНТАЛЬНО)<br><small>Появляется в режиме Root · На телевизоре: Дополнительно → Root-режим</small> | `tailsocks://settings/tunnel/root_service` |
