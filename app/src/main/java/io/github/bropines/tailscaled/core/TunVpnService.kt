@@ -35,9 +35,11 @@ import java.util.concurrent.Executors
  *     first launch, on the native engine with cached addresses); the system
  *     sends [VpnService.SERVICE_INTERFACE] when TailSocks is the always-on VPN.
  *  2. Android fixes a VPN's routes at establish(), so a change in what the
- *     device must route rebuilds it; on the native engine that relaunches the
- *     daemon. [rebuildReason] is how the main service's tick notices changes
- *     that come from the tailnet rather than from a setting.
+ *     device must route rebuilds it. On the native engine the new device is
+ *     established beside the old one and the running daemon moves onto it in
+ *     place (Appctr.swapNativeTun, patch 24); only when it cannot is the
+ *     daemon relaunched on it. [rebuildReason] is how the main service's tick
+ *     notices changes that come from the tailnet rather than from a setting.
  *  3. ACTION_STOP or onRevoke() takes the device down.
  */
 class TunVpnService : VpnService() {
@@ -97,12 +99,18 @@ class TunVpnService : VpnService() {
         private const val ROUTE_CHECK_INTERVAL_MS = 60_000L
 
         /**
-         * At most one route-driven rebuild per this long. Each one relaunches the
-         * daemon on the native engine, and an app connector can change its
-         * advertised routes every few minutes. A settings change is not held
-         * back by this: it sends its own start.
+         * At most one route-driven rebuild per this long while a rebuild may cost
+         * a daemon relaunch: an app connector can change its advertised routes
+         * every few minutes. A settings change is not held back by this: it
+         * sends its own start.
          */
         private const val ROUTE_REBUILD_MIN_GAP_MS = 5 * 60_000L
+
+        /** The same gap while the native engine's last rebuild moved the daemon in place, which costs nothing. */
+        private const val ROUTE_SWAP_MIN_GAP_MS = 30_000L
+
+        /** Whether the native engine's last rebuild moved the running daemon onto the new device. */
+        @Volatile private var lastSwapWorked = false
 
         private const val SELF_IPS_PREF = "native_tun_self_ips"
         private const val ROUTES_PREF = "tun_offered_routes"
@@ -201,7 +209,8 @@ class TunVpnService : VpnService() {
             cacheOfferedRoutes(context, offered)
             val want = TunRoutes.encode(TunRoutes.forDevice(offered, builtDefaultV4, builtDefaultV6, builtExclusions))
             if (want == builtRoutes) return null
-            if (lastRouteRebuildAt != 0L && now - lastRouteRebuildAt < ROUTE_REBUILD_MIN_GAP_MS) {
+            val gap = if (builtEngine == ENGINE_NATIVE && lastSwapWorked) ROUTE_SWAP_MIN_GAP_MS else ROUTE_REBUILD_MIN_GAP_MS
+            if (lastRouteRebuildAt != 0L && now - lastRouteRebuildAt < gap) {
                 Log.i(TAG, "Accepted subnet routes changed; rebuilding after the minimum gap")
                 return null
             }
@@ -406,6 +415,9 @@ class TunVpnService : VpnService() {
         )
         val wantInputs = builderInputs(plan)
         var knownIps = nativeSelfIps
+        // The native engine with a daemon up: the new device goes up beside the
+        // old one and the daemon moves onto it, see [startNativeTunInternal].
+        var replace = false
         if (tunFd != null) {
             // Android fixes a VPN's routes at establish(): the device must be
             // rebuilt when the default route comes or goes (exit node on/off), when
@@ -423,16 +435,21 @@ class TunVpnService : VpnService() {
                 return
             }
             if (ipsChanged) knownIps = liveIps
-            Log.i(TAG, "TUN parameters changed (default route $currentFullTunnel -> $wantFullTunnel, engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}, exclusions/IPv6/address/routes/DNS ${if (inputsChanged) "changed" else "same"}), restarting TUN interface...")
-            stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
+            replace = currentEngine == ENGINE_NATIVE && engine == ENGINE_NATIVE &&
+                runCatching { Appctr.isRunning() }.getOrDefault(false)
+            Log.i(TAG, "TUN parameters changed (default route $currentFullTunnel -> $wantFullTunnel, engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}, exclusions/IPv6/address/routes/DNS ${if (inputsChanged) "changed" else "same"}), ${if (replace) "replacing the device in place" else "restarting TUN interface"}...")
+            if (!replace) stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
         }
         currentExitNodeId = exitNodeId
         currentFullTunnel = wantFullTunnel
         currentEngine = engine
         currentBuilderInputs = wantInputs
 
-        val started = if (engine == ENGINE_NATIVE) startNativeTunInternal(plan, knownIps) else startHevTunInternal(plan)
+        val started = if (engine == ENGINE_NATIVE) startNativeTunInternal(plan, knownIps, replace) else startHevTunInternal(plan)
         if (!started) {
+            // A replacement that failed leaves the old device behind: it goes too,
+            // as a stop would have taken it before the start.
+            if (replace) stopTunInternal()
             android.os.Handler(android.os.Looper.getMainLooper()).post { stopSelf() }
             return
         }
@@ -662,12 +679,18 @@ class TunVpnService : VpnService() {
      * it (--tun=android-vpn). hev is not started. Returns false when nothing was
      * established.
      *
+     * With [replace] the current device stays up while the new one is
+     * established — Android takes the old one down at that moment — and the
+     * running daemon moves onto the new one in place ([moveDaemonTo]); the old
+     * fd is closed only after that. On false the old device is still
+     * [tunFd], for the caller to stop.
+     *
      * DNS: with "Use MagicDNS" (CorpDNS) off the daemon's resolver forwards nothing
      * (no routes, so every name outside the tailnet is SERVFAIL), so the device
      * then names no DNS server at all and Android resolves through the
      * underlying network, the way it does for any VPN without DNS.
      */
-    private fun startNativeTunInternal(plan: Plan, knownIps: List<String>): Boolean {
+    private fun startNativeTunInternal(plan: Plan, knownIps: List<String>, replace: Boolean = false): Boolean {
         val selfIps = knownIps.ifEmpty { waitForSelfIps() }
         if (selfIps.isEmpty()) {
             waitingForAddresses = true
@@ -703,20 +726,21 @@ class TunVpnService : VpnService() {
         applyRouteExclusions(builder, GlobalSettings.getTunExcludedCIDRs(this)
             .split(",").map { it.trim() }.filter { it.isNotEmpty() }, fullTunnel)
 
+        val old = if (replace) tunFd else null
         val fd = establishOrNull(builder) ?: return false
-        tunFd = fd
-        val err = try {
-            val dup = fd.dup()
-            Appctr.setNativeTun(dup.detachFd())
-        } catch (e: Exception) {
-            "hand-over failed: $e"
-        }
+        val err = if (old != null) moveDaemonTo(fd) else relaunchDaemonOn(fd)
         if (err.isNotEmpty()) {
             Log.e(TAG, "Native TUN: the bridge refused the device: $err")
             Appctr.logAndroid("ERROR", "CORE", "Native TUN: $err")
             try { fd.close() } catch (_: Exception) {}
-            tunFd = null
+            tunFd = old
             return false
+        }
+        tunFd = fd
+        if (old != null) {
+            // The daemon and the bridge have let go of their copies: this was the
+            // last one, and closing it removes the old interface.
+            try { old.close() } catch (e: Exception) { Log.w(TAG, "Native TUN: closing the previous device: ${e.message}") }
         }
         isRunning = true
         waitingForAddresses = false
@@ -724,6 +748,34 @@ class TunVpnService : VpnService() {
         profilePrefs(this).edit().putString(SELF_IPS_PREF, selfIps.joinToString(",")).apply()
         Log.i(TAG, "Native TUN started: addrs=$selfIps full=$fullTunnel subnets=${plan.routes.size} dns=${plan.tailscaleDns} mtu=$TUN_MTU_NATIVE")
         return true
+    }
+
+    /** The bridge relaunches the daemon on [fd]'s device. "" when it took it. */
+    private fun relaunchDaemonOn(fd: ParcelFileDescriptor): String = try {
+        Appctr.setNativeTun(fd.dup().detachFd())
+    } catch (e: Exception) {
+        "hand-over failed: $e"
+    }
+
+    /**
+     * The running daemon moves onto [fd]'s device without a restart; when it
+     * cannot — an older daemon, a refused device, no answer — it is relaunched
+     * on it, as before the swap existed. "" when one of the two took it.
+     */
+    private fun moveDaemonTo(fd: ParcelFileDescriptor): String {
+        val swapErr = try {
+            Appctr.swapNativeTun(fd.dup().detachFd())
+        } catch (e: Exception) {
+            "hand-over failed: $e"
+        }
+        lastSwapWorked = swapErr.isEmpty()
+        if (swapErr.isEmpty()) {
+            Log.i(TAG, "Native TUN: the daemon moved to the new device in place")
+            return ""
+        }
+        Log.w(TAG, "Native TUN: the daemon could not move in place ($swapErr); relaunching it on the new device")
+        Appctr.logAndroid("WARN", "CORE", "Native TUN: in-place device swap failed ($swapErr); relaunching the daemon")
+        return relaunchDaemonOn(fd)
     }
 
     /**
