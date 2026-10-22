@@ -473,7 +473,7 @@ class TunVpnService : VpnService() {
         val transparent = wantTransparent(this, wantFullTunnel)
         // The default routes the device will carry, per family; see the engines' builders.
         val defaultV4 = wantFullTunnel || transparent
-        val defaultV6 = (wantFullTunnel && GlobalSettings.isTunIpv6Enabled(this)) || transparent
+        val defaultV6 = (wantFullTunnel || transparent) && GlobalSettings.isTunIpv6Enabled(this)
         val plan = Plan(
             engine = engine,
             exitNodeId = exitNodeId,
@@ -586,9 +586,12 @@ class TunVpnService : VpnService() {
 
         // Routing mode. Transparent mode takes everything too: the SOCKS5 proxy
         // dials what is not for the tailnet directly, as it does for any app.
+        // The world's IPv6 only on request here as well: hev accepts a TCP
+        // connection before the proxy dials it, so an unreachable IPv6 fails
+        // after the connect and an app never falls back to IPv4.
         if (fullTunnel || plan.transparent) {
             builder.addRoute("0.0.0.0", 0)
-            if (ipv6DefaultRoute || plan.transparent) {
+            if (ipv6DefaultRoute) {
                 builder.addRoute("::", 0)
             }
             // Tailnet IPv6 still goes through us even when the world's does not.
@@ -786,11 +789,11 @@ class TunVpnService : VpnService() {
             if (hasV6) builder.addDnsServer(TUN_DNS_IP_V6)
         }
         if (fullTunnel || plan.transparent) {
-            // In transparent mode the world's IPv6 has no other way out under the
-            // lockdown, and the daemon dials it directly: a network without IPv6
-            // refuses at once and apps fall back to IPv4.
+            // The world's IPv6 only on request, behind an exit node and in
+            // transparent mode alike: a route Android is handed makes apps try
+            // IPv6 first, and on a network without it they wait on every site.
             builder.addRoute("0.0.0.0", 0)
-            if (ipv6DefaultRoute || plan.transparent) builder.addRoute("::", 0)
+            if (ipv6DefaultRoute) builder.addRoute("::", 0)
             builder.addRoute("fd7a:115c:a1e0::", 48)
         } else {
             builder.addRoute("100.64.0.0", 10)
