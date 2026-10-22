@@ -4,14 +4,4 @@
   name there, and whether it is online is said in the words of the list in Settings
   (strings_remote_manage.xml); these are for the entry that leads to all of them.
 --><resources>
-    <!-- Dashboard tile: opens the list of every device this one manages -->
-    <string name="managed_all"></string>
-    <!-- Its second line while nothing is known of who is online: how many there are -->
-    <plurals name="managed_count">
-    </plurals>
-    <!-- Phone pill: the same entry, with how many there are -->
-    <string name="managed_all_count"></string>
-    <!-- Settings → Appearance: the switch for all of it -->
-    <string name="settings_managed_on_main_title"></string>
-    <string name="settings_managed_on_main_desc"></string>
-</resources>
+    </resources>
