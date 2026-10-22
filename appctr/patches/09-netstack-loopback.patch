@@ -1,5 +1,5 @@
 --- orig/net/tstun/wrap.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-10-22 05:50:04.896829185 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-10-22 07:30:27.053377892 +0300
 @@ -465,6 +465,20 @@
  	return t.tdev.File()
  }
@@ -22,7 +22,7 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-10-22 07:22:05.673578328 +0300
++++ tailscale_src/wgengine/netstack/netstack.go	2026-10-22 07:46:13.569734500 +0300
 @@ -207,6 +207,17 @@
  	// It can only be set before calling Start.
  	ProcessSubnets bool
@@ -142,7 +142,20 @@
  // injectToWireGuard reads packets from the [outboundToWireGuard] [linkEndpoint]
  // queue and injects them into tstun for eventual delivery to wireguard-go via
  // [tun.Device.Read].
-@@ -1231,6 +1301,12 @@
+@@ -1145,6 +1215,12 @@
+ // return true. It will return false if the packet should be sent outbound, for
+ // transit via WireGuard to another Tailscale node.
+ func (ns *Impl) shouldSendToHost(pkt *stack.PacketBuffer) bool {
++	// TailSocks: transparent mode's replies go back to the host; see
++	// local_egress.go.
++	if ns.isLocalEgressReply(pkt) {
++		return true
++	}
++
+ 	// Determine if the packet is from a service IP (100.100.100.100 or the
+ 	// IPv6 variant), in which case it needs to go back into the machine's
+ 	// network (inbound) instead of out.
+@@ -1231,6 +1307,12 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
@@ -155,7 +168,7 @@
  // isVIPServiceIP reports whether ip is an IP address that's
  // assigned to a VIP service.
  func (ns *Impl) isVIPServiceIP(ip netip.Addr) bool {
-@@ -1329,6 +1405,9 @@
+@@ -1329,6 +1411,9 @@
  	if ns.ProcessSubnets && !isLocal {
  		return true
  	}

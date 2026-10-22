@@ -1,6 +1,6 @@
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/wgengine/netstack/local_egress.go	2026-10-22 07:26:17.987486274 +0300
-@@ -0,0 +1,66 @@
++++ tailscale_src/wgengine/netstack/local_egress.go	2026-10-22 07:46:13.570903228 +0300
+@@ -0,0 +1,96 @@
 +package netstack
 +
 +// TailSocks: transparent mode for Android's VPN.
@@ -21,6 +21,10 @@
 +// (cmd/tailscaled/android_vpn_swap.go).
 +
 +import (
++	"net/netip"
++
++	"gvisor.dev/gvisor/pkg/tcpip/header"
++	"gvisor.dev/gvisor/pkg/tcpip/stack"
 +	"tailscale.com/net/packet"
 +	"tailscale.com/net/tsaddr"
 +	"tailscale.com/types/ipproto"
@@ -67,9 +71,35 @@
 +	}
 +	return true
 +}
++
++// isLocalEgressReply reports whether pkt, leaving netstack, answers one of
++// transparent mode's flows: from an address outside the tailnet to one of this
++// node's own, which is where the host's connection came from. It goes back to
++// the host — not out to WireGuard, which would only hand it back to netstack.
++// No other flow of netstack's answers the node itself from outside the tailnet.
++func (ns *Impl) isLocalEgressReply(pkt *stack.PacketBuffer) bool {
++	if !ns.localEgress.Load() {
++		return false
++	}
++	var src, dst netip.Addr
++	switch v := pkt.Network().(type) {
++	case header.IPv4:
++		src = netip.AddrFrom4(v.SourceAddress().As4())
++		dst = netip.AddrFrom4(v.DestinationAddress().As4())
++	case header.IPv6:
++		src = netip.AddrFrom16(v.SourceAddress().As16())
++		dst = netip.AddrFrom16(v.DestinationAddress().As16())
++	default:
++		return false
++	}
++	if tsaddr.IsTailscaleIP(src) || viaRange.Contains(src) {
++		return false
++	}
++	return ns.isLocalIP(dst)
++}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/wgengine/netstack/local_egress_test.go	2026-10-22 07:27:32.794734124 +0300
-@@ -0,0 +1,156 @@
++++ tailscale_src/wgengine/netstack/local_egress_test.go	2026-10-22 07:46:13.571096720 +0300
+@@ -0,0 +1,188 @@
 +package netstack
 +
 +import (
@@ -226,8 +256,40 @@
 +		t.Error("the internet was left to WireGuard")
 +	}
 +}
++
++// The answers of transparent mode's flows go back to the host; nothing else
++// of netstack's changes its way.
++func TestLocalEgressRepliesGoToTheHost(t *testing.T) {
++	self4 := netip.MustParseAddr("100.64.1.2")
++	impl := makeNetstack(t, func(impl *Impl) {
++		impl.ProcessSubnets = false
++		impl.ProcessLocalIPs = false
++		impl.atomicIsLocalIPFunc.Store(func(a netip.Addr) bool { return a == self4 })
++	})
++	reply := func(src, dst string) bool {
++		pkt := makeUDP4PacketBuffer(netip.MustParseAddrPort(src), netip.MustParseAddrPort(dst))
++		defer pkt.DecRef()
++		return impl.shouldSendToHost(pkt)
++	}
++	if reply("203.0.113.7:443", "100.64.1.2:40001") {
++		t.Fatal("transparent off: a reply from the internet was sent to the host")
++	}
++	impl.SetLocalEgress(true)
++	if !reply("203.0.113.7:443", "100.64.1.2:40001") {
++		t.Error("transparent on: the internet's reply to the host went out instead")
++	}
++	if reply("100.101.102.103:22", "100.64.1.2:40001") {
++		t.Error("a peer's packet to this node was sent to the host")
++	}
++	if reply("203.0.113.7:443", "100.101.102.103:40001") {
++		t.Error("a packet to another node was sent to the host")
++	}
++	if !reply("100.100.100.100:53", "100.64.1.2:40001") {
++		t.Error("MagicDNS's answer no longer goes to the host")
++	}
++}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/cmd/tailscaled/android_vpn_egress.go	2026-10-22 07:23:59.360195615 +0300
++++ tailscale_src/cmd/tailscaled/android_vpn_egress.go	2026-10-22 07:30:27.095082863 +0300
 @@ -0,0 +1,49 @@
 +//go:build !ts_omit_netstack
 +
@@ -279,7 +341,7 @@
 +	return true
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go	2026-10-22 07:29:43.781406131 +0300
++++ tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go	2026-10-22 07:30:27.095120335 +0300
 @@ -0,0 +1,11 @@
 +package ipnlocal
 +
