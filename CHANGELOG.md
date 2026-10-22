@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Changed
+
+- Native TUN engine: switching an exit node on or off, or a change in accepted subnet routes, no longer restarts the connection — the daemon moves to the new tunnel in place, and is relaunched only if that fails.
+
 ### Fixed
 
 - Root Mode with the native TUN: Excluded IP Ranges is on its card too — Root Mode always kept those ranges off the exit node, but the list could only be changed from VPN mode.
