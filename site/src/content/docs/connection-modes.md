@@ -53,17 +53,58 @@ AdGuard can send tailnet names to TailSocks and keep filtering the rest.
 
 ## VPN (TUN)
 
-Routes the device through the Android VPN interface. Android gives the VPN slot to one app at a time, so turning it on asks first (**Take the VPN slot?**). A VPN or ad blocker that takes the slot later disconnects TailSocks the same way.
+Routes the device through the Android VPN interface. Android gives the VPN slot to one app at a time, so turning it on asks first (**Take the VPN slot?**).
 
-- **Without an exit node** only the tailnet and accepted subnet routes go through the VPN.
+- **Without an exit node** only the tailnet and accepted subnet routes go through the VPN — or all traffic, in [transparent mode](#transparent-mode).
 - **With an exit node** all traffic does.
 
 Settings → Tunnel mode → **TUN Mode Settings**:
 
-- **TUN engine** — **Native** (the default): `tailscaled` runs the tunnel itself; MagicDNS, split DNS and exit nodes come straight from it. Turning an exit node on or off relaunches the daemon for a few seconds. **hev-socks5-tunnel** is the compatibility engine: every packet goes through the local SOCKS5 proxy. Use it if the native one misbehaves.
-- **Excluded Apps** — apps that stay outside the tunnel.
-- **Excluded IP Ranges** — subnets that stay on the real network while an exit node is on (Android 13+).
+- **TUN engine** — **Native** (the default): `tailscaled` runs the tunnel itself; MagicDNS, split DNS and exit nodes come straight from it. **hev-socks5-tunnel** is the compatibility engine: every packet goes through the local SOCKS5 proxy. Use it if the native one misbehaves.
+- **Rebuild the tunnel in place** — native engine only, on by default. See [the tunnel rebuilt in place](#the-tunnel-rebuilt-in-place).
 - **Route all IPv6 through the tunnel** — off by default. Turn it on only if your exit node carries IPv6, or IPv6 sites hang.
+- **Transparent mode** — **Under Android lockdown** by default. See [transparent mode](#transparent-mode).
+- **Excluded IP Ranges** — subnets that stay on the real network while an exit node is on (Android 13+).
+- **Excluded Apps** — apps that stay outside the tunnel.
+
+### The tunnel rebuilt in place
+
+Android fixes a VPN's routes when the VPN is established. So turning an exit node on or off, or a change in accepted subnet routes, needs a new VPN. Switching from one exit node to another needs none.
+
+On the native engine TailSocks establishes the new VPN beside the old one, and the running daemon moves onto it in a few milliseconds, without a restart. If that fails, the daemon is relaunched on the new VPN, a few seconds without the tailnet. With **Rebuild the tunnel in place** off, it is always relaunched.
+
+### Transparent mode
+
+Without an exit node the VPN carries only the tailnet. Android's **Block connections without VPN** (Android's VPN settings, next to **Always-on VPN**) cuts every connection that is not routed into the VPN — without an exit node, the whole internet.
+
+In transparent mode the VPN takes all traffic. What is for the tailnet goes there; the rest goes out directly — on the native engine the daemon dials it, on hev-socks5-tunnel the SOCKS5 proxy does. Accepted subnet routes still go to the devices that offer them. With an exit node selected, the exit node carries everything and transparent mode stays out of it.
+
+| Choice | When it is on |
+|---|---|
+| **Under Android lockdown** (default) | only while **Block connections without VPN** is on. TailSocks follows that switch by itself, within about 15 seconds. |
+| **Always** | whenever no exit node is selected. |
+| **Off** | never. Without an exit node, the lockdown then leaves no internet. |
+
+What it costs:
+
+- Slower than the direct path in principle. Measured on a phone on Wi-Fi: about 4.6 MB/s with it and without it.
+- Ping and other ICMP to the internet do not go through.
+- The world's IPv6 goes through only with **Route all IPv6 through the tunnel** on. Without it, under the lockdown, apps fall back to IPv4.
+
+<details>
+<summary>How it follows the lockdown</summary>
+
+Android tells only the running VPN service whether **Block connections without VPN** is on, and tells nobody when it changes. So TailSocks asks on every status refresh, every 15 seconds, and rebuilds the tunnel when the answer changes — in place, on the native engine.
+
+The rebuilt VPN takes the default route, `0.0.0.0/0`, and `::/0` only with **Route all IPv6 through the tunnel**. On the native engine the daemon ends the phone's TCP and UDP to addresses outside the tailnet that no peer routes and dials them again itself; the daemon stays outside the VPN, so the lockdown lets it through. On hev-socks5-tunnel every connection already goes to the SOCKS5 proxy, which dials what is not for the tailnet as it does for any app.
+
+</details>
+
+### Another VPN app takes the slot
+
+When another VPN app — AdGuard, Exclave… — takes Android's VPN slot, TailSocks keeps running as a proxy: the tailnet stays reachable through its [local proxies](#proxy). The main card says *Another VPN app took the VPN slot. TailSocks runs on as a proxy; reconnect to take the slot back.*
+
+TailSocks takes the slot back only when you reconnect it. A settings change does not take it.
 
 ## Root (experimental)
 
