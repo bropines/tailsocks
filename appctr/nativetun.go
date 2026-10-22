@@ -5,6 +5,10 @@ package appctr
 // relaunched with --tun=android-vpn and the fd inherited as fd 3 (TS_TUN_FD,
 // see patch 18). The bridge keeps its copy so every later launch of the daemon
 // — a crash restart included — gets the same device, until ClearNativeTun.
+//
+// A device established in place of the current one (other routes) goes to the
+// running daemon instead, over its swap socket (SwapNativeTun, patch 24); only
+// when that fails is the daemon relaunched on it.
 
 import (
 	"encoding/json"
@@ -13,7 +17,14 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
+
+	"tailscale.com/net/androidvpn"
 )
+
+// swapTimeout bounds a device swap: the daemon builds a wireguard-go device
+// on the descriptor and answers, which takes milliseconds.
+const swapTimeout = 3 * time.Second
 
 var nativeTun struct {
 	sync.Mutex
@@ -76,9 +87,48 @@ func SetNativeTun(fd int32) string {
 	return ""
 }
 
-// ReleaseNativeTunForSwap prepares an in-place restart of the native engine:
-// the caller is about to establish a new VPN (exit node or route change) and
-// hand over a new fd. The live prefs are captured so the relaunch cannot revert
+// SwapNativeTun hands fd — a dup of a VpnService device the app has just
+// established in place of the current one — to the running daemon, which moves
+// its engine onto it without a restart (net/androidvpn, patch 24). The bridge
+// keeps fd for later launches whatever happens: once the new device is
+// established the old one is down, so there is nothing to go back to. Returns
+// "" or why the daemon did not move; the caller then relaunches it on the new
+// device with SetNativeTun.
+func SwapNativeTun(fd int32) string {
+	f := os.NewFile(uintptr(fd), "vpn-tun")
+	if f == nil {
+		return "invalid fd"
+	}
+	stateMu.Lock()
+	external := externalSocketPath != ""
+	embedded := cmd != nil && cmd.Process != nil
+	stateMu.Unlock()
+
+	nativeTun.Lock()
+	old := nativeTun.f
+	nativeTun.f = f
+	nativeTun.swapPending = false
+	nativeTun.Unlock()
+	if old != nil {
+		old.Close()
+	}
+	if external || !embedded || old == nil {
+		return "no daemon of this app runs on a native device"
+	}
+	started := time.Now()
+	name, err := androidvpn.Send(getPC().DataDir(androidvpn.SocketName), f, swapTimeout)
+	if err != nil {
+		slog.Warn("Native TUN: the daemon did not move to the new device", "err", err)
+		return err.Error()
+	}
+	slog.Info("Native TUN: the daemon moved to the new device without a restart", "interface", name, "took", time.Since(started).Round(time.Millisecond))
+	return ""
+}
+
+// ReleaseNativeTunForSwap prepares a restart of the native engine on a new
+// device when SwapNativeTun cannot be used — the daemon is not up, or the
+// engine changes: the caller is about to establish a new VPN and hand over a
+// new fd. The live prefs are captured so the relaunch cannot revert
 // them, the bridge copy of the old fd is dropped, and the daemon is stopped —
 // not relaunched — so the coming SetNativeTun starts it exactly once, on the
 // new device, and its exit is never mistaken for a crash.

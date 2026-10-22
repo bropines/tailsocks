@@ -1,0 +1,1260 @@
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/net/androidvpn/swap.go	2026-10-22 05:45:35.978930252 +0300
+@@ -0,0 +1,270 @@
++// Package androidvpn lets TailSocks's daemon move to a new Android VPN
++// interface without a restart.
++//
++// On the native TUN engine the app's VpnService establishes the interface and
++// the daemon reads and writes it (--tun=android-vpn, cmd/tailscaled). Android
++// fixes a VPN's routes when it is established, so an exit node switched on or
++// off, or a change in the accepted subnet routes, means a new interface and a
++// new descriptor. [SwapDevice] is the tun.Device the engine keeps for its
++// whole life, and [SwapDevice.Swap] puts the new interface under it; [Serve]
++// and [Send] carry the descriptor from the app to the daemon.
++package androidvpn
++
++import (
++	"errors"
++	"fmt"
++	"os"
++	"sync"
++	"time"
++
++	"github.com/tailscale/wireguard-go/tun"
++	"tailscale.com/types/logger"
++)
++
++// swapGrace is how long an error from the current device waits for a swap
++// before it reaches the engine. Android takes the old interface down the
++// moment the app establishes the new one, and the new descriptor arrives a
++// moment later; wireguard-go closes the whole engine on a read error, so an
++// error in that window must not get through. A variable for the tests.
++var swapGrace = 5 * time.Second
++
++var errClosed = errors.New("android VPN device closed")
++
++// SwapDevice is a tun.Device whose underlying device can be replaced while
++// the engine runs. It reads from and writes to the current device; a Read
++// blocked on a device that Swap retired returns with that device's close and
++// goes on with the new one, so the engine never sees it.
++//
++// BatchSize is fixed by the first device, as tun.Device requires: a device
++// with another batch size is refused. Events are the first device's, then a
++// swapped-in device's MTU updates; Up and Down from a later device are not
++// passed on, since the engine is already up and the old device going down is
++// the swap itself.
++type SwapDevice struct {
++	logf   logger.Logf
++	batch  int
++	events chan tun.Event
++	done   chan struct{}
++	wg     sync.WaitGroup // event forwarders
++
++	mu      sync.Mutex
++	cur     tun.Device
++	swapped chan struct{} // closed and replaced by every Swap
++	closed  bool
++	swaps   int
++}
++
++// NewSwapDevice wraps dev, the device the engine starts on.
++func NewSwapDevice(dev tun.Device, logf logger.Logf) *SwapDevice {
++	s := &SwapDevice{
++		logf:    logf,
++		batch:   dev.BatchSize(),
++		events:  make(chan tun.Event, 8),
++		done:    make(chan struct{}),
++		cur:     dev,
++		swapped: make(chan struct{}),
++	}
++	s.forward(dev, true)
++	return s
++}
++
++// forward passes dev's events on until dev closes them or s closes. A device
++// swapped in later passes only its MTU updates; see SwapDevice.
++func (s *SwapDevice) forward(dev tun.Device, first bool) {
++	s.wg.Add(1)
++	go func() {
++		defer s.wg.Done()
++		for {
++			select {
++			case ev, ok := <-dev.Events():
++				if !ok {
++					return
++				}
++				if !first {
++					ev &= tun.EventMTUUpdate
++					if ev == 0 {
++						continue
++					}
++				}
++				select {
++				case s.events <- ev:
++				case <-s.done:
++					return
++				}
++			case <-s.done:
++				return
++			}
++		}
++	}()
++}
++
++// current is the device in use and the channel the next Swap closes; nil
++// after Close.
++func (s *SwapDevice) current() (tun.Device, chan struct{}) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.closed {
++		return nil, nil
++	}
++	return s.cur, s.swapped
++}
++
++// Swaps is how many times the device was replaced.
++func (s *SwapDevice) Swaps() int {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	return s.swaps
++}
++
++// Swap makes dev the device in use and closes the one it replaces. On error
++// dev is left to the caller.
++func (s *SwapDevice) Swap(dev tun.Device) error {
++	if got := dev.BatchSize(); got != s.batch {
++		return fmt.Errorf("new device reads %d packets at a time, the engine was built for %d", got, s.batch)
++	}
++	s.mu.Lock()
++	if s.closed {
++		s.mu.Unlock()
++		return errClosed
++	}
++	old := s.cur
++	s.cur = dev
++	s.swaps++
++	close(s.swapped)
++	s.swapped = make(chan struct{})
++	s.mu.Unlock()
++
++	s.forward(dev, false)
++	// The new device is in place before the old one closes, so a Read that the
++	// close wakes finds it.
++	if err := old.Close(); err != nil {
++		s.logf("android-vpn: closing the previous device: %v", err)
++	}
++	return nil
++}
++
++// settle decides what to do with err from dev: true to read or write again
++// (dev was swapped out, now or within swapGrace), false to return it.
++func (s *SwapDevice) settle(dev tun.Device, swapped chan struct{}, wait bool) bool {
++	cur, _ := s.current()
++	if cur == nil {
++		return false
++	}
++	if cur != dev {
++		return true
++	}
++	if !wait {
++		return false
++	}
++	t := time.NewTimer(swapGrace)
++	defer t.Stop()
++	select {
++	case <-swapped:
++		return true
++	case <-s.done:
++		return false
++	case <-t.C:
++		return false
++	}
++}
++
++// Read reads from the current device. See SwapDevice.
++func (s *SwapDevice) Read(slab []byte, packets []tun.ReadPacket) (int, error) {
++	for {
++		dev, swapped := s.current()
++		if dev == nil {
++			return 0, os.ErrClosed
++		}
++		n, err := dev.Read(slab, packets)
++		if err == nil || errors.Is(err, tun.ErrTooManySegments) {
++			return n, err
++		}
++		if n > 0 {
++			// The entries are valid even with an error; a later Read reports
++			// the error again if it is the device's for good.
++			return n, nil
++		}
++		if s.settle(dev, swapped, true) {
++			continue
++		}
++		return n, err
++	}
++}
++
++// Write writes to the current device. A write that a swap caught, and that
++// the old device took none of, goes to the new one. What the count means
++// differs between devices — packets for some, bytes for wireguard-go's Linux
++// TUN, which also goes on past a failed packet — so a write it took part of
++// is not repeated.
++func (s *SwapDevice) Write(bufs [][]byte, offset int) (int, error) {
++	dev, swapped := s.current()
++	if dev == nil {
++		return 0, os.ErrClosed
++	}
++	n, err := dev.Write(bufs, offset)
++	if err == nil || n != 0 {
++		return n, err
++	}
++	if s.settle(dev, swapped, false) {
++		if next, _ := s.current(); next != nil {
++			return next.Write(bufs, offset)
++		}
++	}
++	return n, err
++}
++
++// File is the current device's descriptor.
++func (s *SwapDevice) File() *os.File {
++	dev, _ := s.current()
++	if dev == nil {
++		return nil
++	}
++	return dev.File()
++}
++
++// MTU is the current device's.
++func (s *SwapDevice) MTU() (int, error) {
++	dev, _ := s.current()
++	if dev == nil {
++		return 0, os.ErrClosed
++	}
++	return dev.MTU()
++}
++
++// Name is the current device's interface name; Android names each new VPN
++// interface anew (tun0, tun1, …).
++func (s *SwapDevice) Name() (string, error) {
++	dev, _ := s.current()
++	if dev == nil {
++		return "", os.ErrClosed
++	}
++	return dev.Name()
++}
++
++// Events is fed as SwapDevice says, and closed by Close.
++func (s *SwapDevice) Events() <-chan tun.Event {
++	return s.events
++}
++
++// BatchSize is the first device's, for the device's whole life.
++func (s *SwapDevice) BatchSize() int {
++	return s.batch
++}
++
++// Close closes the current device and the events channel.
++func (s *SwapDevice) Close() error {
++	s.mu.Lock()
++	if s.closed {
++		s.mu.Unlock()
++		return nil
++	}
++	s.closed = true
++	dev := s.cur
++	close(s.done)
++	s.mu.Unlock()
++
++	err := dev.Close()
++	s.wg.Wait()
++	close(s.events)
++	return err
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/net/androidvpn/swap_test.go	2026-10-22 05:44:15.315006040 +0300
+@@ -0,0 +1,330 @@
++package androidvpn
++
++import (
++	"bytes"
++	"errors"
++	"os"
++	"sync"
++	"syscall"
++	"testing"
++	"time"
++
++	"github.com/tailscale/wireguard-go/tun"
++)
++
++// fakeDev is a tun.Device fed and drained through channels.
++type fakeDev struct {
++	name    string
++	batch   int
++	in      chan []byte // packets Read returns
++	readErr chan error  // an error Read returns instead
++	out     chan []byte // packets Write took
++	gate    chan struct{}
++	events  chan tun.Event
++	closed  chan struct{}
++	once    sync.Once
++}
++
++func newFake(name string) *fakeDev {
++	return &fakeDev{
++		name:    name,
++		batch:   1,
++		in:      make(chan []byte, 8),
++		readErr: make(chan error, 1),
++		out:     make(chan []byte, 8),
++		events:  make(chan tun.Event, 4),
++		closed:  make(chan struct{}),
++	}
++}
++
++func (d *fakeDev) Read(slab []byte, packets []tun.ReadPacket) (int, error) {
++	select {
++	case p := <-d.in:
++		n := copy(slab[tun.ReadPacketSpacing:], p)
++		packets[0] = tun.ReadPacket{Offset: tun.ReadPacketSpacing, Size: n}
++		return 1, nil
++	case err := <-d.readErr:
++		return 0, err
++	case <-d.closed:
++		return 0, os.ErrClosed
++	}
++}
++
++func (d *fakeDev) Write(bufs [][]byte, offset int) (int, error) {
++	if d.gate != nil {
++		<-d.gate
++	}
++	select {
++	case <-d.closed:
++		return 0, os.ErrClosed
++	default:
++	}
++	for _, b := range bufs {
++		d.out <- append([]byte(nil), b[offset:]...)
++	}
++	return len(bufs), nil
++}
++
++func (d *fakeDev) File() *os.File           { return nil }
++func (d *fakeDev) MTU() (int, error)        { return 1280, nil }
++func (d *fakeDev) Name() (string, error)    { return d.name, nil }
++func (d *fakeDev) Events() <-chan tun.Event { return d.events }
++func (d *fakeDev) BatchSize() int           { return d.batch }
++func (d *fakeDev) Close() error {
++	d.once.Do(func() {
++		close(d.closed)
++		close(d.events)
++	})
++	return nil
++}
++
++func (d *fakeDev) isClosed() bool {
++	select {
++	case <-d.closed:
++		return true
++	default:
++		return false
++	}
++}
++
++type readResult struct {
++	pkt []byte
++	err error
++}
++
++// reader reads s until an error, like wireguard-go's TUN reader.
++func reader(s *SwapDevice) <-chan readResult {
++	ch := make(chan readResult, 16)
++	go func() {
++		slab := make([]byte, 2048)
++		packets := make([]tun.ReadPacket, 1)
++		for {
++			n, err := s.Read(slab, packets)
++			for i := range n {
++				p := packets[i]
++				ch <- readResult{pkt: append([]byte(nil), slab[p.Offset:p.Offset+p.Size]...)}
++			}
++			if err != nil {
++				ch <- readResult{err: err}
++				close(ch)
++				return
++			}
++		}
++	}()
++	return ch
++}
++
++func expectPacket(t *testing.T, ch <-chan readResult, want string) {
++	t.Helper()
++	select {
++	case r := <-ch:
++		if r.err != nil {
++			t.Fatalf("Read returned %v, want packet %q", r.err, want)
++		}
++		if string(r.pkt) != want {
++			t.Fatalf("Read returned %q, want %q", r.pkt, want)
++		}
++	case <-time.After(2 * time.Second):
++		t.Fatalf("no packet %q", want)
++	}
++}
++
++func expectNothing(t *testing.T, ch <-chan readResult, d time.Duration) {
++	t.Helper()
++	select {
++	case r := <-ch:
++		t.Fatalf("unexpected read result: %q, %v", r.pkt, r.err)
++	case <-time.After(d):
++	}
++}
++
++func TestReadMovesToTheNewDevice(t *testing.T) {
++	a, b := newFake("tun0"), newFake("tun1")
++	s := NewSwapDevice(a, t.Logf)
++	defer s.Close()
++	ch := reader(s)
++
++	a.in <- []byte("one")
++	expectPacket(t, ch, "one")
++
++	// The reader is now blocked on a: the swap closes a under it.
++	if err := s.Swap(b); err != nil {
++		t.Fatal(err)
++	}
++	if !a.isClosed() {
++		t.Fatal("the swapped-out device is still open")
++	}
++	b.in <- []byte("two")
++	expectPacket(t, ch, "two")
++	expectNothing(t, ch, 50*time.Millisecond)
++	if got, _ := s.Name(); got != "tun1" {
++		t.Errorf("Name = %q, want tun1", got)
++	}
++	if s.Swaps() != 1 {
++		t.Errorf("Swaps = %d, want 1", s.Swaps())
++	}
++}
++
++func TestReadErrorWaitsForTheSwap(t *testing.T) {
++	a, b := newFake("tun0"), newFake("tun1")
++	s := NewSwapDevice(a, t.Logf)
++	defer s.Close()
++	ch := reader(s)
++
++	// Android took the old interface down; the new descriptor is on its way.
++	a.readErr <- syscall.EIO
++	expectNothing(t, ch, 50*time.Millisecond)
++	if err := s.Swap(b); err != nil {
++		t.Fatal(err)
++	}
++	b.in <- []byte("after")
++	expectPacket(t, ch, "after")
++}
++
++func TestReadErrorWithoutASwapReachesTheEngine(t *testing.T) {
++	defer func(d time.Duration) { swapGrace = d }(swapGrace)
++	swapGrace = 50 * time.Millisecond
++	a := newFake("tun0")
++	s := NewSwapDevice(a, t.Logf)
++	defer s.Close()
++	ch := reader(s)
++
++	a.readErr <- syscall.EIO
++	select {
++	case r := <-ch:
++		if !errors.Is(r.err, syscall.EIO) {
++			t.Fatalf("Read returned %q, %v; want EIO", r.pkt, r.err)
++		}
++	case <-time.After(2 * time.Second):
++		t.Fatal("the device's own error never reached the engine")
++	}
++}
++
++func TestCloseEndsABlockedRead(t *testing.T) {
++	a := newFake("tun0")
++	s := NewSwapDevice(a, t.Logf)
++	ch := reader(s)
++	expectNothing(t, ch, 20*time.Millisecond)
++	if err := s.Close(); err != nil {
++		t.Fatal(err)
++	}
++	select {
++	case r := <-ch:
++		if !errors.Is(r.err, os.ErrClosed) {
++			t.Fatalf("Read after Close returned %q, %v", r.pkt, r.err)
++		}
++	case <-time.After(2 * time.Second):
++		t.Fatal("Close did not end the blocked Read")
++	}
++	if err := s.Close(); err != nil {
++		t.Errorf("second Close: %v", err)
++	}
++	if err := s.Swap(newFake("tun1")); err == nil {
++		t.Error("Swap after Close succeeded")
++	}
++	if _, ok := <-s.Events(); ok {
++		t.Error("the events channel is still open after Close")
++	}
++}
++
++func TestWriteGoesToTheCurrentDevice(t *testing.T) {
++	a, b := newFake("tun0"), newFake("tun1")
++	s := NewSwapDevice(a, t.Logf)
++	defer s.Close()
++	buf := [][]byte{[]byte("..hello")}
++	if n, err := s.Write(buf, 2); n != 1 || err != nil {
++		t.Fatalf("Write = %d, %v", n, err)
++	}
++	if got := <-a.out; !bytes.Equal(got, []byte("hello")) {
++		t.Fatalf("a got %q", got)
++	}
++	if err := s.Swap(b); err != nil {
++		t.Fatal(err)
++	}
++	if n, err := s.Write(buf, 2); n != 1 || err != nil {
++		t.Fatalf("Write after the swap = %d, %v", n, err)
++	}
++	if got := <-b.out; !bytes.Equal(got, []byte("hello")) {
++		t.Fatalf("b got %q", got)
++	}
++}
++
++func TestAWriteCaughtByTheSwapGoesToTheNewDevice(t *testing.T) {
++	a, b := newFake("tun0"), newFake("tun1")
++	a.gate = make(chan struct{})
++	s := NewSwapDevice(a, t.Logf)
++	defer s.Close()
++
++	done := make(chan error, 1)
++	go func() {
++		_, err := s.Write([][]byte{[]byte("late")}, 0)
++		done <- err
++	}()
++	time.Sleep(20 * time.Millisecond) // the write is inside a
++	if err := s.Swap(b); err != nil {
++		t.Fatal(err)
++	}
++	close(a.gate) // a finds itself closed and refuses the packet
++	if err := <-done; err != nil {
++		t.Fatalf("Write = %v", err)
++	}
++	select {
++	case got := <-b.out:
++		if string(got) != "late" {
++			t.Fatalf("b got %q", got)
++		}
++	case <-time.After(2 * time.Second):
++		t.Fatal("the packet never reached the new device")
++	}
++}
++
++func TestSwapRefusesAnotherBatchSize(t *testing.T) {
++	a, b := newFake("tun0"), newFake("tun1")
++	b.batch = 64
++	s := NewSwapDevice(a, t.Logf)
++	defer s.Close()
++	if err := s.Swap(b); err == nil {
++		t.Fatal("a device with another batch size was taken")
++	}
++	if a.isClosed() || b.isClosed() {
++		t.Fatal("a refused swap closed a device")
++	}
++	if got, _ := s.Name(); got != "tun0" {
++		t.Errorf("Name = %q after a refused swap", got)
++	}
++}
++
++func TestEvents(t *testing.T) {
++	a, b := newFake("tun0"), newFake("tun1")
++	a.events <- tun.EventUp
++	s := NewSwapDevice(a, t.Logf)
++	expectEvent := func(want tun.Event) {
++		t.Helper()
++		select {
++		case got := <-s.Events():
++			if got != want {
++				t.Fatalf("event %v, want %v", got, want)
++			}
++		case <-time.After(2 * time.Second):
++			t.Fatalf("no event %v", want)
++		}
++	}
++	expectEvent(tun.EventUp)
++	if err := s.Swap(b); err != nil {
++		t.Fatal(err)
++	}
++	// The engine is up already: the new device's Up is not news, its MTU is.
++	b.events <- tun.EventUp
++	b.events <- tun.EventDown
++	b.events <- tun.EventMTUUpdate
++	expectEvent(tun.EventMTUUpdate)
++	select {
++	case ev := <-s.Events():
++		t.Fatalf("unexpected event %v", ev)
++	case <-time.After(50 * time.Millisecond):
++	}
++	s.Close()
++	if _, ok := <-s.Events(); ok {
++		t.Fatal("events not closed")
++	}
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/net/androidvpn/handoff.go	2026-10-22 05:42:47.599039605 +0300
+@@ -0,0 +1,202 @@
++//go:build linux
++
++package androidvpn
++
++// The descriptor of a new VPN interface goes from the app to the daemon over a
++// unix socket beside the daemon's own (SCM_RIGHTS). Only the daemon's own UID
++// may hand one over: the socket is 0600 in the app's data directory, and the
++// peer's credentials are checked again on every connection.
++
++import (
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"net"
++	"os"
++	"syscall"
++	"time"
++
++	"golang.org/x/sys/unix"
++	"tailscale.com/types/logger"
++)
++
++// SocketName is the socket's file name, beside tailscaled.sock.
++const SocketName = "tun-swap.sock"
++
++const (
++	requestMax = 1024
++	connWait   = 10 * time.Second
++)
++
++type request struct {
++	Op string `json:"op"` // "swap"
++}
++
++type reply struct {
++	Name  string `json:"name,omitempty"` // the new interface, on success
++	Error string `json:"error,omitempty"`
++}
++
++// Serve listens at path for new VPN descriptors and gives each one to accept,
++// which owns it from then on — it closes it on error. accept returns the new
++// interface's name. Close the returned Closer to stop listening.
++func Serve(path string, logf logger.Logf, accept func(fd int) (string, error)) (io.Closer, error) {
++	_ = os.Remove(path)
++	l, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: path, Net: "unixpacket"})
++	if err != nil {
++		return nil, err
++	}
++	if err := os.Chmod(path, 0o600); err != nil {
++		_ = l.Close()
++		return nil, err
++	}
++	go func() {
++		for {
++			c, err := l.AcceptUnix()
++			if err != nil {
++				if !errors.Is(err, net.ErrClosed) {
++					logf("android-vpn: swap socket: %v", err)
++				}
++				return
++			}
++			go handle(c, logf, accept)
++		}
++	}()
++	return l, nil
++}
++
++func handle(c *net.UnixConn, logf logger.Logf, accept func(fd int) (string, error)) {
++	defer c.Close()
++	_ = c.SetDeadline(time.Now().Add(connWait))
++	buf := make([]byte, requestMax)
++	oob := make([]byte, syscall.CmsgSpace(4*4))
++	n, oobn, _, _, err := c.ReadMsgUnix(buf, oob)
++	if err != nil {
++		return
++	}
++	fds := receivedFDs(oob[:oobn])
++	answer := func(name string, err error) {
++		r := reply{Name: name}
++		if err != nil {
++			r.Error = err.Error()
++		}
++		b, _ := json.Marshal(r)
++		_, _ = c.Write(b)
++	}
++	if err := checkPeer(c); err != nil {
++		closeFDs(fds)
++		answer("", err)
++		return
++	}
++	var req request
++	if err := json.Unmarshal(buf[:n], &req); err != nil {
++		closeFDs(fds)
++		answer("", fmt.Errorf("request: %w", err))
++		return
++	}
++	if req.Op != "swap" {
++		closeFDs(fds)
++		answer("", fmt.Errorf("unknown op %q", req.Op))
++		return
++	}
++	if len(fds) != 1 {
++		closeFDs(fds)
++		answer("", fmt.Errorf("one descriptor expected, got %d", len(fds)))
++		return
++	}
++	name, err := accept(fds[0])
++	if err != nil {
++		logf("android-vpn: a new VpnService device was refused: %v", err)
++	}
++	answer(name, err)
++}
++
++// checkPeer: only this process's own UID — the app — hands over a device.
++func checkPeer(c *net.UnixConn) error {
++	raw, err := c.SyscallConn()
++	if err != nil {
++		return err
++	}
++	var cred *unix.Ucred
++	var credErr error
++	if err := raw.Control(func(fd uintptr) {
++		cred, credErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
++	}); err != nil {
++		return err
++	}
++	if credErr != nil {
++		return credErr
++	}
++	if int(cred.Uid) != os.Getuid() {
++		return fmt.Errorf("uid %d may not hand over a VPN device", cred.Uid)
++	}
++	return nil
++}
++
++func receivedFDs(oob []byte) []int {
++	msgs, err := syscall.ParseSocketControlMessage(oob)
++	if err != nil {
++		return nil
++	}
++	var fds []int
++	for i := range msgs {
++		if got, err := syscall.ParseUnixRights(&msgs[i]); err == nil {
++			fds = append(fds, got...)
++		}
++	}
++	return fds
++}
++
++func closeFDs(fds []int) {
++	for _, fd := range fds {
++		_ = syscall.Close(fd)
++	}
++}
++
++// Send hands the daemon listening at path a duplicate of f's descriptor and
++// waits up to timeout for it to move its engine onto that device. f stays the
++// caller's. It returns the new interface's name.
++//
++// The descriptor is read through SyscallConn rather than f.Fd: Fd puts a
++// non-blocking file back into blocking mode, and the open file description —
++// with its O_NONBLOCK flag — is the one the daemon reads, which would leave
++// the daemon's reads blocking and its device impossible to close.
++func Send(path string, f *os.File, timeout time.Duration) (string, error) {
++	raw, err := f.SyscallConn()
++	if err != nil {
++		return "", err
++	}
++	c, err := net.DialUnix("unixpacket", nil, &net.UnixAddr{Name: path, Net: "unixpacket"})
++	if err != nil {
++		return "", fmt.Errorf("swap socket: %w", err)
++	}
++	defer c.Close()
++	_ = c.SetDeadline(time.Now().Add(timeout))
++	b, err := json.Marshal(request{Op: "swap"})
++	if err != nil {
++		return "", err
++	}
++	var werr error
++	if err := raw.Control(func(fd uintptr) {
++		_, _, werr = c.WriteMsgUnix(b, syscall.UnixRights(int(fd)), nil)
++	}); err != nil {
++		return "", err
++	}
++	if werr != nil {
++		return "", fmt.Errorf("swap socket: %w", werr)
++	}
++	buf := make([]byte, requestMax)
++	n, err := c.Read(buf)
++	if err != nil {
++		return "", fmt.Errorf("swap socket: %w", err)
++	}
++	var r reply
++	if err := json.Unmarshal(buf[:n], &r); err != nil {
++		return "", fmt.Errorf("swap socket reply: %w", err)
++	}
++	if r.Error != "" {
++		return "", errors.New(r.Error)
++	}
++	return r.Name, nil
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/net/androidvpn/handoff_other.go	2026-10-22 05:42:50.039038701 +0300
+@@ -0,0 +1,27 @@
++//go:build !linux
++
++package androidvpn
++
++import (
++	"errors"
++	"io"
++	"os"
++	"time"
++
++	"tailscale.com/types/logger"
++)
++
++// SocketName is the socket's file name, beside tailscaled.sock.
++const SocketName = "tun-swap.sock"
++
++var errNotLinux = errors.New("android VPN devices are swapped on Linux only")
++
++// Serve is Linux-only; see handoff.go.
++func Serve(string, logger.Logf, func(fd int) (string, error)) (io.Closer, error) {
++	return nil, errNotLinux
++}
++
++// Send is Linux-only; see handoff.go.
++func Send(string, *os.File, time.Duration) (string, error) {
++	return "", errNotLinux
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/net/androidvpn/handoff_test.go	2026-10-22 05:43:52.163015552 +0300
+@@ -0,0 +1,155 @@
++//go:build linux
++
++package androidvpn
++
++import (
++	"errors"
++	"os"
++	"path/filepath"
++	"syscall"
++	"testing"
++	"time"
++
++	"golang.org/x/sys/unix"
++)
++
++func fdOf(t *testing.T, f *os.File) int {
++	t.Helper()
++	raw, err := f.SyscallConn()
++	if err != nil {
++		t.Fatal(err)
++	}
++	var fd int
++	if err := raw.Control(func(u uintptr) { fd = int(u) }); err != nil {
++		t.Fatal(err)
++	}
++	return fd
++}
++
++func sameFile(t *testing.T, a, b int) bool {
++	t.Helper()
++	var sa, sb unix.Stat_t
++	if err := unix.Fstat(a, &sa); err != nil {
++		t.Fatal(err)
++	}
++	if err := unix.Fstat(b, &sb); err != nil {
++		t.Fatal(err)
++	}
++	return sa.Dev == sb.Dev && sa.Ino == sb.Ino
++}
++
++func TestSendHandsOverTheDescriptor(t *testing.T) {
++	path := filepath.Join(t.TempDir(), SocketName)
++	r, w, err := os.Pipe()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer r.Close()
++	defer w.Close()
++
++	got := make(chan int, 1)
++	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++		got <- fd
++		return "tun7", nil
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer l.Close()
++	if st, err := os.Stat(path); err != nil || st.Mode().Perm() != 0o600 {
++		t.Fatalf("socket mode %v, %v; want 0600", st.Mode(), err)
++	}
++
++	name, err := Send(path, r, 2*time.Second)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if name != "tun7" {
++		t.Errorf("name %q, want tun7", name)
++	}
++	fd := <-got
++	defer syscall.Close(fd)
++	if fd == fdOf(t, r) {
++		t.Fatal("the daemon got the sender's own descriptor number")
++	}
++	if !sameFile(t, fd, fdOf(t, r)) {
++		t.Fatal("the received descriptor is another file")
++	}
++}
++
++// The open file description, O_NONBLOCK included, is shared with the daemon's
++// copy: Send must leave it as it found it.
++func TestSendKeepsNonBlocking(t *testing.T) {
++	path := filepath.Join(t.TempDir(), SocketName)
++	r, w, err := os.Pipe()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer r.Close()
++	defer w.Close()
++	fd := fdOf(t, r)
++	if err := unix.SetNonblock(fd, true); err != nil {
++		t.Fatal(err)
++	}
++	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++		syscall.Close(fd)
++		return "tun0", nil
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer l.Close()
++	if _, err := Send(path, r, 2*time.Second); err != nil {
++		t.Fatal(err)
++	}
++	flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFL, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if flags&unix.O_NONBLOCK == 0 {
++		t.Fatal("Send put the descriptor back into blocking mode")
++	}
++}
++
++func TestSendReportsARefusal(t *testing.T) {
++	path := filepath.Join(t.TempDir(), SocketName)
++	r, w, err := os.Pipe()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer r.Close()
++	defer w.Close()
++	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++		syscall.Close(fd)
++		return "", errors.New("batch size differs")
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer l.Close()
++	if _, err := Send(path, r, 2*time.Second); err == nil || err.Error() != "batch size differs" {
++		t.Fatalf("Send = %v, want the daemon's refusal", err)
++	}
++}
++
++func TestSendWithoutADaemon(t *testing.T) {
++	path := filepath.Join(t.TempDir(), SocketName)
++	r, w, err := os.Pipe()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer r.Close()
++	defer w.Close()
++	if _, err := Send(path, r, time.Second); err == nil {
++		t.Fatal("Send with nobody listening succeeded")
++	}
++	// A socket file left by a daemon that is gone.
++	l, err := Serve(path, t.Logf, func(fd int) (string, error) { return "", nil })
++	if err != nil {
++		t.Fatal(err)
++	}
++	l.Close()
++	if _, err := Send(path, r, time.Second); err == nil {
++		t.Fatal("Send to a closed socket succeeded")
++	}
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/net/androidvpn/realtun_test.go	2026-10-22 05:45:35.979039213 +0300
+@@ -0,0 +1,202 @@
++//go:build linux
++
++package androidvpn
++
++// A swap on real kernel TUN devices, the way Android does it: a second
++// interface takes the address and the routes, the first is taken down (Vpn's
++// jniReset), and the daemon gets the new descriptor over the socket. It needs
++// CAP_NET_ADMIN in a network namespace of its own, so it runs only when asked:
++//
++//	ANDROIDVPN_REAL_TUN=1 unshare -rn go test -run RealTUN ./net/androidvpn/
++
++import (
++	"encoding/binary"
++	"net"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"testing"
++	"time"
++	"unsafe"
++
++	"github.com/tailscale/wireguard-go/tun"
++	"golang.org/x/sys/unix"
++)
++
++// openTUN creates interface name as Android's VpnService does: IFF_TUN,
++// IFF_NO_PI, no virtio header.
++func openTUN(t *testing.T, name string) *os.File {
++	t.Helper()
++	fd, err := unix.Open("/dev/net/tun", unix.O_RDWR|unix.O_CLOEXEC, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var ifr [unix.IFNAMSIZ + 64]byte
++	copy(ifr[:], name)
++	binary.NativeEndian.PutUint16(ifr[unix.IFNAMSIZ:], unix.IFF_TUN|unix.IFF_NO_PI)
++	if _, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(unix.TUNSETIFF), uintptr(unsafe.Pointer(&ifr[0]))); errno != 0 {
++		unix.Close(fd)
++		t.Fatalf("TUNSETIFF %s: %v", name, errno)
++	}
++	return os.NewFile(uintptr(fd), name)
++}
++
++func ip(t *testing.T, args ...string) {
++	t.Helper()
++	if out, err := exec.Command("ip", args...).CombinedOutput(); err != nil {
++		t.Fatalf("ip %v: %v\n%s", args, err, out)
++	}
++}
++
++// udp4 is an IPv4/UDP packet from src to dst, without a UDP checksum.
++func udp4(src, dst netip4, sport, dport uint16, payload []byte) []byte {
++	p := make([]byte, 28+len(payload))
++	p[0] = 0x45
++	binary.BigEndian.PutUint16(p[2:], uint16(len(p)))
++	p[8] = 64
++	p[9] = unix.IPPROTO_UDP
++	copy(p[12:16], src[:])
++	copy(p[16:20], dst[:])
++	var sum uint32
++	for i := 0; i < 20; i += 2 {
++		sum += uint32(binary.BigEndian.Uint16(p[i:]))
++	}
++	for sum > 0xffff {
++		sum = sum>>16 + sum&0xffff
++	}
++	binary.BigEndian.PutUint16(p[10:], ^uint16(sum))
++	binary.BigEndian.PutUint16(p[20:], sport)
++	binary.BigEndian.PutUint16(p[22:], dport)
++	binary.BigEndian.PutUint16(p[24:], uint16(8+len(payload)))
++	copy(p[28:], payload)
++	return p
++}
++
++type netip4 [4]byte
++
++func TestRealTUNSwap(t *testing.T) {
++	if os.Getenv("ANDROIDVPN_REAL_TUN") == "" {
++		t.Skip("set ANDROIDVPN_REAL_TUN=1 and run under unshare -rn")
++	}
++	self := netip4{10, 99, 0, 1}
++	peer := netip4{10, 99, 1, 5}
++
++	// The first VPN: what the daemon starts on.
++	f0 := openTUN(t, "swp0")
++	ip(t, "link", "set", "lo", "up")
++	ip(t, "addr", "add", "10.99.0.1/32", "dev", "swp0")
++	ip(t, "link", "set", "swp0", "up")
++	ip(t, "route", "add", "10.99.1.0/24", "dev", "swp0")
++	// The daemon's copy: its own descriptor of the same device.
++	fd0, err := unix.Dup(int(f0.Fd()))
++	if err != nil {
++		t.Fatal(err)
++	}
++	dev0, name0, err := tun.CreateUnmonitoredTUNFromFD(fd0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if name0 != "swp0" {
++		t.Fatalf("name %q", name0)
++	}
++	s := NewSwapDevice(dev0, t.Logf)
++	defer s.Close()
++	ch := reader(s)
++
++	// An app's datagram to a peer comes out of the device.
++	sendTo := func(payload string) {
++		t.Helper()
++		c, err := net.Dial("udp4", "10.99.1.5:9")
++		if err != nil {
++			t.Fatal(err)
++		}
++		defer c.Close()
++		if _, err := c.Write([]byte(payload)); err != nil {
++			t.Fatal(err)
++		}
++	}
++	expectDatagram := func(want string) {
++		t.Helper()
++		deadline := time.After(3 * time.Second)
++		for {
++			select {
++			case r := <-ch:
++				if r.err != nil {
++					t.Fatalf("Read: %v", r.err)
++				}
++				if len(r.pkt) >= 28 && r.pkt[9] == unix.IPPROTO_UDP && string(r.pkt[28:]) == want {
++					return
++				}
++				// Anything else the kernel sends (router solicitations…) is not ours.
++			case <-deadline:
++				t.Fatalf("datagram %q never came out of the device", want)
++			}
++		}
++	}
++	sendTo("before")
++	expectDatagram("before")
++
++	// Android establishes the new VPN: a new interface with the same address
++	// and the routes, and the old one reset.
++	f1 := openTUN(t, "swp1")
++	defer f1.Close()
++	ip(t, "addr", "add", "10.99.0.1/32", "dev", "swp1")
++	ip(t, "link", "set", "swp1", "up")
++	ip(t, "route", "replace", "10.99.1.0/24", "dev", "swp1")
++	ip(t, "addr", "flush", "dev", "swp0")
++	ip(t, "link", "set", "swp0", "down")
++
++	// The descriptor goes over the socket, as the bridge sends it.
++	path := filepath.Join(t.TempDir(), SocketName)
++	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++		dev, name, err := tun.CreateUnmonitoredTUNFromFD(fd)
++		if err != nil {
++			return "", err
++		}
++		if err := s.Swap(dev); err != nil {
++			dev.Close()
++			return "", err
++		}
++		return name, nil
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer l.Close()
++	name, err := Send(path, f1, 2*time.Second)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if name != "swp1" {
++		t.Fatalf("swapped to %q, want swp1", name)
++	}
++	f0.Close() // the app's and the bridge's copies go too
++
++	sendTo("after")
++	expectDatagram("after")
++
++	// And a peer's datagram written by the engine reaches an app on the new interface.
++	ln, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IP(self[:]), Port: 4242})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer ln.Close()
++	pkt := udp4(peer, self, 5353, 4242, []byte("inbound"))
++	buf := make([]byte, 16+len(pkt))
++	copy(buf[16:], pkt)
++	if _, err := s.Write([][]byte{buf}, 16); err != nil {
++		t.Fatalf("Write: %v", err)
++	}
++	_ = ln.SetReadDeadline(time.Now().Add(3 * time.Second))
++	got := make([]byte, 64)
++	n, from, err := ln.ReadFromUDP(got)
++	if err != nil {
++		t.Fatalf("the written datagram never arrived: %v", err)
++	}
++	if string(got[:n]) != "inbound" || !from.IP.Equal(net.IP(peer[:])) {
++		t.Fatalf("got %q from %v", got[:n], from)
++	}
++	if out, _ := exec.Command("ip", "-br", "link").CombinedOutput(); len(out) > 0 {
++		t.Logf("links after the swap:\n%s", out)
++	}
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-10-22 05:46:00.900923568 +0300
+@@ -0,0 +1,53 @@
++//go:build linux
++
++package main
++
++// TailSocks native TUN: moving the engine to a new VpnService device without a
++// restart.
++//
++// Android fixes a VPN's routes at establish(), so an exit node switched on or
++// off, or other accepted subnet routes, mean a new interface. The app
++// establishes it while the old one still stands (Android takes the old one
++// down at that moment), sends a duplicate of the new descriptor to the socket
++// served here, and the engine's androidvpn.SwapDevice moves onto it; the old
++// descriptor is closed with the device it belonged to. Anything that goes
++// wrong is answered as an error, and the app then relaunches the daemon on the
++// new device the way it did before this existed.
++
++import (
++	"path/filepath"
++
++	"github.com/tailscale/wireguard-go/tun"
++	"tailscale.com/net/androidvpn"
++	"tailscale.com/net/netmon"
++	"tailscale.com/types/logger"
++)
++
++// serveAndroidVPNSwap listens beside the daemon's socket for new devices for
++// sw. Without a socket path, or when the socket cannot be made, the daemon
++// runs as before and every device change relaunches it.
++func serveAndroidVPNSwap(logf logger.Logf, sw *androidvpn.SwapDevice) {
++	if args.socketpath == "" {
++		return
++	}
++	path := filepath.Join(filepath.Dir(args.socketpath), androidvpn.SocketName)
++	_, err := androidvpn.Serve(path, logf, func(fd int) (string, error) {
++		dev, name, err := tun.CreateUnmonitoredTUNFromFD(fd) // closes fd on error
++		if err != nil {
++			return "", err
++		}
++		if err := sw.Swap(dev); err != nil {
++			dev.Close()
++			return "", err
++		}
++		// netmon tells the Tailscale interface apart by this name, and
++		// Android gives every new VPN interface a new one.
++		netmon.SetTailscaleInterfaceProps(name, 0)
++		mtu, _ := dev.MTU()
++		logf("android-vpn: moved to the new VpnService device %q (mtu %d), swap %d", name, mtu, sw.Swaps())
++		return name, nil
++	})
++	if err != nil {
++		logf("android-vpn: no device swaps, every route change relaunches the daemon: %v", err)
++	}
++}

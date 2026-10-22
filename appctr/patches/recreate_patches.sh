@@ -185,6 +185,27 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks.go || true
 } > patches/23-android-loopback-guard.patch
 
+# 24-android-vpn-swap.patch (creates net/androidvpn, its tests and
+# cmd/tailscaled/android_vpn_swap.go)
+# The native TUN engine moves to a new VpnService device without a restart:
+# Android fixes a VPN's routes at establish(), so an exit node switched on or
+# off or other accepted subnet routes mean a new interface. androidvpn's
+# SwapDevice is the engine's device for its whole life and takes the new one
+# underneath; the app hands its descriptor over files/tun-swap.sock
+# (SCM_RIGHTS, own UID only). Any refusal and the app relaunches the daemon on
+# the new device as before. realtun_test.go swaps real kernel TUN devices:
+#   ANDROIDVPN_REAL_TUN=1 unshare -rn go test -run RealTUN ./net/androidvpn/
+# The two calls from newAndroidVPNTUN travel in 18 (whole-file diff).
+{
+    diff -N -u /dev/null tailscale_src/net/androidvpn/swap.go || true
+    diff -N -u /dev/null tailscale_src/net/androidvpn/swap_test.go || true
+    diff -N -u /dev/null tailscale_src/net/androidvpn/handoff.go || true
+    diff -N -u /dev/null tailscale_src/net/androidvpn/handoff_other.go || true
+    diff -N -u /dev/null tailscale_src/net/androidvpn/handoff_test.go || true
+    diff -N -u /dev/null tailscale_src/net/androidvpn/realtun_test.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn_swap.go || true
+} > patches/24-android-vpn-swap.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

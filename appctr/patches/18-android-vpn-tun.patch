@@ -1,6 +1,6 @@
---- /dev/null	2026-09-28 04:11:42.578445164 +0300
-+++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-10-01 17:23:14.187128428 +0300
-@@ -0,0 +1,89 @@
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-10-22 05:46:00.897927864 +0300
+@@ -0,0 +1,97 @@
 +//go:build linux
 +
 +package main
@@ -13,6 +13,11 @@
 +// keeps the userspace-networking shape — netstack terminates the node's own
 +// addresses and the daemon dials peers through netstack, because its UID is
 +// excluded from the VPN and the OS would not route it there.
++//
++// The engine gets the device inside an androidvpn.SwapDevice: when the app
++// establishes a new VPN (other routes), it hands the new descriptor over a
++// socket and the engine moves onto it without a restart; see
++// android_vpn_swap.go.
 +
 +import (
 +	"fmt"
@@ -21,6 +26,7 @@
 +
 +	"github.com/tailscale/wireguard-go/tun"
 +	"tailscale.com/envknob"
++	"tailscale.com/net/androidvpn"
 +	"tailscale.com/types/logger"
 +	"tailscale.com/wgengine/router"
 +)
@@ -42,7 +48,9 @@
 +	}
 +	mtu, mtuErr := dev.MTU()
 +	logf("android-vpn: running on inherited TUN fd %d as %q (mtu %d, err %v)", fd, name, mtu, mtuErr)
-+	return dev, name, nil
++	sw := androidvpn.NewSwapDevice(dev, logf)
++	serveAndroidVPNSwap(logf, sw)
++	return sw, name, nil
 +}
 +
 +// androidVPNRouter is the router for a VpnService-owned device: the Builder
