@@ -81,7 +81,7 @@ ABI-сплиты включены, поэтому на выходе универ
 
 `appctr/tailscale_src/` — **сгенерированный** каталог, он в `.gitignore`: это
 чистый upstream Tailscale с наложенными по алфавиту `appctr/patches/*.patch`
-(`01-enable-socks-android` … `24-android-vpn-swap`, сейчас двадцать четыре штуки). В
+(`01-enable-socks-android` … `25-android-vpn-transparent`, сейчас двадцать пять штук). В
 `appctr/orig/` лежит чистая копия, относительно которой считается diff. Источник
 истины — файлы патчей; дерево исходников это черновик.
 

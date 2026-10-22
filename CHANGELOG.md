@@ -4,9 +4,13 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- TUN mode: transparent mode — without an exit node, all traffic goes through TailSocks and what is not for the tailnet goes out directly, so Android's "Block connections without VPN" no longer cuts the internet. Off, under that lockdown (the default) or always; ping does not go through it.
+
 ### Changed
 
-- Native TUN engine: switching an exit node on or off, or a change in accepted subnet routes, no longer restarts the connection — the daemon moves to the new tunnel in place, and is relaunched only if that fails.
+- Native TUN engine: switching an exit node on or off, or a change in accepted subnet routes, no longer restarts the connection — the daemon moves to the new tunnel in place, and is relaunched only if that fails or "Rebuild the tunnel in place" is off.
 
 ### Fixed
 
