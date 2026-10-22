@@ -141,9 +141,9 @@ Its sockets carry `SO_MARK 0x2000000` and skip the catch-all; unmarked, they wou
 <details>
 <summary>Excluded IP Ranges in Root Mode</summary>
 
-- **Where it is set.** Settings → Tunnel mode → **VPN (TUN)** → **Excluded IP Ranges**. That card is shown only while VPN mode is selected; Root Mode uses the value saved there — by default `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` and `fe80::/10`, is always added.
+- **Where it is set.** Settings → Tunnel mode → the Root Mode card, under **Excluded Apps**, while **Native Linux TUN (tailscale0)** is on — the same list as the VPN (TUN) card's, by default `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` and `fe80::/10`, is always added.
 - **What is written.** `ip route replace throw <prefix> table 52` for every plain CIDR in the list: IPv4 always, IPv6 only where IPv6 is enabled on the device. A throw ends the lookup in table 52 and hands it to netd's rules, so traffic to that prefix leaves on Wi-Fi/cellular instead of the exit node. Entries may be separated by commas, semicolons, spaces or new lines; one that is not a plain CIDR is dropped and named in the ROOT log (`exit-node exclusions ignored, not plain CIDRs: …`).
-- **No Android 13 limit here.** The "Needs Android 13+" note under the setting is about VPN mode, which excludes routes through `VpnService`; Root Mode writes kernel routes.
+- **No Android 13 limit here.** The "Needs Android 13+" note on the VPN (TUN) card is about VPN mode, which excludes routes through `VpnService`; Root Mode writes kernel routes.
 - **When.** Only together with the priority-200 catch-all, device-wide or scoped to a partial yield. The throws survive the daemon's own reconfiguration, so they are written once per apply, not on every network-map change.
 - **Removed** when T2 is yielded — exactly the prefixes from the list, never a throw the daemon wrote for itself (its LAN throws for **Allow LAN access** live in the same table). When Root Mode stops, every IPv4 throw in table 52 except the daemon's `127.0.0.0/8`, and every IPv6 throw, is removed.
 - **Seen** with `su -c ip route show table 52`, and in **Check Routing**, whose route check for the first excluded prefix answers `tailscale0` if the LAN is going through the exit node.

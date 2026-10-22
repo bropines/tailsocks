@@ -26,6 +26,7 @@ The card **Root Mode & System Service (EXPERIMENTAL)** holds the rest:
 
 - **Native Linux TUN (tailscale0)** — on by default: the kernel interface. Off, the daemon runs through `su` as a proxy only, on the **Local proxies** settings.
 - **Excluded Apps** — apps kept off the exit node. The same list as in VPN mode.
+- **Excluded IP Ranges** — while **Native Linux TUN (tailscale0)** is on: subnets that stay on the real network while an exit node is on. The same list as in VPN mode.
 - **Autostart Magisk/KernelSU Service (EXPERIMENTAL)** — the [boot script](#the-boot-script).
 - **Install Tailscale CLI Utility (EXPERIMENTAL)** — the [`tailscale` command](#the-tailscale-command).
 - **Ignore other VPNs** — on by default. The daemon marks its own connections so another VPN cannot swallow them. Turn it off only to run this tunnel inside that other VPN.
@@ -37,7 +38,7 @@ The card **Root Mode & System Service (EXPERIMENTAL)** holds the rest:
 ## What goes through the tailnet
 
 - **Tailnet addresses**, from every app, always.
-- **With an exit node**, everything the device sends — except **Excluded Apps**, and the local network when **Allow LAN access** (Settings → Account & connection) is on.
+- **With an exit node**, everything the device sends — except **Excluded Apps**, **Excluded IP Ranges**, and the local network when **Allow LAN access** (Settings → Account & connection) is on.
 - **Name lookups** of every app, through MagicDNS, with **System-wide DNS via MagicDNS** on.
 
 Root Mode is a client only: in it, this device cannot be an exit node or a subnet router for others.
