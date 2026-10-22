@@ -12,8 +12,10 @@ pointer, nothing more; the substance lives in the files it names.
 3. Plans and leftovers: [`docs/ROADMAP.md`](docs/ROADMAP.md). TUN mode runs on
    the native engine by default — `tailscaled` owns the `VpnService` fd (shipped
    in 4.2.0, the default since 2026-10) — with `hev-socks5-tunnel` kept as the
-   compatibility engine. [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md) is
-   the design behind it; its fd swap is kept for the record, not planned.
+   compatibility engine. A rebuilt device moves to the running daemon in place
+   (patch 24, relaunch as the fallback) and transparent mode carries all traffic
+   under Android's lockdown (patch 25); [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md)
+   is the design behind it.
 4. Building: [`docs/BUILDING.md`](docs/BUILDING.md). Run `appctr/build.sh` after
    any Go or patch change, or the APK will not contain it.
 5. Devices arrive over `adb connect` from the author, who writes in Russian —
