@@ -1,15 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Open-source licenses (ui/LicensesActivity.kt), from About. --><resources>
-    <string name="licenses_title"></string>
-    <string name="licenses_count"></string>
-    <string name="licenses_help"></string>
-    <string name="licenses_section_app"></string>
-    <string name="licenses_section_go"></string>
-    <string name="licenses_section_android"></string>
-    <string name="licenses_section_native"></string>
-    <string name="licenses_section_other"></string>
-    <string name="licenses_parts"></string>
-    <string name="licenses_includes"></string>
-    <string name="licenses_open_page"></string>
-    <string name="licenses_load_failed"></string>
-</resources>
+    </resources>
