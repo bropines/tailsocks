@@ -3,25 +3,4 @@
   Files being received over Taildrop: the Incoming cards at the top of the inbox and the
   progress notification. A file of its own so it lands without touching strings.xml.
 --><resources>
-    <!-- Notification channel of the progress notification. -->
-    <string name="taildrop_progress_channel"></string>
-    <!-- Title of the progress notification while more than one file arrives. -->
-    <plurals name="taildrop_progress_receiving_files">
-    </plurals>
-    <!-- "45.2 MB of 104.9 MB" -->
-    <string name="taildrop_progress_of_format"></string>
-    <string name="taildrop_progress_left_seconds"></string>
-    <string name="taildrop_progress_left_minutes"></string>
-    <string name="taildrop_progress_left_hours"></string>
-    <!-- Nothing has arrived for a few seconds. -->
-    <string name="taildrop_progress_stalled"></string>
-    <!-- Every byte is in; the file is being closed and put in place. -->
-    <string name="taildrop_progress_finishing"></string>
-    <!-- Received, and being copied into the default folder. -->
-    <string name="taildrop_progress_saving"></string>
-    <string name="taildrop_progress_interrupted"></string>
-    <!-- Notification left when a transfer stopped before the end. -->
-    <string name="taildrop_progress_interrupted_title"></string>
-    <plurals name="taildrop_progress_files">
-    </plurals>
-</resources>
+    </resources>
