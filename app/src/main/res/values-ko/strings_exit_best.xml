@@ -4,14 +4,4 @@
   recommends (LocalAPI suggest-exit-node), applied once. A file of its own so
   it lands without touching strings.xml.
 --><resources>
-    <string name="exit_best_title"></string>
-    <!-- While the daemon is being asked. -->
-    <string name="exit_best_asking"></string>
-    <!-- Content description of the mark beside the recommended node in the list. -->
-    <string name="exit_best_suggested_cd"></string>
-    <!-- Why there is no recommendation. One short line each. -->
-    <string name="exit_best_not_running"></string>
-    <string name="exit_best_no_relay"></string>
-    <string name="exit_best_none_recommended"></string>
-    <string name="exit_best_failed"></string>
-</resources>
+    </resources>
