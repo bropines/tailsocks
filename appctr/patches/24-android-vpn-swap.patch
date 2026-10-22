@@ -1,5 +1,5 @@
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/swap.go	2026-10-22 05:45:35.978930252 +0300
++++ tailscale_src/net/androidvpn/swap.go	2026-10-22 05:50:04.938185130 +0300
 @@ -0,0 +1,270 @@
 +// Package androidvpn lets TailSocks's daemon move to a new Android VPN
 +// interface without a restart.
@@ -272,7 +272,7 @@
 +	return err
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/swap_test.go	2026-10-22 05:44:15.315006040 +0300
++++ tailscale_src/net/androidvpn/swap_test.go	2026-10-22 05:50:04.938282666 +0300
 @@ -0,0 +1,330 @@
 +package androidvpn
 +
@@ -605,8 +605,8 @@
 +	}
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/handoff.go	2026-10-22 05:42:47.599039605 +0300
-@@ -0,0 +1,202 @@
++++ tailscale_src/net/androidvpn/handoff.go	2026-10-22 07:23:30.367287349 +0300
+@@ -0,0 +1,207 @@
 +//go:build linux
 +
 +package androidvpn
@@ -640,6 +640,9 @@
 +
 +type request struct {
 +	Op string `json:"op"` // "swap"
++	// Egress is transparent mode for the new device: the host's connections
++	// outside the tailnet are dialled by the daemon (netstack's local_egress.go).
++	Egress bool `json:"egress,omitempty"`
 +}
 +
 +type reply struct {
@@ -648,9 +651,10 @@
 +}
 +
 +// Serve listens at path for new VPN descriptors and gives each one to accept,
-+// which owns it from then on — it closes it on error. accept returns the new
-+// interface's name. Close the returned Closer to stop listening.
-+func Serve(path string, logf logger.Logf, accept func(fd int) (string, error)) (io.Closer, error) {
++// with the device's transparent mode, and accept owns the descriptor from then
++// on — it closes it on error. accept returns the new interface's name. Close
++// the returned Closer to stop listening.
++func Serve(path string, logf logger.Logf, accept func(fd int, egress bool) (string, error)) (io.Closer, error) {
 +	_ = os.Remove(path)
 +	l, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: path, Net: "unixpacket"})
 +	if err != nil {
@@ -675,7 +679,7 @@
 +	return l, nil
 +}
 +
-+func handle(c *net.UnixConn, logf logger.Logf, accept func(fd int) (string, error)) {
++func handle(c *net.UnixConn, logf logger.Logf, accept func(fd int, egress bool) (string, error)) {
 +	defer c.Close()
 +	_ = c.SetDeadline(time.Now().Add(connWait))
 +	buf := make([]byte, requestMax)
@@ -714,7 +718,7 @@
 +		answer("", fmt.Errorf("one descriptor expected, got %d", len(fds)))
 +		return
 +	}
-+	name, err := accept(fds[0])
++	name, err := accept(fds[0], req.Egress)
 +	if err != nil {
 +		logf("android-vpn: a new VpnService device was refused: %v", err)
 +	}
@@ -763,15 +767,16 @@
 +	}
 +}
 +
-+// Send hands the daemon listening at path a duplicate of f's descriptor and
-+// waits up to timeout for it to move its engine onto that device. f stays the
-+// caller's. It returns the new interface's name.
++// Send hands the daemon listening at path a duplicate of f's descriptor, with
++// the device's transparent mode, and waits up to timeout for it to move its
++// engine onto that device. f stays the caller's. It returns the new
++// interface's name.
 +//
 +// The descriptor is read through SyscallConn rather than f.Fd: Fd puts a
 +// non-blocking file back into blocking mode, and the open file description —
 +// with its O_NONBLOCK flag — is the one the daemon reads, which would leave
 +// the daemon's reads blocking and its device impossible to close.
-+func Send(path string, f *os.File, timeout time.Duration) (string, error) {
++func Send(path string, f *os.File, egress bool, timeout time.Duration) (string, error) {
 +	raw, err := f.SyscallConn()
 +	if err != nil {
 +		return "", err
@@ -782,7 +787,7 @@
 +	}
 +	defer c.Close()
 +	_ = c.SetDeadline(time.Now().Add(timeout))
-+	b, err := json.Marshal(request{Op: "swap"})
++	b, err := json.Marshal(request{Op: "swap", Egress: egress})
 +	if err != nil {
 +		return "", err
 +	}
@@ -810,7 +815,7 @@
 +	return r.Name, nil
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/handoff_other.go	2026-10-22 05:42:50.039038701 +0300
++++ tailscale_src/net/androidvpn/handoff_other.go	2026-10-22 07:23:30.367754097 +0300
 @@ -0,0 +1,27 @@
 +//go:build !linux
 +
@@ -831,17 +836,17 @@
 +var errNotLinux = errors.New("android VPN devices are swapped on Linux only")
 +
 +// Serve is Linux-only; see handoff.go.
-+func Serve(string, logger.Logf, func(fd int) (string, error)) (io.Closer, error) {
++func Serve(string, logger.Logf, func(fd int, egress bool) (string, error)) (io.Closer, error) {
 +	return nil, errNotLinux
 +}
 +
 +// Send is Linux-only; see handoff.go.
-+func Send(string, *os.File, time.Duration) (string, error) {
++func Send(string, *os.File, bool, time.Duration) (string, error) {
 +	return "", errNotLinux
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/handoff_test.go	2026-10-22 05:43:52.163015552 +0300
-@@ -0,0 +1,155 @@
++++ tailscale_src/net/androidvpn/handoff_test.go	2026-10-22 07:23:30.368063878 +0300
+@@ -0,0 +1,160 @@
 +//go:build linux
 +
 +package androidvpn
@@ -892,8 +897,10 @@
 +	defer w.Close()
 +
 +	got := make(chan int, 1)
-+	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++	gotEgress := make(chan bool, 1)
++	l, err := Serve(path, t.Logf, func(fd int, egress bool) (string, error) {
 +		got <- fd
++		gotEgress <- egress
 +		return "tun7", nil
 +	})
 +	if err != nil {
@@ -904,9 +911,12 @@
 +		t.Fatalf("socket mode %v, %v; want 0600", st.Mode(), err)
 +	}
 +
-+	name, err := Send(path, r, 2*time.Second)
++	name, err := Send(path, r, true, 2*time.Second)
 +	if err != nil {
 +		t.Fatal(err)
++	}
++	if !<-gotEgress {
++		t.Error("the transparent-mode flag did not reach the daemon")
 +	}
 +	if name != "tun7" {
 +		t.Errorf("name %q, want tun7", name)
@@ -935,7 +945,7 @@
 +	if err := unix.SetNonblock(fd, true); err != nil {
 +		t.Fatal(err)
 +	}
-+	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++	l, err := Serve(path, t.Logf, func(fd int, egress bool) (string, error) {
 +		syscall.Close(fd)
 +		return "tun0", nil
 +	})
@@ -943,7 +953,7 @@
 +		t.Fatal(err)
 +	}
 +	defer l.Close()
-+	if _, err := Send(path, r, 2*time.Second); err != nil {
++	if _, err := Send(path, r, false, 2*time.Second); err != nil {
 +		t.Fatal(err)
 +	}
 +	flags, err := unix.FcntlInt(uintptr(fd), unix.F_GETFL, 0)
@@ -963,7 +973,7 @@
 +	}
 +	defer r.Close()
 +	defer w.Close()
-+	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++	l, err := Serve(path, t.Logf, func(fd int, egress bool) (string, error) {
 +		syscall.Close(fd)
 +		return "", errors.New("batch size differs")
 +	})
@@ -971,7 +981,7 @@
 +		t.Fatal(err)
 +	}
 +	defer l.Close()
-+	if _, err := Send(path, r, 2*time.Second); err == nil || err.Error() != "batch size differs" {
++	if _, err := Send(path, r, false, 2*time.Second); err == nil || err.Error() != "batch size differs" {
 +		t.Fatalf("Send = %v, want the daemon's refusal", err)
 +	}
 +}
@@ -984,21 +994,21 @@
 +	}
 +	defer r.Close()
 +	defer w.Close()
-+	if _, err := Send(path, r, time.Second); err == nil {
++	if _, err := Send(path, r, false, time.Second); err == nil {
 +		t.Fatal("Send with nobody listening succeeded")
 +	}
 +	// A socket file left by a daemon that is gone.
-+	l, err := Serve(path, t.Logf, func(fd int) (string, error) { return "", nil })
++	l, err := Serve(path, t.Logf, func(fd int, egress bool) (string, error) { return "", nil })
 +	if err != nil {
 +		t.Fatal(err)
 +	}
 +	l.Close()
-+	if _, err := Send(path, r, time.Second); err == nil {
++	if _, err := Send(path, r, false, time.Second); err == nil {
 +		t.Fatal("Send to a closed socket succeeded")
 +	}
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/realtun_test.go	2026-10-22 05:45:35.979039213 +0300
++++ tailscale_src/net/androidvpn/realtun_test.go	2026-10-22 07:23:30.368419937 +0300
 @@ -0,0 +1,202 @@
 +//go:build linux
 +
@@ -1150,7 +1160,7 @@
 +
 +	// The descriptor goes over the socket, as the bridge sends it.
 +	path := filepath.Join(t.TempDir(), SocketName)
-+	l, err := Serve(path, t.Logf, func(fd int) (string, error) {
++	l, err := Serve(path, t.Logf, func(fd int, egress bool) (string, error) {
 +		dev, name, err := tun.CreateUnmonitoredTUNFromFD(fd)
 +		if err != nil {
 +			return "", err
@@ -1165,7 +1175,7 @@
 +		t.Fatal(err)
 +	}
 +	defer l.Close()
-+	name, err := Send(path, f1, 2*time.Second)
++	name, err := Send(path, f1, false, 2*time.Second)
 +	if err != nil {
 +		t.Fatal(err)
 +	}
@@ -1203,8 +1213,8 @@
 +	}
 +}
 --- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-10-22 05:46:00.900923568 +0300
-@@ -0,0 +1,53 @@
++++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-10-22 07:23:59.423919569 +0300
+@@ -0,0 +1,62 @@
 +//go:build linux
 +
 +package main
@@ -1222,6 +1232,7 @@
 +// new device the way it did before this existed.
 +
 +import (
++	"errors"
 +	"path/filepath"
 +
 +	"github.com/tailscale/wireguard-go/tun"
@@ -1238,10 +1249,18 @@
 +		return
 +	}
 +	path := filepath.Join(filepath.Dir(args.socketpath), androidvpn.SocketName)
-+	_, err := androidvpn.Serve(path, logf, func(fd int) (string, error) {
++	_, err := androidvpn.Serve(path, logf, func(fd int, egress bool) (string, error) {
 +		dev, name, err := tun.CreateUnmonitoredTUNFromFD(fd) // closes fd on error
 +		if err != nil {
 +			return "", err
++		}
++		// Transparent mode goes with the device's routes: switched before
++		// the engine moves, so the first packets on the new device find it
++		// set (android_vpn_egress.go). A refused swap leaves it so; the app
++		// then relaunches the daemon with the mode in its environment.
++		if !setAndroidVPNEgress(egress) && egress {
++			dev.Close()
++			return "", errors.New("no netstack for transparent mode")
 +		}
 +		if err := sw.Swap(dev); err != nil {
 +			dev.Close()
@@ -1251,7 +1270,7 @@
 +		// Android gives every new VPN interface a new one.
 +		netmon.SetTailscaleInterfaceProps(name, 0)
 +		mtu, _ := dev.MTU()
-+		logf("android-vpn: moved to the new VpnService device %q (mtu %d), swap %d", name, mtu, sw.Swaps())
++		logf("android-vpn: moved to the new VpnService device %q (mtu %d, transparent %v), swap %d", name, mtu, egress, sw.Swaps())
 +		return name, nil
 +	})
 +	if err != nil {

@@ -206,6 +206,22 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn_swap.go || true
 } > patches/24-android-vpn-swap.patch
 
+# 25-android-vpn-transparent.patch (creates wgengine/netstack/local_egress.go,
+# its test, cmd/tailscaled/android_vpn_egress.go and an ipnlocal test hook)
+# Transparent mode on Android's VPN: under Android's lockdown ("Block
+# connections without VPN") with no exit node the app routes everything into
+# the VPN, and netstack ends the host's TCP/UDP connections outside the tailnet
+# that no peer routes, dialling them from the daemon (which the VPN leaves
+# out). The flag travels with each device: TS_ANDROID_VPN_EGRESS at launch,
+# the swap request in 24. The intercept's one call travels in 09 and the
+# attach in 19 (whole-file diffs).
+{
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/local_egress.go || true
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/local_egress_test.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn_egress.go || true
+    diff -N -u /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go || true
+} > patches/25-android-vpn-transparent.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

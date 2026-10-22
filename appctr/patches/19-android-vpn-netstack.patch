@@ -1,6 +1,6 @@
 --- orig/cmd/tailscaled/netstack.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/netstack.go	2026-10-15 13:09:24.267213938 +0300
-@@ -40,10 +40,25 @@
++++ tailscale_src/cmd/tailscaled/netstack.go	2026-10-22 07:23:59.423412868 +0300
+@@ -40,10 +40,27 @@
  	sys.Set(ns)
  	ns.ProcessLocalIPs = onlyNetstack
  	ns.ProcessSubnets = onlyNetstack || handleSubnetsInNetstack()
@@ -17,6 +17,8 @@
 +	// TailSocks: and what it hands to localhost is only what the app opened;
 +	// see android_loopback.go.
 +	guardLoopback(logf, ns)
++	// TailSocks: and on Android's VPN, transparent mode; see android_vpn_egress.go.
++	attachAndroidVPNEgress(logf, ns)
  
  	dialer := sys.Dialer.Get() // must be set by caller already
  

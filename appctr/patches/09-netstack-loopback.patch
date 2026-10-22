@@ -1,5 +1,5 @@
 --- orig/net/tstun/wrap.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-10-13 16:59:57.437639717 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-10-22 05:50:04.896829185 +0300
 @@ -465,6 +465,20 @@
  	return t.tdev.File()
  }
@@ -22,11 +22,14 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-10-13 17:10:25.993782781 +0300
-@@ -207,6 +207,14 @@
++++ tailscale_src/wgengine/netstack/netstack.go	2026-10-22 07:22:05.673578328 +0300
+@@ -207,6 +207,17 @@
  	// It can only be set before calling Start.
  	ProcessSubnets bool
  
++	// localEgress is TailSocks's transparent mode; see local_egress.go.
++	localEgress atomic.Bool
++
 +	// ProcessLocalTCPPort, if non-nil, reports whether netstack should
 +	// handle incoming TCP traffic directed at the given port of the
 +	// Node.Addresses (local IPs) when ProcessLocalIPs is false. Such a
@@ -38,7 +41,21 @@
  	ipstack   *stack.Stack
  	linkEP    *linkEndpoint
  	tundev    *tstun.Wrapper
-@@ -944,6 +952,21 @@
+@@ -842,6 +853,13 @@
+ 		return filter.DropSilently, gro
+ 	}
+ 
++	// TailSocks: transparent mode ends the host's traffic for the internet
++	// here and dials it from this process; see local_egress.go.
++	if ns.isLocalEgress(p) {
++		gro = ns.linkEP.gro(p, gro)
++		return filter.DropSilently, gro
++	}
++
+ 	// Determine if we care about this local packet.
+ 	dst := p.Dst.Addr()
+ 	serviceName, isVIPServiceIP := ns.atomicIPVIPServiceMap.Load()[dst]
+@@ -944,6 +962,21 @@
  }
  
  func (ns *Impl) DialContextTCP(ctx context.Context, ipp netip.AddrPort) (*gonet.TCPConn, error) {
@@ -60,7 +77,7 @@
  	remoteAddress := tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -981,6 +1004,21 @@
+@@ -981,6 +1014,21 @@
  }
  
  func (ns *Impl) DialContextUDP(ctx context.Context, ipp netip.AddrPort) (*gonet.UDPConn, error) {
@@ -82,7 +99,7 @@
  	remoteAddress := &tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -1019,11 +1057,21 @@
+@@ -1019,11 +1067,21 @@
  }
  
  // outboundQueueForPacket is the [outboundQueueRouter] used by [linkEndpoint].
@@ -106,7 +123,7 @@
  		// Self-addressed packet: deliver back into gVisor directly
  		// via the link endpoint's dispatcher, but only if the packet is not
  		// earmarked for the host. Neither the inbound path (fakeTUN Write is a
-@@ -1035,6 +1083,18 @@
+@@ -1035,6 +1093,18 @@
  	}
  }
  
@@ -125,7 +142,7 @@
  // injectToWireGuard reads packets from the [outboundToWireGuard] [linkEndpoint]
  // queue and injects them into tstun for eventual delivery to wireguard-go via
  // [tun.Device.Read].
-@@ -1231,6 +1291,12 @@
+@@ -1231,6 +1301,12 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
@@ -138,7 +155,7 @@
  // isVIPServiceIP reports whether ip is an IP address that's
  // assigned to a VIP service.
  func (ns *Impl) isVIPServiceIP(ip netip.Addr) bool {
-@@ -1329,6 +1395,9 @@
+@@ -1329,6 +1405,9 @@
  	if ns.ProcessSubnets && !isLocal {
  		return true
  	}

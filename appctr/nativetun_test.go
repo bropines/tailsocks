@@ -37,7 +37,7 @@ func TestSwapNativeTunWithoutADaemonKeepsTheNewDevice(t *testing.T) {
 	defer w.Close()
 	defer ClearNativeTun(false)
 
-	if got := SwapNativeTun(dupFD(t, r)); got == "" {
+	if got := SwapNativeTun(dupFD(t, r), false); got == "" {
 		t.Fatal("a swap with no daemon running succeeded")
 	}
 	if !HasNativeTun() {
@@ -46,7 +46,7 @@ func TestSwapNativeTunWithoutADaemonKeepsTheNewDevice(t *testing.T) {
 	first := nativeTunFile()
 
 	// A second device replaces the first, which the bridge closes.
-	if got := SwapNativeTun(dupFD(t, r)); got == "" {
+	if got := SwapNativeTun(dupFD(t, r), false); got == "" {
 		t.Fatal("a swap with no daemon running succeeded")
 	}
 	if nativeTunFile() == first {
@@ -54,5 +54,18 @@ func TestSwapNativeTunWithoutADaemonKeepsTheNewDevice(t *testing.T) {
 	}
 	if _, err := first.Stat(); err == nil {
 		t.Fatal("the replaced device is still open")
+	}
+
+	// Its transparent mode goes with it, to the next launch's environment.
+	if nativeTunEgress() {
+		t.Fatal("transparent mode on for a device handed over without it")
+	}
+	SwapNativeTun(dupFD(t, r), true)
+	if !nativeTunEgress() {
+		t.Fatal("transparent mode lost with the device")
+	}
+	ClearNativeTun(false)
+	if nativeTunEgress() || HasNativeTun() {
+		t.Fatal("ClearNativeTun kept the device or its transparent mode")
 	}
 }

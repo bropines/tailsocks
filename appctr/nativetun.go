@@ -32,6 +32,9 @@ var nativeTun struct {
 	// swapPending is set between ReleaseNativeTunForSwap and the SetNativeTun
 	// that completes the restart, so the latter relaunches the daemon it stopped.
 	swapPending bool
+	// egress is the device's transparent mode (TS_ANDROID_VPN_EGRESS, see
+	// android_vpn_egress.go in the daemon), handed over with it.
+	egress bool
 	// lastSelfIPs is the node's last known tailnet addresses, kept across
 	// daemon relaunches for the callers that need them while no daemon can
 	// answer (a device swap, a start on the VpnService device).
@@ -53,9 +56,17 @@ func nativeTunFile() *os.File {
 	return nativeTun.f
 }
 
+// nativeTunEgress is the transparent mode of that device.
+func nativeTunEgress() bool {
+	nativeTun.Lock()
+	defer nativeTun.Unlock()
+	return nativeTun.egress
+}
+
 // SetNativeTun takes ownership of fd, a dup of the VpnService fd, and relaunches
-// the daemon on it. Returns "" or the reason it could not.
-func SetNativeTun(fd int32) string {
+// the daemon on it, in transparent mode when egress. Returns "" or the reason
+// it could not.
+func SetNativeTun(fd int32, egress bool) string {
 	f := os.NewFile(uintptr(fd), "vpn-tun")
 	if f == nil {
 		return "invalid fd"
@@ -69,6 +80,7 @@ func SetNativeTun(fd int32) string {
 		nativeTun.f.Close()
 	}
 	nativeTun.f = f
+	nativeTun.egress = egress
 	swap := nativeTun.swapPending
 	nativeTun.swapPending = false
 	nativeTun.Unlock()
@@ -89,12 +101,13 @@ func SetNativeTun(fd int32) string {
 
 // SwapNativeTun hands fd — a dup of a VpnService device the app has just
 // established in place of the current one — to the running daemon, which moves
-// its engine onto it without a restart (net/androidvpn, patch 24). The bridge
+// its engine onto it without a restart (net/androidvpn, patch 24), switching
+// transparent mode to egress on the way (patch 25). The bridge
 // keeps fd for later launches whatever happens: once the new device is
 // established the old one is down, so there is nothing to go back to. Returns
 // "" or why the daemon did not move; the caller then relaunches it on the new
 // device with SetNativeTun.
-func SwapNativeTun(fd int32) string {
+func SwapNativeTun(fd int32, egress bool) string {
 	f := os.NewFile(uintptr(fd), "vpn-tun")
 	if f == nil {
 		return "invalid fd"
@@ -107,6 +120,7 @@ func SwapNativeTun(fd int32) string {
 	nativeTun.Lock()
 	old := nativeTun.f
 	nativeTun.f = f
+	nativeTun.egress = egress
 	nativeTun.swapPending = false
 	nativeTun.Unlock()
 	if old != nil {
@@ -116,12 +130,12 @@ func SwapNativeTun(fd int32) string {
 		return "no daemon of this app runs on a native device"
 	}
 	started := time.Now()
-	name, err := androidvpn.Send(getPC().DataDir(androidvpn.SocketName), f, swapTimeout)
+	name, err := androidvpn.Send(getPC().DataDir(androidvpn.SocketName), f, egress, swapTimeout)
 	if err != nil {
 		slog.Warn("Native TUN: the daemon did not move to the new device", "err", err)
 		return err.Error()
 	}
-	slog.Info("Native TUN: the daemon moved to the new device without a restart", "interface", name, "took", time.Since(started).Round(time.Millisecond))
+	slog.Info("Native TUN: the daemon moved to the new device without a restart", "interface", name, "transparent", egress, "took", time.Since(started).Round(time.Millisecond))
 	return ""
 }
 
@@ -180,6 +194,7 @@ func ClearNativeTun(relaunch bool) {
 		nativeTun.f.Close()
 		nativeTun.f = nil
 	}
+	nativeTun.egress = false
 	nativeTun.swapPending = false
 	nativeTun.Unlock()
 	if !had || !relaunch {

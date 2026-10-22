@@ -1,0 +1,294 @@
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/wgengine/netstack/local_egress.go	2026-10-22 07:26:17.987486274 +0300
+@@ -0,0 +1,66 @@
++package netstack
++
++// TailSocks: transparent mode for Android's VPN.
++//
++// On TailSocks's native TUN engine the phone's VPN carries the tailnet
++// ranges and, behind an exit node, everything else. Android's lockdown
++// ("Block connections without VPN") then refuses every connection that is
++// not routed into the VPN — without an exit node, the whole internet. In
++// transparent mode the app routes everything into the VPN anyway, and the
++// connections the host opens to addresses outside the tailnet are ended here
++// and dialled again from this process, which the VPN leaves out: the same
++// forwarding a userspace subnet router does for its peers (acceptTCP,
++// forwardUDP), here for the phone's own apps. TCP and UDP only — ICMP to the
++// internet is not carried.
++//
++// The app switches it with the device it hands over: on only while Android's
++// lockdown is on, no exit node is selected and the person left the option on
++// (cmd/tailscaled/android_vpn_swap.go).
++
++import (
++	"tailscale.com/net/packet"
++	"tailscale.com/net/tsaddr"
++	"tailscale.com/types/ipproto"
++)
++
++// SetLocalEgress turns transparent mode on or off.
++func (ns *Impl) SetLocalEgress(on bool) {
++	if ns.localEgress.Swap(on) != on {
++		if on {
++			ns.logf("netstack: transparent mode on: the host's connections outside the tailnet are dialled from here")
++		} else {
++			ns.logf("netstack: transparent mode off")
++		}
++	}
++}
++
++// LocalEgress reports whether transparent mode is on.
++func (ns *Impl) LocalEgress() bool {
++	return ns.localEgress.Load()
++}
++
++// isLocalEgress reports whether p, sent by the host, is transparent mode's to
++// end here: TCP or UDP to a unicast address outside the tailnet, the 4via6
++// range and this node's own addresses, that no peer routes. The service IP,
++// the tailnet, accepted subnet routes and a selected exit node keep their
++// paths — the last also covers the moment between an exit node being chosen
++// and the app switching this mode off with the new device.
++func (ns *Impl) isLocalEgress(p *packet.Parsed) bool {
++	if !ns.localEgress.Load() {
++		return false
++	}
++	if p.IPProto != ipproto.TCP && p.IPProto != ipproto.UDP {
++		return false
++	}
++	dst := p.Dst.Addr().Unmap()
++	if !dst.IsGlobalUnicast() || tsaddr.IsTailscaleIP(dst) || viaRange.Contains(dst) || ns.isLocalIP(dst) {
++		return false
++	}
++	// The node's outbound routes, lock-free unless a peer matches.
++	if ns.lb != nil {
++		if _, routed := ns.lb.PeerForIP(dst); routed {
++			return false
++		}
++	}
++	return true
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/wgengine/netstack/local_egress_test.go	2026-10-22 07:27:32.794734124 +0300
+@@ -0,0 +1,156 @@
++package netstack
++
++import (
++	"context"
++	"net"
++	"net/netip"
++	"testing"
++	"time"
++
++	"tailscale.com/net/packet"
++	"tailscale.com/tailcfg"
++	"tailscale.com/types/ipproto"
++	"tailscale.com/types/key"
++	"tailscale.com/types/netmap"
++	"tailscale.com/wgengine/filter"
++)
++
++// TailSocks's transparent mode: which of the host's packets it ends here.
++func TestLocalEgressDecides(t *testing.T) {
++	self4 := netip.MustParseAddr("100.64.1.2")
++	self6 := netip.MustParseAddr("fd7a:115c:a1e0::123")
++	impl := makeNetstack(t, func(impl *Impl) {
++		// The shape of tailscaled on Android's VPN (cmd/tailscaled/netstack.go).
++		impl.ProcessSubnets = false
++		impl.ProcessLocalIPs = false
++		impl.atomicIsLocalIPFunc.Store(func(a netip.Addr) bool { return a == self4 || a == self6 })
++	})
++
++	tests := []struct {
++		name  string
++		proto ipproto.Proto
++		dst   string
++		want  bool // ended here with transparent mode on
++	}{
++		{"internet-tcp", ipproto.TCP, "203.0.113.7:443", true},
++		{"internet-udp", ipproto.UDP, "198.51.100.9:443", true},
++		{"internet-v6", ipproto.TCP, "[2001:db8::7]:443", true},
++		{"lan", ipproto.TCP, "192.168.1.1:80", true},
++		{"lan-dns", ipproto.UDP, "192.168.1.1:53", true},
++		{"tailnet-peer", ipproto.TCP, "100.101.102.103:22", false},
++		{"tailnet-peer-v6", ipproto.TCP, "[fd7a:115c:a1e0::99]:22", false},
++		{"service-ip", ipproto.UDP, "100.100.100.100:53", false},
++		{"self", ipproto.TCP, "100.64.1.2:8080", false},
++		{"multicast", ipproto.UDP, "224.0.0.251:5353", false},
++		{"link-local", ipproto.UDP, "169.254.1.1:67", false},
++		{"broadcast", ipproto.UDP, "255.255.255.255:67", false},
++		{"icmp", ipproto.ICMPv4, "203.0.113.7:0", false},
++	}
++	for _, on := range []bool{false, true} {
++		impl.SetLocalEgress(on)
++		for _, tt := range tests {
++			p := &packet.Parsed{
++				IPVersion: 4,
++				IPProto:   tt.proto,
++				Src:       netip.AddrPortFrom(self4, 40000),
++				Dst:       netip.MustParseAddrPort(tt.dst),
++			}
++			if p.Dst.Addr().Is6() {
++				p.IPVersion = 6
++				p.Src = netip.AddrPortFrom(self6, 40000)
++			}
++			if got := impl.isLocalEgress(p); got != (on && tt.want) {
++				t.Errorf("transparent %v, %s: isLocalEgress = %v, want %v", on, tt.name, got, on && tt.want)
++			}
++		}
++	}
++}
++
++// With transparent mode on, a connection the host opens to the internet is
++// accepted by netstack and dialled from this process to the same address.
++func TestLocalEgressDialsTheDestination(t *testing.T) {
++	self4 := netip.MustParseAddr("100.64.1.2")
++	impl := makeNetstack(t, func(impl *Impl) {
++		impl.ProcessSubnets = false
++		impl.ProcessLocalIPs = false
++		impl.atomicIsLocalIPFunc.Store(func(a netip.Addr) bool { return a == self4 })
++	})
++	dialed := make(chan string, 1)
++	done := make(chan struct{})
++	t.Cleanup(func() { close(done) })
++	impl.forwardDialFunc = func(ctx context.Context, network, address string) (net.Conn, error) {
++		select {
++		case dialed <- network + " " + address:
++		default:
++		}
++		select {
++		case <-ctx.Done():
++		case <-done:
++		}
++		return nil, context.Canceled
++	}
++
++	dst := netip.MustParseAddr("203.0.113.7")
++	syn := func() *packet.Parsed {
++		var p packet.Parsed
++		p.Decode(tcp4syn(t, self4, dst, 40001, 443))
++		return &p
++	}
++
++	// Off: the packet goes on its way, to WireGuard, as before.
++	if resp, _ := impl.handleLocalPackets(syn(), impl.tundev, nil); resp != filter.Accept {
++		t.Fatalf("transparent off: got %v, want filter.Accept", resp)
++	}
++
++	impl.SetLocalEgress(true)
++	if resp, _ := impl.handleLocalPackets(syn(), impl.tundev, nil); resp != filter.DropSilently {
++		t.Fatalf("transparent on: got %v, want filter.DropSilently", resp)
++	}
++	select {
++	case got := <-dialed:
++		if want := "tcp 203.0.113.7:443"; got != want {
++			t.Fatalf("dialled %q, want %q", got, want)
++		}
++	case <-time.After(10 * time.Second):
++		t.Fatal("netstack never dialled the destination")
++	}
++}
++
++// A destination a peer routes — an accepted subnet route, a selected exit
++// node — stays WireGuard's even with transparent mode on.
++func TestLocalEgressLeavesPeerRoutes(t *testing.T) {
++	self4 := netip.MustParseAddr("100.64.1.2")
++	impl := makeNetstack(t, func(impl *Impl) {
++		impl.ProcessSubnets = false
++		impl.ProcessLocalIPs = false
++		impl.atomicIsLocalIPFunc.Store(func(a netip.Addr) bool { return a == self4 })
++	})
++	subnet := netip.MustParsePrefix("10.20.0.0/16")
++	peer := (&tailcfg.Node{
++		ID:            2,
++		StableID:      "router",
++		Key:           key.NewNode().Public(),
++		Addresses:     []netip.Prefix{netip.MustParsePrefix("100.101.102.103/32")},
++		AllowedIPs:    []netip.Prefix{netip.MustParsePrefix("100.101.102.103/32"), subnet},
++		PrimaryRoutes: []netip.Prefix{subnet},
++		HomeDERP:      1, // reachable; the route manager skips peers it cannot talk to
++	}).View()
++	impl.lb.ForTest().SetNetMap(&netmap.NetworkMap{
++		SelfNode: (&tailcfg.Node{ID: 1, Addresses: []netip.Prefix{netip.PrefixFrom(self4, 32)}}).View(),
++		Peers:    []tailcfg.NodeView{peer},
++	})
++	impl.lb.ForTest().SetRouteAll(true)
++	if _, ok := impl.lb.PeerForIP(netip.MustParseAddr("10.20.1.1")); !ok {
++		t.Fatal("the backend does not route the peer's subnet")
++	}
++	impl.SetLocalEgress(true)
++	pkt := func(dst string) *packet.Parsed {
++		return &packet.Parsed{IPVersion: 4, IPProto: ipproto.TCP, Src: netip.AddrPortFrom(self4, 40000), Dst: netip.MustParseAddrPort(dst)}
++	}
++	if impl.isLocalEgress(pkt("10.20.1.1:22")) {
++		t.Error("an accepted subnet route was taken for the internet")
++	}
++	if !impl.isLocalEgress(pkt("203.0.113.7:443")) {
++		t.Error("the internet was left to WireGuard")
++	}
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/cmd/tailscaled/android_vpn_egress.go	2026-10-22 07:23:59.360195615 +0300
+@@ -0,0 +1,49 @@
++//go:build !ts_omit_netstack
++
++package main
++
++// TailSocks native TUN: transparent mode (wgengine/netstack/local_egress.go).
++//
++// Android's lockdown ("Block connections without VPN") refuses every
++// connection that is not routed into the VPN; without an exit node that is
++// the whole internet. In transparent mode the app routes everything into the
++// VPN and netstack ends the host's connections outside the tailnet, dialling
++// them from this process, which the VPN leaves out. The app decides it — on
++// only while the lockdown is on, no exit node is selected and the person left
++// the option on — and says so with every device it hands over: at launch in
++// TS_ANDROID_VPN_EGRESS, and in each device swap (android_vpn_swap.go), set
++// before the engine moves so the new device's routes and the mode change
++// together.
++
++import (
++	"sync/atomic"
++
++	"tailscale.com/envknob"
++	"tailscale.com/types/logger"
++	"tailscale.com/wgengine/netstack"
++)
++
++// androidVPNNetstack is the netstack of a daemon on Android's VPN, for the
++// swaps that follow.
++var androidVPNNetstack atomic.Pointer[netstack.Impl]
++
++// attachAndroidVPNEgress takes ns for transparent mode and applies the
++// launch's setting. Called by newNetstack; nothing outside androidVPNMode.
++func attachAndroidVPNEgress(logf logger.Logf, ns *netstack.Impl) {
++	if !androidVPNMode {
++		return
++	}
++	androidVPNNetstack.Store(ns)
++	ns.SetLocalEgress(envknob.Bool("TS_ANDROID_VPN_EGRESS"))
++}
++
++// setAndroidVPNEgress switches transparent mode for the device about to be
++// swapped in. False when no netstack is attached.
++func setAndroidVPNEgress(on bool) bool {
++	ns := androidVPNNetstack.Load()
++	if ns == nil {
++		return false
++	}
++	ns.SetLocalEgress(on)
++	return true
++}
+--- /dev/null	2026-10-21 19:03:52.965751996 +0300
++++ tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go	2026-10-22 07:29:43.781406131 +0300
+@@ -0,0 +1,11 @@
++package ipnlocal
++
++// TailSocks: test-only access for wgengine/netstack's tests of transparent
++// mode (local_egress.go).
++
++// SetRouteAll stands in for the "accept routes" pref reaching the route
++// manager, which in the daemon follows a prefs change: the netmap's subnet
++// routes then route to their peers (PeerForIP).
++func (f forTest) SetRouteAll(on bool) {
++	f.b.currentNode().updateRouteManagerPrefs(routePrefs{RouteAll: on})
++}

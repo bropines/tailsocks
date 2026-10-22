@@ -234,6 +234,10 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 	if tunFile != nil {
 		c.ExtraFiles = []*os.File{tunFile} // fd 3 in the child
 		c.Env = append(c.Env, "TS_TUN_FD=3")
+		if nativeTunEgress() {
+			// Transparent mode, for the device it starts on (android_vpn_egress.go).
+			c.Env = append(c.Env, "TS_ANDROID_VPN_EGRESS=1")
+		}
 		slog.Info("Daemon launch: native TUN, the VpnService device is attached")
 	}
 
