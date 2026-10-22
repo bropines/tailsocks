@@ -104,9 +104,9 @@ State as of 2026-10-14, at 5.0.0.
       a start with the connection stopped establishes nothing. Wi‑Fi ↔ LTE, doze and Android 7/8
       needed no code that was clearly wrong; all of it is under *Verify on devices*. Stopping
       the daemon and starting it again on the other engine is the intended behaviour, not a
-      debt; the fd swap, `CallbackRouter` and `SCM_RIGHTS` that
-      [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues for stay that document's ambition, kept
-      for the record and not wanted here.
+      debt; `CallbackRouter`, which [`NATIVE_TUN_PLAN.md`](NATIVE_TUN_PLAN.md) argues for, is
+      not wanted here. Its fd swap came later (patch 24): a rebuilt device no longer restarts
+      the daemon unless the swap fails.
 - [ ] **An MCP server — a probable plan, not designed yet (asked for by the author on
       2026-10-15).** Let an AI agent work with TailSocks and the tailnet through the Model Context
       Protocol instead of pasted text: read the status, the peers and the policy, propose policy
@@ -208,8 +208,9 @@ State as of 2026-10-14, at 5.0.0.
      within a tick of Running ("TUN: the node's addresses are known now").
   3. Subnet routes: a peer with an approved route (e.g. 192.168.x.0/24), "Accept subnet routes" on, no
      exit node — the subnet answers from another app; switched off — it stops. Remove the
-     route in the console — within a minute (five after an earlier rebuild) the log says "the
-     accepted subnet routes changed" and the daemon relaunches once. With an exit node and the
+     route in the console — within a minute (five after an earlier rebuild that relaunched the daemon) the log says "the
+     accepted subnet routes changed" and "the daemon moved to the new device in place" (a
+     relaunch only if the swap failed). With an exit node and the
      default exclusions on Android 13+, the subnet still goes to the tailnet.
   4. Always-on: pick TailSocks as the always-on VPN while disconnected — the connection starts
      and the VPN comes up; reboot — it comes up without opening the app. With "Block connections

@@ -16,10 +16,14 @@ start bringing the connection up, no DNS server on the device while "Use
 MagicDNS" (CorpDNS) is off, and an unmetered device; what only a device can confirm
 is listed in `docs/ROADMAP.md` under *Verify on devices*.
 
-It takes the short road this document argues against in places — a daemon
+It took the short road this document argues against in places — a daemon
 relaunch instead of an fd swap, a no-op router instead of `CallbackRouter`, no
-`SCM_RIGHTS` — and that is the decided shape, not an interim: switching engines
-or rebuilding the device restarts the daemon by design. Unlike step 4 below, the
+`SCM_RIGHTS`. The no-op router stays, and switching engines restarts the daemon
+by design. The fd swap came on 2026-10-22 (patch 24, `net/androidvpn`): a
+rebuilt device — an exit node on or off, other accepted subnet routes — goes to
+the running daemon over `files/tun-swap.sock` with `SCM_RIGHTS`, and the
+engine's `SwapDevice` moves onto it; the relaunch is what happens when that
+fails. Unlike step 4 below, the
 flip deleted no hev setting: hev stays as the compatibility engine and keeps
 `tun_address`, `tun_ipv6_enabled` and `tun_excluded_cidrs`. The rest of this
 document is the full design as first decided, kept for the record.
