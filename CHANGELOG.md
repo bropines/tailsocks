@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- TUN mode: a VPN app that takes the VPN slot keeps it. TailSocks took it back a second later — through a permission check — and established nothing, leaving the phone with no VPN at all; now it runs on as a proxy, says so on the main screen, and takes the slot back when you reconnect.
 - Root Mode with the native TUN: Excluded IP Ranges is on its card too — Root Mode always kept those ranges off the exit node, but the list could only be changed from VPN mode.
 
 ## [5.1.0] - 2026-10-15
