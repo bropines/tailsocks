@@ -1,13 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- TUN mode: the engine picker on the TUN settings page -->
-    <string name="tun_engine_title"></string>
-    <string name="tun_engine_native"></string>
-    <string name="tun_engine_hev" translatable="false"></string>
-    <string name="tun_engine_native_short"></string>
-    <string name="tun_engine_hev_short"></string>
-    <string name="tun_engine_native_desc"></string>
-    <string name="tun_engine_hev_desc"></string>
-    <!-- Root Mode with the native TUN: the same excluded ranges, as throw routes in the daemon's table -->
-    <string name="settings_root_excluded_cidrs_desc"></string>
-</resources>
+    </resources>
