@@ -63,6 +63,8 @@
     <string name="search_kw_mode_root">рут, su, magisk, магиск, kernelsu, apatch, суперпользователь, tailscale0, интерфейс ядра</string>
     <string name="search_kw_tun_engine">движок, нативный, hev, hev-socks5-tunnel, tun2socks, совместимость</string>
     <string name="search_kw_tun_uses_socks">прокси для hev, socks5 для tun, порт сокс для туннеля</string>
+    <string name="search_kw_tun_transparent">прозрачный, lockdown, соединения без vpn, kill switch, весь трафик, нет интернета, полный туннель</string>
+    <string name="search_kw_tun_swap">на ходу, перезапуск, переподключение, пересборка туннеля, смена выходного узла</string>
     <string name="search_kw_tun_ipv6">ipv6, айпи в6, утечка ipv6, маршрут ipv6</string>
     <string name="search_kw_tun_address">адрес tun, шлюз, 10.0.0.1, ip туннеля</string>
     <string name="search_kw_tun_excluded_cidrs">исключить ip, обход подсетей, раздельное туннелирование, cidr, исключения сети, локалка мимо туннеля</string>

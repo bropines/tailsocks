@@ -12,4 +12,18 @@
     <string name="settings_root_excluded_cidrs_desc">Comma-separated subnets that stay on the real network while an exit node is on — the same list as in VPN mode. Link-local addresses always do.</string>
     <!-- TUN mode on, the VPN slot taken by another VPN app (TunVpnService.isDisplaced) -->
     <string name="main_tun_displaced_desc">Another VPN app took the VPN slot. TailSocks runs on as a proxy; reconnect to take the slot back.</string>
+    <!-- TUN card: the native engine's in-place device swap (patch 24) -->
+    <string name="settings_tun_swap_title">Rebuild the tunnel in place</string>
+    <string name="settings_tun_swap_desc">Turning an exit node on or off, or new subnet routes, move the running daemon onto the new tunnel. Off: the daemon restarts for a few seconds instead.</string>
+    <!-- TUN card: transparent mode (TunTransparent, patch 25) -->
+    <string name="settings_tun_transparent_title">Transparent mode</string>
+    <string name="settings_tun_transparent_off">Off</string>
+    <string name="settings_tun_transparent_lockdown">Under Android lockdown</string>
+    <string name="settings_tun_transparent_always">Always</string>
+    <string name="settings_tun_transparent_off_short">Without an exit node only the tailnet goes through the VPN</string>
+    <string name="settings_tun_transparent_lockdown_short">All traffic only while “Block connections without VPN” is on</string>
+    <string name="settings_tun_transparent_always_short">All traffic through TailSocks, exit node or not</string>
+    <string name="settings_tun_transparent_off_desc">Off. Without an exit node only the tailnet goes through the VPN; under Android\'s “Block connections without VPN” that leaves no internet.</string>
+    <string name="settings_tun_transparent_lockdown_desc">Under Android\'s “Block connections without VPN” and without an exit node, TailSocks takes all traffic and sends what is not for the tailnet out itself, so the internet keeps working. Slower than the direct path; ping does not go through.</string>
+    <string name="settings_tun_transparent_always_desc">Always: without an exit node too, all traffic goes through TailSocks, and what is not for the tailnet goes out directly. Slower than the direct path; ping does not go through.</string>
 </resources>

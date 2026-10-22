@@ -10,6 +10,8 @@
 
     <!-- Why a found setting is not on its page right now. One line each; the result then opens the row that brings it. -->
     <string name="search_need_tun">Shown in VPN (TUN) mode</string>
+    <string name="search_sum_tun_transparent">Without an exit node, all traffic through TailSocks: under Android\'s lockdown or always</string>
+    <string name="search_need_tun_native">Shown with the native TUN engine</string>
     <string name="search_need_tun_hev">Shown with the hev-socks5-tunnel engine</string>
     <string name="search_need_tun_or_root">Shown in VPN (TUN) and Root modes</string>
     <string name="search_need_root">Shown in Root mode</string>

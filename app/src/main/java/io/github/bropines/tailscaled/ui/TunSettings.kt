@@ -4,10 +4,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -23,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.TunEngines
+import io.github.bropines.tailscaled.core.TunTransparent
 
 /**
  * The settings of the VPN (TUN) mode, shown under its option in Settings →
@@ -31,7 +35,9 @@ import io.github.bropines.tailscaled.core.TunEngines
  * The engine is the first row: native is the default, hev-socks5-tunnel the
  * compatibility choice. The rows that only hev reads — the SOCKS5 proxy it
  * forwards into and its private gateway address — are there only while hev is
- * picked; the native device carries the node's own addresses.
+ * picked; the native device carries the node's own addresses, and only the
+ * native engine moves a running daemon onto a rebuilt device (the swap row).
+ * Transparent mode under Android's lockdown is both engines'.
  */
 @Composable
 fun TunSettingsCard(
@@ -47,9 +53,14 @@ fun TunSettingsCard(
     onExcludedCidrsChange: (String) -> Unit,
     excludedAppsCount: Int,
     onOpenExcludedApps: () -> Unit,
+    swapInPlace: Boolean,
+    onSwapInPlaceChange: (Boolean) -> Unit,
+    transparent: String,
+    onTransparentChange: (String) -> Unit,
 ) {
     val hev = engine == TunEngines.HEV
     var picking by remember { mutableStateOf(false) }
+    var pickingTransparent by remember { mutableStateOf(false) }
 
     SettingsCard(title = stringResource(R.string.settings_sect_tun_mode)) {
         SettingsClickableItem(
@@ -57,6 +68,20 @@ fun TunSettingsCard(
             subtitle = stringResource(if (hev) R.string.tun_engine_hev_desc else R.string.tun_engine_native_desc),
             icon = Icons.Default.Memory
         ) { picking = true }
+
+        // Only the native engine hands a rebuilt device to the running daemon.
+        AnimatedVisibility(visible = !hev) {
+            Column {
+                TunDivider()
+                SettingsSwitchItem(
+                    title = stringResource(R.string.settings_tun_swap_title),
+                    subtitle = stringResource(R.string.settings_tun_swap_desc),
+                    icon = Icons.Default.Autorenew,
+                    checked = swapInPlace,
+                    onCheckedChange = onSwapInPlaceChange
+                )
+            }
+        }
 
         // Only hev forwards into the proxy and has a gateway address of its own.
         AnimatedVisibility(visible = hev) {
@@ -84,6 +109,19 @@ fun TunSettingsCard(
             checked = ipv6,
             onCheckedChange = onIpv6Change
         )
+
+        TunDivider()
+        SettingsClickableItem(
+            title = stringResource(R.string.settings_tun_transparent_title),
+            subtitle = stringResource(
+                when (transparent) {
+                    TunTransparent.OFF -> R.string.settings_tun_transparent_off_desc
+                    TunTransparent.ALWAYS -> R.string.settings_tun_transparent_always_desc
+                    else -> R.string.settings_tun_transparent_lockdown_desc
+                }
+            ),
+            icon = Icons.Default.Lock
+        ) { pickingTransparent = true }
 
         AnimatedVisibility(visible = hev) {
             Column {
@@ -118,6 +156,17 @@ fun TunSettingsCard(
         )
     }
 
+    if (pickingTransparent) {
+        // Resolved here, as the engine's below: the sheet is a window of its own.
+        PickerSheet(
+            title = stringResource(R.string.settings_tun_transparent_title),
+            options = tunTransparentOptions(),
+            selected = transparent,
+            onPick = { if (it != transparent) onTransparentChange(it) },
+            onDismiss = { pickingTransparent = false }
+        )
+    }
+
     if (picking) {
         // Resolved here: the sheet is a window of its own and would look its
         // words up in the system language — see wrapContextWithLocale().
@@ -145,6 +194,29 @@ internal fun tunEngineOptions(): List<PickerOption<String>> = listOf(
         label = stringResource(R.string.tun_engine_hev),
         icon = Icons.Default.SwapHoriz,
         supporting = stringResource(R.string.tun_engine_hev_short)
+    ),
+)
+
+/** Transparent mode's choices, in the composition's language. */
+@Composable
+internal fun tunTransparentOptions(): List<PickerOption<String>> = listOf(
+    PickerOption(
+        value = TunTransparent.OFF,
+        label = stringResource(R.string.settings_tun_transparent_off),
+        icon = Icons.Default.Block,
+        supporting = stringResource(R.string.settings_tun_transparent_off_short)
+    ),
+    PickerOption(
+        value = TunTransparent.LOCKDOWN,
+        label = stringResource(R.string.settings_tun_transparent_lockdown),
+        icon = Icons.Default.Lock,
+        supporting = stringResource(R.string.settings_tun_transparent_lockdown_short)
+    ),
+    PickerOption(
+        value = TunTransparent.ALWAYS,
+        label = stringResource(R.string.settings_tun_transparent_always),
+        icon = Icons.Default.AllInclusive,
+        supporting = stringResource(R.string.settings_tun_transparent_always_short)
     ),
 )
 

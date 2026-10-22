@@ -8,6 +8,24 @@ import java.net.InetAddress
  * Which program carries TUN mode's packets. Kept apart from [TunVpnService] so
  * the choice can be tested without the Android classes behind the service.
  */
+/**
+ * Transparent mode, a TUN setting (`tun_transparent`): without an exit node the
+ * device takes all traffic and what is not for the tailnet goes out directly —
+ * on the native engine through the daemon's netstack (patch 25), on hev through
+ * the SOCKS5 proxy. [LOCKDOWN], the default, does it only while Android's
+ * "Block connections without VPN" is on, which otherwise cuts the internet.
+ */
+object TunTransparent {
+    const val OFF = "off"
+    const val LOCKDOWN = "lockdown"
+    const val ALWAYS = "always"
+
+    fun resolve(stored: String?): String = when (stored) {
+        OFF, ALWAYS -> stored
+        else -> LOCKDOWN
+    }
+}
+
 object TunEngines {
     /** tailscaled owns the VpnService device (--tun=android-vpn, patches 17–19). */
     const val NATIVE = "native"

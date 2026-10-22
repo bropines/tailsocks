@@ -544,6 +544,8 @@ fun SettingsScreen(
     var tunExcludedApps by remember { mutableStateOf(GlobalSettings.getTunExcludedApps(context)) }
     var tunAddress by remember { mutableStateOf(GlobalSettings.getTunAddress(context)) }
     var tunIpv6Enabled by remember { mutableStateOf(GlobalSettings.isTunIpv6Enabled(context)) }
+    var tunSwapInPlace by remember { mutableStateOf(GlobalSettings.isTunSwapInPlace(context)) }
+    var tunTransparent by remember { mutableStateOf(GlobalSettings.getTunTransparent(context)) }
 
     LaunchedEffect(Unit) {
         tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
@@ -1600,6 +1602,16 @@ fun SettingsScreen(
                 excludedAppsCount = tunExcludedApps.size,
                 onOpenExcludedApps = {
                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
+                },
+                swapInPlace = tunSwapInPlace,
+                onSwapInPlaceChange = {
+                    tunSwapInPlace = it
+                    saveGlobalPref("tun_swap_in_place", it)
+                },
+                transparent = tunTransparent,
+                onTransparentChange = {
+                    tunTransparent = it
+                    saveGlobalPref("tun_transparent", it)
                 }
             )
         }

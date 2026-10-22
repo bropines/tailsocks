@@ -10,6 +10,8 @@
 
     <!-- Why a found setting is not on its page right now. One line each; the result then opens the row that brings it. -->
     <string name="search_need_tun">Появляется в режиме VPN (TUN)</string>
+    <string name="search_sum_tun_transparent">Без выходного узла весь трафик через TailSocks: при блокировке Android или всегда</string>
+    <string name="search_need_tun_native">Появляется с нативным движком TUN</string>
     <string name="search_need_tun_hev">Появляется с движком hev-socks5-tunnel</string>
     <string name="search_need_tun_or_root">Появляется в режимах VPN (TUN) и Root</string>
     <string name="search_need_root">Появляется в режиме Root</string>

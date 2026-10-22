@@ -69,6 +69,8 @@
     <string name="search_kw_mode_root">root, su, magisk, kernelsu, apatch, rooted, superuser, tailscale0, kernel interface</string>
     <string name="search_kw_tun_engine">engine, native tun, hev, hev-socks5-tunnel, tun2socks, compatibility</string>
     <string name="search_kw_tun_uses_socks">hev proxy, socks5 for tun, socks port for the tunnel</string>
+    <string name="search_kw_tun_transparent">transparent, lockdown, connections without vpn, kill switch, all traffic, no internet, full tunnel</string>
+    <string name="search_kw_tun_swap">swap, in place, restart, relaunch, reconnect, exit node switch, rebuild tunnel</string>
     <string name="search_kw_tun_ipv6">ipv6, v6, ipv6 leak, route ipv6</string>
     <string name="search_kw_tun_address">tun address, interface address, gateway, 10.0.0.1, tun ip</string>
     <string name="search_kw_tun_excluded_cidrs">exclude ip, bypass subnets, split tunneling, cidr, lan bypass, exclude a network</string>

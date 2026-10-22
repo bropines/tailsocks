@@ -90,6 +90,8 @@ class TunVpnService : VpnService() {
         @Volatile private var builtSelfIps: List<String> = emptyList()
         @Volatile private var builtDefaultV4 = false
         @Volatile private var builtDefaultV6 = false
+        @Volatile private var builtFullTunnel = false
+        @Volatile private var builtTransparent = false
         @Volatile private var builtExclusions: List<TunRoutes.Cidr> = emptyList()
         @Volatile private var builtRoutes = ""
         @Volatile private var lastRouteCheckAt = 0L
@@ -108,6 +110,29 @@ class TunVpnService : VpnService() {
 
         /** The same gap while the native engine's last rebuild moved the daemon in place, which costs nothing. */
         private const val ROUTE_SWAP_MIN_GAP_MS = 30_000L
+
+        /** The running service, for [lockdownOn]: Android answers that only to the VPN service itself. */
+        @Volatile private var live: TunVpnService? = null
+
+        /** Whether Android's always-on VPN has "Block connections without VPN" on for this app. */
+        private fun lockdownOn(): Boolean =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && runCatching { live?.isLockdownEnabled }.getOrNull() == true
+
+        /**
+         * Transparent mode ([TunTransparent]): the device takes all traffic
+         * without an exit node, and what is not for the tailnet goes out
+         * directly — on the native engine the daemon's netstack dials it (patch
+         * 25, switched with the device it is handed), on hev the SOCKS5 proxy
+         * does, as it always has. By default only under Android's lockdown,
+         * which refuses every connection not routed into the VPN — without an
+         * exit node, the whole internet. Off while an exit node carries it all.
+         */
+        private fun wantTransparent(context: Context, fullTunnel: Boolean): Boolean = !fullTunnel &&
+            when (GlobalSettings.getTunTransparent(context)) {
+                TunTransparent.ALWAYS -> true
+                TunTransparent.LOCKDOWN -> lockdownOn()
+                else -> false
+            }
 
         /**
          * Another VPN app took the slot ([onRevoke]) while the connection is
@@ -217,6 +242,13 @@ class TunVpnService : VpnService() {
                 val live = selfIpsNow()
                 if (live.isNotEmpty() && live.toSet() != builtSelfIps.toSet()) return "the node's addresses changed"
             }
+            // Android's lockdown is switched in Android's settings, which tell
+            // nobody: transparent mode follows it from here.
+            val transparent = wantTransparent(context, builtFullTunnel)
+            if (transparent != builtTransparent) {
+                return if (transparent) "transparent mode is wanted now (Android's lockdown, or the setting)"
+                else "transparent mode is no longer wanted"
+            }
             val now = SystemClock.elapsedRealtime()
             if (lastRouteCheckAt != 0L && now - lastRouteCheckAt < ROUTE_CHECK_INTERVAL_MS) return null
             lastRouteCheckAt = now
@@ -280,6 +312,8 @@ class TunVpnService : VpnService() {
         val routes: List<TunRoutes.Cidr>,
         /** Native only: whether the device's DNS is MagicDNS, see [startNativeTunInternal]. */
         val tailscaleDns: Boolean,
+        /** All traffic into the device without an exit node; see [wantTransparent]. */
+        val transparent: Boolean = false,
     ) {
         val fullTunnel get() = exitNodeId.isNotEmpty()
     }
@@ -291,7 +325,8 @@ class TunVpnService : VpnService() {
         GlobalSettings.isTunIpv6Enabled(this).toString(),
         GlobalSettings.getTunAddress(this),
         TunRoutes.encode(plan.routes),
-        plan.tailscaleDns.toString()
+        plan.tailscaleDns.toString(),
+        plan.transparent.toString(),
     ).joinToString("|")
 
     // -------------------------------------------------------------------------
@@ -408,7 +443,13 @@ class TunVpnService : VpnService() {
         super.onRevoke()
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        live = this
+    }
+
     override fun onDestroy() {
+        if (live === this) live = null
         executor.submit {
             stopTunInternal()
         }
@@ -429,14 +470,16 @@ class TunVpnService : VpnService() {
         val wantFullTunnel = exitNodeId.isNotEmpty()
         val (routeAll, corpDns) = routePrefs(this)
         val exclusions = appliedExclusions(this, wantFullTunnel)
+        val transparent = wantTransparent(this, wantFullTunnel)
         // The default routes the device will carry, per family; see the engines' builders.
-        val defaultV4 = wantFullTunnel
-        val defaultV6 = wantFullTunnel && GlobalSettings.isTunIpv6Enabled(this)
+        val defaultV4 = wantFullTunnel || transparent
+        val defaultV6 = (wantFullTunnel && GlobalSettings.isTunIpv6Enabled(this)) || transparent
         val plan = Plan(
             engine = engine,
             exitNodeId = exitNodeId,
             routes = TunRoutes.forDevice(offeredRoutesNow(this, routeAll), defaultV4, defaultV6, exclusions),
             tailscaleDns = engine != ENGINE_NATIVE || corpDns,
+            transparent = transparent,
         )
         val wantInputs = builderInputs(plan)
         var knownIps = nativeSelfIps
@@ -461,6 +504,7 @@ class TunVpnService : VpnService() {
             }
             if (ipsChanged) knownIps = liveIps
             replace = currentEngine == ENGINE_NATIVE && engine == ENGINE_NATIVE &&
+                GlobalSettings.isTunSwapInPlace(this) &&
                 runCatching { Appctr.isRunning() }.getOrDefault(false)
             Log.i(TAG, "TUN parameters changed (default route $currentFullTunnel -> $wantFullTunnel, engine '$currentEngine' -> '$engine', addresses ${if (ipsChanged) "changed" else "same"}, exclusions/IPv6/address/routes/DNS ${if (inputsChanged) "changed" else "same"}), ${if (replace) "replacing the device in place" else "restarting TUN interface"}...")
             if (!replace) stopTunInternal(nativeStartFollows = engine == ENGINE_NATIVE)
@@ -483,6 +527,8 @@ class TunVpnService : VpnService() {
         builtSelfIps = if (engine == ENGINE_NATIVE) nativeSelfIps else emptyList()
         builtDefaultV4 = defaultV4
         builtDefaultV6 = defaultV6
+        builtFullTunnel = wantFullTunnel
+        builtTransparent = transparent
         builtExclusions = exclusions
         builtRoutes = TunRoutes.encode(plan.routes)
     }
@@ -538,10 +584,11 @@ class TunVpnService : VpnService() {
         builder.addDnsServer(TUN_DNS_IP)
             .addRoute(TUN_DNS_IP, 32)  // route fake DNS IP through VPN
 
-        // Routing mode.
-        if (fullTunnel) {
+        // Routing mode. Transparent mode takes everything too: the SOCKS5 proxy
+        // dials what is not for the tailnet directly, as it does for any app.
+        if (fullTunnel || plan.transparent) {
             builder.addRoute("0.0.0.0", 0)
-            if (ipv6DefaultRoute) {
+            if (ipv6DefaultRoute || plan.transparent) {
                 builder.addRoute("::", 0)
             }
             // Tailnet IPv6 still goes through us even when the world's does not.
@@ -591,7 +638,7 @@ class TunVpnService : VpnService() {
         TProxyStartService(configFile.absolutePath, fd.fd)
         isRunning = true
         waitingForAddresses = false
-        Log.i(TAG, "TUN started (hev): socks=$socksAddr mtu=$mtu full=$fullTunnel subnets=${plan.routes.size}")
+        Log.i(TAG, "TUN started (hev): socks=$socksAddr mtu=$mtu full=$fullTunnel transparent=${plan.transparent} subnets=${plan.routes.size}")
         return true
     }
 
@@ -738,9 +785,12 @@ class TunVpnService : VpnService() {
             builder.addDnsServer(TUN_DNS_IP)
             if (hasV6) builder.addDnsServer(TUN_DNS_IP_V6)
         }
-        if (fullTunnel) {
+        if (fullTunnel || plan.transparent) {
+            // In transparent mode the world's IPv6 has no other way out under the
+            // lockdown, and the daemon dials it directly: a network without IPv6
+            // refuses at once and apps fall back to IPv4.
             builder.addRoute("0.0.0.0", 0)
-            if (ipv6DefaultRoute) builder.addRoute("::", 0)
+            if (ipv6DefaultRoute || plan.transparent) builder.addRoute("::", 0)
             builder.addRoute("fd7a:115c:a1e0::", 48)
         } else {
             builder.addRoute("100.64.0.0", 10)
@@ -754,7 +804,7 @@ class TunVpnService : VpnService() {
 
         val old = if (replace) tunFd else null
         val fd = establishOrNull(builder) ?: return false
-        val err = if (old != null) moveDaemonTo(fd) else relaunchDaemonOn(fd)
+        val err = if (old != null) moveDaemonTo(fd, plan.transparent) else relaunchDaemonOn(fd, plan.transparent)
         if (err.isNotEmpty()) {
             Log.e(TAG, "Native TUN: the bridge refused the device: $err")
             Appctr.logAndroid("ERROR", "CORE", "Native TUN: $err")
@@ -772,13 +822,13 @@ class TunVpnService : VpnService() {
         waitingForAddresses = false
         nativeSelfIps = selfIps
         profilePrefs(this).edit().putString(SELF_IPS_PREF, selfIps.joinToString(",")).apply()
-        Log.i(TAG, "Native TUN started: addrs=$selfIps full=$fullTunnel subnets=${plan.routes.size} dns=${plan.tailscaleDns} mtu=$TUN_MTU_NATIVE")
+        Log.i(TAG, "Native TUN started: addrs=$selfIps full=$fullTunnel transparent=${plan.transparent} subnets=${plan.routes.size} dns=${plan.tailscaleDns} mtu=$TUN_MTU_NATIVE")
         return true
     }
 
-    /** The bridge relaunches the daemon on [fd]'s device. "" when it took it. */
-    private fun relaunchDaemonOn(fd: ParcelFileDescriptor): String = try {
-        Appctr.setNativeTun(fd.dup().detachFd())
+    /** The bridge relaunches the daemon on [fd]'s device, transparent when [egress]. "" when it took it. */
+    private fun relaunchDaemonOn(fd: ParcelFileDescriptor, egress: Boolean): String = try {
+        Appctr.setNativeTun(fd.dup().detachFd(), egress)
     } catch (e: Exception) {
         "hand-over failed: $e"
     }
@@ -788,9 +838,9 @@ class TunVpnService : VpnService() {
      * cannot — an older daemon, a refused device, no answer — it is relaunched
      * on it, as before the swap existed. "" when one of the two took it.
      */
-    private fun moveDaemonTo(fd: ParcelFileDescriptor): String {
+    private fun moveDaemonTo(fd: ParcelFileDescriptor, egress: Boolean): String {
         val swapErr = try {
-            Appctr.swapNativeTun(fd.dup().detachFd())
+            Appctr.swapNativeTun(fd.dup().detachFd(), egress)
         } catch (e: Exception) {
             "hand-over failed: $e"
         }
@@ -801,7 +851,7 @@ class TunVpnService : VpnService() {
         }
         Log.w(TAG, "Native TUN: the daemon could not move in place ($swapErr); relaunching it on the new device")
         Appctr.logAndroid("WARN", "CORE", "Native TUN: in-place device swap failed ($swapErr); relaunching the daemon")
-        return relaunchDaemonOn(fd)
+        return relaunchDaemonOn(fd, egress)
     }
 
     /**

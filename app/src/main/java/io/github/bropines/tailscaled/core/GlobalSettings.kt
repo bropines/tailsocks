@@ -313,6 +313,18 @@ object GlobalSettings {
     fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", false)
     fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
 
+    /** Transparent mode, [TunTransparent]: off, under Android's lockdown (the default) or always. */
+    fun getTunTransparent(context: Context): String = TunTransparent.resolve(getPrefs(context).getString("tun_transparent", null))
+    fun setTunTransparent(context: Context, mode: String) = setString(context, "tun_transparent", TunTransparent.resolve(mode))
+
+    /**
+     * Native engine: a rebuilt device (exit node on or off, other subnet
+     * routes) goes to the running daemon in place (patch 24); off, the daemon
+     * is relaunched on it, as before the swap existed.
+     */
+    fun isTunSwapInPlace(context: Context): Boolean = getBoolean(context, "tun_swap_in_place", true)
+    fun setTunSwapInPlace(context: Context, on: Boolean) = setBoolean(context, "tun_swap_in_place", on)
+
     /**
      * TUN engine: "native" (tailscaled owns the VpnService device, the default)
      * or "hev" (hev-socks5-tunnel, the compatibility engine). Only an explicit
@@ -561,7 +573,7 @@ object GlobalSettings {
         "service_watchdog", "automation_enabled",
         // TUN mode
         "tun_mode_enabled", "tun_full_tunnel", "tun_excluded_apps", "tun_excluded_cidrs",
-        "tun_address", "tun_ipv6_enabled", "tun_engine",
+        "tun_address", "tun_ipv6_enabled", "tun_engine", "tun_transparent", "tun_swap_in_place",
         // Root mode. "Ignore other VPNs" belongs here as much as the rest: it
         // decides how our own daemon marks its sockets, and dropping it silently
         // restored a device that yields where the exported one did not. The

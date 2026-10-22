@@ -11,4 +11,18 @@
     <string name="settings_root_excluded_cidrs_desc">Подсети через запятую, которые при включённом exit node остаются в реальной сети, — тот же список, что в режиме VPN. Link-local-адреса остаются там всегда.</string>
     <!-- TUN mode on, the VPN slot taken by another VPN app (TunVpnService.isDisplaced) -->
     <string name="main_tun_displaced_desc">Слот VPN занял другой VPN. TailSocks продолжает работать как прокси; переподключитесь, чтобы вернуть слот.</string>
+    <!-- TUN card: the native engine's in-place device swap (patch 24) -->
+    <string name="settings_tun_swap_title">Пересобирать туннель на ходу</string>
+    <string name="settings_tun_swap_desc">При включении и выключении выходного узла и новых подсетях работающий демон переходит на новый туннель. Если выключить, демон будет перезапускаться на несколько секунд.</string>
+    <!-- TUN card: transparent mode (TunTransparent, patch 25) -->
+    <string name="settings_tun_transparent_title">Прозрачный режим</string>
+    <string name="settings_tun_transparent_off">Выключен</string>
+    <string name="settings_tun_transparent_lockdown">При блокировке Android</string>
+    <string name="settings_tun_transparent_always">Всегда</string>
+    <string name="settings_tun_transparent_off_short">Без выходного узла через VPN идёт только tailnet</string>
+    <string name="settings_tun_transparent_lockdown_short">Весь трафик, только пока включено «Блокировать соединения без VPN»</string>
+    <string name="settings_tun_transparent_always_short">Весь трафик через TailSocks, с выходным узлом и без</string>
+    <string name="settings_tun_transparent_off_desc">Выключен. Без выходного узла через VPN идёт только tailnet; при «Блокировать соединения без VPN» в Android интернета тогда нет.</string>
+    <string name="settings_tun_transparent_lockdown_desc">Когда в Android включено «Блокировать соединения без VPN», а выходной узел не выбран, TailSocks забирает весь трафик и сам отправляет в интернет всё, что не для tailnet, — интернет не пропадает. Медленнее прямого пути; ping не проходит.</string>
+    <string name="settings_tun_transparent_always_desc">Всегда: и без выходного узла весь трафик идёт через TailSocks, а всё, что не для tailnet, уходит напрямую. Медленнее прямого пути; ping не проходит.</string>
 </resources>

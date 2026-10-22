@@ -75,6 +75,7 @@ enum class SettingsPage(
 enum class Need(@param:StringRes val reason: Int = 0, val broughtBy: String? = null) {
     TUN_MODE(R.string.search_need_tun, "mode_vpn"),
     TUN_HEV(R.string.search_need_tun_hev, "tun_engine"),
+    TUN_NATIVE(R.string.search_need_tun_native, "tun_engine"),
     TUN_OR_ROOT(R.string.search_need_tun_or_root, "mode_vpn"),
     /** VPN mode, or Root Mode with tailscale0: where an exit node has a route table to keep ranges out of. */
     TUN_OR_ROOT_TUN(R.string.search_need_tun_or_root_tun, "mode_vpn"),
@@ -217,7 +218,9 @@ object SettingsCatalog {
         val tun = R.string.settings_sect_tun_mode
         row("tun_engine", SettingsPage.TUNNEL, R.string.tun_engine_title, R.string.search_sum_tun_engine, R.string.search_kw_tun_engine, tun, help = R.string.tun_engine_native_desc, needs = Need.TUN_MODE)
         row("tun_uses_socks", SettingsPage.TUNNEL, R.string.settings_tun_uses_socks_title, R.string.search_sum_tun_uses_socks, R.string.search_kw_tun_uses_socks, tun, needs = Need.TUN_HEV)
+        row("tun_swap_in_place", SettingsPage.TUNNEL, R.string.settings_tun_swap_title, R.string.settings_tun_swap_desc, R.string.search_kw_tun_swap, tun, needs = Need.TUN_NATIVE)
         row("tun_ipv6", SettingsPage.TUNNEL, R.string.settings_tun_ipv6_title, R.string.settings_tun_ipv6_desc, R.string.search_kw_tun_ipv6, tun, needs = Need.TUN_MODE)
+        row("tun_transparent", SettingsPage.TUNNEL, R.string.settings_tun_transparent_title, R.string.search_sum_tun_transparent, R.string.search_kw_tun_transparent, tun, needs = Need.TUN_MODE)
         row("tun_address", SettingsPage.TUNNEL, R.string.settings_tun_address_title, R.string.settings_tun_address_desc, R.string.search_kw_tun_address, tun, needs = Need.TUN_HEV)
         row("tun_excluded_cidrs", SettingsPage.TUNNEL, R.string.settings_tun_excluded_cidrs_title, R.string.settings_tun_excluded_cidrs_desc, R.string.search_kw_tun_excluded_cidrs, needs = Need.TUN_OR_ROOT_TUN)
         row("tun_excluded_apps", SettingsPage.TUNNEL, R.string.settings_tun_excluded_apps_title, R.string.search_sum_tun_excluded_apps, R.string.search_kw_tun_excluded_apps, needs = Need.TUN_OR_ROOT)
