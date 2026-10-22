@@ -5,26 +5,4 @@
   the Peers list, a peer's details and the large window's device rows; the
   older words they also use live in strings.xml and strings_states.xml.
 --><resources>
-    <!-- Peer row, after the address: the kind of path, then the DERP region (fra) or its city. -->
-    <string name="peer_path_relay"></string>
-    <!-- Before a peer relay node's name on a row too narrow for "peer relay" as well: "via homelab-nas". -->
-    <string name="peer_path_via"></string>
-    <!-- The row as a screen reader states it; %1$s is the relay node's name. -->
-    <string name="peer_state_peer_relay_format"></string>
-    <!-- A city with its DERP region code: "Frankfurt (fra)". -->
-    <string name="peer_path_city_code" translatable="false"></string>
-    <!-- The details sheet's status chips. %1$s is a node's name or a city. -->
-    <string name="peer_status_peer_relay_format"></string>
-    <string name="peer_status_home_relay_format"></string>
-    <!-- The route card's caption under the endpoint, the relay or the city. -->
-    <string name="peer_route_direct_local"></string>
-    <string name="peer_route_direct_internet"></string>
-    <string name="peer_route_relay_format"></string>
-    <string name="peer_route_peer_relay_format"></string>
-    <string name="peer_route_home"></string>
-    <string name="peer_route_home_format"></string>
-    <string name="peer_route_not_yet"></string>
-    <string name="peer_route_not_yet_format"></string>
-    <!-- Folded under the route card; the first sentence is what shows. -->
-    <string name="peer_path_help"></string>
-</resources>
+    </resources>
