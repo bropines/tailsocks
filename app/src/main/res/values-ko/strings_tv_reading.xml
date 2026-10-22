@@ -4,33 +4,4 @@
   what a remote needs said in words where a phone has a gesture or an icon. A file of its own
   so it lands without touching strings.xml.
 --><resources>
-    <!-- The text size button of the logs and the console; %1$d is the size in percent. -->
-    <string name="tv_text_size"></string>
-    <!-- Logs: the buttons of the top bar and the in-app save. -->
-    <string name="tv_logs_logcat"></string>
-    <string name="tv_logs_unfold_long"></string>
-    <string name="tv_logs_fold_long"></string>
-    <!-- Under a long entry that is cut short; %1$d is how many lines are hidden. -->
-    <string name="tv_logs_folded_more"></string>
-    <string name="tv_logs_to_start"></string>
-    <string name="tv_logs_save_title"></string>
-    <string name="tv_logs_save_here"></string>
-    <string name="tv_logs_saved_title"></string>
-    <string name="tv_logs_saved_where"></string>
-    <!-- Console: the command line, and the twins of what a held button does on a phone. -->
-    <string name="tv_console_wrap"></string>
-    <string name="tv_console_edit_title"></string>
-    <!-- %1$s is a command. -->
-    <string name="tv_console_insert_cd"></string>
-    <string name="tv_console_delete_cd"></string>
-    <!-- Peers: a value to read from the sofa instead of a copy to paste. -->
-    <string name="tv_peer_show_as"></string>
-    <string name="tv_peer_press_to_measure"></string>
-    <string name="tv_value_show"></string>
-    <string name="tv_value_scan"></string>
-    <!-- Licences. -->
-    <string name="tv_licenses_help"></string>
-    <!-- The live state card. -->
-    <string name="tv_diag_live_help"></string>
-    <string name="tv_diag_live_recheck"></string>
-</resources>
+    </resources>
