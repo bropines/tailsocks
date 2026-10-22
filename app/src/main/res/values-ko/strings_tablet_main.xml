@@ -1,11 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home screen's dashboard on a large window (ui/MainDashboard.kt). --><resources>
-    <!-- The devices card: its way to the Peers screen -->
-    <string name="tablet_main_peers_all"></string>
-    <!-- The devices card while the service is up and the tailnet's list has not come yet -->
-    <string name="tablet_main_peers_waiting"></string>
-    <!-- The devices card while the service is stopped, signed out or cut off -->
-    <string name="tablet_main_peers_offline"></string>
-    <!-- The devices card on a tailnet with no device but this one -->
-    <string name="tablet_main_peers_none"></string>
-</resources>
+    </resources>
