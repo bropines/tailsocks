@@ -419,30 +419,28 @@ class TailsocksFileProvider : DocumentsProvider() {
         // With the daemon off there is no tailnet to read from: say so now, not in the first read of a descriptor.
         if (!ProxyState.isActualRunning(context)) throw FileNotFoundException("Taildrive is not running")
         val client = TaildriveClient(context, accountId)
-        // A descriptor the reader can seek in, where the platform has one (API 26) and the
-        // share's server answers byte ranges; the pipe below otherwise, start to end. Only
-        // reads come here: openDocument sends every mode with a "w" in it the other way.
-        if (android.os.Build.VERSION.SDK_INT >= 26) {
+        // Seeking switched on (Settings → Sharing & access): a descriptor the reader can seek in,
+        // where the platform has one (API 26) and the share's server answers byte ranges. Every
+        // read of it is a round trip through this app, so a copy is slower — much slower with
+        // TailSocks off the screen. Otherwise, and as the way out, the pipe below: start to end,
+        // at the speed of the network. Only reads come here: openDocument sends every mode with a
+        // "w" in it the other way.
+        if (TaildriveSeek.contentSeeks(context)) {
             TaildriveDescriptor.open(context) { client.rangeUpstream(path) }?.let { return it }
         }
 
         val pipe = ParcelFileDescriptor.createReliablePipe()
         val readFd = pipe[0]
         val writeFd = pipe[1]
-
-        val scope = CoroutineScope(Dispatchers.IO)
-        
-        scope.launch {
-            var input: java.io.InputStream? = null
-            var output: ParcelFileDescriptor.AutoCloseOutputStream? = null
+        // A thread of its own at the highest priority: another app waits on it, and TailSocks is in
+        // the background then.
+        Thread({
+            var input: InputStream? = null
             try {
                 input = client.getDownloadStream(path)
-                output = ParcelFileDescriptor.AutoCloseOutputStream(writeFd)
-                input.use { inStream ->
-                    output.use { outStream ->
-                        inStream.copyTo(outStream)
-                    }
-                }
+                val output = ParcelFileDescriptor.AutoCloseOutputStream(writeFd)
+                input.copyTo(output, PIPE_BUFFER)
+                output.close()
             } catch (e: Exception) {
                 android.util.Log.e("Taildrive", "Error reading file from WebDAV: ${e.javaClass.simpleName}")
                 try {
@@ -450,9 +448,11 @@ class TailsocksFileProvider : DocumentsProvider() {
                 } catch (ex: Exception) {}
             } finally {
                 try { input?.close() } catch (e: Exception) {}
-                try { output?.close() } catch (e: Exception) {}
             }
-        }
+        }, "taildrive-pipe").apply {
+            isDaemon = true
+            priority = Thread.MAX_PRIORITY
+        }.start()
         return readFd
     }
 
@@ -741,6 +741,9 @@ data class WebDavFile(
 }
 
 /** A WebDAV request the daemon answered with an error status; [body] is the first line it sent. */
+/** What the provider's pipe copies at a time. */
+private const val PIPE_BUFFER = 256 * 1024
+
 class WebDavHttpException(method: String, val code: Int, val body: String) :
     Exception("WebDAV $method failed: HTTP $code" + if (body.isNotEmpty()) " ($body)" else "")
 

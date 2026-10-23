@@ -254,6 +254,20 @@ object GlobalSettings {
     fun getTaildriveParallelDownloads(context: Context): Int = DownloadSlots.of(getPrefs(context).getString(KEY_TAILDRIVE_PARALLEL, null))
     fun setTaildriveParallelDownloads(context: Context, count: Int) = setString(context, KEY_TAILDRIVE_PARALLEL, count.toString())
 
+    /**
+     * Settings → Sharing & access → Storage: whether another app gets a Taildrive file it can seek
+     * in (a proxy descriptor, every read a round trip through this app) or a stream from start to
+     * end (a pipe, copies at full speed). Unset: seeking on a television, where Taildrive is for
+     * films, a stream elsewhere.
+     */
+    const val KEY_TAILDRIVE_SEEKABLE = "taildrive_seekable"
+    fun isTaildriveSeekable(context: Context): Boolean {
+        val prefs = getPrefs(context)
+        if (prefs.contains(KEY_TAILDRIVE_SEEKABLE)) return prefs.getBoolean(KEY_TAILDRIVE_SEEKABLE, false)
+        return DeviceProfile.deviceClass(context) == DeviceClass.TV
+    }
+    fun setTaildriveSeekable(context: Context, on: Boolean) = setBoolean(context, KEY_TAILDRIVE_SEEKABLE, on)
+
     /** Settings → Appearance → Interface: what this device is taken for (core/DeviceProfile.kt); auto when unset. */
     const val KEY_DEVICE_OVERRIDE = "ui_device_override"
     fun getDeviceOverride(context: Context): DeviceOverride =
@@ -588,6 +602,8 @@ object GlobalSettings {
         "root_vpn_bypass",
         // Taildrive downloads: how many at once. Where they go stays behind — it names a place on this device.
         KEY_TAILDRIVE_PARALLEL,
+        // Taildrive in other apps: seekable or a stream.
+        KEY_TAILDRIVE_SEEKABLE,
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary", "show_managed_on_main",
         "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE

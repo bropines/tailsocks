@@ -68,13 +68,14 @@ object TaildriveOpenPlan {
     fun isMedia(kind: DriveKind): Boolean = kind == DriveKind.VIDEO || kind == DriveKind.AUDIO || kind == DriveKind.IMAGE
 
     /**
-     * The roads in the order to try them. The document road first, everywhere it seeks (Android
-     * 8 and up) and for every file that is not media, where a pipe is as good as a descriptor. Before
-     * Android 8 a media file goes by the link first — its player seeks with ranges of its own — and
-     * the document road is the way out. [preferLink] is the person's own switch for the link.
+     * The roads in the order to try them. The document road first wherever it seeks — Android 8
+     * and up, with seeking switched on ([contentSeeks], TaildriveSeek) — and for every file that is
+     * not media, where a pipe is as good as a descriptor. Where it cannot seek a media file goes by
+     * the link first — its player seeks with ranges of its own — and the document road is the way
+     * out. [preferLink] is the person's own switch for the link.
      */
-    fun roadOrder(api: Int, media: Boolean, preferLink: Boolean = false): List<OpenRoad> =
-        if (preferLink || (media && api < SEEKABLE_API)) listOf(OpenRoad.LINK, OpenRoad.CONTENT)
+    fun roadOrder(api: Int, media: Boolean, preferLink: Boolean = false, contentSeeks: Boolean = api >= SEEKABLE_API): List<OpenRoad> =
+        if (preferLink || (media && !contentSeeks)) listOf(OpenRoad.LINK, OpenRoad.CONTENT)
         else listOf(OpenRoad.CONTENT, OpenRoad.LINK)
 
     /** The first Android that can give another app a descriptor to seek in (`openProxyFileDescriptor`). */
@@ -87,8 +88,14 @@ object TaildriveOpenPlan {
      * A media file that only a browser takes is not opened: [OpenPlan.OnlyBrowser], which the page
      * puts to the person; and nothing at all is [OpenPlan.NoApp].
      */
-    fun plan(api: Int, media: Boolean, resolutions: List<RoadResolution>, preferLink: Boolean = false): OpenPlan {
-        val order = roadOrder(api, media, preferLink)
+    fun plan(
+        api: Int,
+        media: Boolean,
+        resolutions: List<RoadResolution>,
+        preferLink: Boolean = false,
+        contentSeeks: Boolean = api >= SEEKABLE_API,
+    ): OpenPlan {
+        val order = roadOrder(api, media, preferLink, contentSeeks)
         val ordered = order.flatMap { road -> resolutions.filter { it.road == road } }
         ordered.firstOrNull { it.takers.players.isNotEmpty() }?.let {
             return OpenPlan.Start(it.road, it.type, it.takers.players)

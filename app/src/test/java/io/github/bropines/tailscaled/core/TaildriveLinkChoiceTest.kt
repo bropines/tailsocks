@@ -55,4 +55,16 @@ class TaildriveLinkChoiceTest {
         assertFalse(TaildriveLinkChoice.asksToEnable(turningOn = true, ProxyCondition.READY))
         for (proxy in proxies) assertFalse(TaildriveLinkChoice.asksToEnable(turningOn = false, proxy))
     }
+
+    @Test
+    fun withSeekingSwitchedOffTheNoticeSaysSeekingNeedsTheLink() {
+        assertEquals(
+            LinkDecision(false, LinkNotice.PROXY_OFF_NO_SEEK),
+            TaildriveLinkChoice.decide(true, ProxyCondition.OFF, 34, media = true, contentSeeks = false)
+        )
+        assertEquals(
+            LinkDecision(false, LinkNotice.PROXY_OFF),
+            TaildriveLinkChoice.decide(true, ProxyCondition.OFF, 34, media = false, contentSeeks = false)
+        )
+    }
 }

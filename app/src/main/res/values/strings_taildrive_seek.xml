@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Sharing & access → Storage: what another app gets when it opens a Taildrive file (ui/TaildriveSeekSetting.kt). -->
+    <string name="taildrive_seek_title">Seeking in other apps</string>
+    <string name="taildrive_seek_desc_off">Off: other apps get Taildrive files as a stream — a copy goes at full speed, a player plays from the start and cannot seek. TailSocks\'s own browser still hands films and music to a player by the Taildrive proxy\'s link when the proxy is on, and that link seeks.</string>
+    <string name="taildrive_seek_desc_on">On: a player can jump about in a film another app opened from Taildrive. Every read then goes through TailSocks, so copying a file is slower — much slower while TailSocks is not on the screen.</string>
+    <string name="search_sum_taildrive_seek">Whether other apps can seek in Taildrive files, or copy them at full speed</string>
+    <string name="search_kw_taildrive_seek">seeking, seek, rewind, film, video, player, stream, copy speed, file manager, documents, other apps, taildrive</string>
+</resources>

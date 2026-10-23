@@ -399,12 +399,17 @@ class RangedFile(
 
         /**
          * Where every file opened to be read through runs its prefetches: threads made as they
-         * are needed and let go after a minute idle, which never keep the process alive.
+         * are needed and let go after a minute idle, which never keep the process alive. At the
+         * highest priority a thread can be given: another app on screen waits on these reads,
+         * and TailSocks itself is in the background then (on Android, nice -8).
          */
         val PREFETCH: Executor by lazy {
             val number = AtomicInteger()
             Executors.newCachedThreadPool { task ->
-                Thread(task, "taildrive-prefetch-${number.incrementAndGet()}").apply { isDaemon = true }
+                Thread(task, "taildrive-prefetch-${number.incrementAndGet()}").apply {
+                    isDaemon = true
+                    priority = Thread.MAX_PRIORITY
+                }
             }
         }
 

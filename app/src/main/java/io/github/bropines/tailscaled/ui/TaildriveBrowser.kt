@@ -137,6 +137,7 @@ import io.github.bropines.tailscaled.core.TaildriveDownloadFolder
 import io.github.bropines.tailscaled.core.TaildriveDownloads
 import io.github.bropines.tailscaled.core.TaildriveLinkChoice
 import io.github.bropines.tailscaled.core.TaildriveOpenPlan
+import io.github.bropines.tailscaled.core.TaildriveSeek
 import io.github.bropines.tailscaled.core.WalkTotals
 import io.github.bropines.tailscaled.core.Walked
 import io.github.bropines.tailscaled.core.formatFileSize
@@ -499,7 +500,9 @@ fun TaildriveBrowserPage(
                 val spec = (prepared as? DriveResult.Ok)?.value ?: return@launch
                 proxy = spec.proxy
                 // The switch asks for the link; without the proxy the file goes directly, and the page says why.
-                val decision = TaildriveLinkChoice.decide(viaLink, spec.proxy, Build.VERSION.SDK_INT, TaildriveOpenPlan.isMedia(entry.kind))
+                val decision = TaildriveLinkChoice.decide(
+                    viaLink, spec.proxy, Build.VERSION.SDK_INT, TaildriveOpenPlan.isMedia(entry.kind), TaildriveSeek.contentSeeks(appContext)
+                )
                 notice = when (val launched = spec.launch(context, decision.useLink)) {
                     DriveLaunch.Started -> {
                         decision.notice?.let(::linkNotice)

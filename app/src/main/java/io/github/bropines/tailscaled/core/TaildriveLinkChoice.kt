@@ -46,14 +46,21 @@ object TaildriveLinkChoice {
     /**
      * For a file of [media] kind at Android [api], with the switch at [preferLink] and the proxy
      * in [proxy]: the link goes first only when it was asked for and the proxy answers. Asked for
-     * and not there, the file goes directly, with a notice — one that adds, for media before
-     * Android 8, that seeking needs the link. Not asked for, nothing is said: the open plan's own
+     * and not there, the file goes directly, with a notice — one that adds, for media the document
+     * road cannot seek in ([contentSeeks]: before Android 8, or with seeking switched off), that
+     * seeking needs the link. Not asked for, nothing is said: the open plan's own
      * order stands (TaildriveOpenPlan.roadOrder).
      */
-    fun decide(preferLink: Boolean, proxy: ProxyCondition, api: Int, media: Boolean): LinkDecision {
+    fun decide(
+        preferLink: Boolean,
+        proxy: ProxyCondition,
+        api: Int,
+        media: Boolean,
+        contentSeeks: Boolean = api >= TaildriveOpenPlan.SEEKABLE_API,
+    ): LinkDecision {
         if (!preferLink) return LinkDecision(useLink = false, notice = null)
         if (proxy == ProxyCondition.READY) return LinkDecision(useLink = true, notice = null)
-        val noSeek = media && api < TaildriveOpenPlan.SEEKABLE_API
+        val noSeek = media && !contentSeeks
         val notice = when (proxy) {
             ProxyCondition.OFF -> if (noSeek) LinkNotice.PROXY_OFF_NO_SEEK else LinkNotice.PROXY_OFF
             else -> if (noSeek) LinkNotice.PROXY_SILENT_NO_SEEK else LinkNotice.PROXY_SILENT

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.ParcelFileDescriptor
+import android.os.Process
 import android.os.ProxyFileDescriptorCallback
 import android.os.storage.StorageManager
 import android.system.ErrnoException
@@ -65,12 +66,18 @@ object TaildriveDescriptor {
         // A thread of its own: the platform delivers every read of the descriptor there, and the
         // read waits there for the network. Shared by all of them, one app's slow file — or a
         // file manager opening a folder's worth at once — held up every other.
-        val thread = HandlerThread("taildrive-fd-${threads.incrementAndGet()}")
+        //
+        // Every read of the descriptor is a round trip the reading app waits on: the platform's
+        // FuseAppLoop thread takes it from the kernel, this thread answers it. With TailSocks off
+        // the screen both ran at the default priority, and on a phone a copy in a file manager went
+        // at a fraction of its speed with TailSocks on screen; they run at a display's priority now.
+        val thread = HandlerThread("taildrive-fd-${threads.incrementAndGet()}", Process.THREAD_PRIORITY_URGENT_DISPLAY)
         thread.start()
         return try {
             val storage = context.getSystemService(StorageManager::class.java)
                 ?: throw IllegalStateException("no StorageManager")
             storage.openProxyFileDescriptor(ParcelFileDescriptor.MODE_READ_ONLY, Callback(file, thread), Handler(thread.looper))
+                .also { raiseFuseLoop() }
         } catch (e: Exception) {
             Log.w(TAG, "no proxy descriptor: ${e.javaClass.simpleName}")
             file.close()
@@ -78,6 +85,25 @@ object TaildriveDescriptor {
             null
         }
     }
+
+    /**
+     * The platform's thread that hands this process the reads of its proxy descriptors
+     * (android.os.FuseAppLoop), raised to the priority of the descriptors' own threads. It is
+     * the platform's and has no handle; it is found by its name, once the first descriptor has
+     * started it.
+     */
+    private fun raiseFuseLoop() {
+        val tasks = java.io.File("/proc/self/task").listFiles() ?: return
+        for (task in tasks) {
+            val name = runCatching { java.io.File(task, "comm").readText().trim() }.getOrNull() ?: continue
+            if (name != FUSE_LOOP_THREAD) continue
+            val tid = task.name.toIntOrNull() ?: continue
+            runCatching { Process.setThreadPriority(tid, Process.THREAD_PRIORITY_URGENT_DISPLAY) }
+        }
+    }
+
+    /** android.os.FuseAppLoop names its thread after its log tag. */
+    private const val FUSE_LOOP_THREAD = "FuseAppLoop"
 
     private class Callback(private val file: RangedFile, private val thread: HandlerThread) : ProxyFileDescriptorCallback() {
         override fun onGetSize(): Long = orErrno("size") { file.size }

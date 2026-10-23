@@ -64,6 +64,16 @@ class TaildriveOpenPlanTest {
     }
 
     @Test
+    fun withSeekingSwitchedOffMediaGoesByTheLinkFirst() {
+        // A stream cannot seek: a player gets the proxy's link if there is one.
+        for (api in listOf(26, 36)) {
+            assertEquals(listOf(OpenRoad.LINK, OpenRoad.CONTENT), TaildriveOpenPlan.roadOrder(api, media = true, contentSeeks = false))
+            // Anything else is as good as a stream.
+            assertEquals(listOf(OpenRoad.CONTENT, OpenRoad.LINK), TaildriveOpenPlan.roadOrder(api, media = false, contentSeeks = false))
+        }
+    }
+
+    @Test
     fun mediaIsVideoAudioAndImages() {
         assertTrue(TaildriveOpenPlan.isMedia(DriveKind.VIDEO))
         assertTrue(TaildriveOpenPlan.isMedia(DriveKind.AUDIO))

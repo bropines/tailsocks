@@ -276,6 +276,7 @@ object SettingsCatalog {
         row("taildrop_folder", SettingsPage.SHARING, R.string.settings_taildrop_folder_title, R.string.search_sum_taildrop_folder, R.string.search_kw_taildrop_folder, R.string.settings_sect_storage)
         row("taildrive_download_folder", SettingsPage.SHARING, R.string.taildrive_download_folder_title, R.string.search_sum_taildrive_download_folder, R.string.search_kw_taildrive_download_folder, R.string.settings_sect_storage)
         row("taildrive_parallel", SettingsPage.SHARING, R.string.taildrive_parallel_title, R.string.search_sum_taildrive_parallel, R.string.search_kw_taildrive_parallel, R.string.settings_sect_storage)
+        row("taildrive_seek", SettingsPage.SHARING, R.string.taildrive_seek_title, R.string.search_sum_taildrive_seek, R.string.search_kw_taildrive_seek, R.string.settings_sect_storage)
         val shares = R.string.settings_sect_share_links
         row("taildrive", SettingsPage.SHARING, R.string.taildrive_title, R.string.settings_link_taildrive_desc, R.string.search_kw_taildrive, shares)
         row("serve", SettingsPage.SHARING, R.string.serve_title, R.string.settings_link_serve_desc, R.string.search_kw_serve, shares, feature = Feature.SERVE_EDIT, aside = SettingsPage.ADVANCED)

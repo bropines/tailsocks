@@ -23,7 +23,14 @@ import java.util.concurrent.Executors
 internal object ProviderWorker {
     /** Threads for the provider's requests and the first block of each open: short-lived, none of them the descriptor's reading thread. */
     private val workers: ExecutorService by lazy {
-        Executors.newCachedThreadPool { r -> Thread(r, "taildrive-provider").apply { isDaemon = true } }
+        // Another app waits on each of these: TailSocks is in the background then, so they get
+        // the highest priority a thread can have (on Android, nice -8).
+        Executors.newCachedThreadPool { r ->
+            Thread(r, "taildrive-provider").apply {
+                isDaemon = true
+                priority = Thread.MAX_PRIORITY
+            }
+        }
     }
 
     /**

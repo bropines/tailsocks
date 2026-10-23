@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
+- Taildrive in other apps: a file opens as a stream by default and copies at full speed; Settings → Sharing & access → Seeking in other apps brings back the seekable file for players (on by default on a television). TailSocks's own browser sends films and music by the Taildrive proxy's link while seeking is off and the proxy is on.
 - Taildrive in other apps (the Files provider): a file is read ahead while the app copies or plays it, and each open file has a thread of its own — copying in a file manager no longer waits on the network between pieces, and one slow file no longer holds up the rest.
 - Taildrive no longer depends on the SOCKS5 port: the app and its WebDAV proxy reach the daemon's Taildrive through a socket of its own, so it works whatever the port's address, password or mode.
 

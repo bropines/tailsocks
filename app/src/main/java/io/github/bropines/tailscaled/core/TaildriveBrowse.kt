@@ -589,7 +589,7 @@ class DriveOpenSpec internal constructor(
                 intentOf(road, type)?.let { RoadResolution(road, type, TaildriveOpenPlan.takers(answers(context, it), browsers)) }
             }
         }
-        return when (val plan = TaildriveOpenPlan.plan(Build.VERSION.SDK_INT, isMedia, resolutions, preferLink)) {
+        return when (val plan = TaildriveOpenPlan.plan(Build.VERSION.SDK_INT, isMedia, resolutions, preferLink, TaildriveSeek.contentSeeks(context))) {
             is OpenPlan.Start -> start(context, intentOf(plan.road, plan.type) ?: return DriveLaunch.NoApp, plan.apps)
             is OpenPlan.OnlyBrowser -> DriveLaunch.OnlyBrowser { openInBrowser(context) }
             OpenPlan.NoApp -> DriveLaunch.NoApp
