@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Changed
+
+- Taildrive no longer depends on the SOCKS5 port: the app and its WebDAV proxy reach the daemon's Taildrive through a socket of its own, so it works whatever the port's address, password or mode.
+
 ### Fixed
 
 - Native TUN engine: Taildrive works again — the app's browser, downloads, the Files provider and the WebDAV proxy timed out, and so did anything that reached 100.100.100.100 (MagicDNS, Taildrive) through the SOCKS5 port.

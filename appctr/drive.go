@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"sync"
 	"time"
 
@@ -21,8 +19,8 @@ var (
 	driveProxyServer *http.Server
 	// driveProxyTransport is the reverse proxy's upstream pool. http.Server.
 	// Shutdown only closes the listener and the client-facing connections; the
-	// SOCKS-tunnelled connections to the daemon live here and must be closed
-	// separately, otherwise every settings apply stranded the previous pool.
+	// connections to the daemon live here and must be closed separately,
+	// otherwise every settings apply stranded the previous pool.
 	driveProxyTransport *http.Transport
 	driveProxyServerMu  sync.Mutex
 )
@@ -165,7 +163,8 @@ func UpdateDriveShares(sharesJson string) error {
 }
 
 // StartDriveProxy starts the WebDAV reverse-proxy on the specified local address
-// with optional Basic Authentication, targetting Quad100 (100.100.100.100:8080).
+// with optional Basic Authentication, in front of the daemon's Taildrive
+// (100.100.100.100:8080) — reached through its socket; see drive_local.go.
 func StartDriveProxy(localAddr, username, password string) error {
 	driveProxyServerMu.Lock()
 	defer driveProxyServerMu.Unlock()
@@ -175,44 +174,8 @@ func StartDriveProxy(localAddr, username, password string) error {
 		_ = shutdownDriveProxyLocked()
 	}
 
-	socks, user, pass, _ := GConfig.get()
-	if socks == "" {
-		return fmt.Errorf("SOCKS5 proxy is not running")
-	}
-
-	targetUrl, err := url.Parse("http://100.100.100.100:8080")
-	if err != nil {
-		return err
-	}
-
-	dial, err := socksDialContext(socks, user, pass)
-	if err != nil {
-		return fmt.Errorf("failed to create SOCKS5 dialer: %w", err)
-	}
-
-	transport := &http.Transport{
-		DialContext:         dial,
-		MaxIdleConnsPerHost: 4,
-		IdleConnTimeout:     90 * time.Second,
-	}
-
-	reverseProxy := httputil.NewSingleHostReverseProxy(targetUrl)
-	reverseProxy.Transport = transport
-
-	originalDirector := reverseProxy.Director
-	reverseProxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		req.Host = targetUrl.Host
-
-		// Rewrite Destination header for WebDAV MOVE/COPY
-		if dest := req.Header.Get("Destination"); dest != "" {
-			if parsedDest, err := url.Parse(dest); err == nil {
-				parsedDest.Scheme = targetUrl.Scheme
-				parsedDest.Host = targetUrl.Host
-				req.Header.Set("Destination", parsedDest.String())
-			}
-		}
-	}
+	transport := newDriveTransport()
+	reverseProxy := newDriveReverseProxy(transport)
 
 	// Wrap in Basic Auth handler if credentials are provided
 	var handler http.Handler = reverseProxy

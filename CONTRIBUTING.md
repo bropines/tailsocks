@@ -80,7 +80,7 @@ see [`docs/TRANSLATING.md`](docs/TRANSLATING.md).
 
 `appctr/tailscale_src/` is **generated** and git-ignored: pristine upstream
 Tailscale with `appctr/patches/*.patch` applied in alphabetical order
-(`01-enable-socks-android` … `25-android-vpn-transparent`, twenty-five today).
+(`01-enable-socks-android` … `26-android-drive-socket`, twenty-six today).
 `appctr/orig/` holds the pristine copy the patches are diffed against. The
 source of truth is the patch files; the tree is scratch space.
 

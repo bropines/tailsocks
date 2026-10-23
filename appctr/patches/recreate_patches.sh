@@ -227,6 +227,18 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go || true
 } > patches/25-android-vpn-transparent.patch
 
+# 26-android-drive-socket.patch (creates wgengine/netstack/taildrive_local.go
+# and cmd/tailscaled/android_drive.go)
+# Taildrive for the app without the SOCKS5 port: the daemon serves what
+# answers at 100.100.100.100:8080 on drive.sock beside its own socket, to its
+# own UID and the app's (the owner of that directory; in Root Mode the daemon
+# is root). The bridge's WebDAV proxy and the app's client dial it
+# (appctr/drive_local.go). The call that starts it travels in 19.
+{
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/taildrive_local.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_drive.go || true
+} > patches/26-android-drive-socket.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

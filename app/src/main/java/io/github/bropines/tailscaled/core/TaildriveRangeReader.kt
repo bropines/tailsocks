@@ -17,7 +17,7 @@ import kotlin.math.min
  * ranges (TaildriveClient.rangeUpstream). No android.* here, so all of it runs in a unit
  * test.
  *
- * A request costs a trip through the daemon's SOCKS5 port and over the tailnet, and a
+ * A request costs a trip through the daemon and over the tailnet, and a
  * player probing a container asks for a few bytes here and a few there. So the file is cut
  * into fixed blocks, no request is smaller than a block, the blocks read last stay in
  * memory, and a read that continues the previous one asks for several blocks at once.

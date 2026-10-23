@@ -1,0 +1,146 @@
+--- /dev/null	2026-10-23 03:34:25.195189092 +0300
++++ tailscale_src/wgengine/netstack/taildrive_local.go	2026-10-23 18:49:00.579062346 +0300
+@@ -0,0 +1,34 @@
++package netstack
++
++// TailSocks: Taildrive for the app without a network in between.
++//
++// A local client reaches the tailnet's shares at 100.100.100.100:8080, and
++// what answers there is the backend's handler for that port. The app's own
++// client used to get there through the daemon's SOCKS5 port, which made
++// Taildrive depend on that port being on, its password and the mode the
++// daemon runs in. cmd/tailscaled/android_drive.go hands the connections of a
++// unix socket beside the daemon's to this instead.
++
++import (
++	"errors"
++	"net"
++	"net/netip"
++
++	"tailscale.com/ipn/ipnlocal"
++)
++
++// ServeTaildriveConn serves c as a connection to 100.100.100.100:8080: the
++// tailnet's Taildrive shares, with the same access checks. It closes c when
++// there is nothing to serve it with.
++func (ns *Impl) ServeTaildriveConn(c net.Conn) error {
++	if !ns.ready.Load() || ns.lb == nil {
++		c.Close()
++		return errors.New("netstack not started")
++	}
++	handler, _ := ns.lb.TCPHandlerForDst(netip.AddrPortFrom(serviceIP, 0), netip.AddrPortFrom(serviceIP, ipnlocal.DriveLocalPort))
++	if handler == nil {
++		c.Close()
++		return errors.New("no Taildrive handler")
++	}
++	return handler(c)
++}
+--- /dev/null	2026-10-23 03:34:25.195189092 +0300
++++ tailscale_src/cmd/tailscaled/android_drive.go	2026-10-23 18:47:02.590521965 +0300
+@@ -0,0 +1,106 @@
++//go:build linux && !ts_omit_netstack
++
++package main
++
++// TailSocks: the tailnet's Taildrive shares on a unix socket beside the
++// daemon's, for the app.
++//
++// A local WebDAV client reaches the shares at 100.100.100.100:8080, and the
++// app's own client used to get there through the daemon's SOCKS5 port. That
++// tied Taildrive to the port being on, to its password and to the mode the
++// daemon runs in (on Android's VPN the dial to the service IP did not even
++// complete for a while). This socket is the same handler with nothing in
++// between: a connection to it is served exactly as one to
++// 100.100.100.100:8080, access checks included.
++//
++// Who may connect: the daemon's own UID and the owner of the directory the
++// socket is in — the app's data directory. In Root Mode the daemon is root and
++// the app is not, so the file is open to every UID and the peer's credentials
++// decide.
++
++import (
++	"errors"
++	"fmt"
++	"net"
++	"os"
++	"path/filepath"
++	"syscall"
++	"time"
++
++	"golang.org/x/sys/unix"
++	"tailscale.com/types/logger"
++	"tailscale.com/wgengine/netstack"
++)
++
++// driveSocketName must equal DriveSocketName in appctr/drive.go.
++const driveSocketName = "drive.sock"
++
++// serveTailSocksDrive serves ns's Taildrive on drive.sock beside the daemon's
++// socket. It does nothing without a socket path.
++func serveTailSocksDrive(logf logger.Logf, ns *netstack.Impl) {
++	if args.socketpath == "" {
++		return
++	}
++	dir := filepath.Dir(args.socketpath)
++	path := filepath.Join(dir, driveSocketName)
++	os.Remove(path)
++	ln, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
++	if err != nil {
++		logf("taildrive-socket: %v", err)
++		return
++	}
++	if err := os.Chmod(path, 0o666); err != nil {
++		logf("taildrive-socket: %v", err)
++		ln.Close()
++		return
++	}
++	owner := -1
++	if fi, err := os.Stat(dir); err == nil {
++		if st, ok := fi.Sys().(*syscall.Stat_t); ok {
++			owner = int(st.Uid)
++		}
++	}
++	go func() {
++		for {
++			c, err := ln.AcceptUnix()
++			if err != nil {
++				if errors.Is(err, net.ErrClosed) {
++					return
++				}
++				logf("taildrive-socket: accept: %v", err)
++				time.Sleep(100 * time.Millisecond)
++				continue
++			}
++			go func() {
++				if err := checkDrivePeer(c, owner); err != nil {
++					logf("taildrive-socket: %v", err)
++					c.Close()
++					return
++				}
++				ns.ServeTaildriveConn(c)
++			}()
++		}
++	}()
++}
++
++// checkDrivePeer lets in the daemon's own UID and owner, the app's.
++func checkDrivePeer(c *net.UnixConn, owner int) error {
++	raw, err := c.SyscallConn()
++	if err != nil {
++		return err
++	}
++	var cred *unix.Ucred
++	var credErr error
++	if err := raw.Control(func(fd uintptr) {
++		cred, credErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
++	}); err != nil {
++		return err
++	}
++	if credErr != nil {
++		return credErr
++	}
++	if uid := int(cred.Uid); uid != os.Getuid() && uid != owner {
++		return fmt.Errorf("uid %d may not use Taildrive here", uid)
++	}
++	return nil
++}

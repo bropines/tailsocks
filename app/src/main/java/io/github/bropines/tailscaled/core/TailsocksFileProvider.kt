@@ -783,6 +783,20 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     }
 
     /**
+     * A connection to [path] on the daemon's Taildrive, not yet sent: through the bridge's
+     * loopback endpoint ([TaildriveLocal]), or through the SOCKS5 port where there is none.
+     */
+    private fun open(path: String): HttpURLConnection {
+        TaildriveLocal.endpoint()?.let { local ->
+            val conn = getUrl(path).openConnection(local.proxy) as HttpURLConnection
+            conn.setRequestProperty(TaildriveLocal.HEADER, local.token)
+            return conn
+        }
+        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
+        return getUrl(path).openConnection(proxy) as HttpURLConnection
+    }
+
+    /**
      * The only cleartext destination the app itself talks to; it is the single
      * exception in res/xml/network_security_config.xml. Changing the host here
      * without changing that file makes every request fail with
@@ -822,14 +836,13 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     }
 
     fun list(path: String): List<WebDavFile> {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         try {
             setRequestMethod(conn, "PROPFIND")
             conn.setRequestProperty("Depth", "1")
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
-            val code = conn.responseCode
+            val code = TaildriveLocal.status(conn)
             if (code != 207 && code != 200) {
                 throw WebDavHttpException("PROPFIND", code, errorBodyLine(conn))
             }
@@ -845,13 +858,12 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
      * server, so 200 means the share's contents are actually reachable.
      */
     fun probe(path: String): Int {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         try {
             setRequestMethod(conn, "OPTIONS")
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
-            return conn.responseCode
+            return TaildriveLocal.status(conn)
         } finally {
             conn.disconnect()
         }
@@ -864,12 +876,11 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     } catch (e: Exception) { "" }
 
     fun delete(path: String) {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         try {
             setRequestMethod(conn, "DELETE")
             conn.connectTimeout = 10000
-            val code = conn.responseCode
+            val code = TaildriveLocal.status(conn)
             if (code != 200 && code != 204) {
                 throw Exception("WebDAV DELETE failed: HTTP $code")
             }
@@ -879,12 +890,11 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     }
 
     fun createFolder(path: String) {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         try {
             setRequestMethod(conn, "MKCOL")
             conn.connectTimeout = 10000
-            val code = conn.responseCode
+            val code = TaildriveLocal.status(conn)
             if (code != 201) {
                 throw Exception("WebDAV MKCOL failed: HTTP $code")
             }
@@ -894,14 +904,13 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     }
 
     fun createEmptyFile(path: String) {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         try {
             setRequestMethod(conn, "PUT")
             conn.doOutput = true
             conn.connectTimeout = 10000
             conn.outputStream.close()
-            val code = conn.responseCode
+            val code = TaildriveLocal.status(conn)
             if (code != 201 && code != 200 && code != 204) {
                 throw Exception("WebDAV PUT empty failed: HTTP $code")
             }
@@ -911,14 +920,13 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     }
 
     fun move(fromPath: String, toPath: String) {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(fromPath).openConnection(proxy) as HttpURLConnection
+        val conn = open(fromPath)
         try {
             setRequestMethod(conn, "MOVE")
             val targetUrl = getUrl(toPath)
             conn.setRequestProperty("Destination", targetUrl.toString())
             conn.connectTimeout = 10000
-            val code = conn.responseCode
+            val code = TaildriveLocal.status(conn)
             if (code != 201 && code != 204 && code != 200) {
                 throw Exception("WebDAV MOVE failed: HTTP $code")
             }
@@ -928,12 +936,11 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
     }
 
     fun getDownloadStream(path: String): InputStream {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         setRequestMethod(conn, "GET")
         conn.connectTimeout = 15000
         conn.readTimeout = 15000
-        val code = conn.responseCode
+        val code = TaildriveLocal.status(conn)
         if (code != 200) {
             conn.disconnect()
             throw Exception("WebDAV GET failed: HTTP $code")
@@ -943,17 +950,19 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
 
     /**
      * The file at [path] a range at a time, for a descriptor a player can seek in
-     * ([TaildriveDescriptor]): the same GET over the same SOCKS5 port as [getDownloadStream],
+     * ([TaildriveDescriptor]): the same GET the same way as [getDownloadStream],
      * with a `Range` header. [HttpRangeUpstream] sends it and sorts the answers.
      */
     fun rangeUpstream(path: String): RangeUpstream = HttpRangeUpstream {
-        val proxy = getSocksProxy() ?: throw RangeIoException("no SOCKS5 proxy")
-        getUrl(path).openConnection(proxy) as HttpURLConnection
+        try {
+            open(path)
+        } catch (e: Exception) {
+            throw RangeIoException("no way to the daemon")
+        }
     }
 
     fun getUploadStream(path: String): OutputStream {
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        val conn = getUrl(path).openConnection(proxy) as HttpURLConnection
+        val conn = open(path)
         setRequestMethod(conn, "PUT")
         conn.doOutput = true
         conn.setChunkedStreamingMode(4096)

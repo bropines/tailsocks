@@ -4,9 +4,11 @@
 
     Allowed: 100.100.100.100 - the tailnet service address. TaildriveClient
     (core/TailsocksFileProvider.kt, getUrl) speaks WebDAV to
-    http://100.100.100.100:8080 through the daemon's local SOCKS5 proxy. The
-    request never leaves the device in the clear: it is carried inside the
-    WireGuard tunnel, and the endpoint is the daemon itself.
+    http://100.100.100.100:8080, using the bridge's loopback endpoint as an
+    HTTP proxy (core/TaildriveLocal.kt; the daemon's SOCKS5 port without it).
+    The request never leaves the device in the clear: the bridge hands it to
+    the daemon over a unix socket, and on to a device inside the WireGuard
+    tunnel.
 
     Not listed, on purpose:
       * 127.0.0.1 / localhost - no JVM code in this app makes an http:// request

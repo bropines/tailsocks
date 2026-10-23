@@ -29,10 +29,10 @@ import org.xmlpull.v1.XmlPullParserException
  * Browsing the shares of the other devices (Taildrive), without Compose: what is on the
  * tailnet, what is inside a share, and how to hand a file to another app.
  *
- * Listing goes through TaildriveClient, as the DocumentsProvider does: PROPFIND over the
- * daemon's SOCKS5 port to 100.100.100.100:8080. Opening a file goes through the local
- * WebDAV proxy (Settings -> Taildrive), because an external player cannot reach the
- * daemon's SOCKS5 port, and 100.100.100.100:8080 means nothing in userspace mode.
+ * Listing goes through TaildriveClient, as the DocumentsProvider does: PROPFIND to
+ * 100.100.100.100:8080, through the bridge to the daemon's Taildrive socket (TaildriveLocal).
+ * Opening a file by link goes through the local WebDAV proxy (Settings -> Taildrive), because
+ * an external player can reach neither, and 100.100.100.100:8080 means nothing in userspace mode.
  *
  * Nothing here logs an address: a file URL may carry the proxy's password.
  */
@@ -289,7 +289,7 @@ object DriveMime {
  * maps each to words and an action, nothing here carries a message for the user.
  */
 sealed interface DriveError {
-    /** The daemon is not running, so there is no SOCKS5 port to ask. */
+    /** The daemon is not running, so there is nobody to ask. */
     data object NotConnected : DriveError
 
     /** Settings -> Taildrive -> proxy is off; files cannot be handed to another app. */
@@ -357,7 +357,8 @@ sealed interface DriveError {
         fun from(t: Throwable, depth: Int = DEVICE_DEPTH): DriveError = when (t) {
             is WebDavHttpException -> fromHttp(t.code, depth)
             is SocketTimeoutException -> Timeout
-            // The only thing the client connects to itself is the daemon's SOCKS5 port.
+            // What the client connects to itself is the bridge's endpoint, or the daemon's SOCKS5
+            // port without it; either refusing means there is no daemon (TaildriveLocal.status).
             is ConnectException -> NotConnected
             is UnknownHostException, is NoRouteToHostException -> deviceOrDaemon(depth)
             // The SOCKS5 server's own refusal: "SOCKS: Host unreachable", "SOCKS server general failure".

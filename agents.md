@@ -61,7 +61,7 @@ When Go code, bridge JNI bindings, or Tailscale patches are modified:
 cd appctr
 bash build.sh
 ```
-*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `25-android-vpn-transparent`), and cross-compiles one native `libtailscale.so` (daemon and CLI, `ts_include_cli`) for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+*   **Dynamic Patch Pipeline**: `build.sh` downloads clean Tailscale source code, applies the atomic patches in `appctr/patches/` in alphabetical order (`01-enable-socks-android` through `26-android-drive-socket`), and cross-compiles one native `libtailscale.so` (daemon and CLI, `ts_include_cli`) for 4 target architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
 *   **Patch Management**: If code in `appctr/tailscale_src/` is modified, recreate the atomic patch files before committing:
     ```bash
     ./appctr/patches/recreate_patches.sh
