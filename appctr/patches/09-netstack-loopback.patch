@@ -1,5 +1,5 @@
 --- orig/net/tstun/wrap.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-10-22 07:30:27.053377892 +0300
++++ tailscale_src/net/tstun/wrap.go	2026-10-22 07:47:07.775083919 +0300
 @@ -465,6 +465,20 @@
  	return t.tdev.File()
  }
@@ -22,7 +22,7 @@
  	return t.tdev.MTU()
  }
 --- orig/wgengine/netstack/netstack.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-10-22 07:46:13.569734500 +0300
++++ tailscale_src/wgengine/netstack/netstack.go	2026-10-23 18:14:33.832964817 +0300
 @@ -207,6 +207,17 @@
  	// It can only be set before calling Start.
  	ProcessSubnets bool
@@ -99,7 +99,7 @@
  	remoteAddress := &tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -1019,11 +1067,21 @@
+@@ -1019,11 +1067,23 @@
  }
  
  // outboundQueueForPacket is the [outboundQueueRouter] used by [linkEndpoint].
@@ -116,6 +116,8 @@
 +	}
  	switch {
 -	case ns.shouldSendToHost(pkt):
++	case !fakeTUN && ns.CheckLocalTransportEndpoints && ns.isOwnServiceFlow(pkt):
++		return outboundLoopback
 +	case ns.shouldSendToHost(pkt) && !(fakeTUN && (ns.isLocalToNetstack(src) || ns.isLocalToNetstack(dst))):
  		return outboundToHost
 -	case ns.isSelfDst(pkt):
@@ -123,10 +125,68 @@
  		// Self-addressed packet: deliver back into gVisor directly
  		// via the link endpoint's dispatcher, but only if the packet is not
  		// earmarked for the host. Neither the inbound path (fakeTUN Write is a
-@@ -1035,6 +1093,18 @@
+@@ -1035,6 +1095,76 @@
  	}
  }
  
++// isOwnServiceFlow reports whether pkt belongs to a connection netstack opened
++// itself to an address it serves, with a real TUN beneath it.
++//
++// TailSocks android-vpn: the daemon's UID is outside the VPN, so it dials the
++// service IP through netstack — the SOCKS5 server's connections to
++// 100.100.100.100, which is how the app reaches Taildrive and MagicDNS. Such a
++// connection begins and ends in gVisor, but upstream sends its packets away:
++// the first, to the service IP, out to WireGuard (injected packets skip the
++// quad-100 intercept), where no peer takes it; the answers, from the service
++// IP to this node's address, to the host, whose kernel knows no such
++// connection and resets it. Both stay in gVisor. An answer to the host's own
++// connection to the service IP still goes to the host: gVisor has no endpoint
++// on the host's side of it.
++func (ns *Impl) isOwnServiceFlow(pkt *stack.PacketBuffer) bool {
++	src, dst := packetAddrs(pkt)
++	switch {
++	case dst == serviceIP || dst == serviceIPv6:
++		return ns.isLocalIP(src)
++	case src == serviceIP || src == serviceIPv6 || ns.isVIPServiceIP(src):
++		return ns.isLocalIP(dst) && ns.hasEndpointForReply(pkt, src, dst)
++	}
++	return false
++}
++
++// hasEndpointForReply reports whether gVisor has an endpoint that pkt, sent
++// from src to dst, is the answer to: one whose local end is pkt's destination.
++func (ns *Impl) hasEndpointForReply(pkt *stack.PacketBuffer, src, dst netip.Addr) bool {
++	var srcPort, dstPort uint16
++	var transProto tcpip.TransportProtocolNumber
++	switch pkt.TransportProtocolNumber {
++	case header.TCPProtocolNumber:
++		h := header.TCP(pkt.TransportHeader().Slice())
++		if len(h) < header.TCPMinimumSize {
++			return false
++		}
++		srcPort, dstPort, transProto = h.SourcePort(), h.DestinationPort(), tcp.ProtocolNumber
++	case header.UDPProtocolNumber:
++		h := header.UDP(pkt.TransportHeader().Slice())
++		if len(h) < header.UDPMinimumSize {
++			return false
++		}
++		srcPort, dstPort, transProto = h.SourcePort(), h.DestinationPort(), udp.ProtocolNumber
++	default:
++		return false
++	}
++	netProto := ipv4.ProtocolNumber
++	if dst.Is6() {
++		netProto = ipv6.ProtocolNumber
++	}
++	id := stack.TransportEndpointID{
++		LocalAddress:  tcpip.AddrFromSlice(dst.AsSlice()),
++		LocalPort:     dstPort,
++		RemoteAddress: tcpip.AddrFromSlice(src.AsSlice()),
++		RemotePort:    srcPort,
++	}
++	return ns.ipstack.FindTransportEndpoint(netProto, transProto, id, nicID) != nil
++}
++
 +// packetAddrs returns a packet's source and destination addresses, or zero
 +// values for a packet that is neither IPv4 nor IPv6.
 +func packetAddrs(pkt *stack.PacketBuffer) (src, dst netip.Addr) {
@@ -142,7 +202,7 @@
  // injectToWireGuard reads packets from the [outboundToWireGuard] [linkEndpoint]
  // queue and injects them into tstun for eventual delivery to wireguard-go via
  // [tun.Device.Read].
-@@ -1145,6 +1215,12 @@
+@@ -1145,6 +1275,12 @@
  // return true. It will return false if the packet should be sent outbound, for
  // transit via WireGuard to another Tailscale node.
  func (ns *Impl) shouldSendToHost(pkt *stack.PacketBuffer) bool {
@@ -155,7 +215,7 @@
  	// Determine if the packet is from a service IP (100.100.100.100 or the
  	// IPv6 variant), in which case it needs to go back into the machine's
  	// network (inbound) instead of out.
-@@ -1231,6 +1307,12 @@
+@@ -1231,6 +1367,12 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
@@ -168,7 +228,7 @@
  // isVIPServiceIP reports whether ip is an IP address that's
  // assigned to a VIP service.
  func (ns *Impl) isVIPServiceIP(ip netip.Addr) bool {
-@@ -1329,6 +1411,9 @@
+@@ -1329,6 +1471,9 @@
  	if ns.ProcessSubnets && !isLocal {
  		return true
  	}
@@ -178,3 +238,180 @@
  	if isLocal && ns.CheckLocalTransportEndpoints {
  		// Handle packets to registered listeners and replies to outbound
  		// connections by checking if gVisor has a registered endpoint.
+--- /dev/null	2026-10-23 03:34:25.195189092 +0300
++++ tailscale_src/wgengine/netstack/own_flow_test.go	2026-10-23 18:14:09.075267801 +0300
+@@ -0,0 +1,174 @@
++package netstack
++
++import (
++	"context"
++	"io"
++	"net"
++	"net/netip"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/tailscale/wireguard-go/tun"
++	"tailscale.com/ipn/ipnlocal"
++	"tailscale.com/ipn/store/mem"
++	"tailscale.com/net/tsdial"
++	"tailscale.com/net/tstun"
++	"tailscale.com/tailcfg"
++	"tailscale.com/tsd"
++	"tailscale.com/tstest"
++	"tailscale.com/types/logid"
++	"tailscale.com/types/netmap"
++	"tailscale.com/wgengine"
++)
++
++// hostTUN is a TUN with a host behind it, as on Android's VPN: not a fake
++// one, so netstack sends packets meant for the host to it, and it counts them.
++type hostTUN struct {
++	tun.Device
++	writes atomic.Int64
++}
++
++func (h *hostTUN) IsFakeTun() bool { return false }
++
++func (h *hostTUN) Write(bufs [][]byte, offset int) (int, error) {
++	h.writes.Add(int64(len(bufs)))
++	return h.Device.Write(bufs, offset)
++}
++
++// makeNetstackOnTUN is makeNetstack on dev, shaped as tailscaled is on
++// Android's VPN (cmd/tailscaled/netstack.go), with self as the node's address.
++func makeNetstackOnTUN(tb testing.TB, dev tun.Device, self netip.Addr, config func(*Impl)) *Impl {
++	sys := tsd.NewSystem()
++	sys.Set(new(mem.Store))
++	dialer := new(tsdial.Dialer)
++	logf := tstest.WhileTestRunningLogger(tb)
++	eng, err := wgengine.NewUserspaceEngine(logf, wgengine.Config{
++		Tun:           dev,
++		Dialer:        dialer,
++		SetSubsystem:  sys.Set,
++		HealthTracker: sys.HealthTracker.Get(),
++		Metrics:       sys.UserMetricsRegistry(),
++		EventBus:      sys.Bus.Get(),
++	})
++	if err != nil {
++		tb.Fatal(err)
++	}
++	tb.Cleanup(func() { eng.Close() })
++	sys.Set(eng)
++
++	ns, err := Create(logf, sys.Tun.Get(), eng, sys.MagicSock.Get(), dialer, sys.DNSManager.Get(), sys.ProxyMapper())
++	if err != nil {
++		tb.Fatal(err)
++	}
++	tb.Cleanup(func() { ns.Close() })
++	sys.Set(ns)
++
++	lb, err := ipnlocal.NewLocalBackend(logf, logid.PublicID{}, sys, 0)
++	if err != nil {
++		tb.Fatalf("NewLocalBackend: %v", err)
++	}
++	tb.Cleanup(lb.Shutdown)
++
++	ns.ProcessLocalIPs = false
++	ns.ProcessSubnets = false
++	ns.CheckLocalTransportEndpoints = true
++	if config != nil {
++		config(ns)
++	}
++	if err := ns.Start(lb); err != nil {
++		tb.Fatalf("Start: %v", err)
++	}
++	ns.UpdateNetstackIPs(&netmap.NetworkMap{
++		SelfNode: (&tailcfg.Node{ID: 1, Addresses: []netip.Prefix{netip.PrefixFrom(self, 32)}}).View(),
++	})
++	return ns
++}
++
++// On Android's VPN the daemon reaches 100.100.100.100 through netstack — the
++// SOCKS5 server's connections to Taildrive and MagicDNS — and that connection
++// has to complete inside gVisor: neither its first packet nor the answers go
++// to WireGuard or to the host.
++func TestOwnServiceFlowStaysInNetstack(t *testing.T) {
++	self4 := netip.MustParseAddr("100.64.1.2")
++
++	// What the service IP forwards to: the debug loopback port, a listener
++	// on this machine's loopback that echoes.
++	ln, err := net.Listen("tcp", "127.0.0.1:0")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer ln.Close()
++	go func() {
++		for {
++			c, err := ln.Accept()
++			if err != nil {
++				return
++			}
++			go func() {
++				defer c.Close()
++				io.Copy(c, c)
++			}()
++		}
++	}()
++	port := ln.Addr().(*net.TCPAddr).Port
++
++	host := &hostTUN{Device: tstun.NewFake()}
++	impl := makeNetstackOnTUN(t, host, self4, func(impl *Impl) {
++		impl.loopbackPort = &port
++	})
++
++	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
++	defer cancel()
++	c, err := impl.DialContextTCP(ctx, netip.AddrPortFrom(serviceIP, uint16(port)))
++	if err != nil {
++		t.Fatalf("dial 100.100.100.100:%d through netstack: %v", port, err)
++	}
++	defer c.Close()
++	c.SetDeadline(time.Now().Add(10 * time.Second))
++	if _, err := c.Write([]byte("taildrive")); err != nil {
++		t.Fatal(err)
++	}
++	buf := make([]byte, len("taildrive"))
++	if _, err := io.ReadFull(c, buf); err != nil {
++		t.Fatalf("read the echo: %v", err)
++	}
++	if string(buf) != "taildrive" {
++		t.Fatalf("echo = %q", buf)
++	}
++	if n := host.writes.Load(); n != 0 {
++		t.Errorf("%d packets of netstack's own connection went to the host", n)
++	}
++}
++
++// What the routing decides, packet by packet: netstack's own flows to the
++// service IP loop back; an answer to the host's connection to it — no
++// endpoint of netstack's own on that side — still goes to the host.
++func TestOwnServiceFlowQueues(t *testing.T) {
++	self4 := netip.MustParseAddr("100.64.1.2")
++	impl := makeNetstackOnTUN(t, &hostTUN{Device: tstun.NewFake()}, self4, nil)
++
++	queue := func(src, dst string) outboundQueue {
++		pkt := makeUDP4PacketBuffer(netip.MustParseAddrPort(src), netip.MustParseAddrPort(dst))
++		defer pkt.DecRef()
++		return impl.outboundQueueForPacket(pkt)
++	}
++	if got := queue("100.64.1.2:40001", "100.100.100.100:53"); got != outboundLoopback {
++		t.Errorf("netstack's own packet to the service IP: queue %v, want loopback", got)
++	}
++	if got := queue("100.100.100.100:53", "100.64.1.2:40001"); got != outboundToHost {
++		t.Errorf("an answer to the host's DNS query: queue %v, want the host", got)
++	}
++
++	// A connected UDP endpoint of netstack's own — the SOCKS5 server's UDP
++	// to MagicDNS — and its answer loops back.
++	uc, err := impl.DialContextUDP(context.Background(), netip.MustParseAddrPort("100.100.100.100:53"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer uc.Close()
++	local := netip.MustParseAddrPort(uc.LocalAddr().String())
++	if got := queue("100.100.100.100:53", local.String()); got != outboundLoopback {
++		t.Errorf("the answer to netstack's own query from %v: queue %v, want loopback", local, got)
++	}
++}

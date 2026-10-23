@@ -68,10 +68,15 @@ diff -N -r -u -x "*.orig" -x "*.rej" orig/drive tailscale_src/drive > patches/07
 # whichever file currently defines the hook.
 diff -u orig/cmd/tailscaled/tailscaled.go tailscale_src/cmd/tailscaled/tailscaled.go > patches/08-netstack-cgnat.patch || true
 
-# 09-netstack-loopback.patch (net/tstun/wrap.go and wgengine/netstack/netstack.go)
+# 09-netstack-loopback.patch (net/tstun/wrap.go and wgengine/netstack/netstack.go,
+# and creates wgengine/netstack/own_flow_test.go)
+# Packets netstack owns stay in gVisor: with the fake TUN of userspace
+# networking, and on Android's VPN for the daemon's own connections to the
+# service IP (SOCKS5 to Taildrive and MagicDNS).
 {
     diff -u orig/net/tstun/wrap.go tailscale_src/net/tstun/wrap.go || true
     diff -u orig/wgengine/netstack/netstack.go tailscale_src/wgengine/netstack/netstack.go || true
+    diff -N -u /dev/null tailscale_src/wgengine/netstack/own_flow_test.go || true
 } > patches/09-netstack-loopback.patch
 
 # 10-taildrive-userspace-dial.patch (cmd/tailscaled and tests)

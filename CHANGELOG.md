@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Native TUN engine: Taildrive works again — the app's browser, downloads, the Files provider and the WebDAV proxy timed out, and so did anything that reached 100.100.100.100 (MagicDNS, Taildrive) through the SOCKS5 port.
+
 ## [5.2.0] - 2026-10-22
 
 ### Added
