@@ -15,8 +15,9 @@ import kotlinx.coroutines.sync.withPermit
  * Downloading from the other devices' shares (Taildrive), the rules without Android: what a
  * selection comes to, the question a selection with folders asks first, the walk that finds what
  * is inside those folders, the names things get where they land, and whether the folder they land
- * in is asked for. The running of a download is core/TaildriveDownloads.kt, where it is written
- * core/TaildriveDownloadSink.kt, the screens ui/TaildriveDownloadUi.kt.
+ * in is asked for. The queue the downloads run in is core/TaildriveDownloadQueue.kt (on the device
+ * core/TaildriveDownloads.kt), where they are written core/TaildriveDownloadSink.kt, the screens
+ * ui/TaildriveDownloadUi.kt.
  */
 
 // ---------------------------------------------------------------------------------------------

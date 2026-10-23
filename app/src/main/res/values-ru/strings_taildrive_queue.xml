@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrive_queue_downloading">Скачивание</string>
+    <plurals name="taildrive_queue_in_queue">
+        <item quantity="one">%d в очереди</item>
+        <item quantity="few">%d в очереди</item>
+        <item quantity="many">%d в очереди</item>
+        <item quantity="other">%d в очереди</item>
+    </plurals>
+    <plurals name="taildrive_queue_at_once">
+        <item quantity="one">%d файл одновременно</item>
+        <item quantity="few">%d файла одновременно</item>
+        <item quantity="many">%d файлов одновременно</item>
+        <item quantity="other">%d файла одновременно</item>
+    </plurals>
+    <plurals name="taildrive_queue_files_done">
+        <item quantity="one">%1$d из %2$d файла</item>
+        <item quantity="few">%1$d из %2$d файлов</item>
+        <item quantity="many">%1$d из %2$d файлов</item>
+        <item quantity="other">%1$d из %2$d файла</item>
+    </plurals>
+    <plurals name="taildrive_queue_files_done_counting">
+        <item quantity="one">%1$d из %2$d файла, ещё считаю…</item>
+        <item quantity="few">%1$d из %2$d файлов, ещё считаю…</item>
+        <item quantity="many">%1$d из %2$d файлов, ещё считаю…</item>
+        <item quantity="other">%1$d из %2$d файла, ещё считаю…</item>
+    </plurals>
+    <string name="taildrive_queue_and_more">%1$s и ещё %2$d</string>
+    <string name="taildrive_queue_waiting_to">Ждёт очереди · в %1$s</string>
+    <plurals name="taildrive_queue_finished">
+        <item quantity="one">Завершена %d загрузка</item>
+        <item quantity="few">Завершены %d загрузки</item>
+        <item quantity="many">Завершено %d загрузок</item>
+        <item quantity="other">Завершено %d загрузки</item>
+    </plurals>
+    <string name="taildrive_queue_clear">Убрать завершённые</string>
+    <string name="taildrive_queue_show">Показать все загрузки</string>
+    <string name="taildrive_queue_hide">Свернуть список</string>
+
+    <plurals name="taildrive_queue_notify_files">
+        <item quantity="one">Скачивается %d файл</item>
+        <item quantity="few">Скачиваются %d файла</item>
+        <item quantity="many">Скачиваются %d файлов</item>
+        <item quantity="other">Скачиваются %d файла</item>
+    </plurals>
+    <plurals name="taildrive_queue_downloads">
+        <item quantity="one">%d загрузка</item>
+        <item quantity="few">%d загрузки</item>
+        <item quantity="many">%d загрузок</item>
+        <item quantity="other">%d загрузки</item>
+    </plurals>
+    <string name="taildrive_queue_cancel_all">Отменить все</string>
+
+    <string name="taildrive_parallel_title">Параллельные загрузки</string>
+    <plurals name="taildrive_parallel_desc">
+        <item quantity="one">До %1$d файла одновременно. Больше — быстрее на хорошей связи, меньше — бережнее к медленной.</item>
+        <item quantity="few">До %1$d файлов одновременно. Больше — быстрее на хорошей связи, меньше — бережнее к медленной.</item>
+        <item quantity="many">До %1$d файлов одновременно. Больше — быстрее на хорошей связи, меньше — бережнее к медленной.</item>
+        <item quantity="other">До %1$d файла одновременно. Больше — быстрее на хорошей связи, меньше — бережнее к медленной.</item>
+    </plurals>
+    <string name="taildrive_parallel_one">По одному, друг за другом</string>
+    <string name="taildrive_parallel_two">Легче для медленной связи</string>
+    <string name="taildrive_parallel_three">По умолчанию</string>
+    <string name="taildrive_parallel_four">Быстрее всего на хорошей связи</string>
+    <string name="search_sum_taildrive_parallel">Сколько файлов из общих папок Taildrive качается одновременно</string>
+    <string name="search_kw_taildrive_parallel">параллельно, одновременно, сразу, очередь загрузок, загрузки, скачивание, скорость, потоки, taildrive</string>
+</resources>

@@ -255,10 +255,10 @@ class TaildriveDownloadPlanTest {
 
     @Test
     fun aFailureIsNamedByWhatWentWrong() {
-        assertEquals(DownloadFailReason.NOT_FOUND, TaildriveDownloads.failReason(RangeNotFoundException()))
-        assertEquals(DownloadFailReason.DENIED, TaildriveDownloads.failReason(RangeForbiddenException()))
-        assertEquals(DownloadFailReason.TIMEOUT, TaildriveDownloads.failReason(RangeTimeoutException()))
-        assertEquals(DownloadFailReason.NETWORK, TaildriveDownloads.failReason(RangeIoException("HTTP 502", 502)))
-        assertEquals(DownloadFailReason.NOT_FOUND, TaildriveDownloads.failReason(Exception("WebDAV GET failed: HTTP 404")))
+        assertEquals(DownloadFailReason.NOT_FOUND, DownloadQueue.failReason(RangeNotFoundException()))
+        assertEquals(DownloadFailReason.DENIED, DownloadQueue.failReason(RangeForbiddenException()))
+        assertEquals(DownloadFailReason.TIMEOUT, DownloadQueue.failReason(RangeTimeoutException()))
+        assertEquals(DownloadFailReason.NETWORK, DownloadQueue.failReason(RangeIoException("HTTP 502", 502)))
+        assertEquals(DownloadFailReason.NOT_FOUND, DownloadQueue.failReason(Exception("WebDAV GET failed: HTTP 404")))
     }
 }

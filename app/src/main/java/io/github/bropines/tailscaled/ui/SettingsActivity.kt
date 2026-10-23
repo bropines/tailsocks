@@ -2298,6 +2298,8 @@ fun SettingsScreen(
             ) { taildropFolderChooser.choose() }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             TaildriveDownloadFolderRow(taildropFolder)
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            TaildriveParallelRow()
         }
 
         SettingsCardGap()

@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -26,13 +28,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.DownloadMode
+import io.github.bropines.tailscaled.core.DownloadSlots
+import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.ReceiveFolder
 import io.github.bropines.tailscaled.core.TaildriveDownloadFolder
+import io.github.bropines.tailscaled.core.TaildriveDownloads
 import io.github.bropines.tailscaled.core.TaildropFolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -110,6 +116,46 @@ internal fun TaildriveDownloadFolderRow(taildropFolder: ReceiveFolder?) {
                 }
             },
             confirmButton = { TextButton(onClick = { asking = false }) { Text(cancel) } }
+        )
+    }
+}
+
+/**
+ * Settings → Sharing & access → Storage, under the folder: how many files a download reads at once
+ * ([DownloadSlots], core/TaildriveDownloadQueue.kt), across every download queued. A choice of four
+ * in a sheet; a change frees or takes slots as soon as a file ends, and a raise starts files at once.
+ */
+@Composable
+internal fun TaildriveParallelRow() {
+    val context = LocalContext.current
+    var count by remember { mutableIntStateOf(GlobalSettings.getTaildriveParallelDownloads(context)) }
+    var picking by remember { mutableStateOf(false) }
+    SettingsClickableItem(
+        stringResource(R.string.taildrive_parallel_title),
+        pluralStringResource(R.plurals.taildrive_parallel_desc, count, count),
+        Icons.Default.Layers
+    ) { picking = true }
+    if (picking) {
+        // Resolved here: the sheet is a window of its own and would look its words up in the
+        // system language — see wrapContextWithLocale().
+        val notes = mapOf(
+            1 to stringResource(R.string.taildrive_parallel_one),
+            2 to stringResource(R.string.taildrive_parallel_two),
+            3 to stringResource(R.string.taildrive_parallel_three),
+            4 to stringResource(R.string.taildrive_parallel_four),
+        )
+        PickerSheet(
+            title = stringResource(R.string.taildrive_parallel_title),
+            options = DownloadSlots.CHOICES.map { PickerOption(it, it.toString(), supporting = notes[it]) },
+            selected = count,
+            onPick = { picked ->
+                if (picked != count) {
+                    count = picked
+                    GlobalSettings.setTaildriveParallelDownloads(context, picked)
+                    TaildriveDownloads.slotsChanged()
+                }
+            },
+            onDismiss = { picking = false }
         )
     }
 }

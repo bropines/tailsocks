@@ -39,14 +39,6 @@
 
     <string name="taildrive_download_channel">Загрузки Taildrive</string>
     <string name="taildrive_download_to">Скачивание в %1$s</string>
-    <string name="taildrive_download_file_of">Файл %1$d из %2$d</string>
-    <string name="taildrive_download_file_of_counting">Файл %1$d из %2$d, подсчёт ещё идёт</string>
-    <plurals name="taildrive_download_waiting">
-        <item quantity="one">Ещё %d в очереди</item>
-        <item quantity="few">Ещё %d в очереди</item>
-        <item quantity="many">Ещё %d в очереди</item>
-        <item quantity="other">Ещё %d в очереди</item>
-    </plurals>
     <plurals name="taildrive_download_saved">
         <item quantity="one">Сохранён %1$d файл в %2$s</item>
         <item quantity="few">Сохранено %1$d файла в %2$s</item>

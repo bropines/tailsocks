@@ -30,6 +30,7 @@ import io.github.bropines.tailscaled.core.DownloadState
 import io.github.bropines.tailscaled.core.DriveEntry
 import io.github.bropines.tailscaled.core.DriveKind
 import io.github.bropines.tailscaled.core.DriveLocation
+import io.github.bropines.tailscaled.core.FileProgress
 import io.github.bropines.tailscaled.core.ReceiveFolder
 import io.github.bropines.tailscaled.core.WalkTotals
 import java.io.File
@@ -67,16 +68,43 @@ private val rows = listOf(
 private val folder = ReceiveFolder.Dir(File("/storage/emulated/0/Download/Movies"))
 
 private val running = DownloadState(
-    id = 1, folderLabel = "Download/Movies", folder = folder, pickedNow = true, stage = DownloadStage.RUNNING,
+    id = 2, folderLabel = "Download/Movies", folder = folder, pickedNow = true, stage = DownloadStage.RUNNING,
+    what = "Season 2", selected = 3,
     files = 12, bytes = 7_200_000_000, filesDone = 4, bytesDone = 2_950_000_000,
-    current = "Dune.Part.One.2021.2160p.mkv", currentDone = 820_000_000, currentSize = 1_900_000_000, saved = 4,
-    bytesPerSecond = 11_800_000,
+    writing = listOf(
+        FileProgress("Dune.Part.One.2021.2160p.mkv", 820_000_000, 1_900_000_000),
+        FileProgress("Arrival (2016).mp4", 2_200_000_000, 3_400_000_000),
+        FileProgress("e03.mkv", 140_000_000, 0),
+    ),
+    saved = 4, bytesPerSecond = 11_800_000,
 )
 
 private val done = running.copy(
-    stage = DownloadStage.DONE, filesDone = 12, bytesDone = 7_200_000_000, current = null, saved = 11, bytesPerSecond = null,
-    failures = listOf(DownloadFailure("Season 2/Extras/commentary.mka", DownloadFailReason.NETWORK)),
+    stage = DownloadStage.DONE, filesDone = 12, bytesDone = 7_200_000_000, writing = emptyList(), saved = 11, bytesPerSecond = null,
+    failures = listOf(DownloadFailure("Season 2/Extras/commentary.mka", DownloadFailReason.NETWORK)), ended = 1,
 )
+
+private val taildrop = ReceiveFolder.Dir(File("/storage/emulated/0/Download/Taildrop"))
+
+/** A smaller download beside the first, into the folder Taildrop uses. */
+private val beside = DownloadState(
+    id = 3, folderLabel = "Download/Taildrop", folder = taildrop, pickedNow = false, stage = DownloadStage.RUNNING,
+    what = "poster.jpg", selected = 2, files = 2, bytes = 1_259_491, filesDone = 1, bytesDone = 1_258_891,
+    writing = listOf(FileProgress("notes.txt", 600, 1_200)), saved = 1, bytesPerSecond = 640_000,
+)
+
+private val waiting = DownloadState(id = 4, folderLabel = "Download/Movies", folder = folder, pickedNow = false, what = "Extras")
+private val waitingMore = DownloadState(
+    id = 5, folderLabel = "Download/Taildrop", folder = taildrop, pickedNow = false, what = "Interstellar (2014).mkv", selected = 4,
+)
+
+/** One that ended before the rest began. */
+private val earlier = DownloadState(
+    id = 1, folderLabel = "Download/Taildrop", folder = taildrop, pickedNow = false, stage = DownloadStage.DONE,
+    what = "notes.txt", files = 1, bytes = 1_200, filesDone = 1, bytesDone = 1_200, saved = 1, ended = 1,
+)
+
+private val queue = listOf(earlier, running, beside, waiting, waitingMore)
 
 @Composable
 private fun Shown(device: DeviceClass?, content: @Composable () -> Unit) = AdaptiveShowcase(device = device) { content() }
@@ -103,17 +131,36 @@ fun DlListTv() = Shown(DeviceClass.TV) { Browser(BrowserExtras()) }
 
 // --- a download under the list -----------------------------------------------------------------
 
+/** Folded: one download with three files in flight, another waiting. */
 @PreviewTest @DlPhone @Composable
-fun DlRunningPhone() = Shown(null) { Browser(BrowserExtras(panel = running to 1)) }
+fun DlRunningPhone() = Shown(null) { Browser(BrowserExtras(downloads = listOf(running, waiting))) }
+
+/** Folded: the one download, its Cancel and the way to its files. */
+@PreviewTest @DlTv @Composable
+fun DlRunningTv() = Shown(DeviceClass.TV) { Browser(BrowserExtras(downloads = listOf(running))) }
+
+@PreviewTest @DlPhone @Composable
+fun DlDonePhone() = Shown(null) { Browser(BrowserExtras(downloads = listOf(done))) }
 
 @PreviewTest @DlTv @Composable
-fun DlRunningTv() = Shown(DeviceClass.TV) { Browser(BrowserExtras(panel = running to 0)) }
+fun DlDoneTv() = Shown(DeviceClass.TV) { Browser(BrowserExtras(downloads = listOf(done))) }
 
+// --- the queue ---------------------------------------------------------------------------------
+
+/** Folded: two downloads side by side, two waiting, one finished out of sight. */
 @PreviewTest @DlPhone @Composable
-fun DlDonePhone() = Shown(null) { Browser(BrowserExtras(panel = done to 0)) }
+fun DlQueuePhone() = Shown(null) { Browser(BrowserExtras(downloads = queue)) }
+
+/** Unfolded: every download in the order asked. */
+@PreviewTest @DlPhone @Composable
+fun DlQueueOpenPhone() = Shown(null) { Browser(BrowserExtras(downloads = queue, defaultFolder = taildrop, queueExpanded = true)) }
 
 @PreviewTest @DlTv @Composable
-fun DlDoneTv() = Shown(DeviceClass.TV) { Browser(BrowserExtras(panel = done to 0)) }
+fun DlQueueOpenTv() = Shown(DeviceClass.TV) { Browser(BrowserExtras(downloads = queue, defaultFolder = taildrop, queueExpanded = true)) }
+
+/** Unfolded, the one download's files in flight under its line. */
+@PreviewTest @DlPhone @Composable
+fun DlFilesOpenPhone() = Shown(null) { Browser(BrowserExtras(downloads = listOf(running), queueExpanded = true)) }
 
 // --- the question before a download with folders -----------------------------------------------
 

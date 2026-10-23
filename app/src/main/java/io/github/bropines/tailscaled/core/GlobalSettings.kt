@@ -249,6 +249,11 @@ object GlobalSettings {
         getString(context, KEY_UI_SCALE, "100").toIntOrNull()?.takeIf { it in UI_SCALES } ?: 100
     fun setUiScale(context: Context, percent: Int) = setString(context, KEY_UI_SCALE, percent.toString())
 
+    /** Settings → Sharing & access → Storage: how many Taildrive files download at once ([DownloadSlots]). */
+    const val KEY_TAILDRIVE_PARALLEL = "taildrive_parallel_downloads"
+    fun getTaildriveParallelDownloads(context: Context): Int = DownloadSlots.of(getPrefs(context).getString(KEY_TAILDRIVE_PARALLEL, null))
+    fun setTaildriveParallelDownloads(context: Context, count: Int) = setString(context, KEY_TAILDRIVE_PARALLEL, count.toString())
+
     /** Settings → Appearance → Interface: what this device is taken for (core/DeviceProfile.kt); auto when unset. */
     const val KEY_DEVICE_OVERRIDE = "ui_device_override"
     fun getDeviceOverride(context: Context): DeviceOverride =
@@ -581,6 +586,8 @@ object GlobalSettings {
         // behind — see above.
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
         "root_vpn_bypass",
+        // Taildrive downloads: how many at once. Where they go stays behind — it names a place on this device.
+        KEY_TAILDRIVE_PARALLEL,
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary", "show_managed_on_main",
         "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE

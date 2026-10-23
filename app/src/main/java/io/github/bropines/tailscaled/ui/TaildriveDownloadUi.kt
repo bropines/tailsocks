@@ -3,19 +3,29 @@ package io.github.bropines.tailscaled.ui
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,6 +33,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -33,6 +45,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -42,9 +56,11 @@ import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AskReason
 import io.github.bropines.tailscaled.core.DownloadFailReason
+import io.github.bropines.tailscaled.core.DownloadQueueSummary
 import io.github.bropines.tailscaled.core.DownloadStage
 import io.github.bropines.tailscaled.core.DownloadState
 import io.github.bropines.tailscaled.core.Feature
+import io.github.bropines.tailscaled.core.FileProgress
 import io.github.bropines.tailscaled.core.PickerKind
 import io.github.bropines.tailscaled.core.RealFileSource
 import io.github.bropines.tailscaled.core.ReceiveFolder
@@ -57,8 +73,9 @@ import io.github.bropines.tailscaled.core.tryLaunch
 
 /*
  * The share browser's downloads, the parts a page draws: the folder a download goes to when it is
- * asked for, the question a selection with folders asks, and the panel that follows a download to
- * its end. The rules are core/TaildriveDownloadPlan.kt, the running core/TaildriveDownloads.kt.
+ * asked for, the question a selection with folders asks, and the panel that follows the queue of
+ * downloads to their ends. The rules are core/TaildriveDownloadPlan.kt, the queue
+ * core/TaildriveDownloadQueue.kt, the running on the device core/TaildriveDownloads.kt.
  */
 
 // ---------------------------------------------------------------------------------------------
@@ -195,6 +212,7 @@ internal fun FolderQuestionDialog(
 internal class DownloadPanelActions(
     val onCancel: (Int) -> Unit = {},
     val onClose: (Int) -> Unit = {},
+    val onClearFinished: () -> Unit = {},
     /** Null where nothing on the device opens a folder. */
     val onOpenFolder: ((DownloadState) -> Unit)? = null,
     val onKeep: (DownloadState) -> Unit = {},
@@ -213,98 +231,261 @@ internal fun failureReason(reason: DownloadFailReason): String = stringResource(
     }
 )
 
+/** Where the remote goes once the button it pressed has gone: a download's Close, or the panel's first stop. */
+private sealed interface PanelAim {
+    data class Close(val id: Int) : PanelAim
+
+    data object Panel : PanelAim
+}
+
 /**
- * A download under the list: while it runs, the file it is on and the whole, each with its bar,
- * and Cancel; once over, what was saved where, what was not, and the way to the folder — and, for
- * a folder chosen for this download, the offer to keep it. [waiting] is how many more are queued.
- * [kept]: that offer was taken, or the folder is the default already.
+ * The downloads under the list, folded or not.
+ *
+ * Folded, while anything runs or waits: the queue in one piece — where it goes, what is being
+ * written, how many wait, one bar for the whole and the speed — with Cancel when there is one
+ * download. Once nothing runs: the download that ended last, what was saved where and what was
+ * not, the way to the folder and, for a folder chosen for this download, the offer to keep it.
+ *
+ * Unfolded: every download in the order asked — a running one with a bar for each file in flight,
+ * a waiting one by its place in the queue, a finished one as it ended — each with its own Cancel
+ * or Close, and a way to clear the finished ones. The list scrolls past a part of the screen.
+ *
+ * [defaultFolder]: where downloads go without asking now, so a download into it has no offer.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun DownloadPanel(
-    state: DownloadState,
-    waiting: Int,
-    kept: Boolean,
+    downloads: List<DownloadState>,
     actions: DownloadPanelActions,
     modifier: Modifier = Modifier,
+    defaultFolder: ReceiveFolder? = null,
     /** Something on the device opens the folder. */
-    openable: Boolean = actions.onOpenFolder != null,
+    canOpen: (ReceiveFolder) -> Boolean = { actions.onOpenFolder != null },
+    startExpanded: Boolean = false,
 ) {
+    if (downloads.isEmpty()) return
     val colors = MaterialTheme.colorScheme
-    // A button pressed here that goes away with what it did — Cancel, the offer to keep the folder —
-    // hands the remote to Close, rather than let it fall to the first stop of the screen.
-    var handOver by remember(state.id) { mutableStateOf(false) }
-    val close = remember { FocusRequester() }
-    if (!state.stage.active && handOver && !LocalInspectionMode.current) LaunchedEffect(state.stage, kept) {
+    val active = downloads.filter { it.stage.active }
+    val finished = downloads.filter { !it.stage.active }
+    val lastEnded = finished.maxByOrNull { it.ended }
+    val summary = DownloadQueueSummary.of(downloads)
+    // Something to unfold: another download, or the files of one that has several. Not the
+    // number of files in flight, which comes and goes between two files.
+    val expandable = downloads.size > 1 || active.any { it.stage == DownloadStage.RUNNING && (it.files > 1 || it.counting) }
+    var unfolded by rememberSaveable { mutableStateOf(startExpanded) }
+    val expanded = unfolded && expandable
+
+    // A button pressed here that goes away with what it did — Cancel, Close, the offer to keep the
+    // folder — hands the remote on inside the panel, rather than let it fall to the first stop of
+    // the screen: to the Close of the download it ended, or to the panel's first stop.
+    val toggleFocus = remember { FocusRequester() }
+    val closeFocus = remember { HashMap<Int, FocusRequester>() }
+    val closeOf = { id: Int -> closeFocus.getOrPut(id) { FocusRequester() } }
+    var aim by remember { mutableStateOf<PanelAim?>(null) }
+    val input = LocalInputModeManager.current
+    val target = aim
+    if (target != null && !LocalInspectionMode.current) LaunchedEffect(target, downloads, expanded) {
+        // A cancelled download ends a moment later, and its Close comes with that.
+        if (target is PanelAim.Close && downloads.any { it.id == target.id && it.stage.active }) return@LaunchedEffect
         withFrameNanos { }
-        runCatching { close.requestFocus() }
-        handOver = false
+        if (input.inputMode == InputMode.Keyboard) {
+            fun ask(requester: FocusRequester) = runCatching { requester.requestFocus() }.getOrDefault(false)
+            val landed = target is PanelAim.Close && ask(closeOf(target.id))
+            if (!landed && !(expandable && ask(toggleFocus))) lastEnded?.let { ask(closeOf(it.id)) }
+        }
+        aim = null
     }
-    val panelActions = DownloadPanelActions(
-        onCancel = { handOver = true; actions.onCancel(it) },
-        onClose = actions.onClose,
-        onOpenFolder = actions.onOpenFolder.takeIf { openable },
-        onKeep = { handOver = true; actions.onKeep(it) },
+    val cancel = { state: DownloadState ->
+        aim = if (state.stage == DownloadStage.RUNNING) PanelAim.Close(state.id) else PanelAim.Panel
+        actions.onCancel(state.id)
+    }
+    val ending = DownloadPanelActions(
+        onClose = { aim = PanelAim.Panel; actions.onClose(it) },
+        onOpenFolder = actions.onOpenFolder,
+        onKeep = { aim = PanelAim.Close(it.id); actions.onKeep(it) },
     )
+    val toggle: @Composable () -> Unit = {
+        if (expandable) IconButton(onClick = { unfolded = !unfolded }, modifier = Modifier.focusRequester(toggleFocus)) {
+            Icon(
+                if (expanded) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+                contentDescription = stringResource(if (expanded) R.string.taildrive_queue_hide else R.string.taildrive_queue_show)
+            )
+        }
+    }
+    // The share list stays in sight above it, a television's too.
+    val listHeight = rememberWindowLayout().height * 0.35f
+
     Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = colors.surfaceContainerHigh, tonalElevation = 2.dp) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (state.stage.active) Running(state, waiting, panelActions) else Over(state, kept, panelActions, close)
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            when {
+                active.isNotEmpty() -> Overall(active, summary, toggle, onCancel = active.singleOrNull()?.let { one -> { cancel(one) } })
+                !expanded && lastEnded != null -> Over(
+                    lastEnded, lastEnded.folder == defaultFolder, canOpen, ending, closeOf(lastEnded.id), trailing = toggle
+                )
+                else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Download, contentDescription = null, tint = colors.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                    Text(
+                        pluralStringResource(R.plurals.taildrive_queue_finished, finished.size, finished.size),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f).padding(start = 12.dp)
+                    )
+                    toggle()
+                }
+            }
+            if (expanded) {
+                // The one download the first line already speaks for shows only its files here.
+                val lone = active.singleOrNull()?.takeIf { it.stage == DownloadStage.RUNNING }
+                Column(
+                    Modifier.heightIn(max = listHeight).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    lone?.let { InFlight(it.writing) }
+                    var place = 0
+                    var first = lone == null
+                    for (state in downloads) {
+                        if (state.id == lone?.id) continue
+                        key(state.id) {
+                            if (!first) HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.5f))
+                            first = false
+                            when (state.stage) {
+                                DownloadStage.RUNNING -> RunningItem(state) { cancel(state) }
+                                DownloadStage.WAITING -> WaitingItem(state, ++place) { cancel(state) }
+                                else -> Over(state, state.folder == defaultFolder, canOpen, ending, closeOf(state.id), named = true)
+                            }
+                        }
+                    }
+                }
+                if (finished.isNotEmpty()) TextButton(
+                    onClick = { aim = PanelAim.Panel; actions.onClearFinished() },
+                    modifier = Modifier.align(Alignment.End)
+                ) { Text(stringResource(R.string.taildrive_queue_clear)) }
+            }
+        }
+    }
+}
+
+/** The queue folded: where it goes or how many wait, what is being written, one bar and the speed. */
+@Composable
+private fun Overall(active: List<DownloadState>, summary: DownloadQueueSummary, toggle: @Composable () -> Unit, onCancel: (() -> Unit)?) {
+    val colors = MaterialTheme.colorScheme
+    val one = active.singleOrNull()
+    val inFlight = active.flatMap { it.writing }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Download, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(
+                if (one != null) stringResource(R.string.taildrive_download_to, one.folderLabel)
+                else listOfNotNull(
+                    stringResource(R.string.taildrive_queue_downloading),
+                    summary.waiting.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.taildrive_queue_in_queue, it, it) },
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val now = when {
+                // One file: its name says more than "1 file at once".
+                inFlight.size == 1 -> inFlight.single().name
+                inFlight.size > 1 -> pluralStringResource(R.plurals.taildrive_queue_at_once, inFlight.size, inFlight.size)
+                summary.counting || summary.files == 0 -> stringResource(R.string.taildrive_download_counting)
+                else -> null
+            }
+            now?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+        if (onCancel != null) TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+        toggle()
+    }
+    Bar(summary.fraction)
+    Totals(summary.bytesDone, summary.bytes, summary.filesDone, summary.files, summary.counting, summary.bytesPerSecond)
+}
+
+/** "2.9 GB of 7.2 GB · 4 of 12 files", and the speed at the end. */
+@Composable
+private fun Totals(bytesDone: Long, bytes: Long, filesDone: Int, files: Int, counting: Boolean, bytesPerSecond: Long?) {
+    val colors = MaterialTheme.colorScheme
+    val sizes = if (counting || bytes <= 0) formatFileSize(bytesDone)
+    else stringResource(R.string.taildrop_progress_of_format, formatFileSize(bytesDone), formatFileSize(bytes))
+    // A single file says nothing more by "0 of 1 file".
+    val count = if (files > 1 || counting) pluralStringResource(
+        if (counting) R.plurals.taildrive_queue_files_done_counting else R.plurals.taildrive_queue_files_done, files, filesDone, files
+    ) else null
+    Row {
+        Text(
+            listOfNotNull(sizes, count).joinToString(" · "),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        bytesPerSecond?.let {
+            Text(
+                stringResource(R.string.taildrop_speed_format, formatFileSize(it)),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+    }
+}
+
+/** The files being written, each with its bar. */
+@Composable
+private fun InFlight(files: List<FileProgress>) {
+    if (files.isEmpty()) return
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (file in files) {
+            Row {
+                Text(file.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                file.fraction?.let {
+                    Text("${(it * 100).toInt()}%", style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            Bar(file.fraction, secondary = true)
+        }
+    }
+}
+
+/** "Season 2 and 3 more": a download by what was selected. */
+@Composable
+private fun selectionName(state: DownloadState): String =
+    if (state.selected > 1) stringResource(R.string.taildrive_queue_and_more, state.what, state.selected - 1) else state.what
+
+/** A running download among others: what and where, its Cancel, its bar, and its files in flight. */
+@Composable
+private fun RunningItem(state: DownloadState, onCancel: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        ItemHead(selectionName(state), stringResource(R.string.taildrive_download_to, state.folderLabel), onCancel) {
+            Icon(Icons.Default.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        }
+        Bar(state.fraction)
+        Totals(state.bytesDone, state.bytes, state.filesDone, state.files, state.counting, state.bytesPerSecond)
+        InFlight(state.writing)
+    }
+}
+
+/** A download that waits: its place in the queue, what and where, and Cancel, which takes it off. */
+@Composable
+private fun WaitingItem(state: DownloadState, place: Int, onCancel: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    ItemHead(selectionName(state), stringResource(R.string.taildrive_queue_waiting_to, state.folderLabel), onCancel) {
+        Surface(shape = CircleShape, color = colors.secondaryContainer, modifier = Modifier.size(24.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("$place", style = MaterialTheme.typography.labelMedium, color = colors.onSecondaryContainer)
+            }
         }
     }
 }
 
 @Composable
-private fun Running(state: DownloadState, waiting: Int, actions: DownloadPanelActions) {
-    val colors = MaterialTheme.colorScheme
-    val single = state.files <= 1 && !state.counting
+private fun ItemHead(title: String, line: String, onCancel: () -> Unit, lead: @Composable () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.Download, contentDescription = null, tint = colors.primary, modifier = Modifier.size(24.dp))
+        lead()
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(
-                stringResource(R.string.taildrive_download_to, state.folderLabel),
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                when {
-                    // One file: its name says more than "file 1 of 1".
-                    single -> state.current ?: ""
-                    state.files > 0 -> stringResource(
-                        if (state.counting) R.string.taildrive_download_file_of_counting else R.string.taildrive_download_file_of,
-                        state.currentNumber, state.files
-                    )
-                    else -> stringResource(R.string.taildrive_download_counting)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Text(title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        TextButton(onClick = { actions.onCancel(state.id) }) { Text(stringResource(R.string.action_cancel)) }
-    }
-    // The whole: its bar, how much of it, how fast.
-    Bar(state.fraction)
-    Row {
-        Text(
-            if (state.counting || state.bytes <= 0) formatFileSize(state.bytesDone)
-            else stringResource(R.string.taildrop_progress_of_format, formatFileSize(state.bytesDone), formatFileSize(state.bytes)),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        state.bytesPerSecond?.let {
-            Text(stringResource(R.string.taildrop_speed_format, formatFileSize(it)), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-        }
-    }
-    // The file it is on, and its own bar; for a single file the whole is the file.
-    if (!single) state.current?.let { name ->
-        Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Bar(state.currentFraction, secondary = true)
-    }
-    if (waiting > 0) {
-        Text(pluralStringResource(R.plurals.taildrive_download_waiting, waiting, waiting), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
     }
 }
 
@@ -318,9 +499,22 @@ private fun Bar(fraction: Float?, secondary: Boolean = false) {
     else LinearProgressIndicator(modifier = modifier, color = color)
 }
 
+/**
+ * A download that is over: what was saved where, what was not, the way to the folder and — for a
+ * folder chosen for this download — the offer to keep it ([kept]: taken, or the folder is the
+ * default already). [named]: among others, with what was selected under its title.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Over(state: DownloadState, kept: Boolean, actions: DownloadPanelActions, close: FocusRequester) {
+private fun Over(
+    state: DownloadState,
+    kept: Boolean,
+    canOpen: (ReceiveFolder) -> Boolean,
+    actions: DownloadPanelActions,
+    close: FocusRequester,
+    named: Boolean = false,
+    trailing: @Composable () -> Unit = {},
+) {
     val colors = MaterialTheme.colorScheme
     val good = state.stage == DownloadStage.DONE && state.saved > 0
     val title = when {
@@ -328,48 +522,51 @@ private fun Over(state: DownloadState, kept: Boolean, actions: DownloadPanelActi
         state.saved > 0 -> pluralStringResource(R.plurals.taildrive_download_saved, state.saved, state.saved, state.folderLabel)
         else -> stringResource(R.string.taildrive_download_nothing_saved)
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            if (good) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
-            contentDescription = null,
-            tint = if (good) colors.primary else colors.onSurfaceVariant,
-            modifier = Modifier.size(24.dp)
-        )
-        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-    }
-    // A cancelled download keeps what it saved: say how much, and where.
-    if (state.stage == DownloadStage.CANCELLED && state.saved > 0) {
-        Text(
-            pluralStringResource(R.plurals.taildrive_download_saved, state.saved, state.saved, state.folderLabel),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.onSurfaceVariant
-        )
-    }
-    if (state.stage == DownloadStage.STOPPED) {
-        Text(stringResource(R.string.taildrive_download_stopped), style = MaterialTheme.typography.bodySmall, color = colors.error)
-    }
-    if (state.failures.isNotEmpty()) {
-        val head = pluralStringResource(R.plurals.taildrive_download_missing, state.failures.size, state.failures.size)
-        val lines = state.failures.map { stringResource(R.string.taildrive_download_failure, it.path, failureReason(it.reason)) }
-        HelpText((listOf(head) + lines).joinToString("\n"), style = MaterialTheme.typography.bodySmall, color = colors.error)
-    }
-    val offer = state.pickedNow && !kept && state.saved > 0
-    if (offer) HelpText(stringResource(R.string.taildrive_download_keep_help), style = MaterialTheme.typography.bodySmall)
-    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        if (offer) TextButton(onClick = { actions.onKeep(state) }) { Text(stringResource(R.string.taildrive_download_keep)) }
-        if (state.saved > 0) actions.onOpenFolder?.let { open ->
-            TextButton(onClick = { open(state) }) { Text(stringResource(R.string.taildrive_download_open_folder)) }
-        }
+    val openable = actions.onOpenFolder != null && remember(state.folder) { canOpen(state.folder) }
+    val closeButton: @Composable () -> Unit = {
         TextButton(onClick = { actions.onClose(state.id) }, modifier = Modifier.focusRequester(close)) { Text(stringResource(R.string.action_close)) }
     }
-}
-
-/** The panel's download: the one running, or else the last that is over and still on the page; and how many wait behind it. */
-internal fun panelOf(downloads: List<DownloadState>): Pair<DownloadState, Int>? {
-    val running = downloads.firstOrNull { it.stage == DownloadStage.RUNNING }
-    val waiting = downloads.count { it.stage == DownloadStage.WAITING }
-    val shown = running ?: downloads.lastOrNull { !it.stage.active } ?: downloads.firstOrNull { it.stage == DownloadStage.WAITING } ?: return null
-    return shown to if (shown.stage == DownloadStage.WAITING) waiting - 1 else waiting
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (good) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                contentDescription = null,
+                tint = if (good) colors.primary else colors.onSurfaceVariant,
+                modifier = Modifier.size(24.dp)
+            )
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (named) Text(selectionName(state), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            // In the list its Close stands where the others have their Cancel.
+            if (named) closeButton()
+            trailing()
+        }
+        // A cancelled download keeps what it saved: say how much, and where.
+        if (state.stage == DownloadStage.CANCELLED && state.saved > 0) {
+            Text(
+                pluralStringResource(R.plurals.taildrive_download_saved, state.saved, state.saved, state.folderLabel),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant
+            )
+        }
+        if (state.stage == DownloadStage.STOPPED) {
+            Text(stringResource(R.string.taildrive_download_stopped), style = MaterialTheme.typography.bodySmall, color = colors.error)
+        }
+        if (state.failures.isNotEmpty()) {
+            val head = pluralStringResource(R.plurals.taildrive_download_missing, state.failures.size, state.failures.size)
+            val lines = state.failures.map { stringResource(R.string.taildrive_download_failure, it.path, failureReason(it.reason)) }
+            HelpText((listOf(head) + lines).joinToString("\n"), style = MaterialTheme.typography.bodySmall, color = colors.error)
+        }
+        val offer = state.pickedNow && !kept && state.saved > 0
+        if (offer) HelpText(stringResource(R.string.taildrive_download_keep_help), style = MaterialTheme.typography.bodySmall)
+        val open = actions.onOpenFolder?.takeIf { state.saved > 0 && openable }
+        if (!named || offer || open != null) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            if (offer) TextButton(onClick = { actions.onKeep(state) }) { Text(stringResource(R.string.taildrive_download_keep)) }
+            open?.let { TextButton(onClick = { it(state) }) { Text(stringResource(R.string.taildrive_download_open_folder)) } }
+            if (!named) closeButton()
+        }
+    }
 }
 
 /** Keeps the folder of [state] for every download from now on; says so. */
@@ -377,7 +574,3 @@ internal fun keepFolder(context: android.content.Context, state: DownloadState) 
     TaildriveDownloadFolder.set(context, state.folder)
     Toast.makeText(context, context.getString(R.string.taildrive_download_kept, state.folderLabel), Toast.LENGTH_SHORT).show()
 }
-
-/** Whether downloads go to [state]'s folder without asking already. */
-internal fun isDefaultFolder(context: android.content.Context, state: DownloadState): Boolean =
-    TaildriveDownloadFolder.target(context) == state.folder

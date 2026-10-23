@@ -42,6 +42,24 @@ interface DownloadSink {
 }
 
 /**
+ * [sink] with its names claimed one at a time: the files of a download are written side by side
+ * (DownloadQueue), and two of them that want the same name in the same folder must not both see
+ * it free. [TreeSink] picks a name from what it knows the folder holds and only then creates it,
+ * so its claims need this; a write or a discard runs beside the claims as before.
+ */
+class ClaimsInTurn(private val sink: DownloadSink) : DownloadSink {
+    private val turn = Any()
+
+    override fun newFolder(parent: SinkNode?, name: String): SinkNode = synchronized(turn) { sink.newFolder(parent, name) }
+
+    override fun newFile(parent: SinkNode?, name: String): SinkNode = synchronized(turn) { sink.newFile(parent, name) }
+
+    override fun write(file: SinkNode): OutputStream = sink.write(file)
+
+    override fun discard(file: SinkNode) = sink.discard(file)
+}
+
+/**
  * A directory, [root], made when it is missing. A name is claimed by creating it: from Android
  * 11, without access to all files, a listing holds only the app's own files, and a name another
  * app took shows up only when creating it fails. No android.* here, so it runs in a unit test.
@@ -82,7 +100,7 @@ class DirSink(private val root: File) : DownloadSink {
 /**
  * A folder of the Storage Access Framework, granted when it was chosen. The names a folder holds
  * are asked of its provider once and then kept up as this sink adds to it, so a folder of a
- * thousand files is not listed a thousand times.
+ * thousand files is not listed a thousand times. One claim at a time: [ClaimsInTurn].
  */
 class TreeSink(context: Context, private val tree: Uri) : DownloadSink {
     private val resolver: ContentResolver = context.contentResolver

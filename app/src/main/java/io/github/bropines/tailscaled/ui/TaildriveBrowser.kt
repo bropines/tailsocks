@@ -245,12 +245,14 @@ internal class BrowserExtras(
     val top: Int = 1,
     /** The path as a field; null while it is the path's names. */
     val pathEdit: PathEdit? = null,
-    /** The download under the list and how many wait behind it. */
-    val panel: Pair<DownloadState, Int>? = null,
-    /** The panel's folder is the default already, or was just made it. */
-    val panelKept: Boolean = false,
-    /** Something on the device opens the panel's folder. */
-    val panelOpenable: Boolean = false,
+    /** The downloads under the list: running, waiting, and finished ones not put away. */
+    val downloads: List<DownloadState> = emptyList(),
+    /** Where downloads go without asking now: a download into it has no offer to keep its folder. */
+    val defaultFolder: ReceiveFolder? = null,
+    /** Something on the device opens a download's folder. */
+    val canOpenFolder: (ReceiveFolder) -> Boolean = { false },
+    /** The panel's list starts unfolded: for the previews. */
+    val queueExpanded: Boolean = false,
     val snackbar: SnackbarHostState? = null,
     /** The link switch is on and the proxy is not there. */
     val linkDown: Boolean = false,
@@ -546,25 +548,25 @@ fun TaildriveBrowserPage(
         onPathGo = { pathEdit?.let { lookFor(it.text) } },
         onPathClose = { pathEdit = null },
         panel = DownloadPanelActions(
-            onCancel = TaildriveDownloads::cancel,
-            // The panel goes, and its Close with it: the remote goes back to the list.
-            onClose = { TaildriveDownloads.dismiss(it); refocus++ },
+            // The last download gone, the panel goes, and its buttons with it: the remote goes back to the list.
+            onCancel = { TaildriveDownloads.cancel(it); if (TaildriveDownloads.downloads.value.isEmpty()) refocus++ },
+            onClose = { TaildriveDownloads.dismiss(it); if (TaildriveDownloads.downloads.value.isEmpty()) refocus++ },
+            onClearFinished = { TaildriveDownloads.dismissFinished(); if (TaildriveDownloads.downloads.value.isEmpty()) refocus++ },
             onOpenFolder = { state -> TaildriveDownloadFolder.viewIntent(context, state.folder)?.let { context.tryStartActivity(it) } },
             onKeep = { state -> keepFolder(context, state); keptKey++ },
         ),
     )
-    val panel = panelOf(downloads)
-    // Read again whenever the panel's download moves on, or its folder was just kept: a preference, in memory.
-    val kept = panel?.let { remember(it.first.id, it.first.stage, keptKey) { isDefaultFolder(appContext, it.first) } } ?: false
-    // A file manager to open the folder in: none on a television.
-    val openable = panel?.let { remember(it.first.folder) { TaildriveDownloadFolder.viewIntent(context, it.first.folder) != null } } ?: false
+    // Read again whenever a download ends, or a folder was just kept: a preference, in memory.
+    val ends = downloads.count { !it.stage.active }
+    val defaultFolder = remember(ends, keptKey) { TaildriveDownloadFolder.target(appContext) }
     val extras = BrowserExtras(
         selection = selection,
         top = top,
         pathEdit = pathEdit,
-        panel = panel,
-        panelKept = kept,
-        panelOpenable = openable,
+        downloads = downloads,
+        defaultFolder = defaultFolder,
+        // A file manager to open the folder in: none on a television.
+        canOpenFolder = { folder -> TaildriveDownloadFolder.viewIntent(context, folder) != null },
         snackbar = snackbar,
         linkDown = viaLink && proxy != null && proxy != ProxyCondition.READY,
         refocus = refocus,
@@ -710,13 +712,13 @@ internal fun TaildriveBrowserContent(
             }
         },
         bottomBar = {
-            extras.panel?.let { (state, waiting) ->
-                DownloadPanel(
-                    state, waiting, extras.panelKept, actions.panel,
-                    Modifier.navigationBarsPadding().readableWidth().padding(horizontal = layout.margin, vertical = 8.dp),
-                    openable = extras.panelOpenable
-                )
-            }
+            DownloadPanel(
+                extras.downloads, actions.panel,
+                Modifier.navigationBarsPadding().readableWidth().padding(horizontal = layout.margin, vertical = 8.dp),
+                defaultFolder = extras.defaultFolder,
+                canOpen = extras.canOpenFolder,
+                startExpanded = extras.queueExpanded,
+            )
         },
         snackbarHost = { extras.snackbar?.let { SnackbarHost(it) } },
     ) { padding ->

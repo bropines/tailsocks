@@ -44,12 +44,6 @@
     <!-- A download as it runs and ends: the page's panel and the notification. -->
     <string name="taildrive_download_channel">Taildrive downloads</string>
     <string name="taildrive_download_to">Downloading to %1$s</string>
-    <string name="taildrive_download_file_of">File %1$d of %2$d</string>
-    <string name="taildrive_download_file_of_counting">File %1$d of %2$d so far</string>
-    <plurals name="taildrive_download_waiting">
-        <item quantity="one">%d more waiting</item>
-        <item quantity="other">%d more waiting</item>
-    </plurals>
     <plurals name="taildrive_download_saved">
         <item quantity="one">Saved %1$d file to %2$s</item>
         <item quantity="other">Saved %1$d files to %2$s</item>
