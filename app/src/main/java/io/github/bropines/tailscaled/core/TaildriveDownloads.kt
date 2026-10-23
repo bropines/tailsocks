@@ -38,8 +38,9 @@ import kotlinx.coroutines.launch
  * they say so, and what was saved stays.
  *
  * What is read. The file goes the way it goes to a player that opens it (TailsocksFileProvider):
- * HTTP byte ranges over the daemon's SOCKS5 port (RangedFile), a few megabytes at a time, or the
- * provider's plain stream when the server keeps to whole files. Nothing is held whole in memory,
+ * byte ranges through the bridge to the daemon's Taildrive socket (RangedFile, read ahead while the
+ * file is written), a few megabytes at a time, or the provider's plain stream when the server keeps
+ * to whole files. Nothing is held whole in memory,
  * and a read that fails is asked for again before the file is given up.
  *
  * Nothing here logs a name or an address of a file.

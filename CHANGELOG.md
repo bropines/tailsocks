@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- Taildrive downloads form a visible queue and fetch several files at once — Settings → Sharing & access → Parallel downloads (1–4, default 3).
+
 ### Changed
 
 - Taildrive in other apps (the Files provider): a file is read ahead while the app copies or plays it, and each open file has a thread of its own — copying in a file manager no longer waits on the network between pieces, and one slow file no longer holds up the rest.

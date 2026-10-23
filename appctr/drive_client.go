@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -34,6 +35,13 @@ const (
 	DriveFailCanceled = "canceled"  // DriveCall.Cancel
 	DriveFailIO       = "io"        // anything else; Detail says what kind
 )
+
+// driveIdle is how long a request may go without a byte — before its answer
+// begins, or between two pieces of a body — before it is given up as a
+// timeout. A connection that stalls (a burst of loss on Wi-Fi, a TCP backing
+// off) is cut and asked again, which revives it far sooner than waiting it
+// out; the old HTTP client's read timeout was the same.
+var driveIdle = 15 * time.Second
 
 // driveBodyCap bounds a body read whole: a listing of a large folder is a few
 // megabytes, an error page a line.
@@ -189,6 +197,8 @@ func answer(resp *http.Response, body []byte) *DriveResult {
 func (c *DriveCall) Range(path string, offset int64, length int, timeoutMs int) *DriveResult {
 	ctx, cancel := c.context(timeoutMs)
 	defer cancel()
+	idle := newIdleTimer(cancel)
+	defer idle.stop()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, driveURL(path), http.NoBody)
 	if err != nil {
 		return c.failure(err)
@@ -196,7 +206,7 @@ func (c *DriveCall) Range(path string, offset int64, length int, timeoutMs int) 
 	req.Header.Set("Range", "bytes="+strconv.FormatInt(offset, 10)+"-"+strconv.FormatInt(offset+int64(length)-1, 10))
 	resp, err := driveClient.Do(req)
 	if err != nil {
-		return c.failure(err)
+		return idle.failure(c, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusPartialContent {
@@ -211,14 +221,56 @@ func (c *DriveCall) Range(path string, offset int64, length int, timeoutMs int) 
 		want = int(last - first + 1)
 	}
 	buf := make([]byte, want)
-	if _, err := io.ReadFull(resp.Body, buf); err != nil {
-		r := c.failure(err)
+	if _, err := io.ReadFull(idle.reader(resp.Body), buf); err != nil {
+		r := idle.failure(c, err)
 		if r.Fail == DriveFailIO {
 			r.Detail = "short body"
 		}
 		return r
 	}
 	return answer(resp, buf)
+}
+
+// idleTimer cancels a request that goes driveIdle without a byte.
+type idleTimer struct {
+	t       *time.Timer
+	expired atomic.Bool
+}
+
+func newIdleTimer(cancel context.CancelFunc) *idleTimer {
+	it := &idleTimer{}
+	it.t = time.AfterFunc(driveIdle, func() {
+		it.expired.Store(true)
+		cancel()
+	})
+	return it
+}
+
+func (it *idleTimer) stop() { it.t.Stop() }
+
+// reader is r with every byte that arrives restarting the wait.
+func (it *idleTimer) reader(r io.Reader) io.Reader { return idleReader{r, it} }
+
+// failure is c.failure(err), a timeout when it was the idle wait that ran out.
+func (it *idleTimer) failure(c *DriveCall, err error) *DriveResult {
+	r := c.failure(err)
+	if it.expired.Load() && !c.isCanceled() {
+		r.Fail, r.Detail = DriveFailTimeout, ""
+	}
+	return r
+}
+
+type idleReader struct {
+	r  io.Reader
+	it *idleTimer
+}
+
+func (ir idleReader) Read(p []byte) (int, error) {
+	n, err := ir.r.Read(p)
+	if n > 0 {
+		ir.it.t.Reset(driveIdle)
+	}
+	return n, err
 }
 
 // parseContentRange is the first and last byte of "bytes first-last/total".
@@ -279,13 +331,18 @@ func (c *DriveCall) Open(path string, timeoutMs int) *DriveStream {
 	return &DriveStream{Result: answer(resp, nil), call: c, body: resp.Body, cancel: cancel}
 }
 
-// Read returns up to max bytes of the body; none at its end.
+// Read returns up to max bytes of the body; none at its end. A piece that does
+// not begin within driveIdle ends the stream as a timeout.
 func (s *DriveStream) Read(max int) ([]byte, error) {
 	if s.body == nil {
 		return nil, nil
 	}
 	buf := make([]byte, max)
+	idle := time.AfterFunc(driveIdle, s.cancel)
 	n, err := io.ReadAtLeast(s.body, buf, 1)
+	if !idle.Stop() && n == 0 {
+		return nil, errors.New("Taildrive: " + DriveFailTimeout)
+	}
 	if err == io.EOF {
 		return nil, nil
 	}

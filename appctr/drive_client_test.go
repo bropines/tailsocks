@@ -265,3 +265,53 @@ func TestDriveRangeCutShort(t *testing.T) {
 		t.Fatalf("a body cut short: %+v", r)
 	}
 }
+
+// A range that stops arriving is cut after driveIdle as a timeout, however
+// long its deadline: asked again, a stalled connection is replaced.
+func TestDriveRangeIdle(t *testing.T) {
+	old := driveIdle
+	driveIdle = 300 * time.Millisecond
+	defer func() { driveIdle = old }()
+	release := make(chan struct{})
+	defer close(release)
+	fakeDriveSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Range", "bytes 0-65535/100000")
+		w.Header().Set("Content-Length", "65536")
+		w.WriteHeader(206)
+		w.Write(make([]byte, 1000))
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	start := time.Now()
+	r := NewDriveCall().Range("/t/d/s/f.bin", 0, 65536, 60000)
+	if r.Fail != DriveFailTimeout {
+		t.Fatalf("a stalled body: %+v", r)
+	}
+	if d := time.Since(start); d > 5*time.Second {
+		t.Fatalf("gave up after %v, not the idle wait", d)
+	}
+}
+
+// A slow body that keeps arriving is not cut, however long it takes in all.
+func TestDriveRangeSlowButMoving(t *testing.T) {
+	old := driveIdle
+	driveIdle = 300 * time.Millisecond
+	defer func() { driveIdle = old }()
+	fakeDriveSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Range", "bytes 0-9999/10000")
+		w.Header().Set("Content-Length", "10000")
+		w.WriteHeader(206)
+		for i := 0; i < 10; i++ {
+			w.Write(make([]byte, 1000))
+			w.(http.Flusher).Flush()
+			time.Sleep(100 * time.Millisecond)
+		}
+	}))
+	r := NewDriveCall().Range("/t/d/s/f.bin", 0, 10000, 60000)
+	if r.Fail != "" || len(r.Body) != 10000 {
+		t.Fatalf("a slow body: fail %q, %d bytes", r.Fail, len(r.Body))
+	}
+}
