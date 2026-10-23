@@ -27,15 +27,8 @@ private const val TAG = "TaildriveDescriptor"
 
 @RequiresApi(26)
 object TaildriveDescriptor {
-    /**
-     * The one thread every open descriptor is read on: the platform delivers a read here
-     * and the reader waits here for the network. Started by the first descriptor.
-     */
-    private val handler: Handler by lazy {
-        val thread = HandlerThread("taildrive-fd")
-        thread.start()
-        Handler(thread.looper)
-    }
+    /** Names the descriptors' threads apart in a thread dump. */
+    private val threads = java.util.concurrent.atomic.AtomicInteger()
 
     /**
      * A read-only, seekable descriptor over the file [newUpstream] reaches, or null when there
@@ -69,24 +62,33 @@ object TaildriveDescriptor {
             return null
         }
         if (asked > 1) Log.i(TAG, "first block: the first answer was stale, asked again")
+        // A thread of its own: the platform delivers every read of the descriptor there, and the
+        // read waits there for the network. Shared by all of them, one app's slow file — or a
+        // file manager opening a folder's worth at once — held up every other.
+        val thread = HandlerThread("taildrive-fd-${threads.incrementAndGet()}")
+        thread.start()
         return try {
             val storage = context.getSystemService(StorageManager::class.java)
                 ?: throw IllegalStateException("no StorageManager")
-            storage.openProxyFileDescriptor(ParcelFileDescriptor.MODE_READ_ONLY, Callback(file), handler)
+            storage.openProxyFileDescriptor(ParcelFileDescriptor.MODE_READ_ONLY, Callback(file, thread), Handler(thread.looper))
         } catch (e: Exception) {
             Log.w(TAG, "no proxy descriptor: ${e.javaClass.simpleName}")
             file.close()
+            thread.quitSafely()
             null
         }
     }
 
-    private class Callback(private val file: RangedFile) : ProxyFileDescriptorCallback() {
+    private class Callback(private val file: RangedFile, private val thread: HandlerThread) : ProxyFileDescriptorCallback() {
         override fun onGetSize(): Long = orErrno("size") { file.size }
 
         override fun onRead(offset: Long, size: Int, data: ByteArray): Int =
             orErrno("read") { file.read(offset, data, 0, size.coerceIn(0, data.size)) }
 
-        override fun onRelease() = file.close()
+        override fun onRelease() {
+            file.close()
+            thread.quitSafely()
+        }
     }
 
     /** A failure as the errno the reading app gets from `read`. */

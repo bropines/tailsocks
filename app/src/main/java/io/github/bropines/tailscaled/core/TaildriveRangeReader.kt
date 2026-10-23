@@ -5,7 +5,10 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.math.max
@@ -20,7 +23,9 @@ import kotlin.math.min
  * A request costs a trip through the daemon and over the tailnet, and a
  * player probing a container asks for a few bytes here and a few there. So the file is cut
  * into fixed blocks, no request is smaller than a block, the blocks read last stay in
- * memory, and a read that continues the previous one asks for several blocks at once.
+ * memory, and a read that continues the previous one asks for several blocks at once. A
+ * file opened to be read through ([openRangedFile]) also fetches the blocks a reader that
+ * reads on will want next while it is still busy with the ones it has.
  *
  * Nothing here is told the file's name or address, and no message carries one.
  */
@@ -137,9 +142,10 @@ fun openRangedFile(
     newUpstream: () -> RangeUpstream,
     retryDelayMs: Long = STALE_RETRY_DELAY_MS,
     pause: (Long) -> Unit = { Thread.sleep(it) },
+    prefetcher: Executor? = RangedFile.PREFETCH,
 ): RangedFile? {
     try {
-        return RangedFile.open(newUpstream())
+        return RangedFile.open(newUpstream(), prefetcher = prefetcher)
     } catch (e: RangeException) {
         if (!isStaleStart(e)) throw e
     }
@@ -149,7 +155,7 @@ fun openRangedFile(
         Thread.currentThread().interrupt()
         throw RangeClosedException()
     }
-    return RangedFile.open(newUpstream())
+    return RangedFile.open(newUpstream(), prefetcher = prefetcher)
 }
 
 /**
@@ -258,12 +264,19 @@ fun rangeErrno(e: Throwable): RangeErrno = when (e) {
  *
  * One request runs at a time: a second reader waits for it and then looks in the cache
  * again, so no block is asked for twice while it is cached. [close] does not wait.
+ *
+ * With a [prefetcher], a read that reads on also starts, on the prefetcher, the request the
+ * next read would make — the blocks after the ones in memory, up to [maxReadAhead] beyond the
+ * one just read — so the network is busy while the reader copies, rather than after it. The
+ * reader that gets there first waits for that request as for any other. A seek starts
+ * nothing, and a prefetch that fails leaves the blocks to the read that wants them.
  */
 class RangedFile(
     private val upstream: RangeUpstream,
     private val blockSize: Int = BLOCK_SIZE,
     private val cacheBlocks: Int = CACHE_BLOCKS,
     private val maxReadAhead: Int = MAX_READ_AHEAD,
+    private val prefetcher: Executor? = null,
 ) : Closeable {
 
     init {
@@ -278,6 +291,9 @@ class RangedFile(
     private val fetchLock = ReentrantLock()
 
     private val closed = AtomicBoolean(false)
+
+    /** A prefetch is queued or running: there is never more than one. */
+    private val prefetching = AtomicBoolean(false)
 
     private val cache = object : LinkedHashMap<Long, ByteArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ByteArray>?): Boolean =
@@ -328,7 +344,39 @@ class RangedFile(
             System.arraycopy(block, from, buffer, bufferOffset + (position - offset).toInt(), count)
             position += count
         }
+        if (prefetcher != null) prefetchAfter(lastBlock, fileSize)
         return (end - offset).toInt()
+    }
+
+    /**
+     * After a read that ended in block [last]: when the reader is reading on — the block before
+     * it is in memory too, or it is the first — the first block after [last] that is not in
+     * memory, if it is no further than [maxReadAhead] blocks away, is loaded on the prefetcher.
+     */
+    private fun prefetchAfter(last: Long, fileSize: Long) {
+        val lastIndex = (fileSize - 1) / blockSize
+        val next = lock.withLock {
+            if (closed.get() || !cache.containsKey(last)) return
+            if (last > 0 && !cache.containsKey(last - 1)) return
+            var i = last + 1
+            while (i <= lastIndex && i <= last + maxReadAhead && cache.containsKey(i)) i++
+            if (i > lastIndex || i > last + maxReadAhead) return
+            i
+        }
+        if (!prefetching.compareAndSet(false, true)) return
+        try {
+            prefetcher!!.execute {
+                try {
+                    if (!closed.get()) load(next, next)
+                } catch (_: Exception) {
+                    // The read that wants these blocks asks again and is told what went wrong.
+                } finally {
+                    prefetching.set(false)
+                }
+            }
+        } catch (_: Exception) {
+            prefetching.set(false)
+        }
     }
 
     /** Drops the cache and aborts a request in flight; reads from now on throw [RangeClosedException]. */
@@ -430,6 +478,17 @@ class RangedFile(
         const val MAX_READ_AHEAD = 8
 
         /**
+         * Where every file opened to be read through runs its prefetches: threads made as they
+         * are needed and let go after a minute idle, which never keep the process alive.
+         */
+        val PREFETCH: Executor by lazy {
+            val number = AtomicInteger()
+            Executors.newCachedThreadPool { task ->
+                Thread(task, "taildrive-prefetch-${number.incrementAndGet()}").apply { isDaemon = true }
+            }
+        }
+
+        /**
          * [upstream] as a file whose first block is already here: that answer says how long
          * the file is and proves the server honours ranges. Null when it does not, or keeps
          * the length to itself; the caller then reads the file the plain way. Whenever no
@@ -441,8 +500,9 @@ class RangedFile(
             blockSize: Int = BLOCK_SIZE,
             cacheBlocks: Int = CACHE_BLOCKS,
             maxReadAhead: Int = MAX_READ_AHEAD,
+            prefetcher: Executor? = null,
         ): RangedFile? {
-            val file = RangedFile(upstream, blockSize, cacheBlocks, maxReadAhead)
+            val file = RangedFile(upstream, blockSize, cacheBlocks, maxReadAhead, prefetcher)
             try {
                 file.learnSize()
             } catch (e: RangeNotSupportedException) {
