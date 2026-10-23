@@ -2,9 +2,6 @@ package io.github.bropines.tailscaled.core
 
 import java.io.Closeable
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.SocketTimeoutException
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -17,8 +14,8 @@ import kotlin.math.min
 /*
  * A file on another device's Taildrive share, readable at any offset: what stands between
  * a descriptor a player seeks in (TaildriveDescriptor) and a server that answers HTTP byte
- * ranges (TaildriveClient.rangeUpstream). No android.* here, so all of it runs in a unit
- * test.
+ * ranges (TaildriveClient.rangeUpstream, BridgeRangeUpstream). No android.* here, so all of it
+ * runs in a unit test.
  *
  * A request costs a trip through the daemon and over the tailnet, and a
  * player probing a container asks for a few bytes here and a few there. So the file is cut
@@ -156,83 +153,6 @@ fun openRangedFile(
         throw RangeClosedException()
     }
     return RangedFile.open(newUpstream(), prefetcher = prefetcher)
-}
-
-/**
- * A server reached over HTTP: one GET with a `Range` header per fetch, on a connection
- * that [connect] opens to the file, through whatever proxy leads there, and has not sent
- * yet.
- *
- * The URL names somebody's file and the platform's messages name hosts and ports, so what
- * is thrown from here carries an HTTP status or the class of the failure, never its
- * message and never its cause.
- */
-class HttpRangeUpstream(
-    private val connectTimeoutMs: Int = 15000,
-    private val readTimeoutMs: Int = 15000,
-    private val connect: () -> HttpURLConnection,
-) : RangeUpstream {
-    private val inFlight = ConcurrentHashMap.newKeySet<HttpURLConnection>()
-
-    @Volatile
-    private var closed = false
-
-    override fun fetch(offset: Long, length: Int): RangeChunk {
-        var conn: HttpURLConnection? = null
-        try {
-            if (closed) throw RangeClosedException()
-            conn = connect()
-            inFlight.add(conn)
-            // close() may have looked through inFlight just before this connection was in it.
-            if (closed) throw RangeClosedException()
-            conn.setRequestProperty("Range", "bytes=$offset-${offset + length - 1}")
-            // Left alone, Android asks for gzip and inflates the answer itself; a range of
-            // a compressed stream is not a range of the file.
-            conn.setRequestProperty("Accept-Encoding", "identity")
-            conn.connectTimeout = connectTimeoutMs
-            conn.readTimeout = readTimeoutMs
-            val status = conn.responseCode
-            if (closed) throw RangeClosedException()
-            if (status != 206) {
-                // Go's file server answers a range of an empty file with 200 and no body:
-                // that is the whole file, not a server without ranges.
-                if (status == 200 && conn.getHeaderField("Content-Length")?.trim() == "0") {
-                    return RangeChunk(ByteArray(0), 0)
-                }
-                throw rangeFailure(status, conn.getHeaderField("Content-Range"))
-            }
-            val range = ContentRange.parse(conn.getHeaderField("Content-Range"))
-            // A 206 for another range, or for one it does not name: not a server to seek on.
-            if (range == null || range.first != offset) throw RangeNotSupportedException()
-            val bytes = ByteArray(min(length.toLong(), range.last - range.first + 1).toInt())
-            conn.inputStream.use { input ->
-                var done = 0
-                while (done < bytes.size) {
-                    val n = input.read(bytes, done, bytes.size - done)
-                    if (n < 0) throw RangeIoException("short body")
-                    done += n
-                }
-            }
-            return RangeChunk(bytes, range.total)
-        } catch (e: RangeException) {
-            throw e
-        } catch (e: Exception) {
-            if (closed) throw RangeClosedException()
-            throw if (e is SocketTimeoutException) RangeTimeoutException() else RangeIoException(e.javaClass.simpleName)
-        } finally {
-            if (conn != null) {
-                inFlight.remove(conn)
-                // After a body read to its end this leaves the socket to the platform's pool.
-                conn.disconnect()
-            }
-        }
-    }
-
-    /** Disconnecting is what makes a fetch that waits on its socket throw. */
-    override fun close() {
-        closed = true
-        inFlight.forEach { it.disconnect() }
-    }
 }
 
 /** The errno a failed read becomes; [TaildriveDescriptor] supplies the platform's numbers. */

@@ -2,13 +2,11 @@
 <!--
     Cleartext is denied everywhere except one destination.
 
-    Allowed: 100.100.100.100 - the tailnet service address. TaildriveClient
-    (core/TailsocksFileProvider.kt, getUrl) speaks WebDAV to
-    http://100.100.100.100:8080, using the bridge's loopback endpoint as an
-    HTTP proxy (core/TaildriveLocal.kt; the daemon's SOCKS5 port without it).
-    The request never leaves the device in the clear: the bridge hands it to
-    the daemon over a unix socket, and on to a device inside the WireGuard
-    tunnel.
+    Allowed: 100.100.100.100 - the tailnet service address. Nothing in the
+    JVM speaks to it any more: TaildriveClient (core/TailsocksFileProvider.kt)
+    calls into the bridge, which makes the WebDAV request over the daemon's
+    Taildrive socket (core/TaildriveBridge.kt, appctr/drive_client.go). The
+    entry stays for a build that still has the old client; it costs nothing.
 
     Not listed, on purpose:
       * 127.0.0.1 / localhost - no JVM code in this app makes an http:// request

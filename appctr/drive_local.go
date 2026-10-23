@@ -2,43 +2,28 @@ package appctr
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"sync"
 	"time"
 )
 
 /*
- * How the app reaches the tailnet's Taildrive shares, without the SOCKS5 port.
+ * How the bridge reaches the tailnet's Taildrive shares, without the SOCKS5 port.
  *
  * The daemon serves what answers at 100.100.100.100:8080 on a unix socket
  * beside its own (patch 26, cmd/tailscaled/android_drive.go). Everything here
- * that talks Taildrive dials that socket: the WebDAV proxy other apps use, and
- * the loopback endpoint the app's own client (TaildriveClient in Kotlin) uses
- * as an HTTP proxy. A daemon without the socket — one from before it, still
- * running across an update — is reached the old way, through SOCKS5.
+ * that talks Taildrive dials that socket: the app's own client — calls into
+ * the bridge, drive_client.go — and the WebDAV proxy other apps use. A daemon
+ * without the socket — one from before it, still running across an update —
+ * is reached the old way, through SOCKS5.
  */
 
 // DriveSocketName must equal driveSocketName in patch 26.
 const DriveSocketName = "drive.sock"
-
-// DriveLocalHeader carries the endpoint's token. Without it the endpoint
-// refuses: any app on the device can connect to a loopback port.
-const DriveLocalHeader = "X-TailSocks-Drive"
-
-// DriveErrorHeader, set to DriveErrorNoDaemon, marks an answer that did not
-// come from the daemon because there was none to reach.
-const (
-	DriveErrorHeader   = "X-TailSocks-Drive-Error"
-	DriveErrorNoDaemon = "no-daemon"
-)
 
 // driveTarget is where the requests go, as the daemon names its Taildrive.
 var driveTarget = &url.URL{Scheme: "http", Host: "100.100.100.100:8080"}
@@ -69,10 +54,19 @@ func newDriveTransport() *http.Transport {
 		DialContext:         driveDial,
 		MaxIdleConnsPerHost: 16,
 		IdleConnTimeout:     90 * time.Second,
+		// A reply that has not begun in this long is not coming; a body, once
+		// it flows, takes what it takes.
+		ResponseHeaderTimeout: 60 * time.Second,
 		// The daemon's WebDAV is plain HTTP/1.1 on a local socket; a body is a
 		// file, and compressing it would only cost.
 		DisableCompression: true,
 	}
+}
+
+// isNoDaemon reports whether err is the failure to reach the daemon at all.
+func isNoDaemon(err error) bool {
+	var op *net.OpError
+	return errors.As(err, &op) && op.Op == "dial"
 }
 
 // newDriveReverseProxy forwards to the daemon's Taildrive over transport,
@@ -80,12 +74,10 @@ func newDriveTransport() *http.Transport {
 func newDriveReverseProxy(transport http.RoundTripper) *httputil.ReverseProxy {
 	rp := httputil.NewSingleHostReverseProxy(driveTarget)
 	rp.Transport = transport
-	// No daemon to dial is told apart from the daemon's own 502 for a device
-	// whose file server is gone: the app shows "not connected" for it.
+	// No daemon to reach is a 503, told apart from the 502 a daemon gives for
+	// a device whose file server is gone.
 	rp.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		var op *net.OpError
-		if errors.As(err, &op) && op.Op == "dial" {
-			w.Header().Set(DriveErrorHeader, DriveErrorNoDaemon)
+		if isNoDaemon(err) {
 			http.Error(w, "Taildrive: no daemon", http.StatusServiceUnavailable)
 			return
 		}
@@ -107,62 +99,4 @@ func newDriveReverseProxy(transport http.RoundTripper) *httputil.ReverseProxy {
 		}
 	}
 	return rp
-}
-
-var driveLocal struct {
-	mu        sync.Mutex
-	addr      string
-	token     string
-	transport *http.Transport
-}
-
-// DriveLocalAddr is the loopback endpoint the app's own Taildrive client uses
-// as an HTTP proxy, host:port; started on the first call and kept for the
-// life of the process. Empty when it could not start: the client then goes
-// through SOCKS5 as before.
-func DriveLocalAddr() string {
-	driveLocal.mu.Lock()
-	defer driveLocal.mu.Unlock()
-	if driveLocal.addr != "" {
-		return driveLocal.addr
-	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		slog.Error("Taildrive: no local endpoint", "error", err)
-		return ""
-	}
-	var b [24]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		ln.Close()
-		return ""
-	}
-	token := hex.EncodeToString(b[:])
-	transport := newDriveTransport()
-	rp := newDriveReverseProxy(transport)
-	srv := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			if subtle.ConstantTimeCompare([]byte(req.Header.Get(DriveLocalHeader)), []byte(token)) != 1 {
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				return
-			}
-			req.Header.Del(DriveLocalHeader)
-			req.Header.Del("Proxy-Connection")
-			rp.ServeHTTP(w, req)
-		}),
-		ReadHeaderTimeout: 30 * time.Second,
-	}
-	go srv.Serve(ln)
-	driveLocal.addr = ln.Addr().String()
-	driveLocal.token = token
-	driveLocal.transport = transport
-	slog.Info("Taildrive: local endpoint started")
-	return driveLocal.addr
-}
-
-// DriveLocalToken is the value of DriveLocalHeader the endpoint wants; empty
-// before DriveLocalAddr has started it.
-func DriveLocalToken() string {
-	driveLocal.mu.Lock()
-	defer driveLocal.mu.Unlock()
-	return driveLocal.token
 }

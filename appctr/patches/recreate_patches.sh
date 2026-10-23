@@ -232,8 +232,8 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # Taildrive for the app without the SOCKS5 port: the daemon serves what
 # answers at 100.100.100.100:8080 on drive.sock beside its own socket, to its
 # own UID and the app's (the owner of that directory; in Root Mode the daemon
-# is root). The bridge's WebDAV proxy and the app's client dial it
-# (appctr/drive_local.go). The call that starts it travels in 19.
+# is root). The app's client (calls into the bridge, appctr/drive_client.go)
+# and the bridge's WebDAV proxy dial it. The call that starts it travels in 19.
 {
     diff -N -u /dev/null tailscale_src/wgengine/netstack/taildrive_local.go || true
     diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_drive.go || true

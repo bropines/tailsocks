@@ -29,12 +29,7 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.InputStream
 import java.io.OutputStream
-import java.net.HttpURLConnection
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.net.URL
 import java.net.URLDecoder
-import java.net.URLEncoder
 import java.util.Locale
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -471,23 +466,22 @@ class TailsocksFileProvider : DocumentsProvider() {
         
         scope.launch {
             var input: ParcelFileDescriptor.AutoCloseInputStream? = null
-            var output: java.io.OutputStream? = null
+            var output: BridgeOutputStream? = null
             try {
                 output = client.getUploadStream(path)
                 input = ParcelFileDescriptor.AutoCloseInputStream(readFd)
-                input.use { inStream ->
-                    output.use { outStream ->
-                        inStream.copyTo(outStream)
-                    }
-                }
+                input.copyTo(output)
+                // Ends the body and waits for the answer: a refusal is thrown here.
+                output.close()
             } catch (e: Exception) {
                 android.util.Log.e("Taildrive", "Error writing file to WebDAV: ${e.javaClass.simpleName}")
+                // A copy that failed half way must not finish as a shorter file.
+                output?.abort()
                 try {
                     readFd.closeWithError("Write error")
                 } catch (ex: Exception) {}
             } finally {
                 try { input?.close() } catch (e: Exception) {}
-                try { output?.close() } catch (e: Exception) {}
             }
         }
         return writeFd
@@ -750,106 +744,29 @@ data class WebDavFile(
 class WebDavHttpException(method: String, val code: Int, val body: String) :
     Exception("WebDAV $method failed: HTTP $code" + if (body.isNotEmpty()) " ($body)" else "")
 
-class TaildriveClient(private val context: Context, private val accountId: String) {
-    private fun getSocksProxy(): Proxy? {
-        val socksAddr = GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")
-        if (socksAddr.isBlank()) return null
-        val host = NetAddr.dialableHost(socksAddr)
-        val port = NetAddr.port(socksAddr) ?: return null
+/**
+ * The app's Taildrive client: the share browser, the downloads and this provider. Every request
+ * is a call into the bridge, which makes it over the daemon's Taildrive socket (TaildriveBridge.kt,
+ * appctr/drive_client.go) — no SOCKS5 port, no proxy, no HTTP spoken here. Paths are plain, not
+ * percent-encoded: the bridge escapes them.
+ */
+class TaildriveClient internal constructor(private val calls: DriveCalls) {
+    /** The daemon serves the profile it runs; [context] and [accountId] name where the request came from. */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(context: Context, accountId: String) : this(GoDriveCalls)
 
-        val user = GlobalSettings.getString(context, "socks5_user", "")
-        val pass = GlobalSettings.getString(context, "socks5_pass", "")
-        if (user.isNotEmpty() || pass.isNotEmpty()) {
-            // Scoped to this proxy endpoint only. An unscoped default Authenticator
-            // handed the SOCKS credentials to any host in the process that returned
-            // a 401/407 — the admin API, DoH, the GitHub update check.
-            //
-            // The scope must be the SOCKS5 protocol plus host/port, NOT
-            // RequestorType.PROXY: java.net.SocksSocketImpl asks through the
-            // overload without a RequestorType, which always reports SERVER, so a
-            // PROXY check refused every SOCKS request and the Files app saw
-            // "SOCKS : authentication failed" whenever the proxy had a password.
-            java.net.Authenticator.setDefault(object : java.net.Authenticator() {
-                override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
-                    if (!requestingProtocol.equals("SOCKS5", ignoreCase = true)) return null
-                    val site = requestingSite?.hostAddress
-                    if ((requestingHost != host && site != host) || requestingPort != port) return null
-                    return java.net.PasswordAuthentication(user, pass.toCharArray())
-                }
-            })
-        }
+    private fun slashed(path: String) = if (path.startsWith("/")) path else "/$path"
 
-        return Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
-    }
-
-    /**
-     * A connection to [path] on the daemon's Taildrive, not yet sent: through the bridge's
-     * loopback endpoint ([TaildriveLocal]), or through the SOCKS5 port where there is none.
-     */
-    private fun open(path: String): HttpURLConnection {
-        TaildriveLocal.endpoint()?.let { local ->
-            val conn = getUrl(path).openConnection(local.proxy) as HttpURLConnection
-            conn.setRequestProperty(TaildriveLocal.HEADER, local.token)
-            return conn
-        }
-        val proxy = getSocksProxy() ?: throw Exception("SOCKS5 proxy is not running")
-        return getUrl(path).openConnection(proxy) as HttpURLConnection
-    }
-
-    /**
-     * The only cleartext destination the app itself talks to; it is the single
-     * exception in res/xml/network_security_config.xml. Changing the host here
-     * without changing that file makes every request fail with
-     * "Cleartext HTTP traffic ... not permitted".
-     */
-    private fun getUrl(path: String): URL {
-        val cleanPath = if (path.startsWith("/")) path else "/$path"
-        val encodedPath = cleanPath.split("/").joinToString("/") { 
-            try { URLEncoder.encode(it, "UTF-8").replace("+", "%20") } catch (e: Exception) { it }
-        }
-        return URL("http://100.100.100.100:8080$encodedPath")
-    }
-
-    private fun setRequestMethod(conn: HttpURLConnection, method: String) {
-        try {
-            conn.requestMethod = method
-        } catch (e: Exception) {
-            try {
-                var targetClass: Class<*> = conn.javaClass
-                while (targetClass != Any::class.java) {
-                    try {
-                        val field = targetClass.getDeclaredField("method")
-                        field.isAccessible = true
-                        field.set(conn, method)
-                        return
-                    } catch (ex: NoSuchFieldException) {
-                        targetClass = targetClass.superclass ?: break
-                    }
-                }
-                val field = HttpURLConnection::class.java.getDeclaredField("method")
-                field.isAccessible = true
-                field.set(conn, method)
-            } catch (ex: Exception) {
-                throw e
-            }
-        }
-    }
+    /** One request with no body; throws what the app makes of a failure, returns any answer. */
+    private fun request(method: String, path: String, depth: String = "", destination: String = "", timeoutMs: Int = REQUEST_TIMEOUT_MS): DriveAnswer =
+        calls.newCall().request(method, slashed(path), depth, destination, timeoutMs).also { it.throwIfFailed() }
 
     fun list(path: String): List<WebDavFile> {
-        val conn = open(path)
-        try {
-            setRequestMethod(conn, "PROPFIND")
-            conn.setRequestProperty("Depth", "1")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            val code = TaildriveLocal.status(conn)
-            if (code != 207 && code != 200) {
-                throw WebDavHttpException("PROPFIND", code, errorBodyLine(conn))
-            }
-            return conn.inputStream.use { parsePropFindXml(it) }
-        } finally {
-            conn.disconnect()
+        val answer = request("PROPFIND", path, depth = "1", timeoutMs = LIST_TIMEOUT_MS)
+        if (answer.status != 207 && answer.status != 200) {
+            throw WebDavHttpException("PROPFIND", answer.status, answer.firstLine())
         }
+        return parsePropFindXml(answer.body.inputStream())
     }
 
     /**
@@ -857,117 +774,54 @@ class TaildriveClient(private val context: Context, private val accountId: Strin
      * node answers from its own share table, OPTIONS is forwarded to the node's file
      * server, so 200 means the share's contents are actually reachable.
      */
-    fun probe(path: String): Int {
-        val conn = open(path)
-        try {
-            setRequestMethod(conn, "OPTIONS")
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            return TaildriveLocal.status(conn)
-        } finally {
-            conn.disconnect()
-        }
-    }
-
-    /** The first line of an error response, for the log and the reason shown to the user. */
-    private fun errorBodyLine(conn: HttpURLConnection): String = try {
-        conn.errorStream?.bufferedReader()?.use { it.readText() }
-            ?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim()?.take(200) ?: ""
-    } catch (e: Exception) { "" }
+    fun probe(path: String): Int = request("OPTIONS", path, timeoutMs = PROBE_TIMEOUT_MS).status
 
     fun delete(path: String) {
-        val conn = open(path)
-        try {
-            setRequestMethod(conn, "DELETE")
-            conn.connectTimeout = 10000
-            val code = TaildriveLocal.status(conn)
-            if (code != 200 && code != 204) {
-                throw Exception("WebDAV DELETE failed: HTTP $code")
-            }
-        } finally {
-            conn.disconnect()
-        }
+        val code = request("DELETE", path).status
+        if (code != 200 && code != 204) throw Exception("WebDAV DELETE failed: HTTP $code")
     }
 
     fun createFolder(path: String) {
-        val conn = open(path)
-        try {
-            setRequestMethod(conn, "MKCOL")
-            conn.connectTimeout = 10000
-            val code = TaildriveLocal.status(conn)
-            if (code != 201) {
-                throw Exception("WebDAV MKCOL failed: HTTP $code")
-            }
-        } finally {
-            conn.disconnect()
-        }
+        val code = request("MKCOL", path).status
+        if (code != 201) throw Exception("WebDAV MKCOL failed: HTTP $code")
     }
 
     fun createEmptyFile(path: String) {
-        val conn = open(path)
-        try {
-            setRequestMethod(conn, "PUT")
-            conn.doOutput = true
-            conn.connectTimeout = 10000
-            conn.outputStream.close()
-            val code = TaildriveLocal.status(conn)
-            if (code != 201 && code != 200 && code != 204) {
-                throw Exception("WebDAV PUT empty failed: HTTP $code")
-            }
-        } finally {
-            conn.disconnect()
-        }
+        val code = request("PUT", path).status
+        if (code != 201 && code != 200 && code != 204) throw Exception("WebDAV PUT empty failed: HTTP $code")
     }
 
     fun move(fromPath: String, toPath: String) {
-        val conn = open(fromPath)
-        try {
-            setRequestMethod(conn, "MOVE")
-            val targetUrl = getUrl(toPath)
-            conn.setRequestProperty("Destination", targetUrl.toString())
-            conn.connectTimeout = 10000
-            val code = TaildriveLocal.status(conn)
-            if (code != 201 && code != 204 && code != 200) {
-                throw Exception("WebDAV MOVE failed: HTTP $code")
-            }
-        } finally {
-            conn.disconnect()
-        }
+        val code = request("MOVE", fromPath, destination = slashed(toPath)).status
+        if (code != 201 && code != 204 && code != 200) throw Exception("WebDAV MOVE failed: HTTP $code")
     }
 
+    /** The whole file from its start, for a server that keeps to whole files. */
     fun getDownloadStream(path: String): InputStream {
-        val conn = open(path)
-        setRequestMethod(conn, "GET")
-        conn.connectTimeout = 15000
-        conn.readTimeout = 15000
-        val code = TaildriveLocal.status(conn)
-        if (code != 200) {
-            conn.disconnect()
-            throw Exception("WebDAV GET failed: HTTP $code")
+        val stream = calls.newCall().open(slashed(path), REQUEST_TIMEOUT_MS)
+        try {
+            stream.answer.throwIfFailed()
+            if (stream.answer.status != 200) throw Exception("WebDAV GET failed: HTTP ${stream.answer.status}")
+        } catch (e: Exception) {
+            stream.close()
+            throw e
         }
-        return conn.inputStream
+        return BridgeInputStream(stream)
     }
 
     /**
      * The file at [path] a range at a time, for a descriptor a player can seek in
-     * ([TaildriveDescriptor]): the same GET the same way as [getDownloadStream],
-     * with a `Range` header. [HttpRangeUpstream] sends it and sorts the answers.
+     * ([TaildriveDescriptor]) and for the downloads ([RangedFile]).
      */
-    fun rangeUpstream(path: String): RangeUpstream = HttpRangeUpstream {
-        try {
-            open(path)
-        } catch (e: Exception) {
-            throw RangeIoException("no way to the daemon")
-        }
-    }
+    fun rangeUpstream(path: String): RangeUpstream = BridgeRangeUpstream(calls, slashed(path))
 
-    fun getUploadStream(path: String): OutputStream {
-        val conn = open(path)
-        setRequestMethod(conn, "PUT")
-        conn.doOutput = true
-        conn.setChunkedStreamingMode(4096)
-        conn.connectTimeout = 15000
-        return conn.outputStream
+    /** A PUT of [path]: what is written is the file; closing waits for the answer and throws a refusal. */
+    fun getUploadStream(path: String): BridgeOutputStream = BridgeOutputStream(calls.newCall().upload(slashed(path)))
+
+    private companion object {
+        const val REQUEST_TIMEOUT_MS = 15_000
+        const val LIST_TIMEOUT_MS = 15_000
+        const val PROBE_TIMEOUT_MS = 10_000
     }
 }
 

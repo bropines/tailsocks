@@ -30,7 +30,7 @@ import org.xmlpull.v1.XmlPullParserException
  * tailnet, what is inside a share, and how to hand a file to another app.
  *
  * Listing goes through TaildriveClient, as the DocumentsProvider does: PROPFIND to
- * 100.100.100.100:8080, through the bridge to the daemon's Taildrive socket (TaildriveLocal).
+ * the daemon's Taildrive, a call into the bridge that makes it over the daemon's socket.
  * Opening a file by link goes through the local WebDAV proxy (Settings -> Taildrive), because
  * an external player can reach neither, and 100.100.100.100:8080 means nothing in userspace mode.
  *
@@ -357,8 +357,7 @@ sealed interface DriveError {
         fun from(t: Throwable, depth: Int = DEVICE_DEPTH): DriveError = when (t) {
             is WebDavHttpException -> fromHttp(t.code, depth)
             is SocketTimeoutException -> Timeout
-            // What the client connects to itself is the bridge's endpoint, or the daemon's SOCKS5
-            // port without it; either refusing means there is no daemon (TaildriveLocal.status).
+            // The bridge had no daemon to reach (DriveAnswer.throwIfFailed).
             is ConnectException -> NotConnected
             is UnknownHostException, is NoRouteToHostException -> deviceOrDaemon(depth)
             // The SOCKS5 server's own refusal: "SOCKS: Host unreachable", "SOCKS server general failure".
