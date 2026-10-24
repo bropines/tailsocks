@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [5.3.0] - 2026-10-24
 
 ### Added
 
@@ -10,14 +10,14 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
-- Taildrive in other apps: a file opens as a stream by default and copies at full speed; Settings → Sharing & access → Seeking in other apps brings back the seekable file for players (on by default on a television). TailSocks's own browser sends films and music by the Taildrive proxy's link while seeking is off and the proxy is on.
-- Taildrive in other apps (the Files provider): a file is read ahead while the app copies or plays it, and each open file has a thread of its own — copying in a file manager no longer waits on the network between pieces, and one slow file no longer holds up the rest.
-- Taildrive no longer depends on the SOCKS5 port: the app and its WebDAV proxy reach the daemon's Taildrive through a socket of its own, so it works whatever the port's address, password or mode.
+- Taildrive in other apps: a file opens as a stream and copies at full speed, with TailSocks in the background too. Settings → Sharing & access → Seeking in other apps brings back the seekable file for players (on by default on a TV); meanwhile TailSocks's own browser sends films and music by the Taildrive proxy's link.
+- Taildrive no longer depends on the SOCKS5 port: the app and its WebDAV proxy reach the daemon through a socket of its own, whatever the port's address, password or mode.
+- Taildrive reads: the next part of a file is fetched while the current one is written or played, and a transfer that stalls is cut after 15 s without a byte and asked again.
 
 ### Fixed
 
-- Taildrive: a folder removed from Taildrive stops being listed to other devices — it stayed there with its contents answering 404 — and a folder named with a capital letter is no longer taken away and put back each time the shares are applied.
-- Native TUN engine: Taildrive works again — the app's browser, downloads, the Files provider and the WebDAV proxy timed out, and so did anything that reached 100.100.100.100 (MagicDNS, Taildrive) through the SOCKS5 port.
+- Native TUN engine: Taildrive works again — the browser, downloads, the Files provider and the WebDAV proxy timed out, as did anything that reached 100.100.100.100 through the SOCKS5 port.
+- Taildrive: a folder removed from the shares stops being listed to other devices (it stayed, its contents answering 404), and a share named with a capital letter is no longer dropped and re-added on every apply.
 
 ## [5.2.0] - 2026-10-22
 
