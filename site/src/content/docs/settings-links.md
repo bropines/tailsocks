@@ -166,6 +166,8 @@ Every page and every row, as the app names them. A note under a row says when it
 |---|---|
 | Taildrop Storage Folder | `tailsocks://settings/sharing/taildrop_folder` |
 | Taildrive downloads | `tailsocks://settings/sharing/taildrive_download_folder` |
+| Parallel downloads | `tailsocks://settings/sharing/taildrive_parallel` |
+| Seeking in other apps | `tailsocks://settings/sharing/taildrive_seek` |
 | Taildrive Shares | `tailsocks://settings/sharing/taildrive` |
 | Serve & Funnel<br><small>On a TV: under Advanced</small> | `tailsocks://settings/sharing/serve` |
 | Enable Web UI | `tailsocks://settings/sharing/web_ui` |

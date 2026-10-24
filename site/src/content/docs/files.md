@@ -29,7 +29,7 @@ Shares folders of this device with your tailnet, over WebDAV, and opens the fold
 ### Sharing a folder
 
 1. Files → TailDrive. **Enable Taildrive** is on by default, with the Download folder shared as `Downloads`.
-2. **Add Share** (+): **System Folder Picker** or **Enter Path Manually**. A **Share Name** takes letters, digits and `_`.
+2. **Add Share** (+): **System Folder Picker** or **Enter Path Manually**. A **Share Name** takes letters, digits, `_`, spaces and brackets; other devices see it in lower case.
 3. **Share Full Storage** shares all of it at once.
 
 Who may read and who may write is set by the tailnet policy, not in the app.
@@ -38,14 +38,18 @@ Who may read and who may write is set by the tailnet policy, not in the app.
 
 **Browse other devices' shares** (the devices icon on top) lists tailnets, devices, their shares and folders. Tap a file and it opens in whatever on the device opens that kind of file — a video or a song in a player, a PDF, a photo or a document in its own app. When nothing takes it, the app says so and can show the file's address.
 
-- A player can seek in a video or a song without downloading it first (Android 8 and newer).
-- **Open files through a link** hands the player an `http://127.0.0.1:…` address on the Taildrive proxy instead.
+- With the Taildrive proxy on, films and music go to the player by its `http://127.0.0.1:…` link, and the player seeks in them without downloading them first. **Open files through a link** sends every file that way.
+- Other apps see the same folders in the system Files app, under *Taildrive*. They get a file as a stream and copy it at full speed, with TailSocks in the background too. **Seeking in other apps** (Settings → Sharing & access) gives them a file a player can seek in instead (Android 8 and newer), slower to copy; on a TV it is on by default.
 
-Other apps see the same folders in the system Files app, under *Taildrive*.
+### Downloading
+
+Tap ↓ on a file, or select files and folders with a long press and tap **Download**. A folder downloads with everything inside; the app says how much before it starts.
+
+Downloads form a queue under the list: one line and one bar for the whole, and — unfolded — a row for each download with its own ×, then **Clear finished** and **Cancel all**. Up to three files download at once; **Parallel downloads** (Settings → Sharing & access) sets one to four. Where they go is asked the first time, or set under **Taildrive downloads**.
 
 ### The Taildrive proxy
 
-**Enable TailDrive Proxy** serves the tailnet's shares — the folders **Browse** shows — at `http://127.0.0.1:33445` (**WebDAV URL (Tap to Copy)**), for a file manager or a player that speaks WebDAV.
+**Enable TailDrive Proxy** serves the tailnet's shares — the folders **Browse** shows — at `http://127.0.0.1:33445` (**WebDAV URL (Tap to Copy)**), for a file manager or a player that speaks WebDAV. A file manager with a WebDAV client of its own copies fastest this way.
 
 **Allow from the local network** opens it to your Wi-Fi. **Require Authentication** is forced on with it, and a password is made if there is none. The **WebDAV address** is then shown with a QR code.
 

@@ -166,6 +166,8 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 |---|---|
 | Папка для Taildrop | `tailsocks://settings/sharing/taildrop_folder` |
 | Загрузки Taildrive | `tailsocks://settings/sharing/taildrive_download_folder` |
+| Параллельные загрузки | `tailsocks://settings/sharing/taildrive_parallel` |
+| Перемотка в других приложениях | `tailsocks://settings/sharing/taildrive_seek` |
 | Общие папки Taildrive | `tailsocks://settings/sharing/taildrive` |
 | Serve & Funnel<br><small>На телевизоре: Дополнительно</small> | `tailsocks://settings/sharing/serve` |
 | Включить Веб-интерфейс | `tailsocks://settings/sharing/web_ui` |
