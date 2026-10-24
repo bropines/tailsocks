@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The copy of the console's lists kept on the phone, shown while the server is asked again. -->
+    <string name="admin_cache_note_loading">%1$s에서 복사본 저장됨 · 새로고침 중…</string>
+    <string name="admin_cache_note_failed">%1$s에서 복사본 저장됨 · 새로고침 실패</string>
+    <string name="admin_cache_wait">아직 저장된 복사본을 새로고침 중입니다. 목록이 업데이트된 뒤 다시 시도해주세요.</string>
+    <string name="admin_cache_stale">이는 저장된 복사본이며, 새로고침에 실패했습니다. 아래로 당겨 다시 시도하세요.</string>
+</resources>

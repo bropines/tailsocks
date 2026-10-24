@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network diagnostics. Kept apart from strings.xml so work on this screen does
+     not collide with edits there; Android merges every file in values/. --><resources>
+    </resources>

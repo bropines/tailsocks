@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Taildrive proxy's "Allow from the local network" switch and what comes with it
+     (core/TaildriveLan.kt, ui/TaildriveLanParts.kt, the address card of ui/TaildriveParts.kt).
+     Kept apart from strings.xml; Android merges every file under values/. --><resources>
+    </resources>

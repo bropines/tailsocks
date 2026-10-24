@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  How each peer is reached right now: directly, through a peer relay (another
+  node of the tailnet), or through one of Tailscale's DERP relays. Shared by
+  the Peers list, a peer's details and the large window's device rows; the
+  older words they also use live in strings.xml and strings_states.xml.
+--><resources>
+    </resources>

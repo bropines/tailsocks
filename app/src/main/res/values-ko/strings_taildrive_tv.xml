@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive on a television and the way into the other devices' shares (ui/TaildriveActivity.kt,
+     ui/TaildriveParts.kt). Kept apart from strings.xml; Android merges every file under values/. --><resources>
+    </resources>

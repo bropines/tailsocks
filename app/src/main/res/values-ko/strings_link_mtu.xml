@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The link MTU finding on the network check. Kept apart from strings.xml so work
+     on it does not collide with edits there; Android merges every file in values/. --><resources>
+    </resources>

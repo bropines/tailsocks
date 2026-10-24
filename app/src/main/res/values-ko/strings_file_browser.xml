@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The in-app file browser (ui/FileBrowser.kt), which picks files and folders where the system
+  has no picker. A file of its own so it lands without touching strings.xml; Android merges
+  every values/*.xml into one table. The caller may pass its own title and confirm label.
+--><resources>
+    </resources>

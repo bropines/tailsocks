@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Remote management, the managing device's page (ui/RemoteManage*.kt): another device's
+  TailSocks run from this one. A file of its own; the pairing form and the problems of the
+  first version are in strings_remote.xml. "This device" is the one in hand, which may be a
+  phone, a tablet or a television: nothing here says "phone" or "tap".
+--><resources>
+    </resources>

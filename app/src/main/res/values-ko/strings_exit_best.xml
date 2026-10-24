@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The "best exit node" entry of the exit-node pickers: the node tailscaled
+  recommends (LocalAPI suggest-exit-node), applied once. A file of its own so
+  it lands without touching strings.xml.
+--><resources>
+    </resources>

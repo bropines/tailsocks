@@ -1,3 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    </resources>
+    <string name="tailcat_address">伺服器地址</string>
+    <string name="tailcat_show_address">顯示地址</string>
+    <string name="tailcat_hide_address">隱藏地址</string>
+    <string name="tailcat_copy_local">複製本地地址</string>
+    <string name="tailcat_err_address">非 tailcat 地址</string>
+    <string name="tailcat_server_create">建立服務地址</string>
+    <string name="tailcat_server_new_address">新地址</string>
+    <string name="tailcat_server_create_failed">無法建立地址：%1$s</string>
+    <string name="tailcat_new">新增連線</string>
+    <string name="tailcat_edit">編輯連線</string>
+    <string name="tailcat_empty_title">暫無連線</string>
+    <string name="tailcat_add">添加連線</string>
+    <string name="tailcat_heading_connections">連線</string>
+    <string name="tailcat_state_starting">正在連線…</string>
+    <string name="tailcat_state_direct">直連 · %1$d ms</string>
+</resources>

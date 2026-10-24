@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The reading screens on a television (logs, console, peers, licences, the live state card):
+  what a remote needs said in words where a phone has a gesture or an icon. A file of its own
+  so it lands without touching strings.xml.
+--><resources>
+    </resources>

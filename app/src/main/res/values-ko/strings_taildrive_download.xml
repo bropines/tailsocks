@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The share browser's downloads, its path bar and its link switch (ui/TaildriveBrowser.kt,
+     ui/TaildriveDownloadUi.kt, ui/TaildrivePathBar.kt, core/TaildriveDownloads.kt), and the
+     download folder of Settings (ui/TaildriveDownloadSetting.kt). --><resources>
+    </resources>

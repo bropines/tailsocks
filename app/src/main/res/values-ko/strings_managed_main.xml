@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The devices this one manages, on the main screen (ui/ManagedOnMain.kt). A device is its own
+  name there, and whether it is online is said in the words of the list in Settings
+  (strings_remote_manage.xml); these are for the entry that leads to all of them.
+--><resources>
+    </resources>

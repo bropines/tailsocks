@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Serve rules published as a Tailscale Service (svc:name): where each service
+  this node serves stands in the tailnet, and the editor's explanation. The
+  older service strings live in strings.xml.
+--><resources>
+    </resources>

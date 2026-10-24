@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Taildrop where the system has no file picker and no notification shade — a television,
+  mostly: the app's own browser in the picker's place, a receive folder by its path, and
+  what the inbox says about a new file. A file of its own so it lands without touching
+  strings.xml; Android merges every values/*.xml into one table.
+--><resources>
+    </resources>

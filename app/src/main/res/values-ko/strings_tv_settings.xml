@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings where a device is not offered everything in its usual place (core/DeviceProfile.kt):
+  the Advanced page a television's settings end with, saving and reading backups through the
+  app's own file browser, and Tailnet Lock on a device that cannot sign.
+--><resources>
+    </resources>

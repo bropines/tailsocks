@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Taildrop page of the Files screen — inbox, send-to-device list, history — and its
+  sheets. A file of its own so it lands without touching strings.xml; Android merges every
+  values/*.xml into one table.
+--><resources>
+    </resources>

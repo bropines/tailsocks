@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the tailnet's policy lets this device do with Taildrive, where a person looks: the
+     Taildrive screen (ui/TaildriveActivity.kt), the share browser (ui/TaildriveBrowser.kt) and the
+     document picker (core/TailsocksFileProvider.kt). The verdicts are worded like the netmap
+     cache's (core_netmap_cache_status_*). --><resources>
+    </resources>

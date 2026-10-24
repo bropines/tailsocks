@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Words a television is told instead of a phone's, where the phone's are worth keeping on a phone
+  (chosen at run time by isTv): a battery and a charger, a phone as the device in hand. And the
+  words the walk through the app in Russian found written into the code.
+--><resources>
+    </resources>

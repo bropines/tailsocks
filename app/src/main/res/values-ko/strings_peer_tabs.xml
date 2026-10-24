@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the peers list's filter tabs and its search, which a pull at the
+  top of the list or the top bar's search button brings out. A file of its own
+  so it lands without touching strings.xml.
+--><resources>
+    </resources>

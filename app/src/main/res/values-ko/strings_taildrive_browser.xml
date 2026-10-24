@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Browser of the other devices' Taildrive shares (ui/TaildriveBrowser.kt). Kept apart from
+     strings.xml so the page's text can change without touching the shared file; Android merges
+     every file under values/. --><resources>
+    </resources>
