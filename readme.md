@@ -68,7 +68,7 @@ It tells you what is actually going on: whether the tailnet is connected, still 
 **Files and services**
 
 - **Taildrop:** send from any app's Share menu, receive into a folder of your choice — [files](https://bropines.github.io/tailsocks/files/).
-- **Taildrive:** share folders, browse other devices' shares, play their files with seeking.
+- **Taildrive:** share folders, browse other devices' shares, download them in a queue — several files at once — and play films with seeking.
 - **Serve & Funnel** and Tailscale Services (`svc:`), with TLS certificate export.
 
 **Managing**

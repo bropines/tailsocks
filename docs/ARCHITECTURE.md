@@ -31,7 +31,7 @@ Standard Android applications cannot route UDP packets into a userspace network 
 ## 5. Taildrop & Files API
 TailSocks implements a robust file transfer manager:
 *   **Inbound:** Uses the `TS_TAILDROP_DIR` environment variable to point the core at `files/taildrop/<account>` (`core/TaildropPaths.kt`) — a tree that holds user data only, kept apart from the node keys in `files/states/`.
-*   **DocumentsProvider:** `TailsocksFileProvider` exposes those per-account Taildrop directories (and the Taildrive WebDAV shares) to the Android Storage Access Framework (SAF). This allows users to browse Taildrop files using the system "Files" app.
+*   **DocumentsProvider:** `TailsocksFileProvider` exposes those per-account Taildrop directories (and the Taildrive WebDAV shares) to the Android Storage Access Framework (SAF). This allows users to browse Taildrop files using the system "Files" app. A Taildrive file goes to another app as a pipe that copies at full speed; with Settings → Sharing & access → Seeking in other apps on (the default on a TV) it is a seekable proxy descriptor instead, every read of it a round trip through this app (`core/TaildriveSeek.kt`, `TaildriveDescriptor.kt`).
 *   **Outbound:** Leverages the SAF to read files and streams them into the daemon's `file-put` API via the bridge, with proper URL path escaping for reliability.
 
 ## 6. Self-Healing & Stateless Configuration

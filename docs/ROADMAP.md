@@ -77,6 +77,10 @@ State as of 2026-10-14, at 5.0.0.
       screens say what the tailnet's policy lets this device do when nothing lists, and the
       visual policy editor has a template for sharing between one's own devices; one switch
       lets the local network into the Taildrive proxy, with the password forced on.
+- [x] **Taildrive without SOCKS5 (5.3.0).** The app reaches the daemon's Taildrive through a
+      socket of its own (patch 26) and speaks no HTTP itself; other apps get a file as a
+      stream that copies at full speed, seeking behind a switch; downloads run as a queue,
+      several files at once.
 - [x] **Settings search (5.0.0).** Any setting in English or Russian, forgiving typos, the wrong
       keyboard layout and transliteration; `tailsocks://settings/<section>/<row>` links. A
       test reads the sources and fails when a row is missing from the catalog.

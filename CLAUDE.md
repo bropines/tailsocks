@@ -15,7 +15,9 @@ pointer, nothing more; the substance lives in the files it names.
    compatibility engine. A rebuilt device moves to the running daemon in place
    (patch 24, relaunch as the fallback) and transparent mode carries all traffic
    under Android's lockdown (patch 25); [`docs/NATIVE_TUN_PLAN.md`](docs/NATIVE_TUN_PLAN.md)
-   is the design behind it.
+   is the design behind it. Taildrive reaches the daemon through its own socket
+   (`files/drive.sock`, patch 26; `appctr/drive_client.go`, `core/TaildriveBridge.kt`):
+   the app speaks no HTTP and uses no SOCKS5 for it — keep it that way.
 4. Building: [`docs/BUILDING.md`](docs/BUILDING.md). Run `appctr/build.sh` after
    any Go or patch change, or the APK will not contain it.
 5. Devices arrive over `adb connect` from the author, who writes in Russian —

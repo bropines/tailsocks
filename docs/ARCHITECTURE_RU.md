@@ -41,7 +41,7 @@ TailSocks обеспечивает стабильную и высокопрои�
 ## 5. Taildrop и Files API
 TailSocks включает надежный менеджер передачи файлов:
 * **Входящие Файлы:** Переменная окружения `TS_TAILDROP_DIR` указывает ядру на `files/taildrop/<account>` (`core/TaildropPaths.kt`) — каталог только с пользовательскими файлами, отдельно от ключей узла в `files/states/`.
-* **DocumentsProvider:** `TailsocksFileProvider` предоставляет для Android Storage Access Framework (SAF) именно эти каталоги Taildrop (и общие папки Taildrive по WebDAV). Это позволяет просматривать полученные через Taildrop файлы в системном приложении «Файлы».
+* **DocumentsProvider:** `TailsocksFileProvider` предоставляет для Android Storage Access Framework (SAF) именно эти каталоги Taildrop (и общие папки Taildrive по WebDAV). Это позволяет просматривать полученные через Taildrop файлы в системном приложении «Файлы». Файл Taildrive уходит в другое приложение через pipe и копируется на полной скорости; с включённой «Перемоткой в других приложениях» (Настройки → Общий доступ; на ТВ включена по умолчанию) это перематываемый прокси-дескриптор, каждое чтение которого проходит через приложение (`core/TaildriveSeek.kt`, `TaildriveDescriptor.kt`).
 * **Исходящие Файлы:** Через SAF приложение читает файлы и передает их в `file-put` API демона через мост с корректным экранированием путей URL.
 
 ---
