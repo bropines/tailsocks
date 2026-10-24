@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -128,18 +129,21 @@ func UpdateDriveShares(sharesJson string) error {
 		var currentShares []drive.Share
 		if err := json.Unmarshal([]byte(currentStr), &currentShares); err == nil {
 			slog.Info("Taildrive: Current daemon shares", "count", len(currentShares))
+			// The daemon keeps names as drive.NormalizeShareName makes them —
+			// lower case — so "Taildrop" here is "taildrop" there. Compared as
+			// they were, every share named with a capital was removed and put
+			// back on each apply, cutting off whoever was reading from it.
+			wanted := make(map[string]bool, len(entries))
+			for _, entry := range entries {
+				wanted[shareKey(entry.Name)] = true
+			}
 			for _, cs := range currentShares {
-				// If a current share is not in our new list, remove it
-				found := false
-				for _, entry := range entries {
-					if entry.Name == cs.Name {
-						found = true
-						break
-					}
+				if wanted[shareKey(cs.Name)] {
+					continue
 				}
-				if !found {
-					slog.Info("Taildrive: Removing stale share", "name", cs.Name)
-					_ = DeleteDriveShare(cs.Name)
+				slog.Info("Taildrive: Removing stale share", "name", cs.Name)
+				if err := DeleteDriveShare(cs.Name); err != nil {
+					slog.Warn("Taildrive: Could not remove stale share", "name", cs.Name, "error", err)
 				}
 			}
 		} else {
@@ -160,6 +164,15 @@ func UpdateDriveShares(sharesJson string) error {
 
 	slog.Info("Taildrive: All shares updated successfully", "total", len(entries))
 	return nil
+}
+
+// shareKey is name as the daemon keeps it (drive.NormalizeShareName), for
+// telling whether two names are one share.
+func shareKey(name string) string {
+	if n, err := drive.NormalizeShareName(name); err == nil {
+		return n
+	}
+	return strings.ToLower(strings.TrimSpace(name))
 }
 
 // StartDriveProxy starts the WebDAV reverse-proxy on the specified local address

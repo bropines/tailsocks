@@ -248,7 +248,10 @@ func PutDriveShare(name, path string) error {
 	return nil
 }
 
-// DeleteDriveShare removes a Taildrive share by its share name.
+// DeleteDriveShare removes a Taildrive share by its share name. The LocalAPI
+// takes the name as the body of a DELETE of drive/shares; a name in the path
+// is a 404 — which is what this sent for years, so a removed share stayed
+// listed to every peer while its contents answered 404.
 func DeleteDriveShare(name string) error {
 	if !IsRunning() {
 		return ErrDaemonNotRunning
@@ -256,8 +259,7 @@ func DeleteDriveShare(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return ErrBadRequest
 	}
-	path := "/localapi/v0/drive/shares/" + url.PathEscape(name)
-	_, err := doLocalRequest("DELETE", path, nil)
+	_, err := doLocalRequest("DELETE", "/localapi/v0/drive/shares", strings.NewReader(name))
 	if err != nil {
 		return fmt.Errorf("DeleteDriveShare failed: %w", err)
 	}

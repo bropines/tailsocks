@@ -127,8 +127,9 @@ class LocalApiClient(private val socketPathProvider: () -> String) {
         return executeRaw("PUT", "/localapi/v0/drive/shares", json)
     }
 
+    /** The LocalAPI takes the name as the body of a DELETE of drive/shares; in the path it is a 404. */
     suspend fun deleteDriveShare(name: String): Result<String> =
-        executeRaw("DELETE", "/localapi/v0/drive/shares/$name")
+        executeRaw("DELETE", "/localapi/v0/drive/shares", name)
 
     suspend fun setFileServerAddress(addr: String): Result<String> {
         val json = """{"address":"$addr"}"""

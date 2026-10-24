@@ -16,6 +16,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- Taildrive: a folder removed from Taildrive stops being listed to other devices — it stayed there with its contents answering 404 — and a folder named with a capital letter is no longer taken away and put back each time the shares are applied.
 - Native TUN engine: Taildrive works again — the app's browser, downloads, the Files provider and the WebDAV proxy timed out, and so did anything that reached 100.100.100.100 (MagicDNS, Taildrive) through the SOCKS5 port.
 
 ## [5.2.0] - 2026-10-22
