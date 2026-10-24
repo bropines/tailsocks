@@ -106,6 +106,18 @@ private val earlier = DownloadState(
 
 private val queue = listOf(earlier, running, beside, waiting, waitingMore)
 
+/** Two films at once, each a download of its own, and a third that was cancelled. */
+private val filmA = DownloadState(
+    id = 6, folderLabel = "Download/Taildrop", folder = taildrop, pickedNow = false, stage = DownloadStage.RUNNING,
+    what = "No.078_Remielle.mp4", files = 1, bytes = 1_300_000_000, bytesDone = 93_800_000,
+    writing = listOf(FileProgress("No.078_Remielle.mp4", 93_800_000, 1_300_000_000)), bytesPerSecond = 6_500_000,
+)
+private val filmB = filmA.copy(
+    id = 7, what = "No.079_Odette.mp4", bytes = 1_400_000_000, bytesDone = 141_800_000,
+    writing = listOf(FileProgress("No.079_Odette.mp4", 141_800_000, 1_400_000_000)), bytesPerSecond = 6_300_000,
+)
+private val filmCancelled = filmB.copy(id = 8, what = "No.080_Mira.mp4", stage = DownloadStage.CANCELLED, writing = emptyList(), bytesPerSecond = null, ended = 1)
+
 @Composable
 private fun Shown(device: DeviceClass?, content: @Composable () -> Unit) = AdaptiveShowcase(device = device) { content() }
 
@@ -226,3 +238,9 @@ fun DlLinkDownPhone() = Shown(null) { LinkDown() }
 
 @PreviewTest @DlTv @Composable
 fun DlLinkDownTv() = Shown(DeviceClass.TV) { LinkDown() }
+
+@PreviewTest @DlPhone @Composable
+fun DlFilmsPhone() = Shown(null) { Browser(BrowserExtras(downloads = listOf(filmA, filmB))) }
+
+@PreviewTest @DlPhone @Composable
+fun DlFilmsOpenPhone() = Shown(null) { Browser(BrowserExtras(downloads = listOf(filmA, filmB, filmCancelled), defaultFolder = taildrop, queueExpanded = true)) }

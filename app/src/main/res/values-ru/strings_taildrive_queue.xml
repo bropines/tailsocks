@@ -7,12 +7,6 @@
         <item quantity="many">%d в очереди</item>
         <item quantity="other">%d в очереди</item>
     </plurals>
-    <plurals name="taildrive_queue_at_once">
-        <item quantity="one">%d файл одновременно</item>
-        <item quantity="few">%d файла одновременно</item>
-        <item quantity="many">%d файлов одновременно</item>
-        <item quantity="other">%d файла одновременно</item>
-    </plurals>
     <plurals name="taildrive_queue_files_done">
         <item quantity="one">%1$d из %2$d файла</item>
         <item quantity="few">%1$d из %2$d файлов</item>
@@ -26,7 +20,6 @@
         <item quantity="other">%1$d из %2$d файла, ещё считаю…</item>
     </plurals>
     <string name="taildrive_queue_and_more">%1$s и ещё %2$d</string>
-    <string name="taildrive_queue_waiting_to">Ждёт очереди · в %1$s</string>
     <plurals name="taildrive_queue_finished">
         <item quantity="one">Завершена %d загрузка</item>
         <item quantity="few">Завершены %d загрузки</item>
@@ -64,4 +57,6 @@
     <string name="taildrive_parallel_four">Быстрее всего на хорошей связи</string>
     <string name="search_sum_taildrive_parallel">Сколько файлов из общих папок Taildrive качается одновременно</string>
     <string name="search_kw_taildrive_parallel">параллельно, одновременно, сразу, очередь загрузок, загрузки, скачивание, скорость, потоки, taildrive</string>
+    <string name="taildrive_queue_cancel_item">Отменить эту загрузку</string>
+    <string name="taildrive_queue_dismiss_item">Убрать из списка</string>
 </resources>
