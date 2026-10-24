@@ -215,6 +215,10 @@ class RangedFile(
     /** A prefetch is queued or running: there is never more than one. */
     private val prefetching = AtomicBoolean(false)
 
+    /** The last block a read ended in: where a prefetch has to be ahead of to be worth its request. */
+    @Volatile
+    private var readerAt = -1L
+
     private val cache = object : LinkedHashMap<Long, ByteArray>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ByteArray>?): Boolean =
             this.size > cacheBlocks
@@ -264,6 +268,7 @@ class RangedFile(
             System.arraycopy(block, from, buffer, bufferOffset + (position - offset).toInt(), count)
             position += count
         }
+        readerAt = lastBlock
         if (prefetcher != null) prefetchAfter(lastBlock, fileSize)
         return (end - offset).toInt()
     }
@@ -286,11 +291,21 @@ class RangedFile(
         if (!prefetching.compareAndSet(false, true)) return
         try {
             prefetcher!!.execute {
+                // Never queued behind the reader's own request: the lock is not fair, the reader
+                // takes it again and again, and a prefetch that got it at last asked for a block
+                // the reader had long passed — and kept every later prefetch waiting meanwhile. A
+                // reader that is fetching brings what it needs; the next read starts the next one.
+                if (!fetchLock.tryLock()) {
+                    prefetching.set(false)
+                    return@execute
+                }
                 try {
-                    if (!closed.get()) load(next, next)
+                    val ahead = lock.withLock { next > readerAt && next <= readerAt + maxReadAhead && !cache.containsKey(next) }
+                    if (!closed.get() && ahead) load(next, next)
                 } catch (_: Exception) {
                     // The read that wants these blocks asks again and is told what went wrong.
                 } finally {
+                    fetchLock.unlock()
                     prefetching.set(false)
                 }
             }
