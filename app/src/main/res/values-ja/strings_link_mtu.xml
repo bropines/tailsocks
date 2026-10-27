@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The link MTU finding on the network check. Kept apart from strings.xml so work
      on it does not collide with edits there; Android merges every file in values/. --><resources>
-    <string name="netcheck_mtu_small"></string>
-    <string name="netcheck_mtu_help"></string>
-    <string name="netcheck_report_mtu_small"></string>
-</resources>
+    </resources>
