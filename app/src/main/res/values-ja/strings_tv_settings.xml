@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings where a device is not offered everything in its usual place (core/DeviceProfile.kt):
+  the Advanced page a television's settings end with, saving and reading backups through the
+  app's own file browser, and Tailnet Lock on a device that cannot sign.
+--><resources>
+    <!-- Settings → Advanced: the hub's last row, and the page behind it. -->
+    <string name="tv_settings_advanced"></string>
+    <string name="tv_settings_advanced_desc"></string>
+    <string name="tv_settings_more"></string>
+    <string name="tv_settings_theme"></string>
+    <string name="tv_settings_theme_desc"></string>
+    <string name="tv_settings_root"></string>
+    <string name="tv_settings_root_desc"></string>
+    <!-- Backups without the system\'s file picker. -->
+    <string name="tv_settings_backup_save_title"></string>
+    <string name="tv_settings_backup_save_here"></string>
+    <string name="tv_settings_backup_pick_title"></string>
+    <!-- Tailnet Lock on a device that cannot confirm a signature. -->
+    <string name="tka_waiting_other_device"></string>
+    <string name="tka_key_help_show"></string>
+    <string name="tka_sign_me_help_show"></string>
+</resources>
