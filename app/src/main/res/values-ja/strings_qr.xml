@@ -1,24 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- QR codes to show (ui/QrCode.kt) -->
-    <string name="qr_show"></string>
-    <string name="qr_image"></string>
-    <string name="qr_too_long"></string>
-    <string name="qr_share"></string>
-    <string name="qr_copied"></string>
-    <string name="qr_show_text"></string>
-    <string name="qr_hide_text"></string>
-    <!-- TailCat: the same code as a link or as the command -->
-    <string name="qr_tab_link"></string>
-    <string name="qr_tab_command"></string>
-    <string name="qr_tailcat_server_link_help"></string>
-    <string name="qr_tailcat_connection_link_help"></string>
-    <!-- TailCat -->
-    <string name="qr_tailcat_server_title"></string>
-    <string name="qr_tailcat_server_help"></string>
-    <string name="qr_tailcat_connection_help"></string>
-    <!-- Serve -->
-    <string name="qr_serve_title"></string>
-    <string name="qr_serve_tailnet_help"></string>
-    <string name="qr_serve_public_help"></string>
-</resources>
+    </resources>
