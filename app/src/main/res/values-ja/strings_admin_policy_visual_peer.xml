@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's Peer relays page: grants with the tailscale.com/cap/relay capability. -->
+    <string name="admin_pvr_page"></string>
+    <!-- Under the icon in the narrow page rail, about 80dp. -->
+    <string name="admin_pvr_page_short"></string>
+    <string name="admin_pvr_help"></string>
+    <string name="admin_pvr_add"></string>
+    <string name="admin_pvr_pane_empty"></string>
+    <string name="admin_pvr_empty"></string>
+    <!-- "2 relays for 5 devices": %1$s is admin_pvr_n_relays, %2$s admin_pvr_n_clients. -->
+    <string name="admin_pvr_coverage"></string>
+    <plurals name="admin_pvr_n_relays">
+    </plurals>
+    <plurals name="admin_pvr_n_clients">
+    </plurals>
+    <!-- A tag on a card: devices the rule names that will not relay or use a relay. -->
+    <plurals name="admin_pvr_n_out">
+    </plurals>
+    <!-- Short labels in a card's left column. -->
+    <string name="admin_pvr_c_relays"></string>
+    <string name="admin_pvr_c_for"></string>
+    <string name="admin_pvr_c_also"></string>
+    <string name="admin_pvr_also_via"></string>
+    <string name="admin_pvr_also_posture"></string>
+    <!-- %1$s is a device name, %2$s its operating system. -->
+    <string name="admin_pvr_note_os"></string>
+    <!-- %1$s is a device name, %2$s its Tailscale version. -->
+    <string name="admin_pvr_note_old"></string>
+    <string name="admin_pvr_note_shared"></string>
+    <string name="admin_pvr_rule_title"></string>
+    <string name="admin_pvr_mixed"></string>
+    <string name="admin_pvr_mixed_help"></string>
+    <string name="admin_pvr_split"></string>
+    <string name="admin_pvr_open_access"></string>
+    <!-- On an access rule's peer relay capability: opens it on the Peer relays page. -->
+    <string name="admin_pvr_open"></string>
+    <string name="admin_pvr_f_relays"></string>
+    <string name="admin_pvr_f_relays_help"></string>
+    <string name="admin_pvr_f_clients"></string>
+    <string name="admin_pvr_f_clients_help"></string>
+    <string name="admin_pvr_d_relays"></string>
+    <string name="admin_pvr_d_clients"></string>
+    <string name="admin_pvr_d_none"></string>
+    <string name="admin_pvr_d_help"></string>
+    <string name="admin_pvr_delete"></string>
+    <string name="admin_pvr_delete_cap"></string>
+    <string name="admin_pvr_deleted"></string>
+    <string name="admin_pvr_deleted_cap"></string>
+    <string name="admin_pvr_new"></string>
+    <string name="admin_pvr_new_sub"></string>
+    <string name="admin_pvr_create_hint"></string>
+    <!-- Risk lint: a peer relay grant with *, autogroup:member, autogroup:tagged or autogroup:danger-all as its source. -->
+    <string name="admin_pvr_risk_relay"></string>
+    <string name="admin_pvr_risk_relay_help"></string>
+</resources>
