@@ -1,25 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The launcher icon: its row and picker in Settings → Appearance, and the icons' names (core/AppIcons.kt). --><resources>
-    <string name="icon_title"></string>
-    <string name="icon_note"></string>
-    <!-- The picker's sections. -->
-    <string name="icon_group_classic"></string>
-    <string name="icon_group_pixel"></string>
-    <string name="icon_group_animals"></string>
-    <string name="icon_group_seasonal"></string>
-    <string name="icon_group_discreet"></string>
-    <!-- The icons. -->
-    <string name="icon_fox_sock"></string>
-    <string name="icon_flat_curl"></string>
-    <string name="icon_line_tail"></string>
-    <string name="icon_pixel_sock"></string>
-    <string name="icon_pixel_fox"></string>
-    <string name="icon_sleepy_fox"></string>
-    <string name="icon_facet_fox"></string>
-    <string name="icon_sock_thief"></string>
-    <string name="icon_mesh_paw"></string>
-    <string name="icon_stocking"></string>
-    <string name="icon_pumpkin"></string>
-    <string name="icon_knit"></string>
-    <string name="icon_hex_tile"></string>
-</resources>
+    </resources>
