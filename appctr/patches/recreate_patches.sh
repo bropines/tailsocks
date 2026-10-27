@@ -239,6 +239,15 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_drive.go || true
 } > patches/26-android-drive-socket.patch
 
+# 27-peer-app.patch (ipn/ipnstate)
+# PeerStatus carries the peer's Hostinfo.App, so the app can tell the peers that
+# run TailSocks (App "tailsocks", set in patch 06) from the official client. The
+# line that fills it is in ipn/ipnlocal/local.go, whose diff is patch 04.
+{
+    diff -u orig/ipn/ipnstate/ipnstate.go tailscale_src/ipn/ipnstate/ipnstate.go || true
+    diff -N -u /dev/null tailscale_src/ipn/ipnstate/tailsocks_app_test.go || true
+} > patches/27-peer-app.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

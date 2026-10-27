@@ -28,9 +28,10 @@ var errLaunchSuperseded = errors.New("daemon launch superseded before the proces
 // that later reported it as a crash. The generation check closes that window.
 // hostinfoReport is what the daemon is told to say about this device in its
 // Hostinfo. With honest false the patch-06 masquerade applies (OS "linux",
-// App "tailscale-cli", DeviceModel "Tailsocks"); with honest true the daemon
-// keeps OS "android" and reports the values below, read by the hook in
-// cmd/tailscaled/fix_android_netmon.go from TS_HONEST_HOSTINFO / TS_HI_*.
+// DeviceModel "Tailsocks"); with honest true the daemon keeps OS "android" and
+// reports the values below, read by the hook in
+// cmd/tailscaled/fix_android_netmon.go from TS_HONEST_HOSTINFO / TS_HI_*. App
+// is "tailsocks" in both.
 type hostinfoReport struct {
 	honest      bool
 	osVersion   string

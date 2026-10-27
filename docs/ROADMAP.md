@@ -241,8 +241,10 @@ State as of 2026-10-14, at 5.0.0.
       strike the item.
 - [x] **A peer's version without the Admin API — not possible (checked 2026-10-05).** WhoIs on
       five peers of a Tailscale-hosted tailnet (Windows, Linux, macOS, Android): the
-      coordinator ships other nodes only `Hostname`, `OS`, `Services` and `sshHostKeys` of a
-      peer's `Hostinfo`, never `IPNVersion`. The version stays an Admin API feature.
+      coordinator ships other nodes only `Hostname`, `OS`, `App`, `Services` and `sshHostKeys`
+      of a peer's `Hostinfo`, never `IPNVersion` (`App` confirmed 2026-10-28 in a netmap,
+      where `aperture` names itself). The version stays an Admin API feature; `App` is how
+      TailSocks marks its own nodes (patches 06 and 27).
 - Deferred, not implemented — recorded so they are not lost again:
   - A foreign tunnel restarting with a new netId: the ruleset signature keys on the netId, but this has never been observed on a device.
   - FBE phones: wait for user-0 CE storage before starting.

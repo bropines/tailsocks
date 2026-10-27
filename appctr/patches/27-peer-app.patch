@@ -1,0 +1,61 @@
+--- orig/ipn/ipnstate/ipnstate.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ipn/ipnstate/ipnstate.go	2026-10-28 02:25:25.666723961 +0300
+@@ -247,6 +247,12 @@
+ 	OS      string // HostInfo.OS
+ 	UserID  tailcfg.UserID
+ 
++	// App is HostInfo.App: the program the peer runs, when it names itself
++	// ("tsidp", "k8s-operator"; TailSocks says "tailsocks"). Most clients,
++	// the official ones among them, leave it empty.
++	// Tailsocks: added so the app can tell its own peers apart.
++	App string `json:",omitempty"`
++
+ 	// AltSharerUserID is the user who shared this node
+ 	// if it's different than UserID. Otherwise it's zero.
+ 	AltSharerUserID tailcfg.UserID `json:",omitempty"`
+@@ -512,6 +518,9 @@
+ 	if v := st.OS; v != "" {
+ 		e.OS = st.OS
+ 	}
++	if v := st.App; v != "" {
++		e.App = v
++	}
+ 	if v := st.SSH_HostKeys; v != nil {
+ 		e.SSH_HostKeys = v
+ 	}
+--- /dev/null	2026-10-28 02:24:56.833023069 +0300
++++ tailscale_src/ipn/ipnstate/tailsocks_app_test.go	2026-10-28 02:25:51.670308376 +0300
+@@ -0,0 +1,33 @@
++package ipnstate
++
++import (
++	"testing"
++
++	"tailscale.com/types/key"
++)
++
++// A peer is reported in parts — the netmap's copy names its program, the
++// engine's and magicsock's say nothing about it — and whichever comes first,
++// the merged peer keeps the name.
++func TestAddPeerKeepsApp(t *testing.T) {
++	for _, netmapFirst := range []bool{true, false} {
++		pk := key.NewNode().Public()
++		sb := &StatusBuilder{WantPeers: true}
++		netmap := &PeerStatus{OS: "android", App: "tailsocks", InNetworkMap: true}
++		if netmapFirst {
++			sb.AddPeer(pk, netmap)
++		}
++		sb.AddPeer(pk, &PeerStatus{InMagicSock: true})
++		sb.AddPeer(pk, &PeerStatus{InEngine: true})
++		if !netmapFirst {
++			sb.AddPeer(pk, netmap)
++		}
++		got := sb.Status().Peer[pk]
++		if got.App != "tailsocks" {
++			t.Errorf("netmap first %v: App = %q, want tailsocks", netmapFirst, got.App)
++		}
++		if !got.InNetworkMap || !got.InMagicSock || !got.InEngine {
++			t.Errorf("netmap first %v: merge lost a flag: %+v", netmapFirst, got)
++		}
++	}
++}

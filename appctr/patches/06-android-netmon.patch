@@ -1,6 +1,6 @@
---- /dev/null	2026-10-07 00:25:56.942684671 +0300
-+++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-10-09 19:42:15.126232377 +0300
-@@ -0,0 +1,188 @@
+--- /dev/null	2026-10-28 02:24:56.833023069 +0300
++++ tailscale_src/cmd/tailscaled/fix_android_netmon.go	2026-10-28 02:25:25.668770217 +0300
+@@ -0,0 +1,194 @@
 +//go:build android
 +// +build android
 +
@@ -31,8 +31,8 @@
 +func init() {
 +	// What the daemon tells the coordination server about this device.
 +	//
-+	// The default has been a masquerade since 2026-05-07: OS "linux", App
-+	// "tailscale-cli", DeviceModel "Tailsocks", added on the belief that the
++	// The default has been a masquerade since 2026-05-07: OS "linux",
++	// DeviceModel "Tailsocks", added on the belief that the
 +	// coordinator ignored advertised services from "android" nodes. Nothing in
 +	// the client reads these fields for behaviour (the only peer-OS check
 +	// anywhere refuses tvOS for Taildrop), and the one Android gate that does
@@ -44,8 +44,15 @@
 +	// hostinfo.New from version.OS) and reports what Go cannot learn on Android
 +	// from the environment the app supplies, exactly the fields the official
 +	// Android client sets (libtailscale/backend.go: SetOSVersion,
-+	// SetDeviceModel, SetPackage — and no App).
++	// SetDeviceModel, SetPackage).
++	//
++	// App "tailsocks" in either case, where the official client sets none: the
++	// coordinator hands App to every peer with Hostname, OS and Services (and
++	// never the version), so it is how one TailSocks tells another from the
++	// official client. The masquerade said "tailscale-cli" until 5.3, which no
++	// upstream build sets either.
 +	hostinfo.RegisterHostinfoNewHook(func(hi *tailcfg.Hostinfo) {
++		hi.App = "tailsocks"
 +		if os.Getenv("TS_HONEST_HOSTINFO") == "1" {
 +			if v := os.Getenv("TS_HI_OS_VERSION"); v != "" {
 +				hi.OSVersion = v
@@ -58,7 +65,6 @@
 +			}
 +			return
 +		}
-+		hi.App = "tailscale-cli"
 +		hi.DeviceModel = "Tailsocks"
 +		hi.OS = "linux"
 +	})

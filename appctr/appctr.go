@@ -199,9 +199,10 @@ type StartOptions struct {
 	AcceptDNS     bool
 	ExitNodeID    string
 	// What the daemon reports to the coordination server about this device.
-	// false keeps the long-standing masquerade (OS "linux", App "tailscale-cli",
-	// DeviceModel "Tailsocks"); true reports the real OS plus the model, Android
-	// version and install source below. See cmd/tailscaled/fix_android_netmon.go.
+	// false keeps the long-standing masquerade (OS "linux", DeviceModel
+	// "Tailsocks"); true reports the real OS plus the model, Android version and
+	// install source below. Either way App is "tailsocks", which is how peers
+	// tell TailSocks apart. See cmd/tailscaled/fix_android_netmon.go.
 	HonestHostinfo bool
 	OsVersion      string
 	DeviceModel    string
