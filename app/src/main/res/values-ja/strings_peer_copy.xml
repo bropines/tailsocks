@@ -1,18 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The peer's "Copy as…": the button in the details sheet, and a long press on a row of the list. -->
-    <string name="peer_copy_as"></string>
-    <string name="peer_copy_as_title"></string>
-    <!-- What each ready-to-paste form is, under the form itself. -->
-    <string name="peer_copy_short_name"></string>
-    <string name="peer_copy_full_name"></string>
-    <string name="peer_copy_ipv4"></string>
-    <string name="peer_copy_ipv6"></string>
-    <string name="peer_copy_ssh" translatable="false"></string>
-    <string name="peer_copy_tailscale_ssh" translatable="false"></string>
-    <string name="peer_copy_web"></string>
-    <!-- %1$s is the program the peer reports on that port: nginx, jellyfin… -->
-    <string name="peer_copy_web_service"></string>
-    <string name="peer_copy_ping"></string>
-    <string name="peer_copy_tailscale_ping"></string>
-</resources>
+    </resources>
