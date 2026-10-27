@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Taildrop inbox folded to its heading: what the line offers, and its state for a screen reader. -->
+    <string name="taildrop_fold_show"></string>
+    <string name="taildrop_fold_hide"></string>
+    <string name="taildrop_fold_open"></string>
+    <string name="taildrop_fold_closed"></string>
+</resources>
