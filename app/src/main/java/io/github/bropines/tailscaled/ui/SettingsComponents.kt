@@ -844,7 +844,7 @@ fun SettingsExitNodeItem(
                                 items(exitNodes.size) { i ->
                                     val node = exitNodes[i]
                                     val isSelected = node.id == currentId || node.getPrimaryIp() == currentIp
-                                    val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
+                                    val (osIcon, osColor) = getOsVisuals(node.iconOs()).let { (icon, color) ->
                                         if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
                                         else icon to color
                                     }

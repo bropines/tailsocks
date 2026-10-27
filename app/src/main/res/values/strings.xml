@@ -209,6 +209,8 @@
     <string name="peer_cd_collapsed">Collapsed</string>
     <!-- PeerDetailsModal: the status strip under the node name -->
     <string name="peer_status_online">Online</string>
+    <!-- A peer that runs TailSocks: its badge and the chip on its page. The app's name. -->
+    <string name="peer_client_tailsocks" translatable="false">TailSocks</string>
     <string name="peer_status_offline">Offline</string>
     <string name="peer_status_os_unknown">Unknown OS</string>
     <string name="peer_status_direct">Direct</string>

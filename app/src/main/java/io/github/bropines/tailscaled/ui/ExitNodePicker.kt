@@ -299,7 +299,7 @@ internal fun ExitNodePicker(
                             // Parsed once per answer, not once per recomposition.
                             val pingRaw = pings[nodeIp]
                             val ping = remember(pingRaw) { pingStateOf(pingRaw) }
-                            val (osIcon, osColor) = getOsVisuals(node.os).let { (icon, color) ->
+                            val (osIcon, osColor) = getOsVisuals(node.iconOs()).let { (icon, color) ->
                                 if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
                                 else icon to color
                             }

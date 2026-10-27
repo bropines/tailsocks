@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalContext
@@ -454,7 +455,6 @@ private fun GlanceRow(
     // A figure measured before the device went away is not its latency now.
     val latency = if (online) (ping as? PeerPingState.Measured)?.latency else null
     val stateWord = stringResource(if (online) R.string.peer_status_online else R.string.peer_status_offline)
-    val (osIcon, osColor) = getOsVisuals(peer.os)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val accent = MaterialTheme.colorScheme.primary
     Row(
@@ -466,12 +466,13 @@ private fun GlanceRow(
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier.size(36.dp).clip(CircleShape).background(osColor.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(osIcon, null, Modifier.size(18.dp), tint = osColor)
-        }
+        PeerOsIcon(
+            peer,
+            size = 36.dp,
+            iconSize = 18.dp,
+            // The glance card's colour (surfaceVariant at 35 %) over the screen.
+            ring = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f).compositeOver(MaterialTheme.colorScheme.surface)
+        )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(

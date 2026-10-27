@@ -19,10 +19,11 @@ object DemoTailnet {
         online: Boolean, relay: String = "fra", curAddr: String = "",
         exitNode: Boolean = false, exitOption: Boolean = false,
         lastSeen: String = "2026-09-30T08:12:00Z", tags: List<String> = emptyList(),
+        app: String = "",
     ) = """
         "$id": {
           "ID": "$id", "UserID": 1, "HostName": "$host", "DNSName": "$host.tail4a2c9.ts.net.",
-          "OS": "$os", "TailscaleIPs": ["$v4", "$v6"], "AllowedIPs": ["$v4/32", "$v6/128"],
+          "OS": "$os", "App": "$app", "TailscaleIPs": ["$v4", "$v6"], "AllowedIPs": ["$v4/32", "$v6/128"],
           "CurAddr": "$curAddr", "Relay": "$relay", "Online": $online, "Active": $online,
           "ExitNode": $exitNode, "ExitNodeOption": $exitOption, "LastSeen": "$lastSeen",
           "RxBytes": ${if (online) 48_213_990 else 0}, "TxBytes": ${if (online) 9_402_551 else 0},
@@ -38,7 +39,7 @@ object DemoTailnet {
       "MagicDNSSuffix": "tail4a2c9.ts.net",
       "Self": {
         "ID": "nSELF7", "UserID": 1, "HostName": "pixel-9-pro", "DNSName": "pixel-9-pro.tail4a2c9.ts.net.",
-        "OS": "android", "TailscaleIPs": ["100.101.34.12", "fd7a:115c:a1e0::6a01:220c"],
+        "OS": "android", "App": "tailsocks", "TailscaleIPs": ["100.101.34.12", "fd7a:115c:a1e0::6a01:220c"],
         "Online": true, "Active": true, "Relay": "fra"
       },
       "User": { "1": { "ID": 1, "LoginName": "alex@example.com", "DisplayName": "Alex" } },
@@ -47,6 +48,7 @@ object DemoTailnet {
         ${peer("n2", "homelab-nas", "linux", "100.72.5.101", "fd7a:115c:a1e0::4801:565", true, curAddr = "192.168.1.5:41641", exitOption = true)},
         ${peer("n3", "exit-frankfurt", "linux", "100.94.210.8", "fd7a:115c:a1e0::5e01:d208", true, curAddr = "203.0.113.24:41641", exitNode = true, exitOption = true, tags = listOf("tag:exit"))},
         ${peer("n4", "exit-helsinki", "linux", "100.66.18.77", "fd7a:115c:a1e0::4201:124d", true, relay = "hel", curAddr = "198.51.100.7:41641", exitOption = true, tags = listOf("tag:exit"))},
+        ${peer("n10", "pixel-8", "android", "100.104.77.21", "fd7a:115c:a1e0::6801:4d15", true, curAddr = "192.168.1.42:41641", app = "tailsocks")},
         ${peer("n5", "macbook-air", "macOS", "100.110.9.33", "fd7a:115c:a1e0::6e01:921", true, relay = "ams")},
         ${peer("n6", "raspberry-pi", "linux", "100.71.3.9", "fd7a:115c:a1e0::4701:309", true, curAddr = "192.168.1.31:41641", tags = listOf("tag:iot"))},
         ${peer("n7", "ipad", "iOS", "100.83.44.2", "fd7a:115c:a1e0::5301:2c02", false, lastSeen = "2026-09-29T21:40:00Z")},
@@ -65,6 +67,7 @@ object DemoTailnet {
         "100.66.18.77" to ping(58),
         "100.110.9.33" to ping(96),
         "100.71.3.9" to ping(15),
+        "100.104.77.21" to ping(6),
     )
 
     val data = DemoData(

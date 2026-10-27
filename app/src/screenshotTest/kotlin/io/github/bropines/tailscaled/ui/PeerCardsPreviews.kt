@@ -85,3 +85,9 @@ fun PeerCardsTabletDeviceOpen() = Details("n1", setOf(PeerDetailGroup.DEVICE))
 @Preview(name = "1-phone", device = "spec:width=411dp,height=1500dp,dpi=420")
 @Composable
 fun PeerCardsPhoneAddressesOpen() = Details("n1", setOf(PeerDetailGroup.ADDRESSES))
+
+/** A phone that runs TailSocks: the sock on its icon, the chip beside its OS, the Client row. */
+@PreviewTest
+@Preview(name = "1-phone", device = "spec:width=411dp,height=1500dp,dpi=420")
+@Composable
+fun PeerCardsPhoneTailSocksDeviceOpen() = Details("n10", setOf(PeerDetailGroup.DEVICE))

@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Devices that run TailSocks carry its sock on their icon, a TailSocks chip on their page and a Client row in the Device card; the official client reads "Tailscale". TailSocks now names itself to the coordinator (App `tailsocks`), the one detail besides the OS that every peer receives. Devices on 5.3 or earlier are recognised only if they report Linux.
+
 ## [5.3.0] - 2026-10-24
 
 ### Added

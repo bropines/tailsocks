@@ -38,6 +38,9 @@ data class PeerData(
     @SerialName("HostName") val hostName: String? = null,
     @SerialName("DNSName") val dnsName: String? = null,
     @SerialName("OS") val os: String? = null,
+    /** Hostinfo.App: the program the peer runs, when it names itself (patch 27 carries it
+     *  into the status). See [client]. */
+    @SerialName("App") val app: String? = null,
     @SerialName("TailscaleIPs") val tailscaleIPs: List<String>? = null,
     @SerialName("AllowedIPs") val allowedIPs: List<String>? = null,
     @SerialName("Addrs") val addrs: List<String>? = null,
@@ -79,6 +82,28 @@ data class PeerData(
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 
+    /**
+     * Whether the peer runs TailSocks: App `tailsocks` (patch 06, from 5.4), or the 5.3-and-
+     * earlier masquerade's App `tailscale-cli` with OS `linux` — no upstream build sets that
+     * App. Official clients name no App. It is what the peer says about itself, as the OS
+     * is: fit for a badge, never for a decision to trust it.
+     */
+    val isTailSocks: Boolean
+        get() = app == TAILSOCKS_APP || (app == MASQUERADE_APP && os.equals("linux", ignoreCase = true))
+
+    /** The client as a word: TailSocks, the name another program gives itself, or Tailscale
+     *  for a peer that names none — the official clients, and TailSocks before 5.4 when it
+     *  reported the real OS. */
+    fun client(): String = when {
+        isTailSocks -> "TailSocks"
+        !app.isNullOrEmpty() -> app
+        else -> "Tailscale"
+    }
+
+    /** The OS to draw the peer's icon by: TailSocks runs on Android whatever its masquerade
+     *  reports, so its Linux-reporting nodes get the phone, not the terminal. */
+    fun iconOs(): String? = if (isTailSocks) "android" else os
+
     fun getDisplayName(): String {
         val dns = dnsName?.split(".")?.firstOrNull()
         if (!dns.isNullOrEmpty()) return dns
@@ -104,6 +129,7 @@ data class PeerData(
             PeerDetail(PeerDetailId.MACHINE_NAME, "Machine Name", getDisplayName()),
             PeerDetail(PeerDetailId.DNS_NAME, "DNS Name", dnsName ?: "N/A"),
             PeerDetail(PeerDetailId.OS, "OS", os ?: "Unknown"),
+            PeerDetail(PeerDetailId.CLIENT, "Client", client()),
             PeerDetail(PeerDetailId.IPV4, "IPv4", getPrimaryIp()),
             PeerDetail(PeerDetailId.IPV6, "IPv6", tailscaleIPs?.getOrNull(1) ?: "N/A"),
             PeerDetail(PeerDetailId.ALLOWED_IPS, "Allowed IPs", allowedIPs?.joinToString(", ") ?: "N/A")
@@ -168,7 +194,7 @@ data class PeerData(
  * row falling into the "other" group with its copy icon and its monospace face gone.
  */
 enum class PeerDetailId {
-    MACHINE_NAME, DNS_NAME, OS, IPV4, IPV6, ALLOWED_IPS, VERSION, NODE_ID,
+    MACHINE_NAME, DNS_NAME, OS, CLIENT, IPV4, IPV6, ALLOWED_IPS, VERSION, NODE_ID,
     RELAY, CUR_ADDR, KEY_EXPIRY, CREATED, LAST_SEEN, LAST_WRITE, LAST_HANDSHAKE,
     RX_BYTES, TX_BYTES, IS_EXIT_NODE, EXIT_NODE_OPTION, IN_NETWORK_MAP, IN_MAGICSOCK,
     IN_WG_ENGINE, CAPABILITIES, TAILDROP_TARGET, TAGS, NO_FILE_SHARING, PEER_API, PEER_RELAY
@@ -177,3 +203,9 @@ enum class PeerDetailId {
 /** One row of [PeerData.getDetailsList]: what the row is, what it is called on screen, and
  *  what it says. */
 data class PeerDetail(val id: PeerDetailId, val label: String, val value: String)
+
+/** Hostinfo.App of a TailSocks node (cmd/tailscaled/fix_android_netmon.go, patch 06). */
+const val TAILSOCKS_APP = "tailsocks"
+
+/** Hostinfo.App the masquerade reported until 5.3. */
+private const val MASQUERADE_APP = "tailscale-cli"

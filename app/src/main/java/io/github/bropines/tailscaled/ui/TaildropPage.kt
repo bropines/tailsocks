@@ -979,7 +979,7 @@ private fun TaildropRowIcon(icon: ImageVector, tint: Color) {
 @Composable
 internal fun TaildropDeviceRow(target: TaildropTarget, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val peer = target.peer
-    val (osIcon, osColor) = getOsVisuals(peer.os)
+    val (osIcon, osColor) = getOsVisuals(peer.iconOs())
     val note = (target.status as? TaildropStatus.Offline)?.reason
     val online = peer.online == true
     Row(

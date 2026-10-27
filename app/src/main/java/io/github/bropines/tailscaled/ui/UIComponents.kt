@@ -62,6 +62,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -74,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.Shape
@@ -296,6 +299,7 @@ private val PEER_DETAIL_GROUP_OF: Map<PeerDetailId, PeerDetailGroup> = mapOf(
     PeerDetailId.IN_MAGICSOCK to PeerDetailGroup.ROUTE,
     PeerDetailId.IN_WG_ENGINE to PeerDetailGroup.ROUTE,
     PeerDetailId.OS to PeerDetailGroup.DEVICE,
+    PeerDetailId.CLIENT to PeerDetailGroup.DEVICE,
     PeerDetailId.VERSION to PeerDetailGroup.DEVICE,
     PeerDetailId.NODE_ID to PeerDetailGroup.DEVICE,
     PeerDetailId.TAGS to PeerDetailGroup.DEVICE,
@@ -635,6 +639,54 @@ fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
     return icon to color
 }
 
+/**
+ * A peer's OS in its tinted circle, with TailSocks's sock in the corner when the peer runs
+ * TailSocks ([PeerData.isTailSocks]): two Android phones look alike until the client is told
+ * apart, and it is told to TalkBack as well. [ring] is the colour the row is drawn on, cut
+ * around the sock so it stands off the circle.
+ */
+@Composable
+internal fun PeerOsIcon(
+    peer: PeerData,
+    size: Dp,
+    iconSize: Dp,
+    ring: Color,
+    modifier: Modifier = Modifier
+) {
+    val (osIcon, osColor) = getOsVisuals(peer.iconOs())
+    Box(modifier.size(size)) {
+        Box(
+            Modifier.fillMaxSize().clip(CircleShape).background(osColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(osIcon, null, Modifier.size(iconSize), tint = osColor)
+        }
+        if (peer.isTailSocks) {
+            val label = stringResource(R.string.peer_client_tailsocks)
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 3.dp, y = 3.dp)
+                    .size(size * 0.5f)
+                    .clip(CircleShape)
+                    .background(ring)
+                    .padding(1.5.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .semantics { contentDescription = label },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_qs_tile),
+                    null,
+                    Modifier.size(size * 0.36f),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+    }
+}
+
 /** The two exit-node states the status API reports for a peer. */
 private enum class ExitNodeState { NONE, OFFERED, SELECTED }
 
@@ -840,21 +892,12 @@ internal fun PeerItem(
         border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            val (osIcon, osColor) = getOsVisuals(peer.os)
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(osColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    osIcon,
-                    null,
-                    modifier = Modifier.size(20.dp),
-                    tint = osColor
-                )
-            }
+            PeerOsIcon(
+                peer,
+                size = 40.dp,
+                iconSize = 20.dp,
+                ring = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
+            )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 val displayName = peer.getDisplayName()
@@ -1000,7 +1043,7 @@ private const val PEER_PATH_ICON = "peerPath"
  */
 @Composable
 fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = TaildropStatus.Available, onClick: () -> Unit) {
-    val (osIcon, osColor) = getOsVisuals(peer.os)
+    val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
     val refused = taildrop is TaildropStatus.Blocked
     val note = when (taildrop) {
         TaildropStatus.Available -> null
@@ -1021,28 +1064,18 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = T
             1.dp,
             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
         ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-        )
+        colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(osColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    osIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = osColor
-                )
-            }
+            PeerOsIcon(
+                peer,
+                size = 38.dp,
+                iconSize = 18.dp,
+                ring = cardColor.compositeOver(MaterialTheme.colorScheme.surface)
+            )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -1672,7 +1705,7 @@ private fun PeerDetailsPage(
             }
 
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                val (osIcon, osColor) = getOsVisuals(peer.os)
+                val (osIcon, osColor) = getOsVisuals(peer.iconOs())
                 val statusColor = if (peer.online == true) PEER_ONLINE_GREEN else PEER_OFFLINE_GREY
 
                 Row(
@@ -1967,7 +2000,7 @@ private fun PeerStatusStrip(
     strings: PeerDetailsStrings,
     modifier: Modifier = Modifier
 ) {
-    val (osIcon, osColor) = getOsVisuals(peer.os)
+    val (osIcon, osColor) = getOsVisuals(peer.iconOs())
     val online = peer.online == true
     FlowRow(
         modifier = modifier,
@@ -1986,6 +2019,16 @@ private fun PeerStatusStrip(
             icon = osIcon,
             iconTint = osColor
         )
+        // Beside the OS it qualifies: an Android phone that runs TailSocks, or a "linux"
+        // that is one in the masquerade. The official client gets no chip; its name is in
+        // the Device card's Client row.
+        if (peer.isTailSocks) {
+            PeerStatusChip(
+                label = stringResource(R.string.peer_client_tailsocks),
+                icon = ImageVector.vectorResource(R.drawable.ic_qs_tile),
+                iconTint = MaterialTheme.colorScheme.primary
+            )
+        }
         val route = strings.path.chip(path)
         if (route != null) {
             PeerStatusChip(
@@ -2331,7 +2374,7 @@ private fun PeerInfoCard(
         animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
         label = "peerCardChevron"
     )
-    val (icon, tint) = if (card.group == PeerDetailGroup.DEVICE) getOsVisuals(peer.os)
+    val (icon, tint) = if (card.group == PeerDetailGroup.DEVICE) getOsVisuals(peer.iconOs())
     else card.group.icon() to MaterialTheme.colorScheme.primary
     val title = strings.titleOf(card.group)
     val stateWords = if (open) strings.expanded else strings.collapsed
