@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The main account, in the accounts sheet's edit mode (ui/MainActivity.kt): the one that cannot be
+  deleted and that the app moves to when the account in use is deleted. It used to be always the
+  account the app was installed with.
+--><resources>
+    <!-- Edit mode, under the sheet's title: what the star means -->
+    <string name="accounts_primary_help"></string>
+    <!-- Star button on an account that is not the main one -->
+    <string name="accounts_make_primary"></string>
+    <!-- The filled star on the main account -->
+    <string name="accounts_primary"></string>
+</resources>
