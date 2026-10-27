@@ -2,46 +2,4 @@
 <!-- Taildrive downloads as a queue: the panel under the share list (ui/TaildriveDownloadUi.kt), its
      notification (core/TaildriveDownloads.kt), and the "Parallel downloads" setting
      (ui/TaildriveDownloadSetting.kt). --><resources>
-    <!-- The panel's first line while several downloads run or wait; the second part only when some wait. -->
-    <string name="taildrive_queue_downloading"></string>
-    <plurals name="taildrive_queue_in_queue">
-    </plurals>
-    <!-- Under it: how many files are being written right now. -->
-    <!-- Next to the sizes: files that are over, of all found. The quantity is the second number. -->
-    <plurals name="taildrive_queue_files_done">
-    </plurals>
-    <!-- The same while folders are still being walked and more may be found. -->
-    <plurals name="taildrive_queue_files_done_counting">
-    </plurals>
-    <!-- A download in the list, by what was selected: "Season 2 and 3 more". -->
-    <string name="taildrive_queue_and_more"></string>
-    <!-- A download that waits its turn, and where it will go. -->
-    <!-- The list unfolded with nothing running. -->
-    <plurals name="taildrive_queue_finished">
-    </plurals>
-    <string name="taildrive_queue_clear"></string>
-    <!-- Content descriptions of the button that unfolds and folds the list. -->
-    <string name="taildrive_queue_show"></string>
-    <string name="taildrive_queue_hide"></string>
-    <!-- The notification: its title while several files are written, and its button while more than one download runs or waits. -->
-    <plurals name="taildrive_queue_notify_files">
-    </plurals>
-    <plurals name="taildrive_queue_downloads">
-    </plurals>
-    <string name="taildrive_queue_cancel_all"></string>
-    <!-- Settings → Sharing & access → Storage. -->
-    <string name="taildrive_parallel_title"></string>
-    <!-- %1$d: how many files from shares download at the same time. -->
-    <plurals name="taildrive_parallel_desc">
-    </plurals>
-    <!-- The choices: how many files at once, with a word on each. -->
-    <string name="taildrive_parallel_one"></string>
-    <string name="taildrive_parallel_two"></string>
-    <string name="taildrive_parallel_three"></string>
-    <string name="taildrive_parallel_four"></string>
-    <!-- What the settings search knows the row by (ui/SettingsCatalog.kt). -->
-    <string name="search_sum_taildrive_parallel"></string>
-    <string name="search_kw_taildrive_parallel"></string>
-    <string name="taildrive_queue_cancel_item"></string>
-    <string name="taildrive_queue_dismiss_item"></string>
-</resources>
+    </resources>
