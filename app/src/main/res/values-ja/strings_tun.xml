@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TUN mode: the engine picker on the TUN settings page -->
+    <string name="tun_engine_title"></string>
+    <string name="tun_engine_native"></string>
+    <string name="tun_engine_hev" translatable="false"></string>
+    <string name="tun_engine_native_short"></string>
+    <string name="tun_engine_hev_short"></string>
+    <string name="tun_engine_native_desc"></string>
+    <string name="tun_engine_hev_desc"></string>
+    <!-- Root Mode with the native TUN: the same excluded ranges, as throw routes in the daemon's table -->
+    <string name="settings_root_excluded_cidrs_desc"></string>
+    <!-- TUN mode on, the VPN slot taken by another VPN app (TunVpnService.isDisplaced) -->
+    <string name="main_tun_displaced_desc"></string>
+    <!-- TUN card: the native engine's in-place device swap (patch 24) -->
+    <string name="settings_tun_swap_title"></string>
+    <string name="settings_tun_swap_desc"></string>
+    <!-- TUN card: transparent mode (TunTransparent, patch 25) -->
+    <string name="settings_tun_transparent_title"></string>
+    <string name="settings_tun_transparent_off"></string>
+    <string name="settings_tun_transparent_lockdown"></string>
+    <string name="settings_tun_transparent_always"></string>
+    <string name="settings_tun_transparent_off_short"></string>
+    <string name="settings_tun_transparent_lockdown_short"></string>
+    <string name="settings_tun_transparent_always_short"></string>
+    <string name="settings_tun_transparent_off_desc"></string>
+    <string name="settings_tun_transparent_lockdown_desc"></string>
+    <string name="settings_tun_transparent_always_desc"></string>
+</resources>
