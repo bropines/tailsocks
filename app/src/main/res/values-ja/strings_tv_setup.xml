@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Signing a television in with a key a phone sends it. tvkey_*: the television's screen; keysend_*: the phone's sheet, opened by scanning the television's code. -->
+
+    <!-- Television: the way in, on the sign-in screen -->
+    <string name="tvkey_entry"></string>
+    <!-- Television: the code -->
+    <string name="tvkey_title"></string>
+    <string name="tvkey_opening"></string>
+    <string name="tvkey_scan_line"></string>
+    <string name="tvkey_scan_help"></string>
+    <string name="tvkey_scan_help_lan"></string>
+    <string name="tvkey_this_tv"></string>
+    <string name="tvkey_this_tv_named"></string>
+    <string name="tvkey_any_network"></string>
+    <string name="tvkey_same_network"></string>
+    <string name="tvkey_waiting"></string>
+    <plurals name="tvkey_refused">
+    </plurals>
+    <!-- Television: a key arrived -->
+    <string name="tvkey_offer_title"></string>
+    <string name="tvkey_offer_from"></string>
+    <string name="tvkey_offer_key"></string>
+    <string name="tvkey_offer_server"></string>
+    <string name="tvkey_offer_named" translatable="false"></string>
+    <string name="tvkey_offer_relay"></string>
+    <string name="tvkey_offer_relay_unnamed"></string>
+    <string name="tvkey_kind_tailscale_auth"></string>
+    <string name="tvkey_kind_tailscale_client"></string>
+    <string name="tvkey_kind_headscale_auth"></string>
+    <string name="tvkey_kind_other"></string>
+    <string name="tvkey_server_same"></string>
+    <string name="tvkey_server_new"></string>
+    <string name="tvkey_server_default" translatable="false"></string>
+    <string name="tvkey_check_label"></string>
+    <string name="tvkey_check_help"></string>
+    <string name="tvkey_offer_time"></string>
+    <string name="tvkey_reject"></string>
+    <!-- Television: after the answer -->
+    <string name="tvkey_signing_in"></string>
+    <string name="tvkey_signed_in"></string>
+    <string name="tvkey_new_code"></string>
+    <!-- Television: why there is no code and no key; one sentence each -->
+    <string name="tvkey_stop_no_network"></string>
+    <string name="tvkey_stop_cannot_listen"></string>
+    <string name="tvkey_stop_too_many"></string>
+    <string name="tvkey_stop_network_changed"></string>
+    <string name="tvkey_stop_service"></string>
+    <string name="tvkey_stop_expired"></string>
+    <string name="tvkey_stop_not_answered"></string>
+    <string name="tvkey_stop_rejected"></string>
+    <string name="tvkey_stop_key_gone"></string>
+    <string name="tvkey_stop_not_signed_in"></string>
+    <string name="tvkey_stop_unknown"></string>
+    <!-- Phone: the form -->
+    <string name="keysend_title"></string>
+    <string name="keysend_target"></string>
+    <string name="keysend_target_named"></string>
+    <string name="keysend_road_lan"></string>
+    <string name="keysend_road_both"></string>
+    <string name="keysend_road_relay"></string>
+    <string name="keysend_target_help"></string>
+    <string name="keysend_key_label"></string>
+    <string name="keysend_key_help"></string>
+    <string name="keysend_paste"></string>
+    <string name="keysend_paste_empty"></string>
+    <string name="keysend_key_summary" translatable="false"></string>
+    <plurals name="keysend_key_chars">
+    </plurals>
+    <string name="keysend_key_bad"></string>
+    <string name="keysend_key_long"></string>
+    <string name="keysend_key_api"></string>
+    <string name="keysend_key_unknown"></string>
+    <string name="keysend_server_label"></string>
+    <string name="keysend_server_help"></string>
+    <string name="keysend_server_bad"></string>
+    <!-- Phone: sent -->
+    <string name="keysend_sending"></string>
+    <string name="keysend_sending_lan"></string>
+    <string name="keysend_sending_relay"></string>
+    <string name="keysend_compare"></string>
+    <string name="keysend_compare_help"></string>
+    <string name="keysend_sent_to"></string>
+    <string name="keysend_sent_relay"></string>
+    <string name="keysend_stop_waiting"></string>
+    <string name="keysend_done"></string>
+    <string name="keysend_rescan"></string>
+    <string name="keysend_edit"></string>
+    <string name="keysend_network_hint"></string>
+    <!-- Phone: how it ended; a title and one or two sentences -->
+    <string name="keysend_end_confirmed_title"></string>
+    <string name="keysend_end_confirmed_text"></string>
+    <string name="keysend_end_rejected_title"></string>
+    <string name="keysend_end_rejected_text"></string>
+    <string name="keysend_end_expired_title"></string>
+    <string name="keysend_end_expired_text"></string>
+    <string name="keysend_end_cancelled_title"></string>
+    <string name="keysend_end_cancelled_text"></string>
+    <string name="keysend_end_lost_title"></string>
+    <string name="keysend_end_lost_text"></string>
+    <string name="keysend_end_taken_title"></string>
+    <string name="keysend_end_taken_text"></string>
+    <string name="keysend_end_unsupported_title"></string>
+    <string name="keysend_end_unsupported_text"></string>
+    <string name="keysend_end_closed_title"></string>
+    <string name="keysend_end_closed_text"></string>
+    <string name="keysend_end_unreachable_title"></string>
+    <string name="keysend_end_unreachable_text"></string>
+    <string name="keysend_end_wrong_network_title"></string>
+    <string name="keysend_end_wrong_network_text"></string>
+    <string name="keysend_end_relay_unavailable_title"></string>
+    <string name="keysend_end_relay_unavailable_text"></string>
+    <string name="keysend_end_no_answer_title"></string>
+    <string name="keysend_end_no_answer_text"></string>
+    <string name="keysend_end_invalid_code_title"></string>
+    <string name="keysend_end_invalid_code_text"></string>
+    <string name="keysend_end_newer_code_title"></string>
+    <string name="keysend_end_newer_code_text"></string>
+    <string name="keysend_end_invalid_key_title"></string>
+    <string name="keysend_end_invalid_server_title"></string>
+    <string name="keysend_end_busy_title"></string>
+    <string name="keysend_end_busy_text"></string>
+    <string name="keysend_end_unknown_title"></string>
+    <string name="keysend_end_unknown_text"></string>
+</resources>
