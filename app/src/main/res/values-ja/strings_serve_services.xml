@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Serve rules published as a Tailscale Service (svc:name): where each service
+  this node serves stands in the tailnet, and the editor's explanation. The
+  older service strings live in strings.xml.
+--><resources>
+    <!-- Under a service's heading on the Serve screen, while the service does not answer yet. -->
+    <string name="serve_svc_status_approved"></string>
+    <string name="serve_svc_status_approved_auto"></string>
+    <string name="serve_svc_status_awaiting"></string>
+    <string name="serve_svc_status_not_defined"></string>
+    <!-- Approves this node as the service's host through the Admin API, after unlocking. -->
+    <string name="serve_svc_approve_button"></string>
+    <!-- The rule editor, under the This device / Service choice; folded to two lines. -->
+    <string name="serve_svc_help"></string>
+</resources>
