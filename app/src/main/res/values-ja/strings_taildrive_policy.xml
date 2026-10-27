@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the tailnet's policy lets this device do with Taildrive, where a person looks: the
+     Taildrive screen (ui/TaildriveActivity.kt), the share browser (ui/TaildriveBrowser.kt) and the
+     document picker (core/TailsocksFileProvider.kt). The verdicts are worded like the netmap
+     cache's (core_netmap_cache_status_*). --><resources>
+    <!-- The Taildrive screen: one line beside the switches, one beside the other devices' folders. -->
+    <string name="taildrive_verdict_share_allowed"></string>
+    <string name="taildrive_verdict_share_denied"></string>
+    <string name="taildrive_verdict_access_allowed"></string>
+    <string name="taildrive_verdict_access_denied"></string>
+    <string name="taildrive_verdict_unknown"></string>
+    <string name="taildrive_verdict_share_help"></string>
+    <string name="taildrive_verdict_access_help"></string>
+    <string name="taildrive_shares_not_live"></string>
+    <string name="taildrive_fix_policy"></string>
+    <string name="taildrive_fix_policy_help"></string>
+    <!-- The share browser: this device may not open shares / its own Taildrive does not answer. -->
+    <string name="taildrive_browser_error_not_permitted"></string>
+    <string name="taildrive_browser_error_not_permitted_help"></string>
+    <string name="taildrive_browser_error_no_answer"></string>
+    <string name="taildrive_browser_error_no_answer_help"></string>
+    <!-- The document picker: one line under a folder that cannot be listed. -->
+    <string name="taildrive_unavailable_not_connected"></string>
+    <string name="taildrive_unavailable_not_permitted"></string>
+    <string name="taildrive_unavailable_no_answer"></string>
+    <string name="taildrive_unavailable_timeout"></string>
+    <string name="taildrive_unavailable_failed"></string>
+</resources>
