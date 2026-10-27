@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management, the managed device's own page (ui/RemoteManagedScreen.kt): the two switches
+         beyond the main one, what a paired device may do, and the newer lines of the log -->
+    <string name="remote_managed_switch_help"></string>
+    <!-- Full control -->
+    <string name="remote_full_title"></string>
+    <string name="remote_full_help"></string>
+    <string name="remote_full_confirm_title"></string>
+    <string name="remote_full_confirm_text"></string>
+    <string name="remote_full_confirm_yes"></string>
+    <!-- Guests -->
+    <string name="remote_guests_title"></string>
+    <string name="remote_guests_help_lasts"></string>
+    <string name="remote_guests_help_plain"></string>
+    <string name="remote_guests_help_off"></string>
+    <string name="remote_guests_help_off_tagged"></string>
+    <string name="remote_paired_help_owners"></string>
+    <string name="remote_paired_nobody"></string>
+    <string name="remote_paired_guest_refused"></string>
+    <!-- %1$s is "3 days ago", "just now" -->
+    <string name="remote_paired_since"></string>
+    <!-- What a paired device may do: every line is put together from the bridge's own lists.
+         The names in a list are joined with remote_access_list_more, and, in a sentence, the last
+         one with remote_access_list_last. -->
+    <string name="remote_access_title"></string>
+    <string name="remote_access_guest"></string>
+    <string name="remote_access_owner"></string>
+    <string name="remote_access_owner_full"></string>
+    <string name="remote_access_full"></string>
+    <string name="remote_access_never"></string>
+    <string name="remote_access_not_applied"></string>
+    <string name="remote_access_list_more"></string>
+    <string name="remote_access_list_last"></string>
+    <string name="remote_access_guests_off"></string>
+    <string name="remote_access_like_guest"></string>
+    <string name="remote_access_see"></string>
+    <string name="remote_access_set"></string>
+    <string name="remote_access_set_guarded"></string>
+    <string name="remote_access_set_on_only"></string>
+    <string name="remote_access_set_off_only"></string>
+    <string name="remote_access_set_needs_full"></string>
+    <string name="remote_access_set_with_full"></string>
+    <string name="remote_access_permissions"></string>
+    <!-- What can be seen: fits after remote_access_see -->
+    <string name="remote_can_status"></string>
+    <string name="remote_can_exit_nodes"></string>
+    <string name="remote_can_settings"></string>
+    <string name="remote_can_files"></string>
+    <string name="remote_can_folders"></string>
+    <string name="remote_can_storage_list"></string>
+    <string name="remote_can_diag_report"></string>
+    <string name="remote_can_diag_log"></string>
+    <!-- What can be done: each begins a line or follows a comma -->
+    <string name="remote_can_exit_node_set"></string>
+    <string name="remote_can_settings_set"></string>
+    <string name="remote_can_action"></string>
+    <string name="remote_can_files_delete"></string>
+    <string name="remote_can_unpair"></string>
+    <string name="remote_can_permission_request"></string>
+    <string name="remote_can_confirm"></string>
+    <string name="remote_can_identify"></string>
+    <string name="remote_can_shares_remove"></string>
+    <string name="remote_can_shares_add"></string>
+    <string name="remote_can_storage_send"></string>
+    <string name="remote_can_act_reconnect"></string>
+    <string name="remote_can_act_reconnect_relays"></string>
+    <string name="remote_can_act_receive_folder_default"></string>
+    <string name="remote_can_act_save_received"></string>
+    <!-- Settings: each follows a colon, in a list -->
+    <string name="remote_can_set_accept_dns" translatable="false"></string>
+    <string name="remote_can_set_accept_routes"></string>
+    <string name="remote_can_set_exit_node_lan_access"></string>
+    <string name="remote_can_set_tun_mode"></string>
+    <string name="remote_can_set_auto_reconnect"></string>
+    <string name="remote_can_set_auto_start"></string>
+    <string name="remote_can_set_keep_awake"></string>
+    <string name="remote_can_set_taildrive_enabled"></string>
+    <string name="remote_can_set_taildrive_proxy_enabled"></string>
+    <string name="remote_can_set_advertise_exit_node"></string>
+    <string name="remote_can_set_advertise_routes"></string>
+    <string name="remote_can_set_full_control"></string>
+    <string name="remote_can_set_exit_node"></string>
+    <!-- A permission is named by the Permissions screen's own strings (RemotePromptRules.title); the VPN consent has no row there -->
+    <string name="remote_perm_vpn"></string>
+    <!-- What nobody may: each begins the line or follows a comma -->
+    <string name="remote_never_stop"></string>
+    <string name="remote_never_sign_out"></string>
+    <string name="remote_never_account"></string>
+    <string name="remote_never_credentials"></string>
+    <string name="remote_never_control_proxy"></string>
+    <string name="remote_never_root_mode"></string>
+    <string name="remote_never_grant_permission"></string>
+    <string name="remote_never_full_control_on"></string>
+    <!-- The log: the lines of the newer operations -->
+    <string name="remote_log_permission"></string>
+    <string name="remote_log_confirmed"></string>
+    <string name="remote_log_reverted"></string>
+    <string name="remote_log_reverted_unconfirmed"></string>
+    <string name="remote_log_reverted_none"></string>
+    <string name="remote_log_identify"></string>
+    <string name="remote_log_share_added"></string>
+    <string name="remote_log_share_removed"></string>
+    <string name="remote_log_file_sent"></string>
+    <string name="remote_log_browse"></string>
+    <string name="remote_log_diag"></string>
+    <string name="remote_log_diag_log"></string>
+    <string name="remote_log_diag_report"></string>
+    <!-- "%1$s (%2$s)": a setting and its value, a request and what came of it -->
+    <string name="remote_log_with_note" translatable="false"></string>
+    <string name="remote_log_on"></string>
+    <string name="remote_log_off"></string>
+    <string name="remote_log_none"></string>
+    <string name="remote_log_result_shown"></string>
+    <string name="remote_log_result_notified"></string>
+    <string name="remote_log_result_waiting"></string>
+    <string name="remote_log_result_unseen"></string>
+    <!-- What the bridge remarks on a line when the app did not simply do as asked -->
+    <string name="remote_log_remark_pending"></string>
+    <string name="remote_log_remark_late"></string>
+    <string name="remote_log_remark_failed_late"></string>
+    <string name="remote_log_remark_not_asked"></string>
+    <string name="remote_log_remark_bad_answer"></string>
+    <string name="remote_log_remark_not_put_back"></string>
+</resources>
