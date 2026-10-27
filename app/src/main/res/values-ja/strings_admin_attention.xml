@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's "Needs attention" home and its background checks (4.9.0). --><resources>
+    <string name="admin_attention_tab"></string>
+    <!-- The list -->
+    <plurals name="admin_attention_count">
+    </plurals>
+    <string name="admin_attention_empty_title"></string>
+    <string name="admin_attention_empty_text"></string>
+    <string name="admin_attention_not_checked"></string>
+    <string name="admin_attention_source_users"></string>
+    <string name="admin_attention_source_keys"></string>
+    <string name="admin_attention_scanning"></string>
+    <plurals name="admin_attention_scan_capped">
+    </plurals>
+    <string name="admin_attention_section_approvals"></string>
+    <string name="admin_attention_section_credential"></string>
+    <string name="admin_attention_section_expiry"></string>
+    <string name="admin_attention_section_problems"></string>
+    <string name="admin_attention_section_routes"></string>
+    <string name="admin_attention_section_updates"></string>
+    <string name="admin_attention_device_approval"></string>
+    <string name="admin_attention_user_approval"></string>
+    <string name="admin_attention_credential_refused"></string>
+    <string name="admin_attention_credential_refused_short"></string>
+    <string name="admin_attention_credential_refused_desc"></string>
+    <string name="admin_attention_credential_expiring"></string>
+    <string name="admin_attention_credential_name"></string>
+    <string name="admin_attention_device_key_expiring"></string>
+    <string name="admin_attention_device_key_expired"></string>
+    <string name="admin_attention_auth_key_expiring"></string>
+    <string name="admin_attention_lock_error"></string>
+    <string name="admin_attention_lock_error_desc"></string>
+    <string name="admin_attention_multiple"></string>
+    <string name="admin_attention_multiple_desc"></string>
+    <string name="admin_attention_routes"></string>
+    <string name="admin_attention_exit_node"></string>
+    <string name="admin_attention_exit_node_route"></string>
+    <string name="admin_attention_update"></string>
+    <string name="admin_attention_update_plain"></string>
+    <plurals name="admin_attention_in_days">
+    </plurals>
+    <plurals name="admin_attention_in_hours">
+    </plurals>
+    <string name="admin_attention_within_hour"></string>
+    <plurals name="admin_attention_days_ago">
+    </plurals>
+    <plurals name="admin_attention_hours_ago">
+    </plurals>
+    <string name="admin_attention_just_now"></string>
+    <!-- Actions -->
+    <string name="admin_attention_approve"></string>
+    <string name="admin_attention_reject"></string>
+    <string name="admin_attention_open"></string>
+    <string name="admin_attention_open_keys"></string>
+    <string name="admin_attention_replace"></string>
+    <string name="admin_attention_reject_device"></string>
+    <string name="admin_attention_reject_device_effect"></string>
+    <string name="admin_attention_reject_user"></string>
+    <string name="admin_attention_reject_user_effect"></string>
+    <!-- Background checks -->
+    <string name="admin_attention_checks_title"></string>
+    <string name="admin_attention_checks_desc"></string>
+    <string name="admin_attention_checks_read_only"></string>
+    <string name="admin_attention_checks_interval"></string>
+    <string name="admin_attention_interval_15"></string>
+    <string name="admin_attention_interval_60"></string>
+    <string name="admin_attention_interval_360"></string>
+    <string name="admin_attention_checks_notifications_off"></string>
+    <string name="admin_attention_checks_allow"></string>
+    <!-- Notifications -->
+    <string name="admin_attention_channel"></string>
+    <string name="admin_attention_channel_desc"></string>
+    <plurals name="admin_attention_notif_expiry_title">
+    </plurals>
+    <plurals name="admin_attention_notif_more">
+    </plurals>
+    <string name="admin_attention_open_console"></string>
+    <!-- Approve or Reject from a notification -->
+    <string name="admin_attention_action_checking"></string>
+    <string name="admin_attention_action_gone"></string>
+    <string name="admin_attention_action_not_pending"></string>
+    <string name="admin_attention_action_read_failed"></string>
+    <string name="admin_attention_action_profile_gone"></string>
+</resources>
