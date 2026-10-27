@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The share browser's downloads, its path bar and its link switch (ui/TaildriveBrowser.kt,
+     ui/TaildriveDownloadUi.kt, ui/TaildrivePathBar.kt, core/TaildriveDownloads.kt), and the
+     download folder of Settings (ui/TaildriveDownloadSetting.kt). --><resources>
+    <!-- A row's button, the bar's button in selection mode. -->
+    <string name="taildrive_download"></string>
+    <!-- Content description of a file row's button. -->
+    <string name="taildrive_download_file"></string>
+    <!-- The bar's way into selection mode where there is no long press: a television. -->
+    <string name="taildrive_select"></string>
+    <string name="taildrive_select_all"></string>
+    <string name="taildrive_select_none"></string>
+    <plurals name="taildrive_selected">
+    </plurals>
+    <!-- Asked before a download that holds folders. The numbers fill in as the folders are walked. -->
+    <string name="taildrive_download_folders_title"></string>
+    <string name="taildrive_download_folders_body"></string>
+    <!-- The same while the folders are still being counted: %2$s ends in an ellipsis. -->
+    <string name="taildrive_download_folders_body_counting"></string>
+    <plurals name="taildrive_download_folders">
+    </plurals>
+    <plurals name="taildrive_download_files">
+    </plurals>
+    <string name="taildrive_download_files_size" translatable="false"></string>
+    <string name="taildrive_download_counting"></string>
+    <string name="taildrive_download_counting_so_far"></string>
+    <string name="taildrive_download_all"></string>
+    <string name="taildrive_download_files_only"></string>
+    <!-- Choosing where a download goes. -->
+    <string name="taildrive_download_pick_title"></string>
+    <string name="taildrive_download_pick_confirm"></string>
+    <string name="taildrive_download_folder_lost"></string>
+    <string name="taildrive_download_taildrop_unwritable"></string>
+    <!-- A download as it runs and ends: the page's panel and the notification. -->
+    <string name="taildrive_download_channel"></string>
+    <string name="taildrive_download_to"></string>
+    <plurals name="taildrive_download_saved">
+    </plurals>
+    <string name="taildrive_download_nothing_saved"></string>
+    <string name="taildrive_download_cancelled"></string>
+    <string name="taildrive_download_stopped"></string>
+    <plurals name="taildrive_download_missing">
+    </plurals>
+    <string name="taildrive_download_failure" translatable="false"></string>
+    <string name="taildrive_download_reason_not_found"></string>
+    <string name="taildrive_download_reason_denied"></string>
+    <string name="taildrive_download_reason_timeout"></string>
+    <string name="taildrive_download_reason_network"></string>
+    <string name="taildrive_download_reason_incomplete"></string>
+    <string name="taildrive_download_reason_write"></string>
+    <string name="taildrive_download_reason_unlisted"></string>
+    <string name="taildrive_download_open_folder"></string>
+    <!-- After a download into a folder chosen for it. -->
+    <string name="taildrive_download_keep"></string>
+    <string name="taildrive_download_keep_help"></string>
+    <string name="taildrive_download_kept"></string>
+    <!-- Settings → Sharing & access → Storage. -->
+    <string name="taildrive_download_folder_title"></string>
+    <string name="taildrive_download_folder_ask"></string>
+    <string name="taildrive_download_folder_set_format"></string>
+    <string name="taildrive_download_folder_taildrop_format"></string>
+    <!-- The three choices of the row's dialog; the first is the default. -->
+    <string name="taildrive_download_mode_taildrop"></string>
+    <string name="taildrive_download_folder_reset"></string>
+    <string name="taildrive_download_mode_ask_note"></string>
+    <string name="taildrive_download_mode_choose"></string>
+    <string name="taildrive_download_mode_choose_note"></string>
+    <string name="taildrive_download_mode_picker_help"></string>
+    <!-- What the settings search knows the row by (ui/SettingsCatalog.kt). -->
+    <string name="search_sum_taildrive_download_folder"></string>
+    <string name="search_kw_taildrive_download_folder"></string>
+    <!-- The path under the title: its names open their level; the field takes a typed one. -->
+    <string name="taildrive_path_edit"></string>
+    <string name="taildrive_path_field"></string>
+    <string name="taildrive_path_placeholder"></string>
+    <string name="taildrive_path_go"></string>
+    <string name="taildrive_path_looking"></string>
+    <string name="taildrive_path_missing"></string>
+    <string name="taildrive_path_go_to"></string>
+    <string name="taildrive_path_failed"></string>
+    <!-- The bar's link switch: what it does, said when it is pressed. -->
+    <string name="taildrive_link_on"></string>
+    <string name="taildrive_link_off"></string>
+    <string name="taildrive_link_needs_proxy"></string>
+    <string name="taildrive_link_turn_on"></string>
+    <!-- Content description and tooltip of the switch while it is on and the proxy is not there. -->
+    <string name="taildrive_link_proxy_off_desc"></string>
+    <string name="taildrive_link_opened_directly"></string>
+    <string name="taildrive_link_opened_directly_silent"></string>
+    <string name="taildrive_link_opened_no_seek"></string>
+    <string name="taildrive_link_opened_no_seek_silent"></string>
+    <string name="taildrive_link_turn_on_proxy"></string>
+</resources>
