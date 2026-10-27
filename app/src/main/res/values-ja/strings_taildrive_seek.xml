@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Sharing & access → Storage: what another app gets when it opens a Taildrive file (ui/TaildriveSeekSetting.kt). -->
+    <string name="taildrive_seek_title"></string>
+    <string name="taildrive_seek_desc_off"></string>
+    <string name="taildrive_seek_desc_on"></string>
+    <string name="search_sum_taildrive_seek"></string>
+    <string name="search_kw_taildrive_seek"></string>
+</resources>
