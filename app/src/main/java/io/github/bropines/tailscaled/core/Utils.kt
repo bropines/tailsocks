@@ -227,7 +227,7 @@ private fun syncFrameworkLocale(lang: String) {
 
 /**
  * Wraps an Activity's base context so the app renders in the language chosen in
- * Settings (`app_locale`: "sys" / "en" / "ru").
+ * Settings (`app_locale`: "sys" or a tag of AppLanguages).
  *
  * WHY EVERY DIALOG HOISTS ITS STRINGS — do not "clean this up".
  *

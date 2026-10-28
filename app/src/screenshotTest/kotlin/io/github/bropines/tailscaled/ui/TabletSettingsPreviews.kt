@@ -98,3 +98,16 @@ fun PhoneSettingsAutomation() = AdaptiveShowcase { Settings("automation") }
 
 @PreviewTest @PhoneSizes @Composable
 fun PhoneSettingsDiagnostics() = AdaptiveShowcase { Settings("diagnostics") }
+
+// The sheet the Language row opens, without its window: each language by its own name.
+@PreviewTest @PhoneBothLanguages @Composable
+fun PhoneLanguageSheet() = AdaptiveShowcase {
+    androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerLow) {
+        PickerSheetContent(
+            androidx.compose.ui.res.stringResource(io.github.bropines.tailscaled.R.string.settings_lang_title),
+            languageOptions(),
+            selected = "ru",
+            monospace = false
+        ) {}
+    }
+}

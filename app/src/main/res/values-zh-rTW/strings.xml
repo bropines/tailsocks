@@ -184,8 +184,6 @@
     <string name="settings_auto_reconnect_title">自動重連</string>
     <string name="settings_preset_default">預設</string>
     <string name="settings_lang_sys">系統</string>
-    <string name="settings_lang_en">英文</string>
-    <string name="settings_lang_ru">俄文</string>
     <string name="settings_lang_title">應用語言</string>
     <string name="settings_ui_scale_title">介面縮放</string>
     <string name="settings_ui_scale_desc">整個應用（包含文本、按鈕、間距等）與系統顯示大小的比值，100% 為跟隨系統。</string>

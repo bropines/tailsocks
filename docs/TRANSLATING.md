@@ -39,3 +39,5 @@ A few conventions:
 ## For contributors adding strings
 
 Add every new string in English to `values/` and in Russian to `values-ru/`; Weblate carries the rest. Give a screen with many strings its own `strings_<area>.xml` rather than growing `strings.xml`. Mark a string `translatable="false"` only when it is not language at all: a brand or protocol name, an address, a format with no words.
+
+A language appears in Settings → Appearance → Language once it has a translated string and its tag is in `AppLanguages.TAGS` (`core/AppLanguages.kt`); `AppLanguagesTest` fails until the list matches `res/values-*`, so merging a new language from Weblate means adding its tag there.

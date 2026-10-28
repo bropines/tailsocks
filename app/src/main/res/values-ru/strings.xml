@@ -583,8 +583,6 @@
     <string name="settings_ui_scale_desc">Всё приложение — текст, кнопки и отступы — крупнее или мельче системного размера экрана. 100% — как в системе.</string>
     <string name="settings_lang_title">Язык приложения</string>
     <string name="settings_lang_sys">Системный</string>
-    <string name="settings_lang_en">English</string>
-    <string name="settings_lang_ru">Русский</string>
     <string name="settings_preset_default">По умолчанию</string>
     <string name="settings_preset_lavender">Лаванда</string>
     <string name="settings_preset_emerald">Изумруд</string>

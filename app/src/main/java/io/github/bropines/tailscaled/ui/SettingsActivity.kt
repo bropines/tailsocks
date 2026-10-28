@@ -2519,37 +2519,12 @@ fun SettingsScreen(
         val firstHalf: @Composable () -> Unit = {
             if (themeHere) themeChips()
 
-            // Language selector (Chips row)
-            var currentLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
-            val languageOptions = listOf(
-                Triple("sys", Icons.Default.Language, stringResource(R.string.settings_lang_sys)),
-                Triple("en", Icons.Default.Language, stringResource(R.string.settings_lang_en)),
-                Triple("ru", Icons.Default.Language, stringResource(R.string.settings_lang_ru))
-            )
-            val selectedLangIdx = languageOptions.indexOfFirst { it.first == currentLang }.coerceAtLeast(0)
+            // The language: a row that opens a sheet — see LanguagePicker.
             if (themeHere) Spacer(Modifier.height(12.dp))
             Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_lang_title), outset = 6.dp)) {
                 Text(stringResource(R.string.settings_lang_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
-                SlidingSegmentedChips(
-                    items = languageOptions.map { SegmentedChipItem(it.third, it.second) },
-                    selectedIndex = selectedLangIdx,
-                    onOptionSelected = { idx ->
-                        val id = languageOptions[idx].first
-                        currentLang = id
-                        GlobalSettings.setString(context, "app_locale", id)
-                        val localeList = if (id == "sys") {
-                            LocaleListCompat.getEmptyLocaleList()
-                        } else {
-                            LocaleListCompat.forLanguageTags(id)
-                        }
-                        AppCompatDelegate.setApplicationLocales(localeList)
-                        context.findActivity()?.recreate()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    height = 38.dp,
-                    recreates = true
-                )
+                LanguagePicker(height = 38.dp)
             }
 
             // Interface scale (Chips row): a density of the app's own, applied by

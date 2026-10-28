@@ -383,9 +383,6 @@ private fun SlideColumn(
 
 @Composable
 fun SlideWelcome() {
-    val context = LocalContext.current
-    var currentLang by remember { mutableStateOf(GlobalSettings.getString(context, "app_locale", "sys")) }
-
     SlideContainer(
         icon = Icons.Default.Speed,
         title = stringResource(R.string.first_start_welcome_title),
@@ -402,30 +399,7 @@ fun SlideWelcome() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(12.dp))
-            val langList = listOf(
-                "sys" to stringResource(R.string.settings_lang_sys),
-                "en" to stringResource(R.string.settings_lang_en),
-                "ru" to stringResource(R.string.settings_lang_ru)
-            )
-            val selectedLangIdx = langList.indexOfFirst { it.first == currentLang }.coerceAtLeast(0)
-            SlidingSegmentedChips(
-                options = langList.map { it.second },
-                selectedIndex = selectedLangIdx,
-                onOptionSelected = { idx ->
-                    val id = langList[idx].first
-                    currentLang = id
-                    GlobalSettings.setString(context, "app_locale", id)
-                    val localeList = if (id == "sys") {
-                        androidx.core.os.LocaleListCompat.getEmptyLocaleList()
-                    } else {
-                        androidx.core.os.LocaleListCompat.forLanguageTags(id)
-                    }
-                    androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
-                    (context as? android.app.Activity)?.recreate()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                height = 38.dp
-            )
+            LanguagePicker()
         }
     }
 }
