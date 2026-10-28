@@ -97,6 +97,12 @@ fun PeersExitTabShowcase() = States(DemoTailnet.data) {
     PeersScreen(onBack = {}, initialTab = PeerTab.EXIT_NODES)
 }
 
+// The devices that run TailSocks, this one among them.
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun PeersTailSocksTabShowcase() = States(DemoTailnet.data) {
+    PeersScreen(onBack = {}, initialTab = PeerTab.TAILSOCKS)
+}
+
 // Stopped: one line and a Start button, the same on every screen that needs the daemon.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun PeersStoppedShowcase() = States(stopped) { PeersScreen(onBack = {}) }

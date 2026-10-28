@@ -689,6 +689,8 @@ enum class PeerTab(@param:StringRes val label: Int) {
      *  tags whoever enrolled it, and its UserID is control's tagged-devices user anyway. */
     MINE(R.string.peers_tab_mine),
     TAGGED(R.string.peers_tab_tagged),
+    /** Devices that run TailSocks ([PeerData.isTailSocks]), this one among them. */
+    TAILSOCKS(R.string.peer_client_tailsocks),
     /** Peers that offer exit routes, the one in use among them. */
     EXIT_NODES(R.string.peers_tab_exit_nodes);
 
@@ -700,6 +702,7 @@ enum class PeerTab(@param:StringRes val label: Int) {
         OFFLINE -> !isSelf && peer.online != true
         MINE -> peer.tags.isNullOrEmpty() && ownerId != null && peer.userID == ownerId
         TAGGED -> !peer.tags.isNullOrEmpty()
+        TAILSOCKS -> isSelf || peer.isTailSocks
         EXIT_NODES -> !isSelf && peer.exitNodeOption == true
     }
 }
@@ -738,12 +741,13 @@ private fun visiblePeerTabs(self: PeerData?, peers: List<PeerData>): List<PeerTa
     return PeerTab.entries.filter { it == PeerTab.ALL || rows.getValue(it).size in 1 until total }
 }
 
-/** What the search looks at: the name, the address and the OS. */
+/** What the search looks at: the name, the address, the OS and the program that names itself. */
 private fun PeerData.matchesQuery(query: String): Boolean =
     query.isEmpty() ||
         getDisplayName().contains(query, ignoreCase = true) ||
         getPrimaryIp().contains(query) ||
-        os?.contains(query, ignoreCase = true) == true
+        os?.contains(query, ignoreCase = true) == true ||
+        (!app.isNullOrEmpty() && client().contains(query, ignoreCase = true))
 
 /** The last tab picked by hand, for the next visit. A per-device preference, like the theme. */
 private const val PEERS_TAB_PREF = "peers_tab"
