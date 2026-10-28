@@ -427,4 +427,22 @@
     <string name="settings_sagernet_copy_local">本地</string>
     <string name="settings_dns_fallbacks_title">備用 DNS</string>
     <string name="settings_doh_fallback_title">備用 DoH URL</string>
+    <string name="status_stopped">已暫停</string>
+    <string name="settings_root_daemon_status_stopped">未在運行 / 封包無回應</string>
+    <string name="settings_detailed_logs_title">詳細日誌</string>
+    <string name="settings_detailed_logs_desc">關閉日誌篩選（會很吵！）</string>
+    <string name="perm_install_title">安裝外部來源應用程式</string>
+    <string name="onboarding_perm_notif_title">允許通知</string>
+    <string name="onboarding_perm_battery_title">忽略電池最佳化</string>
+    <string name="onboarding_perm_battery_error">無法打開設定</string>
+    <string name="perm_ask_never">不再詢問</string>
+    <string name="perm_ask_later">暫不</string>
+    <string name="perm_ask_all">所有權限</string>
+    <string name="perm_title">權限</string>
+    <string name="perm_open">打開</string>
+    <string name="perm_state_unknown">未知 — Android 並不會告訴我們</string>
+    <string name="perm_state_na">在此 Android 版本並不需要</string>
+    <string name="perm_autostart_title">自動重啟</string>
+    <string name="perm_battery_title">電池最佳化</string>
+    <string name="perm_notifications_title">通知</string>
 </resources>
