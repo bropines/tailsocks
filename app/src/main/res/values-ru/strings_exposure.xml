@@ -127,6 +127,7 @@
     <string name="exposure_exit_node_help">Устройства tailnet могут выпускать весь свой интернет-трафик через это устройство — после того как администратор tailnet одобрит.</string>
     <string name="exposure_routes_title">Маршруты подсетей</string>
     <string name="exposure_routes_help">Устройства tailnet попадают в эти сети через это устройство — после того как администратор tailnet одобрит маршруты.</string>
+    <string name="exposure_ssh_help">Оболочка на этом устройстве, от root или от shell, для тех, кого пускают правила ssh в политике сети. И scp с SFTP.</string>
     <string name="exposure_app_connector">Коннектор приложений</string>
     <string name="exposure_app_connector_help">Трафик, который tailnet направляет через коннекторы приложений, выходит в интернет через подключение этого устройства.</string>
     <string name="exposure_relay">Ретранслятор</string>

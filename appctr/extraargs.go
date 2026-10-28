@@ -333,7 +333,7 @@ func extraArgPrefs(raw string, warnf func(format string, args ...any)) map[strin
 		case "ssh":
 			if _, v, ok := boolValue(f, warnf); ok {
 				if v {
-					warnf("%s: the Tailscale SSH server does not run on Android and the daemon will reject it", f.raw)
+					warnf("%s: the Tailscale SSH server runs only in Root Mode; in other modes the daemon rejects it", f.raw)
 				}
 				set("RunSSH", v)
 			}

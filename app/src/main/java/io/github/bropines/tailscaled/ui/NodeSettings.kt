@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.SettingsEthernet
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.ClientPrefs
 import io.github.bropines.tailscaled.core.ClientPrefs.Field
+import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.TailnetLock
 import io.github.bropines.tailscaled.core.TailnetLockStatus
 import kotlinx.coroutines.CoroutineScope
@@ -77,6 +79,7 @@ class NodeSwitchesState(stored: ClientPrefs.Values, relayPortText: String) {
         Field.REPORT_POSTURE -> overrides.reportPosture ?: stored.reportPosture ?: live?.reportPosture
         Field.RELAY -> relay().enabled
         Field.APP_CONNECTOR -> overrides.appConnector ?: stored.appConnector ?: live?.appConnector
+        Field.SSH -> overrides.runSsh ?: stored.runSsh ?: live?.runSsh
     } ?: false
 
     fun relay(): ClientPrefs.Relay = overrides.relay ?: stored.relay ?: live?.relay ?: ClientPrefs.Relay(false)
@@ -97,6 +100,7 @@ class NodeSwitchesState(stored: ClientPrefs.Values, relayPortText: String) {
             Field.REPORT_POSTURE -> stored.copy(reportPosture = on)
             Field.RELAY -> stored.copy(relay = ClientPrefs.Relay(on, ClientPrefs.parsePort(relayPortText) ?: 0))
             Field.APP_CONNECTOR -> stored.copy(appConnector = on)
+            Field.SSH -> stored.copy(runSsh = on)
         }
         val patch = ClientPrefs.maskedPrefsJson(only(next, field))
         scope.launch {
@@ -132,6 +136,7 @@ class NodeSwitchesState(stored: ClientPrefs.Values, relayPortText: String) {
         Field.REPORT_POSTURE -> ClientPrefs.Values(reportPosture = v.reportPosture)
         Field.RELAY -> ClientPrefs.Values(relay = v.relay)
         Field.APP_CONNECTOR -> ClientPrefs.Values(appConnector = v.appConnector)
+        Field.SSH -> ClientPrefs.Values(runSsh = v.runSsh)
     }
 
     private fun keyOf(field: Field) = when (field) {
@@ -140,6 +145,7 @@ class NodeSwitchesState(stored: ClientPrefs.Values, relayPortText: String) {
         Field.REPORT_POSTURE -> ClientPrefs.REPORT_POSTURE
         Field.RELAY -> ClientPrefs.RELAY_ENABLED
         Field.APP_CONNECTOR -> ClientPrefs.APP_CONNECTOR
+        Field.SSH -> ClientPrefs.RUN_SSH
     }
 }
 
@@ -220,6 +226,7 @@ private fun NodeSwitchRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     save: (String, Any) -> Unit,
     status: String? = null,
+    available: Boolean = true,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -227,8 +234,8 @@ private fun NodeSwitchRow(
         title = stringResource(title),
         subtitle = subtitle(state, field, desc, status),
         icon = icon,
-        checked = state.checked(field),
-        enabled = state.overriddenBy(field) == null,
+        checked = available && state.checked(field),
+        enabled = available && state.overriddenBy(field) == null,
     ) { state.set(context, scope, field, it, save) }
 }
 
@@ -304,4 +311,12 @@ fun NodeServiceRows(state: NodeSwitchesState, save: (String, Any) -> Unit) {
     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
     val connectorDesc = if (isTv) R.string.client_prefs_connector_desc_tv else R.string.client_prefs_connector_desc
     NodeSwitchRow(state, Field.APP_CONNECTOR, R.string.client_prefs_connector_title, connectorDesc, Icons.Default.Apps, save)
+    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+    // Root Mode only (ClientPrefs.forDaemon): elsewhere the row stays, greyed, so it can be found.
+    val root = LocalInspectionMode.current || GlobalSettings.isRootModeEnabled(context)
+    NodeSwitchRow(
+        state, Field.SSH, R.string.client_prefs_ssh_title, R.string.client_prefs_ssh_desc, Icons.Default.Terminal, save,
+        status = if (root) null else stringResource(R.string.client_prefs_ssh_root_only),
+        available = root,
+    )
 }

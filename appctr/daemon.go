@@ -177,6 +177,11 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 		"TS_AUTH_ONCE=true",
 		"TS_NET_STATE="+netState,
 		"TS_NETROUTE_FILE="+routePath,
+		// Tailscale SSH runs only in Root Mode, whose daemon is started by
+		// the app through su, not here. A RunSSH left on in the state from a
+		// Root Mode run would otherwise open port 22 as the app, unable to
+		// log anyone in.
+		"TS_DISABLE_SSH_SERVER=true",
 	)
 	if tz != "" {
 		c.Env = append(c.Env, "TZ="+tz)

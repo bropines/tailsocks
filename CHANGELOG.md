@@ -9,6 +9,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Devices that run TailSocks carry its sock on their icon, a TailSocks chip on their page and a Client row in the Device card; the official client reads "Tailscale". TailSocks now names itself to the coordinator (App `tailsocks`), the one detail besides the OS that every peer receives. Devices on 5.3 or earlier are recognised only if they report Linux.
 - Devices: a TailSocks tab, and the search finds a device by the program it names (tailsocks, aperture, tsidp).
 - Settings → Appearance → Language: every language translated on Weblate, each by its own name — Traditional Chinese and Korean so far, beside English and Russian.
+- Tailscale SSH in Root Mode: `ssh root@phone` or `ssh shell@phone` (adb's user), scp and SFTP, as the tailnet policy's ssh rules allow, check mode included — Settings → Account & connection. Off by default.
 
 ### Changed
 

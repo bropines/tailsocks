@@ -15,7 +15,7 @@ import kotlinx.serialization.json.putJsonObject
 /**
  * The node's own switches in Settings → Account & connection that used to exist only as
  * extra arguments: shields up, LAN access through an exit node, posture reporting, this
- * phone as a peer relay, and the app connector.
+ * phone as a peer relay, the app connector, and Tailscale SSH.
  *
  * They are stored per profile, in `appctr_<id>`. A key that is absent means the switch was
  * never touched in the app, and then the daemon's own value is left alone — a `tailscale
@@ -31,6 +31,7 @@ object ClientPrefs {
     const val RELAY_ENABLED = "relay_server_enabled"
     const val RELAY_PORT = "relay_server_port"
     const val APP_CONNECTOR = "advertise_connector"
+    const val RUN_SSH = "run_ssh"
 
     /** The AdvertiseRoutes applyTagsAndRoutes wrote last, comma-separated. */
     const val ROUTES_APPLIED = "advertise_routes_applied"
@@ -42,6 +43,7 @@ object ClientPrefs {
         REPORT_POSTURE("--report-posture"),
         RELAY("--relay-server-port"),
         APP_CONNECTOR("--advertise-connector"),
+        SSH("--ssh"),
     }
 
     /** The peer relay: off, or listening on [port] — 0 lets the system pick a free one. */
@@ -58,6 +60,7 @@ object ClientPrefs {
         val reportPosture: Boolean? = null,
         val relay: Relay? = null,
         val appConnector: Boolean? = null,
+        val runSsh: Boolean? = null,
     ) {
         fun isSet(field: Field): Boolean = when (field) {
             Field.SHIELDS_UP -> shieldsUp != null
@@ -65,6 +68,7 @@ object ClientPrefs {
             Field.REPORT_POSTURE -> reportPosture != null
             Field.RELAY -> relay != null
             Field.APP_CONNECTOR -> appConnector != null
+            Field.SSH -> runSsh != null
         }
     }
 
@@ -75,7 +79,15 @@ object ClientPrefs {
         reportPosture = all[REPORT_POSTURE] as? Boolean,
         relay = (all[RELAY_ENABLED] as? Boolean)?.let { Relay(it, parsePort(all[RELAY_PORT] as? String ?: "") ?: 0) },
         appConnector = all[APP_CONNECTOR] as? Boolean,
+        runSsh = all[RUN_SSH] as? Boolean,
     )
+
+    /**
+     * What a start sends the daemon: Tailscale SSH only to a Root Mode one. The others are
+     * started with the SSH server disabled (appctr/daemon.go), refuse RunSSH, and would take
+     * the other switches down with it; the profile keeps the value for the next Root Mode run.
+     */
+    fun forDaemon(v: Values, rootMode: Boolean): Values = if (rootMode) v else v.copy(runSsh = null)
 
     /**
      * The ipn.MaskedPrefs fields for the switches that are set, each with its …Set flag,
@@ -95,6 +107,7 @@ object ClientPrefs {
                 putJsonObject("AppConnector") { put("Advertise", it) }
                 put("AppConnectorSet", true)
             }
+            v.runSsh?.let { put("RunSSH", it); put("RunSSHSet", true) }
         }
         return if (obj.isEmpty()) "" else obj.toString()
     }
@@ -120,6 +133,7 @@ object ClientPrefs {
             appConnector = if (set("AppConnector")) {
                 ((o["AppConnector"] as? JsonObject)?.get("Advertise") as? JsonPrimitive)?.booleanOrNull ?: false
             } else null,
+            runSsh = bool("RunSSH"),
         )
     }
 
@@ -132,6 +146,7 @@ object ClientPrefs {
         @SerialName("RelayServerPort") val relayServerPort: Int? = null,
         @SerialName("AppConnector") val appConnector: DaemonAppConnector = DaemonAppConnector(),
         @SerialName("AdvertiseRoutes") val advertiseRoutes: List<String>? = null,
+        @SerialName("RunSSH") val runSsh: Boolean = false,
     )
 
     @Serializable
@@ -145,6 +160,7 @@ object ClientPrefs {
             reportPosture = it.reportPosture,
             relay = it.relayServerPort?.let { p -> Relay(true, p) } ?: Relay(false),
             appConnector = it.appConnector.advertise,
+            runSsh = it.runSsh,
         )
     }
 

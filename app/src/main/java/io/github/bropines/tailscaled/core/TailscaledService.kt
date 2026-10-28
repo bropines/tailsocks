@@ -2095,8 +2095,10 @@ class TailscaledService : Service() {
             extraUpArgs = GlobalSettings.getString(this@TailscaledService, "extra_args_raw", "").trim()
 
             // The node switches Settings owns (shields up, LAN access, posture, peer relay,
-            // app connector) — only those the user has set; see ClientPrefs.
-            clientPrefs = ClientPrefs.maskedPrefsJson(ClientPrefs.stored(profilePrefs.all))
+            // app connector, SSH in Root Mode) — only those the user has set; see ClientPrefs.
+            clientPrefs = ClientPrefs.maskedPrefsJson(
+                ClientPrefs.forDaemon(ClientPrefs.stored(profilePrefs.all), GlobalSettings.isRootModeEnabled(this@TailscaledService))
+            )
 
             val detailedLogs = GlobalSettings.getBoolean(this@TailscaledService, "detailed_logs", false)
             Appctr.setLogLevel(if (detailedLogs) 0 else 1)

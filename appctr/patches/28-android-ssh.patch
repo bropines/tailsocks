@@ -1,0 +1,549 @@
+--- orig/ssh/tailssh/tailssh.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/tailssh.go	2026-10-28 18:29:26.551666433 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ // Package tailssh is an SSH server integrated into Tailscale.
+ package tailssh
+--- orig/ssh/tailssh/user.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/user.go	2026-10-28 18:29:26.551917239 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+--- orig/ssh/tailssh/user_unix.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/user_unix.go	2026-10-28 18:29:26.552043154 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+@@ -76,6 +76,9 @@
+ 	if runtime.GOOS == "plan9" {
+ 		return "/bin"
+ 	}
++	if runtime.GOOS == "android" {
++		return osuser.AndroidPath(u)
++	}
+ 	isRoot := u.Uid == "0"
+ 	switch distro.Get() {
+ 	case distro.Debian, distro.Crostini:
+--- orig/ssh/tailssh/session.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/session.go	2026-10-28 18:29:26.552128393 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+--- orig/ssh/tailssh/sftp.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/sftp.go	2026-10-28 18:29:26.552240889 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+--- orig/ssh/tailssh/c2n.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/c2n.go	2026-10-28 18:29:26.552458510 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+@@ -17,6 +17,7 @@
+ 	"tailscale.com/ipn/ipnlocal"
+ 	"tailscale.com/tailcfg"
+ 	"tailscale.com/util/lineiter"
++	"tailscale.com/util/osuser"
+ )
+ 
+ // hookLocalUsernames, if non-nil, lists the local user accounts on
+@@ -89,6 +90,11 @@
+ 			}
+ 			add(string(line))
+ 		}
++	case "android":
++		// Tailsocks: the users util/osuser knows on Android.
++		for _, name := range osuser.AndroidUsernames() {
++			add(name)
++		}
+ 	default:
+ 		if hookLocalUsernames != nil {
+ 			names, err := hookLocalUsernames()
+--- orig/ssh/tailssh/hostkeys.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/hostkeys.go	2026-10-28 18:29:26.552575058 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+--- orig/ssh/tailssh/listen.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/listen.go	2026-10-28 18:29:26.552652153 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+--- orig/ssh/tailssh/process_unix.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/process_unix.go	2026-10-28 18:29:26.552758973 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9
++//go:build linux || (darwin && !ios) || freebsd || openbsd || plan9
+ 
+ package tailssh
+ 
+--- orig/ssh/tailssh/incubator.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/ssh/tailssh/incubator.go	2026-10-28 18:29:26.552909404 +0300
+@@ -7,7 +7,7 @@
+ // and groups to the specified `--uid`, `--gid` and `--groups`, and
+ // then launches the requested `--cmd`.
+ 
+-//go:build (linux && !android) || (darwin && !ios) || freebsd || openbsd
++//go:build linux || (darwin && !ios) || freebsd || openbsd
+ 
+ package tailssh
+ 
+@@ -42,6 +42,7 @@
+ 	"tailscale.com/hostinfo"
+ 	"tailscale.com/tailcfg/nodecap"
+ 	"tailscale.com/types/logger"
++	"tailscale.com/util/osuser"
+ 	"tailscale.com/version/distro"
+ )
+ 
+@@ -471,6 +472,20 @@
+ 		return err
+ 	}
+ 
++	if runtime.GOOS == "android" {
++		// Tailsocks: the daemon links bionic through cgo, and bionic's
++		// setuid and setgroups change only the calling thread. The thread
++		// locked above is the user's now; the others are still root, and an
++		// SFTP server running here would write as root wherever its
++		// goroutines land. execve takes the calling thread's credentials,
++		// so the server runs as a process of the user's, all of it.
++		exe, err := os.Executable()
++		if err != nil {
++			return err
++		}
++		return unix.Exec(exe, []string{exe, "be-child", "sftp"}, os.Environ())
++	}
++
+ 	return serveSFTP()
+ }
+ 
+@@ -493,6 +508,14 @@
+ 		return false
+ 	}
+ 
++	// Tailsocks: Android has no login(1), and its su (Magisk, KernelSU,
++	// APatch) is not util-linux su: it takes other flags and may ask the
++	// root manager. The incubator switches the user itself.
++	if runtime.GOOS == "android" {
++		dlogf("android: switching users in process")
++		return false
++	}
++
+ 	return runningAsRoot() && !ia.isSELinuxEnforcing
+ }
+ 
+@@ -1119,12 +1142,18 @@
+ }
+ 
+ func envForUser(u *userMeta) []string {
+-	return []string{
++	env := []string{
+ 		fmt.Sprintf("SHELL=%s", u.LoginShell()),
+ 		fmt.Sprintf("USER=%s", u.Username),
+ 		fmt.Sprintf("HOME=%s", u.HomeDir),
+ 		fmt.Sprintf("PATH=%s", defaultPathForUser(&u.User)),
+ 	}
++	if runtime.GOOS == "android" {
++		// Tailsocks: what adb shell has (ANDROID_*, BOOTCLASSPATH, …),
++		// without which am, pm and app_process tools do not start.
++		env = append(env, osuser.AndroidEnviron(env)...)
++	}
++	return env
+ }
+ 
+ // updateStringInSlice mutates ss to change the first occurrence of a
+--- /dev/null	2026-10-28 02:24:56.833023069 +0300
++++ tailscale_src/ssh/tailssh/incubator_android.go	2026-10-28 18:29:26.553055065 +0300
+@@ -0,0 +1,28 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build android
++
++// Tailsocks: incubator_linux.go is left out on Android (it talks to logind over
++// D-Bus); this keeps its pty naming, so sessions get SSH_TTY and a utmp-style
++// name like Linux ones.
++
++package tailssh
++
++import (
++	"fmt"
++	"os"
++	"syscall"
++	"unsafe"
++)
++
++func init() {
++	ptyName = func(f *os.File) (string, error) {
++		var n uint32
++		_, _, e := syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), syscall.TIOCGPTN, uintptr(unsafe.Pointer(&n)))
++		if e != 0 {
++			return "", e
++		}
++		return fmt.Sprintf("pts/%d", n), nil
++	}
++}
+--- orig/feature/ssh/ssh.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/feature/ssh/ssh.go	2026-10-28 18:29:26.553121062 +0300
+@@ -1,7 +1,7 @@
+ // Copyright (c) Tailscale Inc & contributors
+ // SPDX-License-Identifier: BSD-3-Clause
+ 
+-//go:build ((linux && !android) || (darwin && !ios) || freebsd || openbsd || plan9) && !ts_omit_ssh
++//go:build (linux || (darwin && !ios) || freebsd || openbsd || plan9) && !ts_omit_ssh
+ 
+ // Package ssh registers the Tailscale SSH feature, including host key
+ // management and the SSH server.
+--- orig/envknob/featureknob/featureknob.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/envknob/featureknob/featureknob.go	2026-10-28 18:29:26.553197255 +0300
+@@ -7,6 +7,7 @@
+ 
+ import (
+ 	"errors"
++	"os"
+ 	"runtime"
+ 
+ 	"tailscale.com/envknob"
+@@ -31,6 +32,13 @@
+ 		if version.IsSandboxedMacOS() {
+ 			return errors.New("The Tailscale SSH server does not run in sandboxed Tailscale GUI builds.")
+ 		}
++	case "android":
++		// Tailsocks: only a daemon running as root (Root Mode) can start a
++		// session as another user; as the app it would log everyone in as
++		// the app itself, inside its sandbox.
++		if os.Geteuid() != 0 {
++			return errors.New("The Tailscale SSH server needs Root Mode on Android.")
++		}
+ 	case "freebsd", "openbsd", "plan9":
+ 	default:
+ 		return errors.New("The Tailscale SSH server is not supported on " + runtime.GOOS)
+--- orig/util/osuser/user.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/util/osuser/user.go	2026-10-28 18:29:26.553312800 +0300
+@@ -96,6 +96,16 @@
+ 		return u, shell, nil
+ 	}
+ 
++	// Tailsocks: Android has no passwd database and no getent; os/user
++	// does not implement lookups there. See android.go.
++	if runtime.GOOS == "android" {
++		u, err := lookupAndroid(usernameOrUID)
++		if err != nil {
++			return nil, "", err
++		}
++		return u, AndroidShell, nil
++	}
++
+ 	if runtime.GOOS == "plan9" {
+ 		return &user.User{
+ 			Uid:      "0",
+--- orig/util/osuser/group_ids.go	2026-10-07 21:43:28.000000000 +0300
++++ tailscale_src/util/osuser/group_ids.go	2026-10-28 18:29:26.553395335 +0300
+@@ -23,6 +23,11 @@
+ 		return nil, nil
+ 	}
+ 
++	// Tailsocks: Android's groups live in the platform, not in /etc/group.
++	if runtime.GOOS == "android" {
++		return androidGroupIds(user)
++	}
++
+ 	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
+ 		return user.GroupIds()
+ 	}
+--- /dev/null	2026-10-28 02:24:56.833023069 +0300
++++ tailscale_src/util/osuser/android.go	2026-10-28 18:29:26.553448860 +0300
+@@ -0,0 +1,154 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++// Tailsocks: the users Tailscale SSH can log in as on Android, where there is
++// no passwd database, no getent, and os/user implements no lookups. Called from
++// lookup, GetGroupIds and ssh/tailssh only when runtime.GOOS is "android".
++
++package osuser
++
++import (
++	"bytes"
++	"fmt"
++	"os"
++	"os/user"
++	"path/filepath"
++	"strings"
++)
++
++// AndroidShell is the login shell of every Android user.
++const AndroidShell = "/system/bin/sh"
++
++// androidHome is where a session starts: writable by both users, and where
++// scp puts a file sent without a path, as adb push users expect.
++const androidHome = "/data/local/tmp"
++
++// androidUsers are the users a session can run as. The groups are the ones
++// adbd gives the shell user (system/core/adb/daemon/main.cpp: input, log, adb,
++// sdcard_rw, sdcard_r, ext_data_rw, ext_obb_rw, net_bt_admin, net_bt, inet,
++// net_bw_stats, readproc, uhid, readtracefs); without inet a non-root session
++// has no network. root is given the same so its tools see what shell's do.
++var androidUsers = []struct {
++	name, uid string
++}{
++	{"root", "0"},
++	{"shell", "2000"},
++}
++
++var androidGroups = []string{
++	"1004", "1007", "1011", "1015", "1028", "1078", "1079",
++	"3001", "3002", "3003", "3006", "3009", "3011", "3012",
++}
++
++func lookupAndroid(usernameOrUID string) (*user.User, error) {
++	for _, u := range androidUsers {
++		if usernameOrUID == u.name || usernameOrUID == u.uid {
++			return &user.User{
++				Uid:      u.uid,
++				Gid:      u.uid,
++				Username: u.name,
++				Name:     u.name,
++				HomeDir:  androidHome,
++			}, nil
++		}
++	}
++	return nil, fmt.Errorf("user %q: Tailscale SSH on Android logs in as %s", usernameOrUID, strings.Join(AndroidUsernames(), " or "))
++}
++
++func androidGroupIds(u *user.User) ([]string, error) {
++	return append([]string{u.Gid}, androidGroups...), nil
++}
++
++// AndroidUsernames lists the users for the admin console's SSH hints.
++func AndroidUsernames() []string {
++	names := make([]string, len(androidUsers))
++	for i, u := range androidUsers {
++		names[i] = u.name
++	}
++	return names
++}
++
++// AndroidPath is adb shell's PATH. root also gets the root managers' tool
++// directories (KernelSU, APatch, Magisk), where su and their CLIs live.
++func AndroidPath(u *user.User) string {
++	p := "/product/bin:/apex/com.android.runtime/bin:/apex/com.android.art/bin:/system_ext/bin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin"
++	if u.Uid == "0" {
++		p = "/debug_ramdisk:/sbin:" + p + ":/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk"
++	}
++	return p
++}
++
++// androidEnvKey reports the variables a shell on Android expects from init:
++// app_process, and with it am, pm and similar tools, does not start without
++// BOOTCLASSPATH and the ANDROID_* roots. Only these are passed on, never the
++// daemon's own environment, which may hold the app's settings.
++func androidEnvKey(k string) bool {
++	switch k {
++	case "BOOTCLASSPATH", "DEX2OATBOOTCLASSPATH", "SYSTEMSERVERCLASSPATH",
++		"STANDALONE_SYSTEMSERVER_JARS", "EXTERNAL_STORAGE", "ASEC_MOUNTPOINT":
++		return true
++	}
++	// ANDROID_SOCKET_* name descriptors of the process they were read from.
++	return strings.HasPrefix(k, "ANDROID_") && !strings.HasPrefix(k, "ANDROID_SOCKET_")
++}
++
++var androidEnvDefaults = []string{
++	"ANDROID_ROOT=/system",
++	"ANDROID_DATA=/data",
++	"ANDROID_STORAGE=/storage",
++	"ANDROID_ASSETS=/system/app",
++	"ANDROID_ART_ROOT=/apex/com.android.art",
++	"ANDROID_I18N_ROOT=/apex/com.android.i18n",
++	"ANDROID_TZDATA_ROOT=/apex/com.android.tzdata",
++	"EXTERNAL_STORAGE=/sdcard",
++}
++
++// AndroidEnviron returns the Android variables for a session whose
++// environment so far is have: from the daemon's own environment, then from
++// zygote's (init starts it with the full set; root can read it), then the
++// platform defaults. TMPDIR points at the directory both users can write.
++func AndroidEnviron(have []string) []string {
++	seen := map[string]bool{}
++	for _, kv := range have {
++		k, _, _ := strings.Cut(kv, "=")
++		seen[k] = true
++	}
++	var out []string
++	add := func(kvs []string) {
++		for _, kv := range kvs {
++			k, _, ok := strings.Cut(kv, "=")
++			if !ok || seen[k] || !androidEnvKey(k) {
++				continue
++			}
++			seen[k] = true
++			out = append(out, kv)
++		}
++	}
++	add(os.Environ())
++	add(zygoteEnviron())
++	add(androidEnvDefaults)
++	if !seen["TMPDIR"] {
++		out = append(out, "TMPDIR="+androidHome)
++	}
++	return out
++}
++
++func zygoteEnviron() []string {
++	procs, _ := filepath.Glob("/proc/[0-9]*/cmdline")
++	for _, p := range procs {
++		cmd, err := os.ReadFile(p)
++		if err != nil {
++			continue
++		}
++		name, _, _ := bytes.Cut(cmd, []byte{0})
++		if string(name) != "zygote64" && string(name) != "zygote" {
++			continue
++		}
++		env, err := os.ReadFile(filepath.Join(filepath.Dir(p), "environ"))
++		if err != nil || len(env) == 0 {
++			continue
++		}
++		return strings.Split(strings.TrimRight(string(env), "\x00"), "\x00")
++	}
++	return nil
++}
+--- /dev/null	2026-10-28 02:24:56.833023069 +0300
++++ tailscale_src/util/osuser/android_test.go	2026-10-28 18:29:26.553526763 +0300
+@@ -0,0 +1,86 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++// Tailsocks: the Android user table and session environment (android.go).
++
++package osuser
++
++import (
++	"slices"
++	"strings"
++	"testing"
++)
++
++func TestLookupAndroid(t *testing.T) {
++	for _, in := range []string{"root", "0"} {
++		u, err := lookupAndroid(in)
++		if err != nil || u.Uid != "0" || u.Username != "root" {
++			t.Errorf("lookupAndroid(%q) = %+v, %v; want root", in, u, err)
++		}
++	}
++	for _, in := range []string{"shell", "2000"} {
++		u, err := lookupAndroid(in)
++		if err != nil || u.Uid != "2000" || u.Gid != "2000" || u.Username != "shell" {
++			t.Errorf("lookupAndroid(%q) = %+v, %v; want shell", in, u, err)
++		}
++	}
++	for _, in := range []string{"u0_a375", "10375", "system", "1000", ""} {
++		if u, err := lookupAndroid(in); err == nil {
++			t.Errorf("lookupAndroid(%q) = %+v; want an error", in, u)
++		}
++	}
++}
++
++func TestAndroidGroupsCarryInet(t *testing.T) {
++	u, _ := lookupAndroid("shell")
++	ids, err := androidGroupIds(u)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if ids[0] != "2000" {
++		t.Errorf("first group = %q; want the primary 2000", ids[0])
++	}
++	// Without inet a session that is not root has no network on Android.
++	if !slices.Contains(ids, "3003") {
++		t.Errorf("groups %v lack inet (3003)", ids)
++	}
++}
++
++func TestAndroidPath(t *testing.T) {
++	root, _ := lookupAndroid("root")
++	shell, _ := lookupAndroid("shell")
++	if p := AndroidPath(shell); !strings.Contains(p, "/system/bin") || strings.Contains(p, "/data/adb") {
++		t.Errorf("shell PATH = %q", p)
++	}
++	if p := AndroidPath(root); !strings.Contains(p, "/system/bin") || !strings.Contains(p, "/data/adb/ksu/bin") {
++		t.Errorf("root PATH = %q", p)
++	}
++}
++
++func TestAndroidEnvironKeepsSecretsOut(t *testing.T) {
++	t.Setenv("TS_SOCKS5_PASS", "hunter2")
++	t.Setenv("ALL_PROXY", "socks5://user:pass@127.0.0.1:1080")
++	t.Setenv("BOOTCLASSPATH", "/apex/a.jar:/apex/b.jar")
++	t.Setenv("ANDROID_SOCKET_zygote", "17")
++	t.Setenv("ANDROID_DATA", "/data")
++
++	env := AndroidEnviron([]string{"PATH=/system/bin", "HOME=/data/local/tmp"})
++	joined := strings.Join(env, "\n")
++	if strings.Contains(joined, "hunter2") || strings.Contains(joined, "pass@") {
++		t.Errorf("environment carries the daemon's secrets:\n%s", joined)
++	}
++	for _, kv := range env {
++		k, _, _ := strings.Cut(kv, "=")
++		switch {
++		case k == "ALL_PROXY", k == "TS_SOCKS5_PASS", strings.HasPrefix(k, "ANDROID_SOCKET_"):
++			t.Errorf("environment carries %s", k)
++		case k == "PATH", k == "HOME":
++			t.Errorf("environment sets %s again", k)
++		}
++	}
++	for _, want := range []string{"BOOTCLASSPATH=/apex/a.jar:/apex/b.jar", "ANDROID_DATA=/data", "ANDROID_ROOT=/system", "TMPDIR=/data/local/tmp"} {
++		if !slices.Contains(env, want) {
++			t.Errorf("environment lacks %q:\n%s", want, joined)
++		}
++	}
++}

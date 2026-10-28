@@ -53,6 +53,29 @@ class ClientPrefsTest {
     }
 
     @Test
+    fun sshGoesOnlyToARootModeDaemon() {
+        val v = ClientPrefs.stored(mapOf(ClientPrefs.RUN_SSH to true, ClientPrefs.SHIELDS_UP to false))
+        val root = obj(ClientPrefs.maskedPrefsJson(ClientPrefs.forDaemon(v, rootMode = true)))
+        assertEquals(JsonPrimitive(true), root["RunSSH"])
+        assertEquals(JsonPrimitive(true), root["RunSSHSet"])
+        // Another daemon refuses RunSSH, and with it the whole batch: the other switches still go.
+        val other = obj(ClientPrefs.maskedPrefsJson(ClientPrefs.forDaemon(v, rootMode = false)))
+        assertFalse(other.containsKey("RunSSH"))
+        assertFalse(other.containsKey("RunSSHSet"))
+        assertEquals(JsonPrimitive(false), other["ShieldsUp"])
+        // Nothing but SSH set, outside Root Mode: nothing is sent.
+        assertEquals("", ClientPrefs.maskedPrefsJson(ClientPrefs.forDaemon(ClientPrefs.stored(mapOf(ClientPrefs.RUN_SSH to true)), rootMode = false)))
+    }
+
+    @Test
+    fun sshIsReadFromTheFlagAndTheDaemon() {
+        assertEquals(true, ClientPrefs.overrides("""{"RunSSH":true,"RunSSHSet":true}""").runSsh)
+        assertNull(ClientPrefs.overrides("""{"RunSSH":true}""").runSsh)
+        assertEquals(true, ClientPrefs.live("""{"RunSSH":true}""")?.runSsh)
+        assertEquals(false, ClientPrefs.live("""{"ShieldsUp":false}""")?.runSsh)
+    }
+
+    @Test
     fun relayOffIsAnExplicitNullAndBlankPortIsAnyPort() {
         val off = obj(ClientPrefs.maskedPrefsJson(ClientPrefs.stored(mapOf(ClientPrefs.RELAY_ENABLED to false, ClientPrefs.RELAY_PORT to "40000"))))
         assertEquals(JsonNull, off["RelayServerPort"])

@@ -27,9 +27,9 @@ package io.github.bropines.tailscaled.core
  *  - the daemon: SOCKS5 and HTTP proxies (rows), the peer API — Taildrop and Taildrive
  *    shares are its rows, Serve and Funnel too — the peer relay (row), the LocalAPI socket
  *    (left out: inside the app's private directory, only the app and root reach it; the CLI
- *    wrapper's row is root's way in). Tailscale SSH is compiled out (ts_omit_ssh) and the
- *    daemon's own web client does not build for Android (ipnlocal/web_client.go is !android),
- *    so neither has a row;
+ *    wrapper's row is root's way in), Tailscale SSH on port 22 (row; Root Mode only, patch 28:
+ *    other daemons are started with the SSH server disabled). The daemon's own web client
+ *    does not build for Android (ipnlocal/web_client.go is !android), so it has no row;
  *  - the bridge: the DNS proxy, the Web UI, the Taildrive proxy, the remote-management
  *    endpoint, TailCat's forwards and server (rows). The Taildrive file server
  *    (driveimpl.FileServer on 127.0.0.1) answers only with a per-run secret token the daemon
@@ -90,6 +90,8 @@ enum class ExposureItem(
     REMOTE_FULL,
     REMOTE_FILES,
     REMOTE_ELEVATED,
+    /** Tailscale SSH: the daemon answers port 22 of the tailnet address itself, Root Mode only. */
+    TAILSCALE_SSH,
     TAILDRIVE_SHARES,
     TAILDROP,
     SERVE,
@@ -213,6 +215,8 @@ data class ExposureFacts(
     val appConnector: Boolean = false,
     /** The peer relay's UDP port, 0 for any; null when off. */
     val relayPort: Int? = null,
+    /** Tailscale SSH serves: on, in Root Mode (no other daemon runs it). */
+    val ssh: Boolean = false,
     val rootTun: Boolean = false,
     /** Null: root was not asked. */
     val bootScript: Boolean? = null,
@@ -352,6 +356,10 @@ object Exposure {
             }
         }
 
+        // ─── A shell on this device ───────────────────────────────────────────────────────
+        // Only Root Mode runs it; elsewhere the row would say "off" about something that cannot be on.
+        if (f.rootMode || f.ssh) add(ExposureRow(ExposureItem.TAILSCALE_SSH, f.ssh, tailnet, address = ":22"))
+
         // ─── Files ───────────────────────────────────────────────────────────────────────
         val shares = f.taildriveShares
         val sharing = f.taildriveEnabled && shares.isNotEmpty()
@@ -439,6 +447,7 @@ object Exposure {
             ExposureItem.REMOTE_FULL -> "Remote full control"
             ExposureItem.REMOTE_FILES -> "Remote access to files"
             ExposureItem.REMOTE_ELEVATED -> "Guest with full rights for a while"
+            ExposureItem.TAILSCALE_SSH -> "Tailscale SSH"
             ExposureItem.TAILDRIVE_SHARES -> "Taildrive shares"
             ExposureItem.TAILDROP -> "Taildrop receiving"
             ExposureItem.SERVE -> "Serve"

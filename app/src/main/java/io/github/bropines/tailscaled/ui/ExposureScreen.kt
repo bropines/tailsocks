@@ -594,6 +594,7 @@ private fun itemTitle(item: ExposureItem): Int = when (item) {
     ExposureItem.REMOTE_FULL -> R.string.exposure_remote_full
     ExposureItem.REMOTE_FILES -> R.string.exposure_remote_files
     ExposureItem.REMOTE_ELEVATED -> R.string.exposure_remote_elevated
+    ExposureItem.TAILSCALE_SSH -> R.string.client_prefs_ssh_title
     ExposureItem.TAILDRIVE_SHARES -> R.string.exposure_taildrive_shares
     ExposureItem.TAILDROP -> R.string.exposure_taildrop
     ExposureItem.SERVE -> R.string.exposure_serve
@@ -626,6 +627,7 @@ private fun itemHelp(item: ExposureItem): Int = when (item) {
     ExposureItem.REMOTE_FULL -> R.string.exposure_remote_full_help
     ExposureItem.REMOTE_FILES -> R.string.exposure_remote_files_help
     ExposureItem.REMOTE_ELEVATED -> R.string.exposure_remote_elevated_help
+    ExposureItem.TAILSCALE_SSH -> R.string.exposure_ssh_help
     ExposureItem.TAILDRIVE_SHARES -> R.string.exposure_taildrive_shares_help
     ExposureItem.TAILDROP -> R.string.exposure_taildrop_help
     ExposureItem.SERVE -> R.string.exposure_serve_help
@@ -657,6 +659,7 @@ private fun itemIcon(item: ExposureItem): ImageVector = when (item) {
     ExposureItem.REMOTE_FULL -> Icons.Default.AdminPanelSettings
     ExposureItem.REMOTE_FILES -> Icons.Default.FolderOpen
     ExposureItem.REMOTE_ELEVATED -> Icons.Default.LockClock
+    ExposureItem.TAILSCALE_SSH -> Icons.Default.Terminal
     ExposureItem.TAILDRIVE_SHARES -> Icons.Default.FolderShared
     ExposureItem.TAILDROP -> Icons.Default.Inbox
     ExposureItem.SERVE -> Icons.Default.Web
@@ -691,6 +694,7 @@ internal fun settingOf(item: ExposureItem): Pair<String?, String?> = when (item)
     ExposureItem.TAILDRIVE_SHARES, ExposureItem.TAILDRIVE_PROXY -> null to "taildrive"
     ExposureItem.REMOTE, ExposureItem.REMOTE_FULL, ExposureItem.REMOTE_FILES, ExposureItem.REMOTE_ELEVATED -> "remote_management" to null
     ExposureItem.TAILDROP -> "taildrop_folder" to null
+    ExposureItem.TAILSCALE_SSH -> "ssh" to null
     ExposureItem.EXIT_NODE -> "advertise_exit_node" to null
     ExposureItem.SUBNET_ROUTES -> "advertise_routes" to null
     ExposureItem.APP_CONNECTOR -> "app_connector" to null

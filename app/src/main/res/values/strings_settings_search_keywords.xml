@@ -61,6 +61,7 @@
     <string name="search_kw_relay">peer relay, relay server, udp relay, relay traffic, derp alternative</string>
     <string name="search_kw_relay_port">relay port, udp port, port forwarding, fixed port</string>
     <string name="search_kw_app_connector">connector, saas, domain routing</string>
+    <string name="search_kw_ssh">ssh, shell, terminal, remote shell, sftp, scp, root shell, adb shell</string>
     <string name="search_kw_logout">log out, logout, sign out, reset, remove account, forget, delete node key, log in again</string>
 
     <!-- Tunnel mode -->

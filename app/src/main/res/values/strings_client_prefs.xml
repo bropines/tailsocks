@@ -28,6 +28,10 @@
     <string name="client_prefs_connector_title">App connector</string>
     <string name="client_prefs_connector_desc">Send the traffic the tailnet routes through app connectors (SaaS apps, sites that admit only known addresses) out through this phone\'s internet connection.\n• Needs a tag on this device and an app connector for that tag in the admin console (Apps), with access rules that allow it.\n• Costs battery and data: that traffic goes out through this phone.</string>
 
+    <string name="client_prefs_ssh_title">Tailscale SSH</string>
+    <string name="client_prefs_ssh_desc">Tailnet devices can open a shell on this phone with ssh root@… or ssh shell@…, as the tailnet\'s SSH rules allow.\n• Root Mode only: the daemon runs as root and starts each session as root or as shell, the user adb runs as.\n• Who gets in, as which user, and whether they confirm in the browser first (check mode) is set by the ssh rules of the tailnet policy. Without such rules nobody gets in.\n• scp and SFTP work too. Sessions start in /data/local/tmp.</string>
+    <string name="client_prefs_ssh_root_only">Only in Root Mode</string>
+
     <string name="client_prefs_set_by_flag">Set by the extra argument %1$s</string>
     <string name="client_prefs_refused">The daemon refused it: %1$s</string>
 

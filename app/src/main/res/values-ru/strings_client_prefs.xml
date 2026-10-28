@@ -28,6 +28,10 @@
     <string name="client_prefs_connector_title">Коннектор приложений (app connector)</string>
     <string name="client_prefs_connector_desc">Выпускать в интернет через этот телефон трафик, который сеть направляет через коннекторы приложений (SaaS-сервисы, сайты, пускающие только с известных адресов).\n• Нужен тег на этом устройстве и коннектор приложений с этим тегом в консоли администратора (Apps), а также правила доступа, которые его разрешают.\n• Тратит заряд и трафик: этот трафик выходит через телефон.</string>
 
+    <string name="client_prefs_ssh_title">Tailscale SSH</string>
+    <string name="client_prefs_ssh_desc">Устройства сети могут открыть оболочку на этом телефоне командой ssh root@… или ssh shell@…, если это разрешают SSH-правила сети.\n• Только в Root Mode: демон работает от root и запускает каждую сессию от root или от shell, пользователя adb.\n• Кто входит, под каким пользователем и подтверждает ли вход в браузере (режим check), задают правила ssh в политике сети. Без таких правил никто не войдёт.\n• Работают scp и SFTP. Сессия начинается в /data/local/tmp.</string>
+    <string name="client_prefs_ssh_root_only">Только в Root Mode</string>
+
     <string name="client_prefs_set_by_flag">Задано дополнительным аргументом %1$s</string>
     <string name="client_prefs_refused">Демон не принял настройку: %1$s</string>
 

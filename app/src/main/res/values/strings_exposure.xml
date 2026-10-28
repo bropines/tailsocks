@@ -118,6 +118,7 @@
     <string name="exposure_exit_node_help">Tailnet devices may send all their internet traffic out through this device, once the tailnet\'s admin approves the offer.</string>
     <string name="exposure_routes_title">Subnet routes</string>
     <string name="exposure_routes_help">Tailnet devices reach these networks through this device, once the tailnet\'s admin approves the routes.</string>
+    <string name="exposure_ssh_help">A shell on this device, as root or as shell, for whoever the ssh rules of the tailnet policy let in. scp and SFTP too.</string>
     <string name="exposure_app_connector">App connector</string>
     <string name="exposure_app_connector_help">Traffic the tailnet routes through app connectors goes out through this device\'s internet connection.</string>
     <string name="exposure_relay">Peer relay</string>

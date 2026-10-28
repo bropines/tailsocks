@@ -164,7 +164,7 @@ ANET_VERSION=$(awk '$1 == "github.com/wlynxg/anet" { print $2 }' ../go.mod)
 go get "github.com/wlynxg/anet@${ANET_VERSION:?appctr/go.mod names no anet version}"
 go mod tidy
 
-TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_ssh,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey,ts_omit_syslog,ts_omit_clientupdate,ts_omit_portlist,ts_omit_capture,ts_omit_debugportmapper,ts_omit_wakeonlan,ts_omit_serviceclientprefs,ts_omit_androidbin,ts_omit_androiddns,ts_omit_connreject"
+TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey,ts_omit_syslog,ts_omit_clientupdate,ts_omit_portlist,ts_omit_capture,ts_omit_debugportmapper,ts_omit_wakeonlan,ts_omit_serviceclientprefs,ts_omit_androidbin,ts_omit_androiddns,ts_omit_connreject"
 
 # Everything below must come out byte for byte the same wherever it is built:
 # F-Droid rebuilds the release and ships our APK only if its build matches.

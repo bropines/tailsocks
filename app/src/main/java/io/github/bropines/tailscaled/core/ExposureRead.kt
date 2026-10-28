@@ -118,6 +118,7 @@ object ExposureRead {
             routes = routes,
             appConnector = appConnector,
             relayPort = relay?.port,
+            ssh = rootMode && (live?.runSsh ?: stored.runSsh ?: false),
             rootTun = rootMode && GlobalSettings.isRootTunEnabled(ctx),
             bootScript = if (probe) runCatching { RootUtils.serviceScriptState(ctx).installed }.getOrNull() else null,
             cli = if (probe) runCatching { RootUtils.isTailscaleCliInstalled() }.getOrNull() else null,

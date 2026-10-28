@@ -248,6 +248,31 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/ipn/ipnstate/tailsocks_app_test.go || true
 } > patches/27-peer-app.patch
 
+# 28-android-ssh.patch (ssh/tailssh, feature/ssh, util/osuser, envknob/featureknob)
+# Tailscale SSH on Android, for Root Mode only (issue #16): the build tags let
+# tailssh build for Android; featureknob refuses a daemon that is not root (the
+# app's own daemon also starts with TS_DISABLE_SSH_SERVER, appctr/daemon.go);
+# util/osuser knows root and shell, with the groups adbd gives shell (inet
+# among them), since Android has no passwd database; sessions get adb shell's
+# PATH and the Android variables, never the daemon's environment; the
+# incubator switches users itself, as Android has no login and its su is not
+# util-linux su; the pty naming that incubator_linux.go (D-Bus, left out)
+# carries is kept in incubator_android.go. bionic's setuid changes only the
+# calling thread (the daemon links it through cgo), so SFTP is not served
+# inside the incubator: after the drop it execs `be-child sftp`.
+{
+    for f in tailssh user user_unix session sftp c2n hostkeys listen process_unix incubator; do
+        diff -u orig/ssh/tailssh/$f.go tailscale_src/ssh/tailssh/$f.go || true
+    done
+    diff -N -u /dev/null tailscale_src/ssh/tailssh/incubator_android.go || true
+    diff -u orig/feature/ssh/ssh.go tailscale_src/feature/ssh/ssh.go || true
+    diff -u orig/envknob/featureknob/featureknob.go tailscale_src/envknob/featureknob/featureknob.go || true
+    diff -u orig/util/osuser/user.go tailscale_src/util/osuser/user.go || true
+    diff -u orig/util/osuser/group_ids.go tailscale_src/util/osuser/group_ids.go || true
+    diff -N -u /dev/null tailscale_src/util/osuser/android.go || true
+    diff -N -u /dev/null tailscale_src/util/osuser/android_test.go || true
+} > patches/28-android-ssh.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

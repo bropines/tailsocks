@@ -79,6 +79,23 @@ class ExposureTest {
     }
 
     @Test
+    fun tailscaleSshIsRootModesAndShieldsUpClosesIt() {
+        // No other daemon runs it: outside Root Mode there is no row to be "off".
+        assertTrue(quiet.rows().none { it.item == ExposureItem.TAILSCALE_SSH })
+
+        val root = quiet.copy(rootMode = true, net = ExposureNet.INTERFACE)
+        assertEquals(ExposureGroup.OFF, root.rows().groupOf(ExposureItem.TAILSCALE_SSH))
+
+        val on = root.copy(ssh = true).rows().of(ExposureItem.TAILSCALE_SSH)
+        assertEquals(ExposureGroup.TAILNET, on.group)
+        assertEquals(":22", on.address)
+
+        val shielded = root.copy(ssh = true, shieldsUp = true).rows().of(ExposureItem.TAILSCALE_SSH)
+        assertEquals(ExposureGroup.OFF, shielded.group)
+        assertEquals(ExposureNote.BLOCKED, shielded.note)
+    }
+
+    @Test
     fun aQuietDeviceKeepsItsProxiesToItself() {
         val rows = quiet.rows()
         // Proxy mode: the daemon no longer hands the tailnet's connections to loopback (patch 23).

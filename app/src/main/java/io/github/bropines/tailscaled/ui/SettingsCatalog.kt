@@ -208,6 +208,7 @@ object SettingsCatalog {
         row("relay", SettingsPage.ACCOUNT, R.string.client_prefs_relay_title, R.string.client_prefs_relay_desc, R.string.search_kw_relay, offers)
         row("relay_port", SettingsPage.ACCOUNT, R.string.client_prefs_relay_port_title, R.string.client_prefs_relay_port_desc, R.string.search_kw_relay_port, offers, needs = Need.RELAY)
         row("app_connector", SettingsPage.ACCOUNT, R.string.client_prefs_connector_title, R.string.client_prefs_connector_desc, R.string.search_kw_app_connector, offers)
+        row("ssh", SettingsPage.ACCOUNT, R.string.client_prefs_ssh_title, R.string.client_prefs_ssh_desc, R.string.search_kw_ssh, offers, needs = Need.ROOT_MODE)
         row("logout", SettingsPage.ACCOUNT, R.string.settings_logout_reset_title, R.string.search_sum_logout, R.string.search_kw_logout, R.string.settings_sect_adv_profile)
 
         // ─── Tunnel mode ─────────────────────────────────────────────────────────────────
