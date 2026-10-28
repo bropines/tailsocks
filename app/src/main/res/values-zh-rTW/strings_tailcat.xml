@@ -15,4 +15,5 @@
     <string name="tailcat_heading_connections">連線</string>
     <string name="tailcat_state_starting">正在連線…</string>
     <string name="tailcat_state_direct">直連 · %1$d ms</string>
+    <string name="tailcat_state_stopped">已暫停</string>
 </resources>
