@@ -103,12 +103,6 @@ class RemoteManageEntryState internal constructor(internal val label: String, in
 private const val PROBE_AFTER_MS = 350L
 
 /**
- * Whether a peer could be a TailSocks at all, by the OS it reports: Android when it says what
- * it is, Linux by default (the hostinfo masquerade). The rest are never asked.
- */
-private fun PeerData.mayBeTailSocks(): Boolean = os.isNullOrEmpty() || os.lowercase() in setOf("android", "linux")
-
-/**
  * Whether [peer]'s details look into remote management at all: never this device's own, and
  * never a peer without an id the bridge would take. Then only what this device keeps is read.
  */
@@ -117,14 +111,17 @@ internal fun remoteManageConcerns(peer: PeerData?, isSelf: Boolean): Boolean =
 
 /**
  * Whether [peer] is asked over the network: only one that is online — an offline peer would
- * cost the whole wait and answer nothing — and could be a TailSocks by the OS it reports.
+ * cost the whole wait and answer nothing — and says it runs TailSocks ([PeerData.isTailSocks]).
+ * Until 5.3 every Android and Linux peer was asked, the official clients and servers among
+ * them; a TailSocks of 5.3 or older in honest mode says nothing and is not asked until it is
+ * updated, though one this device is paired with is still offered.
  */
 internal fun remoteManageAsks(peer: PeerData?, isSelf: Boolean): Boolean =
-    remoteManageConcerns(peer, isSelf) && peer?.online == true && peer.mayBeTailSocks()
+    remoteManageConcerns(peer, isSelf) && peer?.online == true && peer.isTailSocks
 
 /**
  * Asks [peer] whether it offers remote management — one small request when the details open,
- * only of a peer that is online and could be a TailSocks — and holds the page the button
+ * only of a peer that is online and runs TailSocks — and holds the page the button
  * opens. A device this one is already paired with is offered whatever it answers, so that it
  * can be forgotten while it is away. Call it in the screen's own composition, outside any
  * sheet: its strings and its page take the language from there (see wrapContextWithLocale).

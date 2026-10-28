@@ -10,6 +10,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Devices: a TailSocks tab, and the search finds a device by the program it names (tailsocks, aperture, tsidp).
 - Settings → Appearance → Language: every language translated on Weblate, each by its own name — Traditional Chinese and Korean so far, beside English and Russian.
 
+### Changed
+
+- "Manage this device" asks only peers that run TailSocks; an older TailSocks that reports Android shows the button once updated, or if already paired.
+
 ## [5.3.0] - 2026-10-24
 
 ### Added

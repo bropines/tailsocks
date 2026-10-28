@@ -7,8 +7,8 @@ import org.junit.Test
 
 /** Which peers' details look into remote management, and which of those are asked over the network. */
 class RemoteManageEntryTest {
-    private fun peer(id: String? = "nABC123CNTRL", os: String? = "linux", online: Boolean? = true) =
-        PeerData(id = id, os = os, online = online)
+    private fun peer(id: String? = "nABC123CNTRL", os: String? = "linux", online: Boolean? = true, app: String? = "tailsocks") =
+        PeerData(id = id, os = os, online = online, app = app)
 
     @Test
     fun thisDeviceIsNeverAskedNorLookedUp() {
@@ -25,10 +25,13 @@ class RemoteManageEntryTest {
     }
 
     @Test
-    fun onlyAPeerThatCouldBeATailSocksIsAsked() {
-        // Android when it says what it is, Linux by default, nothing at all from an old daemon.
-        for (os in listOf("android", "Android", "linux", "", null)) assertTrue("$os", remoteManageAsks(peer(os = os), isSelf = false))
-        for (os in listOf("windows", "macOS", "iOS", "tvOS")) assertFalse(os, remoteManageAsks(peer(os = os), isSelf = false))
+    fun onlyAPeerThatRunsTailSocksIsAsked() {
+        for (os in listOf("android", "linux")) assertTrue(os, remoteManageAsks(peer(os = os), isSelf = false))
+        // 5.3 and older in the masquerade: Linux that says tailscale-cli.
+        assertTrue(remoteManageAsks(peer(os = "linux", app = "tailscale-cli"), isSelf = false))
+        // The official clients, servers and other programs are left alone.
+        for (os in listOf("android", "linux", "windows", "macOS", "")) assertFalse(os, remoteManageAsks(peer(os = os, app = null), isSelf = false))
+        assertFalse(remoteManageAsks(peer(os = "linux", app = "tsidp"), isSelf = false))
     }
 
     @Test
