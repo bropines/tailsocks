@@ -160,6 +160,8 @@ State as of 2026-10-14, at 5.0.0.
       admin console names the machine after the device model (`xiaomi-23030rac7y`,
       "Android (16)"). Hence the setting is a property of the profile, fixed at creation. Decided
       2026-09-07: it stays off by default for new profiles; the masquerade remains the norm.
+      Changed 2026-10-28: new profiles start honest (the add-profile and first-start boxes are
+      ticked); existing ones keep what they registered as.
 - [x] **Issue #3** — answered and closed; Root Mode is the feature it asked for.
 
 ### Verify on devices

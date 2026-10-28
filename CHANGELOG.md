@@ -12,6 +12,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
+- New profiles report the real OS (Android, with the device's model); the box is ticked when a profile is added and on first start. Existing profiles keep what they registered as.
 - "Manage this device" asks only peers that run TailSocks; an older TailSocks that reports Android shows the button once updated, or if already paired.
 
 ## [5.3.0] - 2026-10-24

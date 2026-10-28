@@ -353,7 +353,7 @@ class MainActivity : ComponentActivity() {
         // setting preset. Consumed once (singleTask replays the intent otherwise).
         if (intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT, false)) {
             intent.removeExtra(MAIN_EXTRA_ADD_ACCOUNT)
-            addAccountRequest.value = intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT_HONEST, false)
+            addAccountRequest.value = intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT_HONEST, true)
         }
         // Callback of the PackageInstaller-session fallback in launchApkInstaller().
         // A session cannot install silently: it reports STATUS_PENDING_USER_ACTION
@@ -508,7 +508,8 @@ fun MainScreen(
     // "Report the real OS" for the profile about to be created: decided here,
     // before its first login, because the coordinator binds a node to the OS
     // it registered with (ProfileHostinfo).
-    var newAccountHonest by remember { mutableStateOf(false) }
+    // A new profile reports the real OS unless the box is cleared (ProfileHostinfo).
+    var newAccountHonest by remember { mutableStateOf(true) }
     LaunchedEffect(addAccountRequest.value) {
         addAccountRequest.value?.let { honest ->
             newAccountHonest = honest
@@ -973,7 +974,7 @@ fun MainScreen(
         val dlgHonestTitle = stringResource(R.string.settings_honest_hostinfo_title)
         val dlgHonestDesc = stringResource(R.string.honest_hostinfo_checkbox_desc)
         AppAlertDialog(
-            onDismissRequest = { showAddAccountDialog = false; newAccountHonest = false },
+            onDismissRequest = { showAddAccountDialog = false; newAccountHonest = true },
             title = { Text(dlgTitle) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1030,7 +1031,7 @@ fun MainScreen(
                         accPrefs.edit().putBoolean("do_reset", true).apply()
                         // Written before the first start, so the node registers with it.
                         ProfileHostinfo.setHonest(context, acc.id, newAccountHonest)
-                        newAccountHonest = false
+                        newAccountHonest = true
                         if (newAccountServer.isNotBlank()) {
                             accPrefs.edit().putString("login_server", newAccountServer.trim()).apply()
                         }
@@ -1051,7 +1052,7 @@ fun MainScreen(
                     }
                 }) { Text(dlgAdd) }
             },
-            dismissButton = { TextButton(onClick = { showAddAccountDialog = false; newAccountHonest = false }) { Text(dlgCancel) } }
+            dismissButton = { TextButton(onClick = { showAddAccountDialog = false; newAccountHonest = true }) { Text(dlgCancel) } }
         )
     }
 

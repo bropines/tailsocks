@@ -14,12 +14,16 @@ import java.io.File
  * («node OS changed since last connection, was node state copied between
  * devices?» — measured 2026-09-07). So a profile registered as Linux stays
  * Linux, one registered as Android stays Android, and the way to switch is a
- * new profile. Off (the default) keeps the masquerade daemon patch 06 has
- * applied since 2026-05-07: OS `linux`, DeviceModel `Tailsocks`. On, the
- * daemon reports OS `android` with the real model, Android version and install
- * source, the way the official client does; the coordinator then names the
- * machine after the model. App is `tailsocks` either way (`tailscale-cli` in
- * the masquerade until 5.3): see [PeerData.client].
+ * new profile. Off keeps the masquerade daemon patch 06 has applied since
+ * 2026-05-07: OS `linux`, DeviceModel `Tailsocks`. On, the daemon reports OS
+ * `android` with the real model, Android version and install source, the way
+ * the official client does; the coordinator then names the machine after the
+ * model. App is `tailsocks` either way (`tailscale-cli` in the masquerade
+ * until 5.3): see [PeerData.client].
+ *
+ * New profiles start on since 5.4: the add-profile dialog's box and the first
+ * start's are ticked. Existing profiles are left as they are; one without the
+ * key reads as off, which is what every profile from before was.
  */
 object ProfileHostinfo {
     const val KEY = "honest_hostinfo"

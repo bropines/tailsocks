@@ -93,6 +93,11 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
 
     val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
     val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
+    // A profile that has neither chosen nor registered is a new one: it starts out reporting
+    // the real OS (ProfileHostinfo). One that has, keeps what it has.
+    val newProfile = remember(activeAccount) {
+        !profilePrefs.contains(ProfileHostinfo.KEY) && !ProfileHostinfo.isRegistered(context, activeAccount.id)
+    }
 
     val window = rememberWindowLayout()
     val slideLayout = when {
@@ -181,7 +186,7 @@ fun FirstStartScreen(onFinished: () -> Unit, initialPage: Int = 0) {
                         OnboardingStep.HOW_IT_WORKS -> SlideHowItWorks()
                         OnboardingStep.CONTROL_PLANE -> SlideControlPlane(profilePrefs)
                         OnboardingStep.BYPASS -> SlideBypassSetup()
-                        OnboardingStep.LOGIN -> SlideLogin(profilePrefs)
+                        OnboardingStep.LOGIN -> SlideLogin(profilePrefs, newProfile)
                         OnboardingStep.PERMISSIONS -> SlidePermissions()
                     }
                 }
@@ -870,7 +875,7 @@ fun SlideBypassSetup() {
 }
 
 @Composable
-fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
+fun SlideLogin(profilePrefs: android.content.SharedPreferences, newProfile: Boolean = false) {
     var authKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
     // Where signing in is a code for a phone, the step says so instead of naming a browser.
     val browserSignIn = Feature.BROWSER_SIGN_IN.offered()
@@ -896,7 +901,10 @@ fun SlideLogin(profilePrefs: android.content.SharedPreferences) {
 
             // Decided before the first login, because the coordination server
             // binds the node to the OS it registers with (ProfileHostinfo).
-            var honestHostinfo by remember { mutableStateOf(profilePrefs.getBoolean(ProfileHostinfo.KEY, false)) }
+            var honestHostinfo by remember {
+                if (newProfile && !profilePrefs.contains(ProfileHostinfo.KEY)) profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, true).apply()
+                mutableStateOf(profilePrefs.getBoolean(ProfileHostinfo.KEY, false))
+            }
             val setHonest: (Boolean) -> Unit = {
                 honestHostinfo = it
                 profilePrefs.edit().putBoolean(ProfileHostinfo.KEY, it).apply()
