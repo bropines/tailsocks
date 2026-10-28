@@ -3,7 +3,7 @@
     <!-- Keys tab -->
     <string name="admin_k_tab">키</string>
     <string name="admin_k_none">키 없음</string>
-    <string name="admin_k_create_title">­새로운 키</string>
+    <string name="admin_k_create_title">새로운 키</string>
     <string name="admin_k_create_auth_supporting">기기를 테일넷에 연결하게 함</string>
     <string name="admin_k_create_client_supporting">자동화를 위한 한정된 권한의 인증</string>
     <string name="admin_k_group_auth">인증 키</string>
