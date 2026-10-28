@@ -5,4 +5,29 @@
      monospace row each, next to a label. --><resources>
     <string name="diag_live_traffic">流量</string>
     <string name="diag_live_traffic_value">%1$d 節點 · ↓%2$s ↑%3$s</string>
+    <string name="diag_live_errors">報錯</string>
+    <string name="diag_live_title">實時狀態</string>
+    <string name="diag_live_help">打開此頁面後將每2秒更新一次，紅色部分意味著異常，點擊 SOCKS5 即可重新檢查端口，複製將包含其全部內容與近期的完整報錯，可用於報告問題</string>
+    <string name="diag_live_copy">複製實時狀態</string>
+    <string name="diag_live_copied">實時狀態已複製</string>
+    <string name="diag_live_collecting">蒐集中…</string>
+    <string name="diag_live_process">進程</string>
+    <string name="diag_live_intent">意圖</string>
+    <string name="diag_live_backend">背景程式</string>
+    <string name="diag_live_health">健康</string>
+    <string name="diag_live_relays">中繼</string>
+    <string name="diag_live_network">網路</string>
+    <string name="diag_live_alive">運行中</string>
+    <string name="diag_live_alive_up">運行中 · 經過 %1$s</string>
+    <string name="diag_live_not_running">未在運行</string>
+    <string name="diag_live_on">啟動</string>
+    <string name="diag_live_off">關閉</string>
+    <string name="diag_live_none">無</string>
+    <string name="diag_live_relays_value">%1$d 活動中 · 在 %2$s 前重連</string>
+    <string name="diag_live_relays_never">%1$d 活動中 · 從未重連過</string>
+    <string name="diag_live_no_engine">暫無引擎狀態</string>
+    <string name="diag_live_no_network">無網路</string>
+    <string name="diag_live_listening">監聽中</string>
+    <string name="diag_live_not_listening">未在監聽</string>
+    <string name="diag_live_recheck">重新檢查</string>
 </resources>
