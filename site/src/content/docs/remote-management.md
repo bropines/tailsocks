@@ -19,7 +19,7 @@ On the device to be managed:
 
 On the managing device:
 
-1. Open that device in **Peers** and tap **Manage this device**.
+1. Open that device in **Peers** and tap **Manage this device**. It appears on devices that run TailSocks: the sock on the icon, the **TailSocks** tab.
 2. Type the code and tap **Pair**, or **Scan the code**.
 
 From then on the managed devices appear on the main screen, each with whether it is online. **Managed devices on the main screen** (Settings → Appearance & language) hides them. Pull a device's page down to read it again; on a TV, use the refresh button at the top.

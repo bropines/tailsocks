@@ -85,6 +85,7 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 | Быть ретранслятором (peer relay) | `tailsocks://settings/account/relay` |
 | UDP-порт ретранслятора<br><small>Появляется, когда включён ретранслятор</small> | `tailsocks://settings/account/relay_port` |
 | Коннектор приложений (app connector) | `tailsocks://settings/account/app_connector` |
+| Tailscale SSH<br><small>Появляется в режиме Root</small> | `tailsocks://settings/account/ssh` |
 | Выйти и сбросить узел | `tailsocks://settings/account/logout` |
 
 ### Режим туннеля

@@ -10,6 +10,20 @@ tableOfContents:
 
 The app shows the same list: once after each update, and any time under **What's new** in **About TailSocks** (the ⓘ on the main screen).
 
+## 5.4.0 — 2026-10-29
+
+### Added
+
+- Devices that run TailSocks carry its sock on their icon, a TailSocks chip on their page and a Client row in the Device card; the official client reads "Tailscale". TailSocks now names itself to the coordinator (App `tailsocks`), the one detail besides the OS that every peer receives. Devices on 5.3 or earlier are recognised only if they report Linux.
+- Devices: a TailSocks tab, and the search finds a device by the program it names (tailsocks, aperture, tsidp).
+- Settings → Appearance → Language: every language translated on Weblate, each by its own name — Traditional Chinese and Korean so far, beside English and Russian.
+- Tailscale SSH in Root Mode: `ssh root@phone` or `ssh shell@phone` (adb's user), scp and SFTP, as the tailnet policy's ssh rules allow, check mode included — Settings → Account & connection. Off by default.
+
+### Changed
+
+- New profiles report the real OS (Android, with the device's model); the box is ticked when a profile is added and on first start. Existing profiles keep what they registered as.
+- "Manage this device" asks only peers that run TailSocks; an older TailSocks that reports Android shows the button once updated, or if already paired.
+
 ## 5.3.0 — 2026-10-24
 
 ### Added

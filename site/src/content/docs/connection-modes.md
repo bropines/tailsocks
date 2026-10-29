@@ -115,5 +115,6 @@ Choose **Root** in Settings → Tunnel mode (on a TV: Settings → Advanced → 
 - With an exit node the whole device goes through it, except **Excluded Apps**; **System-wide DNS via MagicDNS** (Settings → DNS) sends every app's DNS to MagicDNS.
 - Next to another VPN app it yields: tailnet addresses, MagicDNS names and the local proxies keep working, and the apps that VPN leaves out ride the exit node.
 - After a reboot the boot script brings the tailnet back; the exit node and system-wide DNS return when the app runs.
+- [Tailscale SSH](/tailsocks/root-mode/#tailscale-ssh) works only here: `ssh root@phone` from another device of the tailnet.
 
 Everything about it — setting it up, living next to another VPN, the boot script, troubleshooting — is on [Root Mode](/tailsocks/root-mode/).

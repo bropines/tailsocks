@@ -85,6 +85,7 @@ Every page and every row, as the app names them. A note under a row says when it
 | Act as a peer relay | `tailsocks://settings/account/relay` |
 | Relay UDP port<br><small>Shown once the peer relay is on</small> | `tailsocks://settings/account/relay_port` |
 | App connector | `tailsocks://settings/account/app_connector` |
+| Tailscale SSH<br><small>Shown in Root mode</small> | `tailsocks://settings/account/ssh` |
 | Log Out & Reset Node | `tailsocks://settings/account/logout` |
 
 ### Tunnel mode

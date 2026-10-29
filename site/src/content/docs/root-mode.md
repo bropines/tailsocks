@@ -1,6 +1,6 @@
 ---
 title: Root Mode
-description: On a rooted device — the kernel interface tailscale0, a boot script, a tailscale command, and living next to another VPN.
+description: On a rooted device — the kernel interface tailscale0, a boot script, a tailscale command, Tailscale SSH, and living next to another VPN.
 ---
 
 :::caution
@@ -96,6 +96,30 @@ su -c tailscale version
 ```
 
 An app update refreshes it too.
+
+## Tailscale SSH
+
+Other devices of the tailnet can open a shell on this one: `ssh root@phone` or `ssh shell@phone` — a terminal, a single command, `scp`, SFTP. Root Mode only: in Proxy and VPN (TUN) modes the daemon starts with its SSH server off.
+
+1. Settings → Account & connection → **Tailscale SSH**. Off by default; outside Root Mode it is greyed out, *Only in Root Mode*.
+2. The `ssh` rules of the tailnet policy decide who gets in, as which user, and whether they confirm in a browser first (`check`). A new tailnet's default policy already lets members into their own devices after that check, so nothing needs editing. A policy without an `ssh` section lets nobody in.
+
+A rule for your own devices:
+
+```json
+"ssh": [
+  {"action": "check", "src": ["autogroup:member"], "dst": ["autogroup:self"], "users": ["root", "shell"]}
+]
+```
+
+The access rules must let them reach port 22 too; the default policy does.
+
+- **root** — a root shell. Its `PATH` has the root manager's tools (KernelSU, APatch, Magisk); `su`, `pm` and `am` work.
+- **shell** — uid 2000, the user adb runs as, with adb's groups.
+- No other users.
+- A session starts in `/data/local/tmp`. It gets none of the daemon's own environment, such as the SOCKS5 password.
+
+Settings → Advanced → **What this device exposes** has a **Tailscale SSH** row, port 22, in Root Mode.
 
 ## Stopping
 

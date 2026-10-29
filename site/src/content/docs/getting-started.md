@@ -23,7 +23,7 @@ A short introduction runs once. Everything in it can be changed later in Setting
 5. **Login & Permissions** — an optional auth key, and **Report the real OS**.
 6. **Permissions & Services** — notifications and battery optimisation.
 
-**Report the real OS** registers the node as an Android device instead of a Linux client. Decide before the first sign-in: changing it later means a new profile.
+**Report the real OS**, ticked by default, registers the node as an Android device with its model; unticked, as a Linux client. Decide before the first sign-in: changing it later means a new profile.
 
 ## Sign in
 
