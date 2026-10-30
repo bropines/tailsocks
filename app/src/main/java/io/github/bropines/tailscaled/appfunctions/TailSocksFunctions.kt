@@ -10,6 +10,7 @@ import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.TailscaledService
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.ExitNodeApply
 import io.github.bropines.tailscaled.core.ExitNodeSuggestion
 import io.github.bropines.tailscaled.models.StatusResponse
 import appctr.Appctr
@@ -109,38 +110,21 @@ class TailSocksFunctions {
         message = "External automation is disabled in TailSocks settings."
     )
 
-    /** Resolves a Tailscale IP to its StableID, which is what the daemon routes by. */
-    private fun resolveExitNodeId(context: Context, ip: String): String {
-        if (ip.isEmpty()) return ""
-        return try {
-            val statusJson = Appctr.getStatusJSON(true)
-            if (statusJson.isNullOrEmpty()) return ""
-            val status = AppJson.decodeFromString<StatusResponse>(statusJson)
-            val peers = status.peers ?: emptyMap()
-            for ((_, p) in peers) {
-                val ips = p.tailscaleIPs ?: emptyList()
-                if (ips.contains(ip)) return p.id ?: ""
-            }
-            ""
-        } catch (e: Exception) {
-            ""
-        }
+    /**
+     * Applies an exit node selection the way every screen does (ExitNodeApply). [knownId]
+     * skips the lookup when the caller already has the StableID; an address no known exit
+     * node holds changes nothing and comes back as Incomplete.
+     */
+    private fun applyExitNode(context: Context, ip: String, knownId: String? = null): ExitNodeApply.Result {
+        val id = if (ip.isEmpty()) "" else knownId ?: ExitNodeApply.resolveId(context, ip)
+        return ExitNodeApply.select(context, id, ip)
     }
 
-    /**
-     * Applies an exit node selection the same way the widgets do: both prefs and a live push.
-     * [knownId] skips the lookup when the caller already has the StableID.
-     */
-    private fun applyExitNode(context: Context, ip: String, knownId: String? = null) {
-        val activeAccount = AccountManager.getActiveAccount(context)
-        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        val id = if (ip.isEmpty()) "" else knownId ?: resolveExitNodeId(context, ip)
-        prefs.edit().putString("exit_node_ip", ip).putString("exit_node_id", id).apply()
-        if (Appctr.isRunning()) {
-            try { Appctr.setPrefs("{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}") } catch (e: Exception) {}
-        } else if (ProxyState.isActualRunning(context)) {
-            TailscaledService.requestApplySettings(context)
-        }
+    /** What went wrong with an exit node choice, for a result's message; null when it was applied. */
+    private fun exitNodeProblem(result: ExitNodeApply.Result, ip: String): String? = when (result) {
+        ExitNodeApply.Result.Applied -> null
+        ExitNodeApply.Result.Incomplete -> "No exit node at $ip is known to this device"
+        is ExitNodeApply.Result.Refused -> "The daemon refused the exit node: ${result.message}"
     }
 
     /**
@@ -273,9 +257,9 @@ class TailSocksFunctions {
         val context = appFunctionContext.context
         if (automationOff(context)) return blockedConnection()
 
-        if (exitNodeIp.isNotEmpty()) {
-            applyExitNode(context, exitNodeIp.trim())
-        }
+        val exitNodeProblem = if (exitNodeIp.isNotEmpty()) {
+            exitNodeProblem(applyExitNode(context, exitNodeIp.trim()), exitNodeIp.trim())
+        } else null
 
         ProxyState.setUserState(context, true)
         val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
@@ -295,6 +279,7 @@ class TailSocksFunctions {
             isConnected = connected,
             message = when {
                 !connected -> "TailSocks is starting; not connected yet."
+                exitNodeProblem != null -> "Connected to TailSocks. $exitNodeProblem; the exit node was left as it was."
                 exitNodeIp.isNotEmpty() -> "Connected to TailSocks with Exit Node $exitNodeIp"
                 else -> "Connected to TailSocks"
             }
@@ -338,11 +323,11 @@ class TailSocksFunctions {
         if (exitNodeIp.trim().equals("best", ignoreCase = true)) {
             return when (val best = withContext(Dispatchers.IO) { ExitNodeSuggestion.fetch() }) {
                 is ExitNodeSuggestion.Outcome.Suggested -> {
-                    applyExitNode(context, best.ip, best.id)
+                    val problem = exitNodeProblem(applyExitNode(context, best.ip, best.id), best.ip)
                     ConnectionResult(
-                        success = true,
+                        success = problem == null,
                         isConnected = ProxyState.isActualRunning(context),
-                        message = "Exit Node set to ${best.name} (${best.ip}), recommended by Tailscale"
+                        message = problem ?: "Exit Node set to ${best.name} (${best.ip}), recommended by Tailscale"
                     )
                 }
                 is ExitNodeSuggestion.Outcome.Unavailable -> ConnectionResult(
@@ -356,12 +341,12 @@ class TailSocksFunctions {
 
         // Writes both exit_node_ip and the StableID the daemon routes by, and
         // pushes it live — writing only the IP changed nothing.
-        applyExitNode(context, ipToSet)
+        val problem = exitNodeProblem(applyExitNode(context, ipToSet), ipToSet)
 
         return ConnectionResult(
-            success = true,
+            success = problem == null,
             isConnected = ProxyState.isActualRunning(context),
-            message = if (ipToSet.isEmpty()) "Exit Node cleared" else "Exit Node set to $ipToSet"
+            message = problem ?: if (ipToSet.isEmpty()) "Exit Node cleared" else "Exit Node set to $ipToSet"
         )
     }
 

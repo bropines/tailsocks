@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
-import appctr.Appctr
-import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -138,14 +136,13 @@ class TaskerReceiver : BroadcastReceiver() {
 
     /**
      * Sets the active profile's exit node from a Tailscale IP, `best` (the node the daemon
-     * recommends, see [ExitNodeSuggestion]) or `none` / `disabled` / `off`. Both halves are
-     * written: the address the app shows and the StableID the daemon routes by — the settings
-     * sync sends only the latter, so an address written alone changed the screen, not the route.
+     * recommends, see [ExitNodeSuggestion]) or `none` / `disabled` / `off`, through
+     * [ExitNodeApply] like every screen. An address no known exit node holds changes nothing:
+     * stored without its StableID it read as routed while the daemon was told to clear it.
      */
     private fun handleSetExitNode(context: Context, rawExitNode: String) {
         try {
             val activeAccount = AccountManager.getActiveAccount(context)
-            val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
             val value = rawExitNode.trim()
             val (exitNodeId, exitNodeIp) = when {
                 value.isEmpty() || value.equals("none", ignoreCase = true) ||
@@ -157,23 +154,15 @@ class TaskerReceiver : BroadcastReceiver() {
                         return
                     }
                 }
-                else -> resolveExitNodeId(value) to value
+                else -> ExitNodeApply.resolveId(context, value) to value
             }
-            if (exitNodeIp.isNotEmpty() && exitNodeId.isEmpty()) {
-                Log.w(TAG, "No peer holds $exitNodeIp right now; it is stored, but the daemon gets no exit node")
-            }
-
-            profilePrefs.edit()
-                .putString("exit_node_ip", exitNodeIp)
-                .putString("exit_node_id", exitNodeId)
-                .apply()
-            Log.d(TAG, "Updated Exit Node for account ${activeAccount.name} to '$exitNodeIp' ($exitNodeId)")
-
-            if (ProxyState.isActualRunning()) {
-                val serviceIntent = Intent(context, TailscaledService::class.java).apply {
-                    action = TailscaledService.ACTION_APPLY_SETTINGS
-                }
-                startServiceSafely(context, serviceIntent)
+            when (val result = ExitNodeApply.select(context, exitNodeId, exitNodeIp)) {
+                ExitNodeApply.Result.Incomplete ->
+                    Log.w(TAG, "No known exit node holds $exitNodeIp; the exit node is left as it was")
+                is ExitNodeApply.Result.Refused ->
+                    Log.w(TAG, "Stored exit node '$exitNodeIp', but the daemon refused it: ${result.message}")
+                ExitNodeApply.Result.Applied ->
+                    Log.d(TAG, "Updated Exit Node for account ${activeAccount.name} to '$exitNodeIp' ($exitNodeId)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update exit node via intent: ${e.message}", e)
@@ -207,14 +196,6 @@ class TaskerReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to switch account via intent: ${e.message}", e)
         }
-    }
-
-    /** The StableID of the peer holding [ip], or "" when the daemon cannot say. */
-    private fun resolveExitNodeId(ip: String): String = try {
-        val status = AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI())
-        status.peers?.values?.firstOrNull { it.tailscaleIPs?.contains(ip) == true }?.id.orEmpty()
-    } catch (e: Exception) {
-        ""
     }
 
     /** Compares two secrets without leaking their length or content via timing. */

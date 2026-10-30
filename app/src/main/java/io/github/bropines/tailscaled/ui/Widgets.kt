@@ -66,13 +66,6 @@ val paramExitNodeIp = ActionParameters.Key<String>("exit_node_ip")
 // Helpers for widget state
 // ----------------------------------------------------------------
 
-@Serializable
-data class ExitNodeOption(
-    val id: String = "",
-    val ip: String = "",
-    val name: String = ""
-)
-
 /** Build fresh live state from the daemon and account prefs */
 private fun liveState(context: Context): Pair<Boolean, String> {
     val isRunning = ProxyState.isActualRunning()
@@ -82,65 +75,31 @@ private fun liveState(context: Context): Pair<Boolean, String> {
     return Pair(isRunning, exitNode)
 }
 
-/** Get list of available exit nodes from daemon or persistent cache */
+/**
+ * The exit nodes to list: the daemon's when it answers, which then replace the cache —
+ * a node gone from the tailnet leaves the list — otherwise the cached ones, and with none
+ * of those the last node in use. Entries without a StableID are never listed.
+ */
 fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
     val activeAccount = AccountManager.getActiveAccount(context)
     val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-    val options = mutableListOf<ExitNodeOption>()
 
-    // 1. Load cached exit nodes first so we never lose previously discovered nodes
-    val cachedJson = prefs.getString("cached_exit_nodes_json", "") ?: ""
-    if (cachedJson.isNotEmpty()) {
-        try {
-            val cachedList: List<ExitNodeOption> = AppJson.decodeFromString<List<ExitNodeOption>>(cachedJson)
-            options.addAll(cachedList)
-        } catch (e: Exception) { e.printStackTrace() }
-    }
-
-    // 2. Query live daemon status if running & merge newly discovered nodes
     if (ProxyState.isActualRunning()) {
-        try {
+        val live = runCatching {
             val json = appctr.Appctr.getStatusFromAPI()
-            if (json.isNotEmpty() && !json.startsWith("Error")) {
-                val status = AppJson.decodeFromString<StatusResponse>(json)
-                val liveNodes = mutableListOf<ExitNodeOption>()
-                status.peers?.values?.filter { it.exitNodeOption == true }?.forEach { peer ->
-                    val ip = peer.getPrimaryIp()
-                    val name = peer.getDisplayName()
-                    if (ip.isNotEmpty()) {
-                        liveNodes.add(ExitNodeOption(peer.id ?: "", ip, name))
-                    }
-                }
-                if (liveNodes.isNotEmpty()) {
-                    for (liveNode in liveNodes) {
-                        val idx = options.indexOfFirst { it.ip == liveNode.ip }
-                        if (idx >= 0) {
-                            options[idx] = liveNode
-                        } else {
-                            options.add(liveNode)
-                        }
-                    }
-                    try {
-                        val jsonStr = AppJson.encodeToString<List<ExitNodeOption>>(options)
-                        prefs.edit().putString("cached_exit_nodes_json", jsonStr).apply()
-                    } catch (e: Exception) { e.printStackTrace() }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+            if (json.isEmpty() || json.startsWith("Error") || json.contains("\"Error\"")) null
+            else liveExitNodes(AppJson.decodeFromString<StatusResponse>(json))
+        }.getOrNull()
+        if (live != null) {
+            ExitNodeCache.replace(prefs, live)
+            return live
         }
     }
-
-    // 3. Fallback: add last_exit_node if still empty
-    if (options.isEmpty()) {
-        val lastIp = prefs.getString("last_exit_node_ip", "") ?: ""
-        val lastId = prefs.getString("last_exit_node_id", "") ?: ""
-        if (lastIp.isNotEmpty()) {
-            options.add(ExitNodeOption(lastId, lastIp, lastIp))
-        }
-    }
-
-    return options.distinctBy { it.ip }
+    val cached = ExitNodeCache.read(prefs)
+    if (cached.isNotEmpty()) return cached
+    val lastIp = prefs.getString("last_exit_node_ip", "").orEmpty()
+    val lastId = prefs.getString("last_exit_node_id", "").orEmpty()
+    return if (lastIp.isNotEmpty() && lastId.isNotEmpty()) listOf(ExitNodeOption(lastId, lastIp, lastIp)) else emptyList()
 }
 
 /**
@@ -648,60 +607,15 @@ class SelectExitNodeActionCallback : ActionCallback {
         val targetId = parameters[paramExitNodeId] ?: ""
         val targetIp = parameters[paramExitNodeIp] ?: ""
 
-        val activeAccount = AccountManager.getActiveAccount(context)
-        val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        val currentIp = prefs.getString("exit_node_ip", "") ?: ""
-        val currentId = prefs.getString("exit_node_id", "") ?: ""
-
-        // REACTIVE INSTANT UPDATE TO DATASTORE & WIDGET UI (<50ms)
-        // Update DataStore state FIRST before doing any disk I/O, Toast or JNI calls!
-        pushState(
-            context, glanceId, ExitNodeToggleWidget(),
-            isRunning = ProxyState.isActualRunning(),
-            isPending = false,
-            profileName = activeAccount.name,
-            exitNode = targetIp
-        )
-
-        val editor = prefs.edit()
-        if (targetIp.isEmpty()) {
-            // Disable Exit Node
-            if (currentIp.isNotEmpty()) {
-                editor.putString("last_exit_node_ip", currentIp)
-                editor.putString("last_exit_node_id", currentId)
-            }
-            editor.putString("exit_node_ip", "")
-            editor.putString("exit_node_id", "")
-            editor.apply()
-
-            if (appctr.Appctr.isRunning()) {
-                try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
-            } else if (ProxyState.isActualRunning(context)) {
-                TailscaledService.requestApplySettings(context)
-            }
-            CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, context.getString(R.string.widget_toast_exit_disabled), Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            // Enable / Switch to selected Exit Node
-            editor.putString("exit_node_ip", targetIp)
-            editor.putString("exit_node_id", targetId)
-            editor.putString("last_exit_node_ip", targetIp)
-            editor.putString("last_exit_node_id", targetId)
-            editor.apply()
-
-            if (appctr.Appctr.isRunning()) {
-                try { appctr.Appctr.setPrefs("{\"ExitNodeID\": \"$targetId\", \"ExitNodeIDSet\": true}") } catch (e: Exception) { e.printStackTrace() }
-            } else if (ProxyState.isActualRunning(context)) {
-                TailscaledService.requestApplySettings(context)
-            }
-            CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, context.getString(R.string.widget_toast_exit_routing_format, targetIp), Toast.LENGTH_SHORT).show()
-            }
+        val result = withContext(Dispatchers.IO) { ExitNodeApply.select(context, targetId, targetIp) }
+        val message = when (result) {
+            ExitNodeApply.Result.Applied ->
+                if (targetIp.isEmpty()) context.getString(R.string.widget_toast_exit_disabled)
+                else context.getString(R.string.widget_toast_exit_routing_format, targetIp)
+            ExitNodeApply.Result.Incomplete -> context.getString(R.string.main_no_exit_nodes)
+            is ExitNodeApply.Result.Refused -> context.getString(R.string.settings_local_api_error_format, result.message)
         }
-
-        refreshAllInstances(context)
-        forceAppWidgetUpdate(context)
+        withContext(Dispatchers.Main) { Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
     }
 }
 

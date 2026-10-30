@@ -14,12 +14,9 @@ import io.github.bropines.tailscaled.admin.secure.KeyValueStore
 import io.github.bropines.tailscaled.admin.secure.KeystoreSecretBox
 import io.github.bropines.tailscaled.admin.secure.SecretBox
 import io.github.bropines.tailscaled.models.StatusResponse
-import io.github.bropines.tailscaled.ui.updateAllWidgets
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -249,20 +246,11 @@ internal class AppRemoteHost(private val context: Context) : RemoteHost {
     override fun setExitNode(id: String) {
         // The address is what the app's own screens show and compare; the daemon routes by the id.
         val ip = if (id.isEmpty()) "" else addressOf(id) ?: throw RemoteRefusal("not one of this device's peers")
-        if (Appctr.isRunning()) {
-            val patch = buildJsonObject { put("ExitNodeID", id); put("ExitNodeIDSet", true) }.toString()
-            if (Appctr.setPrefs(patch) != "OK") throw RemoteRefusal("the daemon refused the change")
-        }
-        profilePrefs().edit().putString("exit_node_ip", ip).putString("exit_node_id", id).apply()
-        if (!Appctr.isRunning()) TailscaledService.requestApplySettings(context)
-        updateAllWidgets(context)
-        // A TUN device carries the default route only behind an exit node: let it look again.
-        if (GlobalSettings.isTunModeEnabled(context)) {
-            try {
-                context.startService(Intent(context, TunVpnService::class.java).apply { action = TunVpnService.ACTION_START })
-            } catch (e: Exception) {
-                Log.w(TAG, "The tunnel was not told about the exit node: ${e.message}")
-            }
+        // Pushed before it is stored, so a refusal leaves the old choice in place.
+        when (ExitNodeApply.select(context, id, ip, pushFirst = true)) {
+            is ExitNodeApply.Result.Refused -> throw RemoteRefusal("the daemon refused the change")
+            ExitNodeApply.Result.Incomplete -> throw RemoteRefusal("not one of this device's peers")
+            ExitNodeApply.Result.Applied -> Unit
         }
     }
 

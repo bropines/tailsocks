@@ -722,26 +722,16 @@ fun MainScreen(
     fun managedBeside(columns: Int) = remoteTileOffered && columns >= 4 && managed.devices.isNotEmpty()
 
     fun applyExitNode(id: String, ip: String) {
+        // A peer listed without its StableID: selecting it would clear the exit node.
+        if (!ExitNodeApply.isSelectable(id, ip)) return
         // The confirm haptic: choosing where all traffic goes is the one
         // selection on this screen whose effect is not visible at once.
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         exitNodeIp = ip
-        val editor = prefs.edit()
-        editor.putString("exit_node_ip", ip)
-        editor.putString("exit_node_id", id)
-        editor.apply()
-        
         scope.launch(Dispatchers.IO) {
-            if (appctr.Appctr.isRunning()) {
-                appctr.Appctr.setPrefs("{\"ExitNodeID\": \"$id\", \"ExitNodeIDSet\": true}")
-            } else if (ProxyState.isActualRunning(context)) {
-                TailscaledService.requestApplySettings(context)
-            }
-            updateAllWidgets(context)
-            if (GlobalSettings.isTunModeEnabled(context)) {
-                context.startService(Intent(context, TunVpnService::class.java).apply {
-                    action = TunVpnService.ACTION_START
-                })
+            val result = ExitNodeApply.select(context, id, ip)
+            if (result is ExitNodeApply.Result.Refused) withContext(Dispatchers.Main) {
+                Toast.makeText(context, context.getString(R.string.settings_local_api_error_format, result.message), Toast.LENGTH_SHORT).show()
             }
         }
     }
