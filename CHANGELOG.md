@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- Exit-node widget: each one can list only chosen nodes, in your order, and hide "Best" — long press → Reconfigure.
+
 ### Changed
 
 - Home-screen widgets are redrawn only when what they show changes, and most refreshes no longer query the daemon (thanks @satoru2727).
