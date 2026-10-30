@@ -51,6 +51,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -142,7 +143,17 @@ fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
     return options.distinctBy { it.ip }
 }
 
-/** Write widget DataStore state and trigger render for ONE glanceId. */
+/**
+ * Write widget DataStore state and trigger render for ONE glanceId.
+ *
+ * Returns whether the widget was repainted, and does neither when it already
+ * holds exactly this. The service refreshes the widgets every 15 seconds for as
+ * long as it runs, and a widget saying "● Running" over a steady connection was
+ * written and fully re-rendered 5,760 times a day to say it again: a DataStore
+ * write and a RemoteViews round trip to the launcher each time, for two lines
+ * that had not changed. The pending flag a tap sets is part of the comparison,
+ * so the pass that clears it still repaints.
+ */
 private suspend fun pushState(
     context: Context,
     glanceId: GlanceId,
@@ -151,7 +162,8 @@ private suspend fun pushState(
     isPending: Boolean,
     profileName: String,
     exitNode: String
-) {
+): Boolean {
+    if (shows(context, glanceId, isRunning, isPending, profileName, exitNode)) return false
     updateAppWidgetState(context, WidgetStateDef, glanceId) { prefs ->
         prefs.toMutablePreferences().apply {
             this[WidgetStateKeys.IS_RUNNING]    = isRunning
@@ -161,23 +173,59 @@ private suspend fun pushState(
         }
     }
     widget.update(context, glanceId)
+    return true
 }
 
-/** Refresh ALL instances of ServiceToggleWidget & ExitNodeToggleWidget with real live state */
-suspend fun refreshAllInstances(context: Context) {
-    val (isRunning, exitNode) = liveState(context)
-    val activeAccount = AccountManager.getActiveAccount(context)
+/**
+ * Whether [glanceId] already holds exactly this state.
+ *
+ * False when it holds none yet — a widget that has just been placed — so the
+ * first pass writes it, and false when the state cannot be read at all, so a
+ * failure here costs a render rather than leaving the widget stale.
+ */
+private suspend fun shows(
+    context: Context,
+    glanceId: GlanceId,
+    isRunning: Boolean,
+    isPending: Boolean,
+    profileName: String,
+    exitNode: String
+): Boolean {
+    val shown = runCatching { getAppWidgetState(context, WidgetStateDef, glanceId) }.getOrNull()
+        ?: return false
+    return shown[WidgetStateKeys.IS_RUNNING] == isRunning &&
+        shown[WidgetStateKeys.IS_PENDING] == isPending &&
+        shown[WidgetStateKeys.PROFILE_NAME] == profileName &&
+        shown[WidgetStateKeys.EXIT_NODE] == exitNode
+}
+
+/**
+ * Refresh ALL instances of ServiceToggleWidget & ExitNodeToggleWidget with real live state.
+ *
+ * Returns whether anything was repainted. The placed instances are looked up
+ * first, because a phone with no widget of ours on its home screen otherwise
+ * paid for a status read, a preferences read and the account lookup on every
+ * refresh to paint nothing.
+ */
+suspend fun refreshAllInstances(context: Context): Boolean {
     val manager = GlanceAppWidgetManager(context)
+    val serviceIds = manager.getGlanceIds(ServiceToggleWidget::class.java)
+    val exitNodeIds = manager.getGlanceIds(ExitNodeToggleWidget::class.java)
+    if (serviceIds.isEmpty() && exitNodeIds.isEmpty()) return false
 
+    val (isRunning, exitNode) = liveState(context)
+    val profileName = AccountManager.getActiveAccount(context).name
     val serviceWidget = ServiceToggleWidget()
-    for (id in manager.getGlanceIds(serviceWidget::class.java)) {
-        pushState(context, id, serviceWidget, isRunning, false, activeAccount.name, exitNode)
-    }
-
     val exitNodeWidget = ExitNodeToggleWidget()
-    for (id in manager.getGlanceIds(exitNodeWidget::class.java)) {
-        pushState(context, id, exitNodeWidget, isRunning, false, activeAccount.name, exitNode)
+
+    var painted = false
+    for (id in serviceIds) {
+        if (pushState(context, id, serviceWidget, isRunning, false, profileName, exitNode)) painted = true
     }
+    for (id in exitNodeIds) {
+        if (pushState(context, id, exitNodeWidget, isRunning, false, profileName, exitNode)) painted = true
+    }
+    return painted
 }
 
 /** Fire ACTION_APPWIDGET_UPDATE broadcast directly to registered receivers so MIUI delivers it */
@@ -200,11 +248,26 @@ fun forceAppWidgetUpdate(context: Context) {
     }
 }
 
+/**
+ * One scope for the widget refreshes rather than one per call: updateAllWidgets
+ * is driven by the service's 15-second tick, so the old per-call CoroutineScope
+ * was an allocation, and a dispatcher's worth of bookkeeping, on every tick of
+ * the session.
+ */
+private val widgetRefreshScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+/**
+ * Repaints the widgets with the live state, and asks the system to deliver the
+ * new views only when something was really painted.
+ *
+ * The delivery broadcast makes every one of our receivers render again, so sent
+ * on a tick that changed nothing it was a second full pass per instance to
+ * deliver what the launcher already had.
+ */
 fun updateAllWidgets(context: Context) {
     val appContext = context.applicationContext
-    CoroutineScope(Dispatchers.IO).launch {
-        refreshAllInstances(appContext)
-        forceAppWidgetUpdate(appContext)
+    widgetRefreshScope.launch {
+        if (refreshAllInstances(appContext)) forceAppWidgetUpdate(appContext)
     }
 }
 

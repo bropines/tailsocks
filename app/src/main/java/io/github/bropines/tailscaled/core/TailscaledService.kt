@@ -173,8 +173,9 @@ class TailscaledService : Service() {
                 }
                 context.sendBroadcast(aliasIntent)
 
+                // The delivery broadcast belongs to updateAllWidgets: it is sent
+                // there when the widgets were really repainted, not beside it.
                 updateAllWidgets(context)
-                forceAppWidgetUpdate(context)
             } catch (e: Exception) {
                 Log.e("TailscaledService", "Failed to send status broadcast: ${e.message}")
             }
@@ -2311,8 +2312,8 @@ class TailscaledService : Service() {
     
     private fun updateTile() {
         TileService.requestListeningState(this, ComponentName(this, ProxyTileService::class.java))
+        // updateAllWidgets sends the delivery broadcast itself, when it painted.
         updateAllWidgets(this@TailscaledService)
-        forceAppWidgetUpdate(this@TailscaledService)
     }
 
     private fun applyTagsAndRoutes(context: Context) {

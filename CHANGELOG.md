@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Home-screen widgets are redrawn only when what they show changes, not every 15 seconds, and nothing is painted while none are placed — less work and less battery for the same widget.
+
 ## [5.4.0] - 2026-10-29
 
 ### Added
