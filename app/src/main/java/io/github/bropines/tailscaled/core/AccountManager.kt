@@ -98,6 +98,9 @@ object AccountManager {
             .edit()
             .putString(KEY_ACTIVE_ID, id)
             .apply()
+        // The widgets name the profile and show its exit node — a switch while stopped,
+        // from Tasker or an assistant included.
+        WidgetUpdates.request(context)
         try {
             val rootsUri = android.provider.DocumentsContract.buildRootsUri(context.packageName + ".documents")
             context.contentResolver.notifyChange(rootsUri, null)
@@ -153,6 +156,7 @@ object AccountManager {
             if (it.id == id) it.copy(name = newName) else it
         }
         saveAccounts(context, accounts)
+        WidgetUpdates.request(context)
     }
 
     fun updateAccountAvatar(context: Context, id: String, avatarUrl: String) {

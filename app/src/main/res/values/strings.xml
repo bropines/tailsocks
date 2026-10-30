@@ -20,12 +20,6 @@
     <string name="logs_title">Logs</string>
     <string name="logs_copied">Logs copied to clipboard</string>
 
-    <!-- Widget Descriptions -->
-    <string name="widget_desc_service">Start or stop the TailSocks proxy service</string>
-    <string name="widget_desc_exit">Toggle Exit Node routing on/off</string>
-    <string name="widget_desc_stats">Dashboard with connection stats, peers, and traffic</string>
-    <string name="widget_desc_serve">Active Serve and Funnel rules overview</string>
-
     <!-- Common actions -->
     <string name="action_cancel">Cancel</string>
     <string name="action_save">Save</string>
@@ -766,14 +760,6 @@
     <string name="peer_details_next">Next</string>
     <string name="files_open_file_chooser">Open file</string>
     <string name="files_error_cant_open">Can\'t open: %1$s</string>
-    <!-- Widgets -->
-    <string name="widget_service_stop">Stop Service</string>
-    <string name="widget_service_start">Start Service</string>
-    <string name="widget_exit_node_inactive">Not active</string>
-    <string name="widget_exit_node_title">Exit Node</string>
-    <string name="widget_exit_node_format">Exit: %1$s</string>
-    <string name="widget_toast_exit_disabled">Exit Node disabled</string>
-    <string name="widget_toast_exit_routing_format">Routing via %1$s</string>
 
     <!-- TUN Mode -->
     <string name="tun_notif_active">VPN Tunnel is active</string>

@@ -6,7 +6,7 @@ import android.util.Log
 import androidx.core.content.edit
 import appctr.Appctr
 import io.github.bropines.tailscaled.models.StatusResponse
-import io.github.bropines.tailscaled.ui.updateAllWidgets
+import io.github.bropines.tailscaled.ui.WidgetUpdates
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -69,7 +69,7 @@ object ExitNodeApply {
                 }
             }
         }
-        updateAllWidgets(app)
+        WidgetUpdates.request(app)
         if (!pushFirst) refusal = pushToDaemon(app, id)
 
         if (GlobalSettings.isTunModeEnabled(app)) {

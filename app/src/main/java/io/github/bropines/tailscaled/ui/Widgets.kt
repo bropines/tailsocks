@@ -1,40 +1,53 @@
 package io.github.bropines.tailscaled.ui
 
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.admin.*
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
+import io.github.bropines.tailscaled.core.ExitNodeApply
+import io.github.bropines.tailscaled.core.ExitNodeSuggestion
+import io.github.bropines.tailscaled.core.ProxyState
+import io.github.bropines.tailscaled.core.TailscaledService
 
 import android.appwidget.AppWidgetManager
-import android.content.ComponentName
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.Log
 import android.widget.Toast
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.datastore.preferences.core.Preferences
+import androidx.core.content.ContextCompat
 import androidx.glance.Button
 import androidx.glance.ButtonDefaults
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
-import androidx.glance.LocalContext
+import androidx.glance.Image
+import androidx.glance.ImageProvider
+import androidx.glance.LocalSize
+import androidx.glance.action.Action
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
+import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.getAppWidgetState
-import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -42,596 +55,493 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import io.github.bropines.tailscaled.core.AppJson
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
-import kotlinx.coroutines.CoroutineScope
+import androidx.glance.unit.ColorProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ----------------------------------------------------------------
-// Action Parameter Keys
-// ----------------------------------------------------------------
+// The two home-screen widgets. They draw their stored model (WidgetModels.kt) and nothing
+// else: no daemon, preference or resource lookup happens inside a composition, because a
+// Glance session recomposes on every update. WidgetUpdates builds and stores the models.
+
 val paramExitNodeId = ActionParameters.Key<String>("exit_node_id")
 val paramExitNodeIp = ActionParameters.Key<String>("exit_node_ip")
+val paramExitNodeName = ActionParameters.Key<String>("exit_node_name")
+val paramTailnetIp = ActionParameters.Key<String>("tailnet_ip")
 
-// ----------------------------------------------------------------
-// Helpers for widget state
-// ----------------------------------------------------------------
-
-/** Build fresh live state from the daemon and account prefs */
-private fun liveState(context: Context): Pair<Boolean, String> {
-    val isRunning = ProxyState.isActualRunning()
-    val activeAccount = AccountManager.getActiveAccount(context)
-    val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-    val exitNode = prefs.getString("exit_node_ip", "") ?: ""
-    return Pair(isRunning, exitNode)
-}
-
-/**
- * The exit nodes to list: the daemon's when it answers, which then replace the cache —
- * a node gone from the tailnet leaves the list — otherwise the cached ones, and with none
- * of those the last node in use. Entries without a StableID are never listed.
- */
-fun getAvailableExitNodes(context: Context): List<ExitNodeOption> {
-    val activeAccount = AccountManager.getActiveAccount(context)
-    val prefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-
-    if (ProxyState.isActualRunning()) {
-        val live = runCatching {
-            val json = appctr.Appctr.getStatusFromAPI()
-            if (json.isEmpty() || json.startsWith("Error") || json.contains("\"Error\"")) null
-            else liveExitNodes(AppJson.decodeFromString<StatusResponse>(json))
-        }.getOrNull()
-        if (live != null) {
-            ExitNodeCache.replace(prefs, live)
-            return live
-        }
-    }
-    val cached = ExitNodeCache.read(prefs)
-    if (cached.isNotEmpty()) return cached
-    val lastIp = prefs.getString("last_exit_node_ip", "").orEmpty()
-    val lastId = prefs.getString("last_exit_node_id", "").orEmpty()
-    return if (lastIp.isNotEmpty() && lastId.isNotEmpty()) listOf(ExitNodeOption(lastId, lastIp, lastIp)) else emptyList()
-}
-
-/**
- * Write widget DataStore state and trigger render for ONE glanceId.
- *
- * Returns whether the widget was repainted, and does neither when it already
- * holds exactly this. The service refreshes the widgets every 15 seconds for as
- * long as it runs, and a widget saying "● Running" over a steady connection was
- * written and fully re-rendered 5,760 times a day to say it again: a DataStore
- * write and a RemoteViews round trip to the launcher each time, for two lines
- * that had not changed. The pending flag a tap sets is part of the comparison,
- * so the pass that clears it still repaints.
- */
-private suspend fun pushState(
-    context: Context,
-    glanceId: GlanceId,
-    widget: GlanceAppWidget,
-    isRunning: Boolean,
-    isPending: Boolean,
-    profileName: String,
-    exitNode: String
-): Boolean {
-    if (shows(context, glanceId, isRunning, isPending, profileName, exitNode)) return false
-    updateAppWidgetState(context, WidgetStateDef, glanceId) { prefs ->
-        prefs.toMutablePreferences().apply {
-            this[WidgetStateKeys.IS_RUNNING]    = isRunning
-            this[WidgetStateKeys.IS_PENDING]    = isPending
-            this[WidgetStateKeys.PROFILE_NAME]  = profileName
-            this[WidgetStateKeys.EXIT_NODE]     = exitNode
-        }
-    }
-    widget.update(context, glanceId)
-    return true
-}
-
-/**
- * Whether [glanceId] already holds exactly this state.
- *
- * False when it holds none yet — a widget that has just been placed — so the
- * first pass writes it, and false when the state cannot be read at all, so a
- * failure here costs a render rather than leaving the widget stale.
- */
-private suspend fun shows(
-    context: Context,
-    glanceId: GlanceId,
-    isRunning: Boolean,
-    isPending: Boolean,
-    profileName: String,
-    exitNode: String
-): Boolean {
-    val shown = runCatching { getAppWidgetState(context, WidgetStateDef, glanceId) }.getOrNull()
-        ?: return false
-    return shown[WidgetStateKeys.IS_RUNNING] == isRunning &&
-        shown[WidgetStateKeys.IS_PENDING] == isPending &&
-        shown[WidgetStateKeys.PROFILE_NAME] == profileName &&
-        shown[WidgetStateKeys.EXIT_NODE] == exitNode
-}
-
-/**
- * Refresh ALL instances of ServiceToggleWidget & ExitNodeToggleWidget with real live state.
- *
- * Returns whether anything was repainted. The placed instances are looked up
- * first, because a phone with no widget of ours on its home screen otherwise
- * paid for a status read, a preferences read and the account lookup on every
- * refresh to paint nothing.
- */
-suspend fun refreshAllInstances(context: Context): Boolean {
-    val manager = GlanceAppWidgetManager(context)
-    val serviceIds = manager.getGlanceIds(ServiceToggleWidget::class.java)
-    val exitNodeIds = manager.getGlanceIds(ExitNodeToggleWidget::class.java)
-    if (serviceIds.isEmpty() && exitNodeIds.isEmpty()) return false
-
-    val (isRunning, exitNode) = liveState(context)
-    val profileName = AccountManager.getActiveAccount(context).name
-    val serviceWidget = ServiceToggleWidget()
-    val exitNodeWidget = ExitNodeToggleWidget()
-
-    var painted = false
-    for (id in serviceIds) {
-        if (pushState(context, id, serviceWidget, isRunning, false, profileName, exitNode)) painted = true
-    }
-    for (id in exitNodeIds) {
-        if (pushState(context, id, exitNodeWidget, isRunning, false, profileName, exitNode)) painted = true
-    }
-    return painted
-}
-
-/** Fire ACTION_APPWIDGET_UPDATE broadcast directly to registered receivers so MIUI delivers it */
-fun forceAppWidgetUpdate(context: Context) {
-    val appContext = context.applicationContext
-    val awm = AppWidgetManager.getInstance(appContext)
-    val receivers = listOf(
-        ServiceToggleWidgetReceiver::class.java,
-        ExitNodeToggleWidgetReceiver::class.java
-    )
-    for (cls in receivers) {
-        val ids = awm.getAppWidgetIds(ComponentName(appContext, cls))
-        if (ids.isNotEmpty()) {
-            val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE).apply {
-                component = ComponentName(appContext, cls)
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-            }
-            appContext.sendBroadcast(intent)
-        }
+/** The widget's card: the launcher's background and corner radius on Android 12+, a rounded shape of ours below. */
+@Composable
+private fun widgetSurface(): GlanceModifier {
+    val base = GlanceModifier.fillMaxSize().appWidgetBackground()
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        base.background(GlanceTheme.colors.widgetBackground)
+            .cornerRadius(android.R.dimen.system_app_widget_background_radius)
+    } else {
+        base.background(ImageProvider(R.drawable.widget_round_bg), colorFilter = ColorFilter.tint(GlanceTheme.colors.widgetBackground))
     }
 }
 
-/**
- * One scope for the widget refreshes rather than one per call: updateAllWidgets
- * is driven by the service's 15-second tick, so the old per-call CoroutineScope
- * was an allocation, and a dispatcher's worth of bookkeeping, on every tick of
- * the session.
- */
-private val widgetRefreshScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+@Composable
+private fun toneColor(tone: WidgetTone): ColorProvider = when (tone) {
+    WidgetTone.ON -> GlanceTheme.colors.primary
+    WidgetTone.OFF -> GlanceTheme.colors.outline
+    WidgetTone.BUSY -> GlanceTheme.colors.tertiary
+    WidgetTone.WARN -> GlanceTheme.colors.error
+}
 
-/**
- * Repaints the widgets with the live state, and asks the system to deliver the
- * new views only when something was really painted.
- *
- * The delivery broadcast makes every one of our receivers render again, so sent
- * on a tick that changed nothing it was a second full pass per instance to
- * deliver what the launcher already had.
- */
-fun updateAllWidgets(context: Context) {
-    val appContext = context.applicationContext
-    widgetRefreshScope.launch {
-        if (refreshAllInstances(appContext)) forceAppWidgetUpdate(appContext)
+/** The round toggle's fill and glyph for [tone]. */
+@Composable
+private fun toneFill(tone: WidgetTone): Pair<ColorProvider, ColorProvider> = when (tone) {
+    WidgetTone.ON -> GlanceTheme.colors.primary to GlanceTheme.colors.onPrimary
+    WidgetTone.OFF -> GlanceTheme.colors.surfaceVariant to GlanceTheme.colors.onSurfaceVariant
+    WidgetTone.BUSY -> GlanceTheme.colors.tertiaryContainer to GlanceTheme.colors.onTertiaryContainer
+    WidgetTone.WARN -> GlanceTheme.colors.errorContainer to GlanceTheme.colors.onErrorContainer
+}
+
+@Composable
+private fun LoadingContent() {
+    Box(modifier = widgetSurface(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = GlanceTheme.colors.primary)
     }
+}
+
+/** A small icon button: the refresh in a header. */
+@Composable
+private fun IconAction(icon: Int, label: String, onClick: Action, tint: ColorProvider) {
+    Box(
+        modifier = GlanceModifier.size(32.dp).clickable(onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            provider = ImageProvider(icon),
+            contentDescription = label,
+            modifier = GlanceModifier.size(20.dp),
+            colorFilter = ColorFilter.tint(tint)
+        )
+    }
+}
+
+/** The power toggle as a disc, coloured by the connection's tone. */
+@Composable
+private fun RoundToggle(model: ServiceWidgetModel, diameter: Int) {
+    val (fill, glyph) = toneFill(model.status.tone)
+    Box(
+        modifier = GlanceModifier
+            .size(diameter.dp)
+            .background(ImageProvider(R.drawable.widget_circle), colorFilter = ColorFilter.tint(fill))
+            .clickable(actionRunCallback<ToggleServiceActionCallback>()),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            provider = ImageProvider(R.drawable.ic_widget_power),
+            contentDescription = "${model.statusText}. ${model.toggleLabel}",
+            modifier = GlanceModifier.size((diameter / 2).dp),
+            colorFilter = ColorFilter.tint(glyph)
+        )
+    }
+}
+
+/** A stored model, read once outside the composition: none means the widget asks for one. */
+private suspend fun requestModelIfMissing(context: Context, id: GlanceId, decode: (String?) -> Any?) {
+    val stored = runCatching { getAppWidgetState(context, WidgetStateDef, id)[WidgetStateKeys.MODEL] }.getOrNull()
+    if (decode(stored) == null) WidgetUpdates.request(context)
+}
+
+private suspend fun toast(text: String, context: Context) = withContext(Dispatchers.Main) {
+    Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
 }
 
 // ----------------------------------------------------------------
-// TailSocks Service Switcher Widget (2×2)
+// The switch: 1×1 round toggle, 2×1/4×1 bar, 2×2 card
 // ----------------------------------------------------------------
 class ServiceToggleWidget : GlanceAppWidget() {
 
+    companion object {
+        private val TINY = DpSize(48.dp, 48.dp)
+        private val BAR = DpSize(110.dp, 48.dp)
+        private val CARD = DpSize(110.dp, 100.dp)
+        private val TALL = DpSize(110.dp, 150.dp)
+    }
+
     override val stateDefinition = WidgetStateDef
+    override val sizeMode = SizeMode.Responsive(setOf(TINY, BAR, CARD, TALL))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        requestModelIfMissing(context, id, ::decodeServiceModel)
         provideContent {
+            val encoded = currentState(WidgetStateKeys.MODEL)
+            val model = remember(encoded) { decodeServiceModel(encoded) }
             GlanceTheme {
-                val prefs       = currentState<Preferences>()
-                val actualRunning = ProxyState.isActualRunning()
-                val isRunning   = prefs[WidgetStateKeys.IS_RUNNING]   ?: actualRunning
-                val isPending   = prefs[WidgetStateKeys.IS_PENDING]   ?: false
-                val profileName = prefs[WidgetStateKeys.PROFILE_NAME] ?: AccountManager.getActiveAccount(context).name
-                val exitNode    = prefs[WidgetStateKeys.EXIT_NODE]    ?: ""
+                if (model == null) LoadingContent() else ServiceContent(model)
+            }
+        }
+    }
 
-                val statusText = when {
-                    isPending && !isRunning -> "○ Stopping…"
-                    isPending &&  isRunning -> "● Starting…"
-                    isRunning               -> "● " + context.getString(R.string.status_running)
-                    else                    -> "○ " + context.getString(R.string.status_stopped)
-                }
+    @Composable
+    private fun ServiceContent(model: ServiceWidgetModel) {
+        val size = LocalSize.current
+        when {
+            size.width < BAR.width -> ServiceTiny(model)
+            size.height < CARD.height -> ServiceBar(model)
+            else -> ServiceCard(model, extras = size.height >= TALL.height)
+        }
+    }
 
-                val mainIntent = Intent(LocalContext.current, MainActivity::class.java)
+    @Composable
+    private fun ServiceTiny(model: ServiceWidgetModel) {
+        Box(
+            modifier = GlanceModifier.fillMaxSize().appWidgetBackground(),
+            contentAlignment = Alignment.Center
+        ) {
+            RoundToggle(model, diameter = 48)
+        }
+    }
 
-                Column(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .background(GlanceTheme.colors.widgetBackground)
-                        .cornerRadius(20.dp)
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                        .clickable(actionStartActivity(mainIntent)),
-                    horizontalAlignment = Alignment.Horizontal.Start
-                ) {
-                    // Header Row with title & refresh button
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Vertical.CenterVertically
-                    ) {
-                        Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text(
-                                text = "TailSocks",
-                                style = TextStyle(
-                                    color = GlanceTheme.colors.onSurface,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                text = profileName,
-                                style = TextStyle(
-                                    color = GlanceTheme.colors.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                        Button(
-                            text = "↻",
-                            onClick = actionRunCallback<RefreshAllActionCallback>(),
-                            colors = ButtonDefaults.buttonColors(
-                                backgroundColor = GlanceTheme.colors.secondaryContainer,
-                                contentColor = GlanceTheme.colors.onSecondaryContainer
-                            ),
-                            modifier = GlanceModifier.height(34.dp)
-                        )
-                    }
+    @Composable
+    private fun ServiceBar(model: ServiceWidgetModel) {
+        Row(
+            modifier = widgetSurface()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .clickable(actionStartActivity<MainActivity>()),
+            verticalAlignment = Alignment.Vertical.CenterVertically
+        ) {
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                StatusLine(model)
+                Text(
+                    text = model.profile,
+                    style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+                    maxLines = 1
+                )
+            }
+            Spacer(GlanceModifier.width(8.dp))
+            RoundToggle(model, diameter = 36)
+        }
+    }
 
-                    if (exitNode.isNotEmpty()) {
-                        Spacer(GlanceModifier.height(2.dp))
-                        Text(
-                            text = context.getString(R.string.widget_exit_node_format, exitNode),
-                            style = TextStyle(
-                                color = GlanceTheme.colors.tertiary,
-                                fontSize = 13.sp
-                            )
-                        )
-                    }
-
-                    Spacer(GlanceModifier.height(4.dp))
-
+    @Composable
+    private fun ServiceCard(model: ServiceWidgetModel, extras: Boolean) {
+        Column(
+            modifier = widgetSurface()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .clickable(actionStartActivity<MainActivity>()),
+            horizontalAlignment = Alignment.Horizontal.Start
+        ) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
                     Text(
-                        text = statusText,
-                        style = TextStyle(
-                            color = if (isRunning || isPending) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        text = "TailSocks",
+                        style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                        maxLines = 1
                     )
-
-                    Spacer(GlanceModifier.defaultWeight())
-
-                    Button(
-                        text = if (isRunning || isPending)
-                            context.getString(R.string.widget_service_stop)
-                        else
-                            context.getString(R.string.widget_service_start),
-                        onClick = actionRunCallback<ToggleServiceActionCallback>(),
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = if (isRunning || isPending)
-                                GlanceTheme.colors.error
-                            else
-                                GlanceTheme.colors.primary,
-                            contentColor = if (isRunning || isPending)
-                                GlanceTheme.colors.onError
-                            else
-                                GlanceTheme.colors.onPrimary
-                        ),
-                        modifier = GlanceModifier.fillMaxWidth().height(44.dp)
+                    Text(
+                        text = model.profile,
+                        style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                        maxLines = 1
+                    )
+                }
+                if (extras) {
+                    IconAction(
+                        R.drawable.ic_widget_refresh, model.refreshLabel,
+                        actionRunCallback<RefreshAllActionCallback>(), GlanceTheme.colors.onSurfaceVariant
                     )
                 }
             }
+            Spacer(GlanceModifier.height(4.dp))
+            StatusLine(model)
+            if (extras && model.exitLabel.isNotEmpty()) {
+                Text(
+                    text = model.exitLabel,
+                    style = TextStyle(color = GlanceTheme.colors.tertiary, fontSize = 12.sp),
+                    maxLines = 1
+                )
+            }
+            if (extras && model.tailnetIp.isNotEmpty()) {
+                Row(
+                    modifier = GlanceModifier.clickable(
+                        actionRunCallback<CopyTailnetIpActionCallback>(actionParametersOf(paramTailnetIp to model.tailnetIp))
+                    ),
+                    verticalAlignment = Alignment.Vertical.CenterVertically
+                ) {
+                    Text(
+                        text = model.tailnetIp,
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+                        maxLines = 1
+                    )
+                    Spacer(GlanceModifier.width(4.dp))
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_widget_copy),
+                        contentDescription = model.copyLabel,
+                        modifier = GlanceModifier.size(14.dp),
+                        colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant)
+                    )
+                }
+            }
+            Spacer(GlanceModifier.defaultWeight())
+            Button(
+                text = model.toggleLabel,
+                onClick = actionRunCallback<ToggleServiceActionCallback>(),
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = if (model.on) GlanceTheme.colors.error else GlanceTheme.colors.primary,
+                    contentColor = if (model.on) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary
+                ),
+                modifier = GlanceModifier.fillMaxWidth().height(40.dp),
+                maxLines = 1
+            )
+        }
+    }
+
+    @Composable
+    private fun StatusLine(model: ServiceWidgetModel) {
+        Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
+            Text(text = "●", style = TextStyle(color = toneColor(model.status.tone), fontSize = 12.sp))
+            Spacer(GlanceModifier.width(6.dp))
+            Text(
+                text = model.statusText,
+                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1
+            )
         }
     }
 }
 
+/**
+ * The system's update — the widget placed, the 30-minute period, a locale change — repaints
+ * from what the app knows without asking the daemon. Glance's own onUpdate would redraw the
+ * stored model as it is, stale after a reboot or a killed process.
+ */
 class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = ServiceToggleWidget()
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        CoroutineScope(Dispatchers.IO).launch {
-            refreshAllInstances(context)
-        }
-    }
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) =
+        WidgetUpdates.repaintFromSystem(this, context)
 }
 
 // ----------------------------------------------------------------
-// Vertical Exit Node Selector Widget (2×3 / 2×4)
+// The exit node: as many rows as the widget's size holds
 // ----------------------------------------------------------------
 class ExitNodeToggleWidget : GlanceAppWidget() {
 
+    private companion object {
+        const val PADDING = 12
+        const val HEADER = 44
+        const val ROW = 38
+        const val GAP = 6
+    }
+
     override val stateDefinition = WidgetStateDef
+    // Exact: the row count follows the real size, so the list is never cut through a row.
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        requestModelIfMissing(context, id, ::decodeExitModel)
         provideContent {
+            val encoded = currentState(WidgetStateKeys.MODEL)
+            val model = remember(encoded) { decodeExitModel(encoded) }
             GlanceTheme {
-                val prefs        = currentState<Preferences>()
-                val activeAccount = AccountManager.getActiveAccount(context)
-                val profilePrefs = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-                val exitNodeIp   = prefs[WidgetStateKeys.EXIT_NODE] ?: profilePrefs.getString("exit_node_ip", "") ?: ""
-                val exitNodeId   = profilePrefs.getString("exit_node_id", "") ?: ""
-
-                val availableNodes = getAvailableExitNodes(context)
-                val activeNodeName = availableNodes.find { it.ip == exitNodeIp || (it.id.isNotEmpty() && it.id == exitNodeId) }?.name ?: exitNodeIp
-                val mainIntent = Intent(LocalContext.current, MainActivity::class.java)
-
-                Column(
-                    modifier = GlanceModifier
-                        .fillMaxSize()
-                        .background(GlanceTheme.colors.widgetBackground)
-                        .cornerRadius(20.dp)
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                        .clickable(actionStartActivity(mainIntent)),
-                    horizontalAlignment = Alignment.Horizontal.Start
-                ) {
-                    // Header Row with Title, Active Subtitle & Refresh Button
-                    Row(
-                        modifier = GlanceModifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Vertical.CenterVertically
-                    ) {
-                        Column(modifier = GlanceModifier.defaultWeight()) {
-                            Text(
-                                text = context.getString(R.string.widget_exit_node_title),
-                                style = TextStyle(
-                                    color = GlanceTheme.colors.onSurface,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Text(
-                                text = if (exitNodeIp.isNotEmpty())
-                                    context.getString(R.string.widget_exit_node_format, activeNodeName)
-                                else
-                                    context.getString(R.string.widget_exit_node_inactive),
-                                style = TextStyle(
-                                    color = if (exitNodeIp.isNotEmpty()) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-
-                        Button(
-                            text = "↻",
-                            onClick = actionRunCallback<RefreshAllActionCallback>(),
-                            colors = ButtonDefaults.buttonColors(
-                                backgroundColor = GlanceTheme.colors.secondaryContainer,
-                                contentColor = GlanceTheme.colors.onSecondaryContainer
-                            ),
-                            modifier = GlanceModifier.height(34.dp)
-                        )
-                    }
-
-                    Spacer(GlanceModifier.height(10.dp))
-
-                    // Option 0: Disable Exit Node (Direct Traffic)
-                    val isDirectActive = exitNodeIp.isEmpty()
-                    Button(
-                        text = if (isDirectActive) "● Direct / Off" else "○ Direct / Off",
-                        onClick = actionRunCallback<SelectExitNodeActionCallback>(
-                            actionParametersOf(paramExitNodeId to "", paramExitNodeIp to "")
-                        ),
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = if (isDirectActive)
-                                GlanceTheme.colors.secondaryContainer
-                            else
-                                GlanceTheme.colors.surfaceVariant,
-                            contentColor = if (isDirectActive)
-                                GlanceTheme.colors.onSecondaryContainer
-                            else
-                                GlanceTheme.colors.onSurfaceVariant
-                        ),
-                        modifier = GlanceModifier.fillMaxWidth().height(38.dp)
-                    )
-
-                    Spacer(GlanceModifier.height(6.dp))
-
-                    // Option 1: the node Tailscale recommends. Asked when tapped, not when
-                    // drawn: a widget is rendered on its own schedule and the answer moves.
-                    if (availableNodes.isNotEmpty()) {
-                        Button(
-                            text = "★ " + context.getString(R.string.exit_best_title),
-                            onClick = actionRunCallback<SelectBestExitNodeActionCallback>(),
-                            colors = ButtonDefaults.buttonColors(
-                                backgroundColor = GlanceTheme.colors.surfaceVariant,
-                                contentColor = GlanceTheme.colors.onSurfaceVariant
-                            ),
-                            modifier = GlanceModifier.fillMaxWidth().height(38.dp)
-                        )
-                        Spacer(GlanceModifier.height(6.dp))
-                    }
-
-                    // Exit Node Items (up to 6 items in vertical list)
-                    if (availableNodes.isEmpty()) {
-                        Text(
-                            text = context.getString(R.string.main_no_exit_nodes),
-                            style = TextStyle(
-                                color = GlanceTheme.colors.outline,
-                                fontSize = 12.sp
-                            ),
-                            modifier = GlanceModifier.padding(vertical = 8.dp)
-                        )
-                    } else {
-                        availableNodes.take(6).forEach { node ->
-                            val isSelected = (node.ip == exitNodeIp) || (node.id.isNotEmpty() && node.id == exitNodeId)
-                            val labelText = if (isSelected) "● ${node.name}" else "○ ${node.name}"
-
-                            Button(
-                                text = labelText,
-                                onClick = actionRunCallback<SelectExitNodeActionCallback>(
-                                    actionParametersOf(paramExitNodeId to node.id, paramExitNodeIp to node.ip)
-                                ),
-                                colors = ButtonDefaults.buttonColors(
-                                    backgroundColor = if (isSelected)
-                                        GlanceTheme.colors.primary
-                                    else
-                                        GlanceTheme.colors.secondaryContainer,
-                                    contentColor = if (isSelected)
-                                        GlanceTheme.colors.onPrimary
-                                    else
-                                        GlanceTheme.colors.onSecondaryContainer
-                                ),
-                                modifier = GlanceModifier.fillMaxWidth().height(38.dp)
-                            )
-                            Spacer(GlanceModifier.height(6.dp))
-                        }
-                    }
-
-                    Spacer(GlanceModifier.defaultWeight())
-                }
+                if (model == null) LoadingContent() else ExitContent(model)
             }
         }
     }
+
+    @Composable
+    private fun ExitContent(model: ExitWidgetModel) {
+        val height = LocalSize.current.height.value.toInt()
+        val fit = ((height - 2 * PADDING - HEADER) / (ROW + GAP)).coerceAtLeast(0)
+
+        Column(
+            modifier = widgetSurface()
+                .padding(horizontal = PADDING.dp, vertical = PADDING.dp)
+                .clickable(actionStartActivity<MainActivity>()),
+            horizontalAlignment = Alignment.Horizontal.Start
+        ) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().height(HEADER.dp),
+                verticalAlignment = Alignment.Vertical.CenterVertically
+            ) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Text(
+                        text = model.title,
+                        style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                        maxLines = 1
+                    )
+                    Text(
+                        text = model.subtitle,
+                        style = TextStyle(
+                            color = if (model.active) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        maxLines = 1
+                    )
+                }
+                IconAction(
+                    R.drawable.ic_widget_refresh, model.refreshLabel,
+                    actionRunCallback<RefreshAllActionCallback>(), GlanceTheme.colors.onSurfaceVariant
+                )
+            }
+
+            // Direct first, then Best, then the nodes (the selected one leads them).
+            var room = fit
+            if (room > 0) {
+                Spacer(GlanceModifier.height(GAP.dp))
+                ExitButton("${if (model.active) "○" else "●"} ${model.directLabel}", selected = !model.active, dimmed = false, onClick = selectAction("", "", ""))
+                room--
+            }
+            if (room > 0 && model.bestLabel.isNotEmpty()) {
+                Spacer(GlanceModifier.height(GAP.dp))
+                ExitButton("★ ${model.bestLabel}", selected = false, dimmed = false, onClick = actionRunCallback<SelectBestExitNodeActionCallback>())
+                room--
+            }
+            model.rows.take(room).forEach { row ->
+                Spacer(GlanceModifier.height(GAP.dp))
+                ExitButton(
+                    "${if (row.selected) "●" else "○"} ${row.name}",
+                    selected = row.selected,
+                    dimmed = row.online == false,
+                    onClick = selectAction(row.id, row.ip, row.name)
+                )
+            }
+            if (model.rows.isEmpty() && room > 0) {
+                Text(
+                    text = model.emptyText,
+                    style = TextStyle(color = GlanceTheme.colors.outline, fontSize = 12.sp),
+                    modifier = GlanceModifier.padding(vertical = 8.dp),
+                    maxLines = 2
+                )
+            }
+        }
+    }
+
+    private fun selectAction(id: String, ip: String, name: String): Action =
+        actionRunCallback<SelectExitNodeActionCallback>(
+            actionParametersOf(paramExitNodeId to id, paramExitNodeIp to ip, paramExitNodeName to name)
+        )
+
+    @Composable
+    private fun ExitButton(text: String, selected: Boolean, dimmed: Boolean, onClick: Action) {
+        Button(
+            text = text,
+            onClick = onClick,
+            colors = ButtonDefaults.buttonColors(
+                backgroundColor = when {
+                    selected -> GlanceTheme.colors.primary
+                    dimmed -> GlanceTheme.colors.surfaceVariant
+                    else -> GlanceTheme.colors.secondaryContainer
+                },
+                contentColor = when {
+                    selected -> GlanceTheme.colors.onPrimary
+                    dimmed -> GlanceTheme.colors.outline
+                    else -> GlanceTheme.colors.onSecondaryContainer
+                }
+            ),
+            modifier = GlanceModifier.fillMaxWidth().height(ROW.dp),
+            maxLines = 1
+        )
+    }
 }
 
+/** See [ServiceToggleWidgetReceiver]. */
 class ExitNodeToggleWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = ExitNodeToggleWidget()
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        CoroutineScope(Dispatchers.IO).launch {
-            refreshAllInstances(context)
-        }
-    }
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) =
+        WidgetUpdates.repaintFromSystem(this, context)
 }
 
 // ----------------------------------------------------------------
-// Action Callbacks
+// Action callbacks
 // ----------------------------------------------------------------
 
+/** The refresh button: a pass now, the exit-node list read afresh, every instance repainted. */
 class RefreshAllActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        refreshAllInstances(context)
-        forceAppWidgetUpdate(context)
-        if (ProxyState.isActualRunning()) {
-            delay(400)
-            refreshAllInstances(context)
-            forceAppWidgetUpdate(context)
-        }
+        WidgetUpdates.refresh(context, force = true, live = WidgetUpdates.Live.NOW)
     }
 }
 
+/**
+ * Start/Stop, decided on what is happening when tapped — never on what an older render
+ * showed — and shown as Starting…/Stopping… on every instance until the service gets there.
+ */
 class ToggleServiceActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        val actualRunning = ProxyState.isActualRunning()
-        val prefs = getAppWidgetState(context, WidgetStateDef, glanceId)
-        val widgetShownRunning = prefs[WidgetStateKeys.IS_RUNNING] ?: actualRunning
+        val app = context.applicationContext
+        val start = withContext(Dispatchers.IO) { WidgetUpdates.beginToggle(app) }
+        WidgetUpdates.refresh(app, live = WidgetUpdates.Live.NEVER)
 
-        val activeAccount = AccountManager.getActiveAccount(context)
-        val exitNode = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-            .getString("exit_node_ip", "") ?: ""
-
-        // MISMATCH GUARD:
-        if (widgetShownRunning != actualRunning) {
-            pushState(
-                context, glanceId, ServiceToggleWidget(),
-                isRunning = actualRunning,
-                isPending = false,
-                profileName = activeAccount.name,
-                exitNode = exitNode
-            )
-            return
-        }
-
-        val shouldStop = actualRunning
-
-        // STEP 1: Immediately push optimistic pending state to DataStore & re-render
-        pushState(
-            context, glanceId, ServiceToggleWidget(),
-            isRunning = !shouldStop,
-            isPending = true,
-            profileName = activeAccount.name,
-            exitNode = exitNode
-        )
-
-        ProxyState.setUserState(context, !shouldStop)
-
-        // STEP 2: Send exact Intent based on ACTUAL status
-        val intent = Intent(context, TailscaledService::class.java).apply {
-            action = if (shouldStop) "STOP_ACTION" else "START_ACTION"
+        ProxyState.setUserState(app, start)
+        val intent = Intent(app, TailscaledService::class.java).apply {
+            action = if (start) "START_ACTION" else "STOP_ACTION"
         }
         try {
-            if (shouldStop) {
-                context.startService(intent)
-            } else {
-                androidx.core.content.ContextCompat.startForegroundService(context, intent)
-            }
+            // Foreground for both, as the tile does: the stop path enters the foreground first,
+            // and a plain start of a service that is not running is refused from the background.
+            ContextCompat.startForegroundService(app, intent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.w("Widgets", "The service did not take the widget's ${intent.action}: ${e.message}")
+            WidgetUpdates.cancelToggle(app)
+            WidgetUpdates.refresh(app, live = WidgetUpdates.Live.NEVER)
         }
-
-        // STEP 3: Wait 1.2s for daemon state transition, then update DataStore with real state
-        delay(1200)
-        val realRunning1 = ProxyState.isActualRunning()
-        pushState(
-            context, glanceId, ServiceToggleWidget(),
-            isRunning = realRunning1,
-            isPending = false,
-            profileName = activeAccount.name,
-            exitNode = context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-                .getString("exit_node_ip", "") ?: ""
-        )
-
-        // STEP 4: Secondary check after 2.5s for slow daemon startup/shutdown
-        delay(2500)
-        refreshAllInstances(context)
-        forceAppWidgetUpdate(context)
     }
 }
 
 class SelectExitNodeActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        val targetId = parameters[paramExitNodeId] ?: ""
-        val targetIp = parameters[paramExitNodeIp] ?: ""
+        val app = context.applicationContext
+        val id = parameters[paramExitNodeId].orEmpty()
+        val ip = parameters[paramExitNodeIp].orEmpty()
+        val name = parameters[paramExitNodeName].orEmpty().ifEmpty { ip }
 
-        val result = withContext(Dispatchers.IO) { ExitNodeApply.select(context, targetId, targetIp) }
+        val result = withContext(Dispatchers.IO) { ExitNodeApply.select(app, id, ip) }
+        val res = TailscaledService.localized(app)
         val message = when (result) {
             ExitNodeApply.Result.Applied ->
-                if (targetIp.isEmpty()) context.getString(R.string.widget_toast_exit_disabled)
-                else context.getString(R.string.widget_toast_exit_routing_format, targetIp)
-            ExitNodeApply.Result.Incomplete -> context.getString(R.string.main_no_exit_nodes)
-            is ExitNodeApply.Result.Refused -> context.getString(R.string.settings_local_api_error_format, result.message)
+                if (ip.isEmpty()) res.getString(R.string.widget_toast_exit_disabled)
+                else res.getString(R.string.widget_toast_exit_routing_format, name)
+            ExitNodeApply.Result.Incomplete -> {
+                // Only a row drawn by an older build can say this: draw the list again.
+                WidgetUpdates.refresh(app, live = WidgetUpdates.Live.NOW)
+                res.getString(R.string.widget_toast_exit_unknown)
+            }
+            is ExitNodeApply.Result.Refused -> res.getString(R.string.settings_local_api_error_format, result.message)
         }
-        withContext(Dispatchers.Main) { Toast.makeText(context, message, Toast.LENGTH_SHORT).show() }
+        toast(message, app)
     }
 }
 
 /**
  * "Best exit node" on the widget: asks the daemon for its recommendation and selects that
- * node exactly as its own button would; with none to be had, a toast says why.
+ * node exactly as its own button would; with none to be had, a toast says why. Asked when
+ * tapped, not when drawn: a widget is rendered on its own schedule and the answer moves.
  */
 class SelectBestExitNodeActionCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         when (val best = withContext(Dispatchers.IO) { ExitNodeSuggestion.fetch() }) {
             is ExitNodeSuggestion.Outcome.Suggested -> SelectExitNodeActionCallback().onAction(
-                context, glanceId, actionParametersOf(paramExitNodeId to best.id, paramExitNodeIp to best.ip)
+                context, glanceId,
+                actionParametersOf(paramExitNodeId to best.id, paramExitNodeIp to best.ip, paramExitNodeName to best.name)
             )
-            is ExitNodeSuggestion.Outcome.Unavailable -> withContext(Dispatchers.Main) {
-                Toast.makeText(context, context.getString(bestExitNodeReasonRes(best.reason)), Toast.LENGTH_SHORT).show()
-            }
+            is ExitNodeSuggestion.Outcome.Unavailable ->
+                toast(TailscaledService.localized(context).getString(bestExitNodeReasonRes(best.reason)), context.applicationContext)
+        }
+    }
+}
+
+/** The tailnet address on the switch: to the clipboard, with the app's usual toast. */
+class CopyTailnetIpActionCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val ip = parameters[paramTailnetIp].orEmpty()
+        if (ip.isEmpty()) return
+        val app = context.applicationContext
+        val res = TailscaledService.localized(app)
+        withContext(Dispatchers.Main) {
+            app.getSystemService(ClipboardManager::class.java)
+                ?.setPrimaryClip(ClipData.newPlainText(res.getString(R.string.widget_copy_ip), ip))
+            Toast.makeText(app, res.getString(R.string.copied_to_clipboard, ip), Toast.LENGTH_SHORT).show()
         }
     }
 }

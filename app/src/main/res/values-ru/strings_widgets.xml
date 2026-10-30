@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The widget picker -->
+    <string name="widget_name_service">Переключатель TailSocks</string>
+    <string name="widget_name_exit">Выходной узел TailSocks</string>
+    <string name="widget_desc_service">Запуск и остановка TailSocks, состояние подключения</string>
+    <string name="widget_desc_exit">Выбор выходного узла или работа без него</string>
+
+    <!-- The switch -->
+    <string name="widget_service_start">Запустить</string>
+    <string name="widget_service_stop">Остановить</string>
+    <string name="widget_refresh">Обновить</string>
+    <string name="widget_copy_ip">Скопировать адрес в tailnet</string>
+
+    <!-- The exit node -->
+    <string name="widget_exit_node_title">Выходной узел</string>
+    <string name="widget_exit_node_inactive">Не используется</string>
+    <string name="widget_exit_node_format">Выход: %1$s</string>
+    <string name="widget_exit_direct">Напрямую</string>
+    <string name="widget_toast_exit_disabled">Выходной узел отключён</string>
+    <string name="widget_toast_exit_routing_format">Трафик идёт через %1$s</string>
+    <string name="widget_toast_exit_unknown">Этот выходной узел больше не известен — список обновлён</string>
+</resources>

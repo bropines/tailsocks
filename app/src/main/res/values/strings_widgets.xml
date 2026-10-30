@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widgets (ui/Widgets.kt, ui/WidgetUpdates.kt) and their entries in the widget picker. -->
+<resources>
+    <!-- The widget picker -->
+    <string name="widget_name_service">TailSocks switch</string>
+    <string name="widget_name_exit">TailSocks exit node</string>
+    <string name="widget_desc_service">Start or stop TailSocks and see how it is connected</string>
+    <string name="widget_desc_exit">Choose the exit node, or go without one</string>
+
+    <!-- The switch -->
+    <string name="widget_service_start">Start</string>
+    <string name="widget_service_stop">Stop</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_copy_ip">Copy the tailnet address</string>
+
+    <!-- The exit node -->
+    <string name="widget_exit_node_title">Exit node</string>
+    <string name="widget_exit_node_inactive">Not active</string>
+    <string name="widget_exit_node_format">Exit: %1$s</string>
+    <string name="widget_exit_direct">Direct</string>
+    <string name="widget_toast_exit_disabled">Exit node turned off</string>
+    <string name="widget_toast_exit_routing_format">Routing via %1$s</string>
+    <string name="widget_toast_exit_unknown">That exit node is no longer known; the list was refreshed</string>
+</resources>

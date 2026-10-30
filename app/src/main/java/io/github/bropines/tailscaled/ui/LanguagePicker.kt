@@ -124,5 +124,7 @@ internal fun applyAppLanguage(context: android.content.Context, tag: String) {
     GlobalSettings.setString(context, "app_locale", tag)
     val locales = if (tag == AppLanguages.SYSTEM) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(tag)
     AppCompatDelegate.setApplicationLocales(locales)
+    // The widgets' words are resolved in this process: they repaint in the new language.
+    WidgetUpdates.request(context)
     context.findActivity()?.recreate()
 }

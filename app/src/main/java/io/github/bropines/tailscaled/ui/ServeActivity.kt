@@ -898,7 +898,6 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 AppJson.encodeToString(newConfig)
             }
             val res = Appctr.setServeConfig(jsonPayload)
-            updateAllWidgets(context)
             withContext(Dispatchers.Main) {
                 isLoading = false
                 if (res != "OK") {

@@ -302,30 +302,23 @@
             </intent-filter>
         </provider>
 
-        <!-- TailSocks Switcher (Toggle) Widget -->
-        <receiver android:name=".ui.ServiceToggleWidgetReceiver" android:exported="false" android:label="TailSocks Switcher">
+        <!-- Home-screen widgets (ui/Widgets.kt). The app refreshes them itself (WidgetUpdates);
+             the system's update covers placement, the 30-minute period and, through Glance,
+             a change of the system language. The status broadcasts are not for them. -->
+        <receiver android:name=".ui.ServiceToggleWidgetReceiver" android:exported="false" android:label="@string/widget_name_service">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
-                <action android:name="io.github.bropines.tailscaled.STATUS" />
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info_service" />
         </receiver>
 
-        <!-- Exit Node Toggle Widget -->
-        <receiver android:name=".ui.ExitNodeToggleWidgetReceiver" android:exported="false" android:label="TailSocks Exit Node">
+        <receiver android:name=".ui.ExitNodeToggleWidgetReceiver" android:exported="false" android:label="@string/widget_name_exit">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="io.github.bropines.tailscaled.STATUS_CHANGED" />
-                <action android:name="io.github.bropines.tailscaled.STATUS" />
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

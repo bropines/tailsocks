@@ -50,6 +50,9 @@ class TailscaledService : Service() {
         @Volatile private var shownCard: NotificationCard? = null
         private val cardLock = Any()
 
+        /** What the card says now, as a state; null while no service holds it. The widgets' status line. */
+        internal fun shownCardState(): CardState? = shownCard?.state
+
         /** The app's resources in the language chosen in Settings, per language. */
         @Volatile private var localizedCache: Pair<String, Context>? = null
 
@@ -99,9 +102,10 @@ class TailscaledService : Service() {
          * business causing. The platform per-app locale alone is not enough
          * either: HyperOS accepts it and stores nothing, so the card would come
          * out in the system language under an app shown in another. Only the
-         * configuration half is repeated here.
+         * configuration half is repeated here. The widgets resolve their words
+         * through it for the same reason.
          */
-        private fun localized(context: Context): Context {
+        internal fun localized(context: Context): Context {
             val lang = GlobalSettings.getString(context, "app_locale", "sys")
             if (lang == "sys") return context
             localizedCache?.let { (cachedLang, ctx) -> if (cachedLang == lang) return ctx }
@@ -173,9 +177,7 @@ class TailscaledService : Service() {
                 }
                 context.sendBroadcast(aliasIntent)
 
-                // The delivery broadcast belongs to updateAllWidgets: it is sent
-                // there when the widgets were really repainted, not beside it.
-                updateAllWidgets(context)
+                WidgetUpdates.request(context)
             } catch (e: Exception) {
                 Log.e("TailscaledService", "Failed to send status broadcast: ${e.message}")
             }
@@ -442,8 +444,9 @@ class TailscaledService : Service() {
         publishLiveCard(isRunning, backendState, healthWarnings)
 
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        // Nearly free while nothing changed: a widget is repainted only when what it shows did.
         if (isRunning && powerManager.isInteractive) {
-            updateAllWidgets(this@TailscaledService)
+            WidgetUpdates.request(this@TailscaledService)
         }
 
         if (System.currentTimeMillis() < settleUntil) interval = minOf(interval, SETTLE_TICK_MS)
@@ -887,8 +890,11 @@ class TailscaledService : Service() {
     private fun showCard(card: NotificationCard) {
         synchronized(cardLock) {
             if (card == shownCard) return
+            val stateChanged = card.state != shownCard?.state
             shownCard = card
             notificationManager.notify(MAIN_NOTIF_ID, renderCard(this, card))
+            // The widgets' status line is the card's state.
+            if (stateChanged) WidgetUpdates.request(this)
         }
     }
 
@@ -907,13 +913,14 @@ class TailscaledService : Service() {
     private fun cardFor(status: LiveStatus): NotificationCard {
         val res = localized(this)
         fun card(title: Int, text: Int? = null) =
-            NotificationCard(res.getString(title), text?.let { res.getString(it) })
+            NotificationCard(res.getString(title), text?.let { res.getString(it) }, status.state)
         return when (status.state) {
-            CardState.CONNECTED -> NotificationCard(res.getString(R.string.notif_connected), connectedLine(res))
+            CardState.CONNECTED -> NotificationCard(res.getString(R.string.notif_connected), connectedLine(res), status.state)
             CardState.CONNECTING -> card(R.string.notif_connecting, R.string.main_status_connecting_desc)
             CardState.DEGRADED -> NotificationCard(
                 res.getString(R.string.main_status_degraded),
-                status.issue?.let { issueTitle(res, it) }
+                status.issue?.let { issueTitle(res, it) },
+                status.state
             )
             CardState.NEEDS_LOGIN -> card(R.string.main_status_needs_login, R.string.notif_needs_login_text)
             CardState.AWAITING_APPROVAL -> card(R.string.notif_awaiting_approval, R.string.notif_awaiting_approval_text)
@@ -1545,6 +1552,16 @@ class TailscaledService : Service() {
      * built from the resolved uids, so a package nobody excluded costs one probe
      * and changes nothing.
      */
+    /**
+     * The widget tick is skipped while the screen is off, so whatever changed meanwhile is
+     * painted the moment it wakes rather than up to a tick later.
+     */
+    private val screenOnReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            WidgetUpdates.request(this@TailscaledService)
+        }
+    }
+
     private val packageChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -1607,6 +1624,19 @@ class TailscaledService : Service() {
                 Log.w(TAG, "Failed to register Doze receiver: ${e.message}")
             }
         }
+        try {
+            ContextCompat.registerReceiver(
+                this,
+                screenOnReceiver,
+                android.content.IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to watch the screen for the widgets: ${e.message}")
+        }
         // Finished Taildrop transfers arrive on the IPN bus; the bridge forwards them
         // here for as long as the service lives, across daemon restarts and attaches.
         TaildropEvents.attach(this)
@@ -1631,7 +1661,9 @@ class TailscaledService : Service() {
             } else {
                 startForeground(1, notification)
             }
+            val stateChanged = card.state != shownCard?.state
             shownCard = card
+            if (stateChanged) WidgetUpdates.request(this)
         }
     }
 
@@ -1925,7 +1957,7 @@ class TailscaledService : Service() {
                 // cannot hold up the rest of the start.
                 followCardAfterStart()
                 applicationContext.sendBroadcast(Intent("START").setPackage(packageName))
-                forceAppWidgetUpdate(this@TailscaledService)
+                WidgetUpdates.request(this@TailscaledService)
                 if (waitForDaemonReady()) {
                     if (stale()) {
                         Log.i(TAG, "Start abandoned after the daemon became ready, shutting it down again")
@@ -2312,8 +2344,7 @@ class TailscaledService : Service() {
     
     private fun updateTile() {
         TileService.requestListeningState(this, ComponentName(this, ProxyTileService::class.java))
-        // updateAllWidgets sends the delivery broadcast itself, when it painted.
-        updateAllWidgets(this@TailscaledService)
+        WidgetUpdates.request(this@TailscaledService)
     }
 
     private fun applyTagsAndRoutes(context: Context) {
@@ -2611,6 +2642,7 @@ class TailscaledService : Service() {
         interfaceWatch = null
         try { unregisterReceiver(idleModeReceiver) } catch (e: Exception) {}
         try { unregisterReceiver(packageChangeReceiver) } catch (e: Exception) {}
+        try { unregisterReceiver(screenOnReceiver) } catch (e: Exception) {}
         try { globalPrefs.unregisterOnSharedPreferenceChangeListener(rootRulePrefsListener) } catch (e: Exception) {}
         TaildropEvents.detach()
         if (wakeLock?.isHeld == true) wakeLock?.release()
@@ -2618,6 +2650,8 @@ class TailscaledService : Service() {
         // first post through, and keeps a TUN service that comes up on its own
         // from re-posting a card of a session that is over.
         synchronized(cardLock) { shownCard = null }
+        // A card that said "Stopping…" is gone with it; the widgets must not keep saying so.
+        WidgetUpdates.request(this)
         super.onDestroy()
     }
 
@@ -2625,7 +2659,7 @@ class TailscaledService : Service() {
 }
 
 /** One ongoing card: a headline, and the line under it (none for a bare transition). */
-internal data class NotificationCard(val title: String, val text: String?)
+internal data class NotificationCard(val title: String, val text: String?, val state: CardState? = null)
 
 /**
  * What the card can say. The first six are read from the daemon and follow the

@@ -379,7 +379,6 @@
     <string name="peer_group_traffic">流量</string>
     <string name="main_route_traffic_directly">直接路由流量</string>
     <string name="peer_traffic_total">已傳輸</string>
-    <string name="widget_desc_stats">包含連線統計、裝置節點與流量的儀表板</string>
     <string name="peer_group_addresses">地址</string>
     <string name="serve_editor_target_proxy">本地地址</string>
     <string name="settings_dns_proxy_address_title">DNS 代理地址</string>
