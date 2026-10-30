@@ -228,7 +228,7 @@ private fun SectionTitle(text: String) {
 private fun NodeRow(node: ConfigNode, checked: Boolean, onToggle: () -> Unit, trailing: @Composable () -> Unit = {}) {
     val supporting = when {
         node.name == null -> stringResource(R.string.widget_config_gone)
-        node.online == false -> "${node.ip} · ${stringResource(R.string.widget_config_offline)}"
+        node.online == false -> "${node.ip} · ${stringResource(R.string.widget_offline)}"
         else -> node.ip
     }
     Surface(

@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 // instance only when the string changed. The functions here are pure, for the unit tests.
 
 /** Bumped whenever a model's shape changes: a model stored by another build is then rebuilt, not misread. */
-internal const val WIDGET_SCHEMA = 1
+internal const val WIDGET_SCHEMA = 2
 
 /** How long a tapped Start/Stop shows as Starting…/Stopping… while the service has not caught up. */
 internal const val PENDING_TOGGLE_MS = 15_000L
@@ -99,8 +99,8 @@ internal fun exitNodeOptions(live: List<ExitNodeOption>?, cached: List<ExitNodeO
 @Serializable
 data class ExitRow(val id: String, val ip: String, val name: String, val selected: Boolean, val online: Boolean? = null)
 
-/** How many rows a model keeps; the widget shows as many as its size fits. */
-internal const val EXIT_ROWS_MAX = 12
+/** How many rows a model keeps; the widget scrolls through them. */
+internal const val EXIT_ROWS_MAX = 30
 
 /**
  * The rows, selected first, then the online ones, then by name; at most [limit]. The selected
@@ -195,6 +195,8 @@ data class ExitWidgetModel(
     val bestLabel: String = "",
     val emptyText: String = "",
     val refreshLabel: String = "",
+    /** The word after an offline node's address. */
+    val offlineLabel: String = "",
     val rows: List<ExitRow> = emptyList(),
     /** This instance's favourites, part of the picture: a new choice repaints at once. */
     val favourites: List<String> = emptyList(),

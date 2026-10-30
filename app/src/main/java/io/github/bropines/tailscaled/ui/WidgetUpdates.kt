@@ -93,13 +93,15 @@ object WidgetUpdates {
 
     /**
      * The system's update for [receiver] (placement, the period, a locale change): a forced
-     * repaint from the cache, with the broadcast held open until it is done.
+     * repaint, with the broadcast held open until it is done. The exit-node list is read from
+     * an attached daemon when due, so a widget just placed lists the tailnet's nodes at once
+     * rather than whatever the cache held; with no daemon it comes from the cache.
      */
     internal fun repaintFromSystem(receiver: BroadcastReceiver, context: Context) {
         val result = receiver.goAsync()
         val app = context.applicationContext
         scope.launch {
-            try { refresh(app, force = true, live = Live.NEVER) } finally { result.finish() }
+            try { refresh(app, force = true, live = Live.WHEN_DUE) } finally { result.finish() }
         }
     }
 
@@ -215,6 +217,7 @@ object WidgetUpdates {
                 directLabel = res.getString(R.string.widget_exit_direct),
                 emptyText = res.getString(R.string.main_no_exit_nodes),
                 refreshLabel = res.getString(R.string.widget_refresh),
+                offlineLabel = res.getString(R.string.widget_offline),
                 locale = locale,
                 night = night,
             )

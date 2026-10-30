@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The exit node (ExitNodeToggleWidget): 2×3 by default; it lists as many rows as its size holds.
+<!-- The exit node (ExitNodeToggleWidget): 2×3 by default; its list scrolls inside whatever size it has.
      Home screen only: changing where traffic goes has no place on a locked phone. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="110dp"

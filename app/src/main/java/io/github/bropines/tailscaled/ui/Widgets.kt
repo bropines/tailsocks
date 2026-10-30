@@ -42,6 +42,8 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.background
@@ -51,12 +53,14 @@ import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -156,7 +160,7 @@ private suspend fun toast(text: String, context: Context) = withContext(Dispatch
 }
 
 // ----------------------------------------------------------------
-// The switch: 1×1 round toggle, 2×1/4×1 bar, 2×2 card
+// The switch: 1×1 round toggle, 2×1/4×1 bar, 2×2 card, larger cards
 // ----------------------------------------------------------------
 class ServiceToggleWidget : GlanceAppWidget() {
 
@@ -164,11 +168,15 @@ class ServiceToggleWidget : GlanceAppWidget() {
         private val TINY = DpSize(48.dp, 48.dp)
         private val BAR = DpSize(110.dp, 48.dp)
         private val CARD = DpSize(110.dp, 100.dp)
-        private val TALL = DpSize(110.dp, 150.dp)
+        private val DETAILED = DpSize(110.dp, 150.dp)
+        private val TALL = DpSize(110.dp, 190.dp)
+        private val WIDE = DpSize(250.dp, 170.dp)
     }
 
     override val stateDefinition = WidgetStateDef
-    override val sizeMode = SizeMode.Responsive(setOf(TINY, BAR, CARD, TALL))
+    // Each layout is drawn into whatever box the launcher has, so a breakpoint is the height
+    // its content needs, not a hope: below it the next smaller layout is used.
+    override val sizeMode = SizeMode.Responsive(setOf(TINY, BAR, CARD, DETAILED, TALL, WIDE))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         requestModelIfMissing(context, id, ::decodeServiceModel)
@@ -187,7 +195,9 @@ class ServiceToggleWidget : GlanceAppWidget() {
         when {
             size.width < BAR.width -> ServiceTiny(model)
             size.height < CARD.height -> ServiceBar(model)
-            else -> ServiceCard(model, extras = size.height >= TALL.height)
+            size.width >= WIDE.width && size.height >= WIDE.height -> ServiceWide(model)
+            size.height >= TALL.height -> ServiceTall(model)
+            else -> ServiceCard(model, details = size.height >= DETAILED.height)
         }
     }
 
@@ -210,7 +220,7 @@ class ServiceToggleWidget : GlanceAppWidget() {
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
             Column(modifier = GlanceModifier.defaultWeight()) {
-                StatusLine(model)
+                StatusLine(model, 14)
                 Text(
                     text = model.profile,
                     style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
@@ -222,86 +232,163 @@ class ServiceToggleWidget : GlanceAppWidget() {
         }
     }
 
+    /** A small card: the state, the profile, with room the details, and the button. */
     @Composable
-    private fun ServiceCard(model: ServiceWidgetModel, extras: Boolean) {
+    private fun ServiceCard(model: ServiceWidgetModel, details: Boolean) {
         Column(
             modifier = widgetSurface()
                 .padding(horizontal = 14.dp, vertical = 12.dp)
-                .clickable(actionStartActivity<MainActivity>()),
-            horizontalAlignment = Alignment.Horizontal.Start
+                .clickable(actionStartActivity<MainActivity>())
         ) {
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
-                Column(modifier = GlanceModifier.defaultWeight()) {
-                    Text(
-                        text = "TailSocks",
-                        style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold),
-                        maxLines = 1
-                    )
-                    Text(
-                        text = model.profile,
-                        style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 12.sp, fontWeight = FontWeight.Medium),
-                        maxLines = 1
-                    )
-                }
-                if (extras) {
-                    IconAction(
-                        R.drawable.ic_widget_refresh, model.refreshLabel,
-                        actionRunCallback<RefreshAllActionCallback>(), GlanceTheme.colors.onSurfaceVariant
-                    )
-                }
+            StatusLine(model, 18)
+            Text(
+                text = model.profile,
+                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1
+            )
+            if (details && (model.exitLabel.isNotEmpty() || model.tailnetIp.isNotEmpty())) {
+                Spacer(GlanceModifier.defaultWeight())
+                Details(model)
             }
-            Spacer(GlanceModifier.height(4.dp))
-            StatusLine(model)
-            if (extras && model.exitLabel.isNotEmpty()) {
+            Spacer(GlanceModifier.defaultWeight())
+            ToggleButton(model, height = 40)
+        }
+    }
+
+    /**
+     * A 2×2 and taller: the state large, the profile under it, the details in the middle and a
+     * tall button; what is left over is shared between the groups rather than pooled in one gap.
+     */
+    @Composable
+    private fun ServiceTall(model: ServiceWidgetModel) {
+        Column(
+            modifier = widgetSurface()
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .clickable(actionStartActivity<MainActivity>())
+        ) {
+            BrandRow(model)
+            Spacer(GlanceModifier.defaultWeight())
+            StatusLine(model, 22)
+            Text(
+                text = model.profile,
+                style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1
+            )
+            if (model.exitLabel.isNotEmpty() || model.tailnetIp.isNotEmpty()) {
+                Spacer(GlanceModifier.defaultWeight())
+                Details(model)
+            }
+            Spacer(GlanceModifier.defaultWeight())
+            ToggleButton(model, height = 48)
+        }
+    }
+
+    /** A wide card: the same story on the left, the round toggle large on the right. */
+    @Composable
+    private fun ServiceWide(model: ServiceWidgetModel) {
+        Row(
+            modifier = widgetSurface()
+                .padding(horizontal = 18.dp, vertical = 16.dp)
+                .clickable(actionStartActivity<MainActivity>()),
+            verticalAlignment = Alignment.Vertical.CenterVertically
+        ) {
+            Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
+                BrandRow(model)
+                Spacer(GlanceModifier.defaultWeight())
+                StatusLine(model, 24)
+                Text(
+                    text = model.profile,
+                    style = TextStyle(color = GlanceTheme.colors.primary, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                    maxLines = 1
+                )
+                Spacer(GlanceModifier.defaultWeight())
+                Details(model)
+            }
+            Spacer(GlanceModifier.width(16.dp))
+            RoundToggle(model, diameter = 72)
+        }
+    }
+
+    /** "TailSocks" and the refresh button, quiet, above the state. */
+    @Composable
+    private fun BrandRow(model: ServiceWidgetModel) {
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
+            Text(
+                text = "TailSocks",
+                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                maxLines = 1,
+                modifier = GlanceModifier.defaultWeight()
+            )
+            IconAction(
+                R.drawable.ic_widget_refresh, model.refreshLabel,
+                actionRunCallback<RefreshAllActionCallback>(), GlanceTheme.colors.onSurfaceVariant
+            )
+        }
+    }
+
+    /** The exit node and the tailnet address (tap to copy), when there are any. */
+    @Composable
+    private fun Details(model: ServiceWidgetModel) {
+        Column {
+            if (model.exitLabel.isNotEmpty()) {
                 Text(
                     text = model.exitLabel,
-                    style = TextStyle(color = GlanceTheme.colors.tertiary, fontSize = 12.sp),
+                    style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp),
                     maxLines = 1
                 )
             }
-            if (extras && model.tailnetIp.isNotEmpty()) {
+            if (model.tailnetIp.isNotEmpty()) {
                 Row(
-                    modifier = GlanceModifier.clickable(
+                    modifier = GlanceModifier.padding(top = 2.dp).clickable(
                         actionRunCallback<CopyTailnetIpActionCallback>(actionParametersOf(paramTailnetIp to model.tailnetIp))
                     ),
                     verticalAlignment = Alignment.Vertical.CenterVertically
                 ) {
                     Text(
                         text = model.tailnetIp,
-                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+                        style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 14.sp, fontFamily = FontFamily.Monospace),
                         maxLines = 1
                     )
-                    Spacer(GlanceModifier.width(4.dp))
+                    Spacer(GlanceModifier.width(6.dp))
                     Image(
                         provider = ImageProvider(R.drawable.ic_widget_copy),
                         contentDescription = model.copyLabel,
-                        modifier = GlanceModifier.size(14.dp),
+                        modifier = GlanceModifier.size(16.dp),
                         colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant)
                     )
                 }
             }
-            Spacer(GlanceModifier.defaultWeight())
-            Button(
-                text = model.toggleLabel,
-                onClick = actionRunCallback<ToggleServiceActionCallback>(),
-                colors = ButtonDefaults.buttonColors(
-                    backgroundColor = if (model.on) GlanceTheme.colors.error else GlanceTheme.colors.primary,
-                    contentColor = if (model.on) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary
-                ),
-                modifier = GlanceModifier.fillMaxWidth().height(40.dp),
-                maxLines = 1
-            )
         }
     }
 
     @Composable
-    private fun StatusLine(model: ServiceWidgetModel) {
+    private fun ToggleButton(model: ServiceWidgetModel, height: Int) {
+        Button(
+            text = model.toggleLabel,
+            onClick = actionRunCallback<ToggleServiceActionCallback>(),
+            colors = ButtonDefaults.buttonColors(
+                backgroundColor = if (model.on) GlanceTheme.colors.error else GlanceTheme.colors.primary,
+                contentColor = if (model.on) GlanceTheme.colors.onError else GlanceTheme.colors.onPrimary
+            ),
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium),
+            modifier = GlanceModifier.fillMaxWidth().height(height.dp),
+            maxLines = 1
+        )
+    }
+
+    /** The coloured dot and the state, at [sizeSp]. */
+    @Composable
+    private fun StatusLine(model: ServiceWidgetModel, sizeSp: Int) {
         Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
-            Text(text = "●", style = TextStyle(color = toneColor(model.status.tone), fontSize = 12.sp))
-            Spacer(GlanceModifier.width(6.dp))
+            Text(text = "●", style = TextStyle(color = toneColor(model.status.tone), fontSize = (sizeSp * 2 / 3).sp))
+            Spacer(GlanceModifier.width((sizeSp / 3).dp))
             Text(
                 text = model.statusText,
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                style = TextStyle(
+                    color = GlanceTheme.colors.onSurface,
+                    fontSize = sizeSp.sp,
+                    fontWeight = if (sizeSp >= 18) FontWeight.Bold else FontWeight.Medium
+                ),
                 maxLines = 1
             )
         }
@@ -321,20 +408,22 @@ class ServiceToggleWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 // ----------------------------------------------------------------
-// The exit node: as many rows as the widget's size holds
+// The exit node: a scrolling list under a fixed header
 // ----------------------------------------------------------------
 class ExitNodeToggleWidget : GlanceAppWidget() {
 
     private companion object {
-        const val PADDING = 12
-        const val HEADER = 44
-        const val ROW = 38
-        const val GAP = 6
+        const val ID_DIRECT = 1L
+        const val ID_BEST = 2L
+        /** Node rows sit above the two fixed ones, whatever their ID hashes to. */
+        const val ID_NODES = 0x1_0000_0000L
     }
 
     override val stateDefinition = WidgetStateDef
-    // Exact: the row count follows the real size, so the list is never cut through a row.
-    override val sizeMode = SizeMode.Exact
+    // The list scrolls and fills whatever height the launcher gives it, so the layout does
+    // not depend on the size the launcher reports — HyperOS scales widgets, and a row count
+    // worked out from the reported size left one node and a dead band in a 2×2.
+    override val sizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         requestModelIfMissing(context, id, ::decodeExitModel)
@@ -349,17 +438,13 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
 
     @Composable
     private fun ExitContent(model: ExitWidgetModel) {
-        val height = LocalSize.current.height.value.toInt()
-        val fit = ((height - 2 * PADDING - HEADER) / (ROW + GAP)).coerceAtLeast(0)
-
         Column(
             modifier = widgetSurface()
-                .padding(horizontal = PADDING.dp, vertical = PADDING.dp)
-                .clickable(actionStartActivity<MainActivity>()),
-            horizontalAlignment = Alignment.Horizontal.Start
+                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp)
+                .clickable(actionStartActivity<MainActivity>())
         ) {
             Row(
-                modifier = GlanceModifier.fillMaxWidth().height(HEADER.dp),
+                modifier = GlanceModifier.fillMaxWidth().padding(start = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.Vertical.CenterVertically
             ) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
@@ -372,7 +457,7 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                         text = model.subtitle,
                         style = TextStyle(
                             color = if (model.active) GlanceTheme.colors.primary else GlanceTheme.colors.outline,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
                         ),
                         maxLines = 1
@@ -384,34 +469,41 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
                 )
             }
 
-            // Direct first, then Best, then the nodes (the selected one leads them).
-            var room = fit
-            if (room > 0) {
-                Spacer(GlanceModifier.height(GAP.dp))
-                ExitButton("${if (model.active) "○" else "●"} ${model.directLabel}", selected = !model.active, dimmed = false, onClick = selectAction("", "", ""))
-                room--
-            }
-            if (room > 0 && model.bestLabel.isNotEmpty()) {
-                Spacer(GlanceModifier.height(GAP.dp))
-                ExitButton("★ ${model.bestLabel}", selected = false, dimmed = false, onClick = actionRunCallback<SelectBestExitNodeActionCallback>())
-                room--
-            }
-            model.rows.take(room).forEach { row ->
-                Spacer(GlanceModifier.height(GAP.dp))
-                ExitButton(
-                    "${if (row.selected) "●" else "○"} ${row.name}",
-                    selected = row.selected,
-                    dimmed = row.online == false,
-                    onClick = selectAction(row.id, row.ip, row.name)
-                )
-            }
-            if (model.rows.isEmpty() && room > 0) {
-                Text(
-                    text = model.emptyText,
-                    style = TextStyle(color = GlanceTheme.colors.outline, fontSize = 12.sp),
-                    modifier = GlanceModifier.padding(vertical = 8.dp),
-                    maxLines = 2
-                )
+            LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                item(ID_DIRECT) {
+                    ExitRowView(
+                        title = "${if (model.active) "○" else "●"}  ${model.directLabel}",
+                        detail = null,
+                        selected = !model.active,
+                        dimmed = false,
+                        onClick = selectAction("", "", "")
+                    )
+                }
+                if (model.bestLabel.isNotEmpty()) {
+                    item(ID_BEST) {
+                        ExitRowView("★  ${model.bestLabel}", null, selected = false, dimmed = false,
+                            onClick = actionRunCallback<SelectBestExitNodeActionCallback>())
+                    }
+                }
+                items(model.rows, itemId = { ID_NODES + it.id.hashCode() }) { row ->
+                    ExitRowView(
+                        title = "${if (row.selected) "●" else "○"}  ${row.name}",
+                        detail = if (row.online == false) "${row.ip} · ${model.offlineLabel}" else row.ip,
+                        selected = row.selected,
+                        dimmed = row.online == false,
+                        onClick = selectAction(row.id, row.ip, row.name)
+                    )
+                }
+                if (model.rows.isEmpty()) {
+                    item(ID_NODES - 1) {
+                        Text(
+                            text = model.emptyText,
+                            style = TextStyle(color = GlanceTheme.colors.outline, fontSize = 13.sp),
+                            modifier = GlanceModifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                            maxLines = 2
+                        )
+                    }
+                }
             }
         }
     }
@@ -421,26 +513,47 @@ class ExitNodeToggleWidget : GlanceAppWidget() {
             actionParametersOf(paramExitNodeId to id, paramExitNodeIp to ip, paramExitNodeName to name)
         )
 
+    /** One row: a rounded tile, its name and, for a node, its address under it. */
     @Composable
-    private fun ExitButton(text: String, selected: Boolean, dimmed: Boolean, onClick: Action) {
-        Button(
-            text = text,
-            onClick = onClick,
-            colors = ButtonDefaults.buttonColors(
-                backgroundColor = when {
-                    selected -> GlanceTheme.colors.primary
-                    dimmed -> GlanceTheme.colors.surfaceVariant
-                    else -> GlanceTheme.colors.secondaryContainer
-                },
-                contentColor = when {
-                    selected -> GlanceTheme.colors.onPrimary
-                    dimmed -> GlanceTheme.colors.outline
-                    else -> GlanceTheme.colors.onSecondaryContainer
+    private fun ExitRowView(title: String, detail: String?, selected: Boolean, dimmed: Boolean, onClick: Action) {
+        val fill = when {
+            selected -> GlanceTheme.colors.primary
+            dimmed -> GlanceTheme.colors.surfaceVariant
+            else -> GlanceTheme.colors.secondaryContainer
+        }
+        val ink = when {
+            selected -> GlanceTheme.colors.onPrimary
+            dimmed -> GlanceTheme.colors.outline
+            else -> GlanceTheme.colors.onSecondaryContainer
+        }
+        val tile = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            GlanceModifier.background(fill).cornerRadius(12.dp)
+        } else {
+            GlanceModifier.background(ImageProvider(R.drawable.widget_row_bg), colorFilter = ColorFilter.tint(fill))
+        }
+        // The gap under each row is padding of its own item: a lazy list has no spacing.
+        Box(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
+            Column(
+                modifier = tile.fillMaxWidth()
+                    .height(if (detail == null) 44.dp else 54.dp)
+                    .padding(horizontal = 14.dp)
+                    .clickable(onClick),
+                verticalAlignment = Alignment.Vertical.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    style = TextStyle(color = ink, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                    maxLines = 1
+                )
+                if (detail != null) {
+                    Text(
+                        text = detail,
+                        style = TextStyle(color = ink, fontSize = 12.sp),
+                        maxLines = 1
+                    )
                 }
-            ),
-            modifier = GlanceModifier.fillMaxWidth().height(ROW.dp),
-            maxLines = 1
-        )
+            }
+        }
     }
 }
 

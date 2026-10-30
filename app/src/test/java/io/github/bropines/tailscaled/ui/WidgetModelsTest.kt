@@ -134,7 +134,7 @@ class WidgetModelsTest {
 
     @Test
     fun rowsAreCapped() {
-        val many = (1..20).map { ExitNodeOption("id$it", "100.64.1.$it", "node%02d".format(it)) }
+        val many = (1..40).map { ExitNodeOption("id$it", "100.64.1.$it", "node%02d".format(it)) }
         val rows = exitRows(many, emptyMap(), selectedId = "id17", selectedIp = "100.64.1.17")
         assertEquals(EXIT_ROWS_MAX, rows.size)
         assertEquals("id17", rows.first().id)
