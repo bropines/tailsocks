@@ -43,7 +43,7 @@ Each action is `io.github.bropines.tailscaled.action.<NAME>`. The short form `io
 
 ### The status broadcast
 
-When the state changes, or on `GET_STATUS`, TailSocks sends `io.github.bropines.tailscaled.STATUS_CHANGED` (also `…STATUS`). It is addressed to TailSocks itself — its widgets and its tile — so **Tasker and other apps cannot receive it**. To read the state from another app, use the `getStatus` [AppFunction](#assistants-android-16). For reference, its extras:
+When the state changes, or on `GET_STATUS`, TailSocks sends `io.github.bropines.tailscaled.STATUS_CHANGED` (also `…STATUS`). It is addressed to TailSocks itself (its Quick Settings tile; the widgets are refreshed directly), so **Tasker and other apps cannot receive it**. To read the state from another app, use the `getStatus` [AppFunction](#assistants-android-16). For reference, its extras:
 
 | Extra | Type | Example |
 |---|---|---|

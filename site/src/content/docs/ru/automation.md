@@ -43,7 +43,7 @@ description: Управление TailSocks из Tasker, MacroDroid, Automate, a
 
 ### Broadcast статуса
 
-Когда состояние меняется или приходит `GET_STATUS`, TailSocks отправляет `io.github.bropines.tailscaled.STATUS_CHANGED` (также `…STATUS`). Он адресован самому TailSocks — его виджетам и плитке, — поэтому **Tasker и другие приложения его не получат**. Чтобы прочитать состояние из другого приложения, используйте [AppFunction](#ассистенты-android-16) `getStatus`. Для справки, его extras:
+Когда состояние меняется или приходит `GET_STATUS`, TailSocks отправляет `io.github.bropines.tailscaled.STATUS_CHANGED` (также `…STATUS`). Он адресован самому TailSocks (его плитке в шторке; виджеты обновляются напрямую), поэтому **Tasker и другие приложения его не получат**. Чтобы прочитать состояние из другого приложения, используйте [AppFunction](#ассистенты-android-16) `getStatus`. Для справки, его extras:
 
 | Extra | Тип | Пример |
 |---|---|---|
