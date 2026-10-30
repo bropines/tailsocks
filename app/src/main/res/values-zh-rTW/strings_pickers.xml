@@ -4,4 +4,11 @@
   for the Permissions screen. A file of its own so it lands without touching
   strings.xml; Android merges every values/*.xml into one table.
 --><resources>
-    </resources>
+    <plurals name="pickers_days">
+        <item quantity="other">%d 天</item>
+    </plurals>
+    <string name="pickers_role_admin">管理員</string>
+    <string name="pickers_role_member">所有成員</string>
+    <string name="perm_unknown_note">Android 不會告訴應用這是否被允許，所以請在系統設定頁面上確認</string>
+    <string name="pickers_role_none">暫無成員</string>
+</resources>
