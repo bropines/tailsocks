@@ -8,4 +8,24 @@
     <string name="state_logs_empty">暫無日誌</string>
     <string name="state_logs_category_empty">暫無 %1$s 類別的日誌</string>
     <string name="state_stopped_title">TailSocks 尚未啟動</string>
+    <string name="state_nothing_found">暫無裝置</string>
+    <string name="state_clear_search">清空搜尋</string>
+    <string name="state_peers_alone">只有本裝置在 tailnet 上</string>
+    <string name="state_show_all">展示全部</string>
+    <string name="peer_path_direct">直連</string>
+    <string name="peer_path_peer_relay">對等中繼</string>
+    <string name="peer_via_peer_relay">透過對等中繼</string>
+    <string name="peer_state_relay_format">透過中繼 %1$s</string>
+    <string name="peer_state_peer_relay">透過對等中繼</string>
+    <string name="ago_just_now">剛剛</string>
+    <string name="ago_minutes">%d 分鐘前</string>
+    <string name="ago_hours">%d 小時前</string>
+    <plurals name="ago_days">
+        <item quantity="other">%d 天前</item>
+    </plurals>
+    <string name="ago_months">%d 個月前</string>
+    <plurals name="ago_years">
+        <item quantity="other">%d 年前</item>
+    </plurals>
+    <string name="peer_state_last_seen_format">上次在線： %1$s</string>
 </resources>
