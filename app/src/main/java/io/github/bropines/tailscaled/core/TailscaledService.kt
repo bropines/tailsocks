@@ -1542,6 +1542,16 @@ class TailscaledService : Service() {
         }
 
     /**
+     * The widget tick is skipped while the screen is off, so whatever changed meanwhile is
+     * painted the moment it wakes rather than up to a tick later.
+     */
+    private val screenOnReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            WidgetUpdates.request(this@TailscaledService)
+        }
+    }
+
+    /**
      * A package appearing or disappearing changes the uids the rules are built
      * from, and the excluded-apps list is stored as names — so an app installed
      * mid-run had no rule of its own until something asked again, and one removed
@@ -1552,16 +1562,6 @@ class TailscaledService : Service() {
      * built from the resolved uids, so a package nobody excluded costs one probe
      * and changes nothing.
      */
-    /**
-     * The widget tick is skipped while the screen is off, so whatever changed meanwhile is
-     * painted the moment it wakes rather than up to a tick later.
-     */
-    private val screenOnReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            WidgetUpdates.request(this@TailscaledService)
-        }
-    }
-
     private val packageChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
