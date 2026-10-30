@@ -6,7 +6,17 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
-- Home-screen widgets are redrawn only when what they show changes, not every 15 seconds, and nothing is painted while none are placed — less work and less battery for the same widget.
+- Home-screen widgets are redrawn only when what they show changes, and most refreshes no longer query the daemon (thanks @satoru2727).
+- The switch widget resizes down to a 1×1 round toggle and shows the connection state as the notification does; a tall one adds the exit node and the tailnet address, tap to copy.
+- The exit-node widget lists as many nodes as its size holds, the selected one first, then those online; offline ones are dimmed.
+- Widgets follow the language chosen in the app and take the launcher's background and corners.
+
+### Fixed
+
+- TUN mode: an exit node chosen from the widget, Tasker or an assistant now reroutes the tunnel.
+- An exit node without its ID can no longer be selected: it cleared the exit node while the app said traffic went through it.
+- The widget's exit-node list drops nodes removed from the tailnet.
+- Widgets update after a profile switch or rename while stopped, no longer read "Running" before their first draw, and show Starting… / Stopping… until it is done.
 
 ## [5.4.0] - 2026-10-29
 
