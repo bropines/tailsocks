@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The exit node (ExitNodeToggleWidget): 2×3 by default; it lists as many rows as its size holds.
+     Home screen only: changing where traffic goes has no place on a locked phone. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
-    android:minHeight="220dp"
+    android:minWidth="110dp"
+    android:minHeight="180dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="110dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="3"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/widget_preview_exit_node"
+    android:initialLayout="@layout/glance_default_loading_layout"
     android:previewLayout="@layout/widget_preview_exit_node"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"

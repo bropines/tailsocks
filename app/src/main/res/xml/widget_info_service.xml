@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The switch (ServiceToggleWidget): 2×2 by default, down to a 1×1 round toggle.
+     Home screen only: a VPN toggle has no place on a locked phone. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
-    android:minHeight="140dp"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
-    android:initialLayout="@layout/widget_preview_service"
+    android:initialLayout="@layout/glance_default_loading_layout"
     android:previewLayout="@layout/widget_preview_service"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"

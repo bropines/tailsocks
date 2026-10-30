@@ -1,53 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The exit-node widget as the widget picker shows it (previewLayout); the widget itself is drawn by Glance. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_preview_bg"
-    android:padding="16dp">
+    android:padding="12dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Exit Nodes"
+        android:text="@string/widget_exit_node_title"
         android:textColor="#FFFFFF"
-        android:textSize="18sp"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="Active: Direct (Off)"
+        android:text="@string/widget_exit_node_inactive"
         android:textColor="#A8C7FA"
-        android:textSize="13sp" />
+        android:textSize="12sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="38dp"
         android:layout_marginTop="10dp"
         android:background="@drawable/widget_preview_btn_bg"
-        android:gravity="center_vertical"
+        android:gravity="center"
         android:paddingHorizontal="12dp">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="● Direct / Disabled"
+            android:text="@string/widget_exit_direct"
             android:textColor="#FFFFFF"
             android:textSize="13sp" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="38dp"
         android:layout_marginTop="6dp"
         android:background="@drawable/widget_preview_item_bg"
-        android:gravity="center_vertical"
+        android:gravity="center"
         android:paddingHorizontal="12dp">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="○ Exit Server (100.64.0.1)"
+            android:text="@string/exit_best_title"
             android:textColor="#C4C6D0"
             android:textSize="13sp" />
     </LinearLayout>

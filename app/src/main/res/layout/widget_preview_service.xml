@@ -1,33 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The switch as the widget picker shows it (previewLayout); the widget itself is drawn by Glance. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/widget_preview_bg"
-    android:padding="16dp">
+    android:padding="14dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="TailSocks"
+        android:text="@string/app_name"
         android:textColor="#FFFFFF"
-        android:textSize="18sp"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
         android:text="Default"
         android:textColor="#A8C7FA"
-        android:textSize="14sp" />
+        android:textSize="12sp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="● Running"
-        android:textColor="#A8C7FA"
+        android:text="@string/notif_connected"
+        android:textColor="#FFFFFF"
         android:textSize="14sp" />
 
     <FrameLayout
@@ -37,10 +37,10 @@
 
     <TextView
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="40dp"
         android:background="@drawable/widget_preview_btn_bg"
         android:gravity="center"
-        android:text="Disconnect"
+        android:text="@string/widget_service_stop"
         android:textColor="#FFFFFF"
         android:textSize="14sp"
         android:textStyle="bold" />
