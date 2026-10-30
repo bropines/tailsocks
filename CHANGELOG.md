@@ -12,7 +12,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - Home-screen widgets are redrawn only when what they show changes, and most refreshes no longer query the daemon (thanks @satoru2727).
 - The switch widget resizes down to a 1×1 round toggle and shows the connection state as the notification does; a tall one adds the exit node and the tailnet address, tap to copy.
-- The exit-node widget lists as many nodes as its size holds, the selected one first, then those online; offline ones are dimmed.
+- The exit-node widget scrolls through every node with its address, the selected one first, then those online; offline ones are dimmed.
 - Widgets follow the language chosen in the app and take the launcher's background and corners.
 
 ### Fixed
