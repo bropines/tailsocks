@@ -132,6 +132,27 @@ internal fun exitRows(
     ).take(limit)
 }
 
+/**
+ * One exit-node widget's own choice (its configuration screen): the nodes it lists, by
+ * StableID in the order chosen, and whether it offers "Best". No favourites: every node.
+ */
+@Serializable
+data class ExitWidgetConfig(val favourites: List<String> = emptyList(), val showBest: Boolean = true)
+
+/**
+ * The rows one instance shows. Without favourites, [all] as ordered by [exitRows]. With them,
+ * the favourites in the order chosen — a node gone from the tailnet is skipped, not forgotten,
+ * so it returns with its StableID — and the selected node ahead of them when it is not one,
+ * so the widget never hides where traffic goes.
+ */
+internal fun instanceRows(all: List<ExitRow>, favourites: List<String>, limit: Int = EXIT_ROWS_MAX): List<ExitRow> {
+    if (favourites.isEmpty()) return all.take(limit)
+    val byId = all.associateBy { it.id }
+    val chosen = favourites.distinct().mapNotNull { byId[it] }
+    val selected = all.firstOrNull { it.selected }?.takeIf { s -> chosen.none { it.id == s.id } }
+    return (listOfNotNull(selected) + chosen).take(limit)
+}
+
 /** The selected exit node's name for a label: its row's name, else its address; "" with none selected. */
 internal fun selectedExitName(rows: List<ExitRow>, selectedIp: String): String =
     rows.firstOrNull { it.selected }?.name ?: selectedIp
@@ -175,12 +196,20 @@ data class ExitWidgetModel(
     val emptyText: String = "",
     val refreshLabel: String = "",
     val rows: List<ExitRow> = emptyList(),
+    /** This instance's favourites, part of the picture: a new choice repaints at once. */
+    val favourites: List<String> = emptyList(),
     val locale: String = "",
     val night: Boolean? = null,
 )
 
 internal fun encodeModel(model: ServiceWidgetModel): String = AppJson.encodeToString(ServiceWidgetModel.serializer(), model)
 internal fun encodeModel(model: ExitWidgetModel): String = AppJson.encodeToString(ExitWidgetModel.serializer(), model)
+
+internal fun encodeConfig(config: ExitWidgetConfig): String = AppJson.encodeToString(ExitWidgetConfig.serializer(), config)
+
+/** A stored configuration; the default (every node, with Best) when there is none. */
+internal fun decodeConfig(encoded: String?): ExitWidgetConfig =
+    encoded?.let { runCatching { AppJson.decodeFromString(ExitWidgetConfig.serializer(), it) }.getOrNull() } ?: ExitWidgetConfig()
 
 /** The stored service model, or null when there is none or another build stored it. */
 internal fun decodeServiceModel(encoded: String?): ServiceWidgetModel? =

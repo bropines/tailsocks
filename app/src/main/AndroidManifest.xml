@@ -315,6 +315,18 @@
                 android:resource="@xml/widget_info_service" />
         </receiver>
 
+        <!-- The exit-node widget's configuration: optional at placement, reachable again by
+             long press → Reconfigure. Exported because launchers start it themselves; it
+             accepts only an exit-node widget of this app (ExitWidgetConfigActivity). -->
+        <activity
+            android:name=".ui.ExitWidgetConfigActivity"
+            android:label="@string/widget_config_title"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
         <receiver android:name=".ui.ExitNodeToggleWidgetReceiver" android:exported="false" android:label="@string/widget_name_exit">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

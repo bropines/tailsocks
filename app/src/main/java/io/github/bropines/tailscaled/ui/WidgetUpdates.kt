@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
@@ -168,13 +169,12 @@ object WidgetUpdates {
         if (wantLive) lastLiveAt = now
         val liveNodes = status?.let { liveExitNodes(it) }
         liveNodes?.let { ExitNodeCache.replace(prefs, it) }
-        val online = status?.peers?.values.orEmpty()
-            .mapNotNull { p -> p.id?.takeIf { it.isNotEmpty() }?.let { it to (p.online == true) } }.toMap()
+        val online = onlineById(status)
         val options = exitNodeOptions(
             liveNodes, cached,
             prefs.getString("last_exit_node_id", "").orEmpty(), prefs.getString("last_exit_node_ip", "").orEmpty()
         )
-        val rows = exitRows(options, online, exitId, exitIp)
+        val rows = exitRows(options, online, exitId, exitIp, limit = Int.MAX_VALUE)
         val exitName = selectedExitName(rows, exitIp)
 
         val locale = res.resources.configuration.locales[0].toLanguageTag()
@@ -208,21 +208,28 @@ object WidgetUpdates {
         }
 
         if (exitIds.isNotEmpty()) {
-            val model = ExitWidgetModel(
+            val base = ExitWidgetModel(
                 title = res.getString(R.string.widget_exit_node_title),
                 subtitle = exitLabel.ifEmpty { res.getString(R.string.widget_exit_node_inactive) },
                 active = exitIp.isNotEmpty(),
                 directLabel = res.getString(R.string.widget_exit_direct),
-                bestLabel = if (rows.isNotEmpty()) res.getString(R.string.exit_best_title) else "",
                 emptyText = res.getString(R.string.main_no_exit_nodes),
                 refreshLabel = res.getString(R.string.widget_refresh),
-                rows = rows,
                 locale = locale,
                 night = night,
             )
-            val encoded = encodeModel(model)
+            val bestLabel = if (rows.isNotEmpty()) res.getString(R.string.exit_best_title) else ""
             val widget = ExitNodeToggleWidget()
-            exitIds.forEach { publish(context, manager, widget, it, encoded, forced) }
+            exitIds.forEach { id ->
+                // Each instance has its own favourites, so its own model.
+                val config = readConfig(context, id)
+                val model = base.copy(
+                    bestLabel = if (config.showBest) bestLabel else "",
+                    rows = instanceRows(rows, config.favourites),
+                    favourites = config.favourites,
+                )
+                publish(context, manager, widget, id, encodeModel(model), forced)
+            }
         }
     }
 
@@ -253,6 +260,46 @@ object WidgetUpdates {
         if (repaint) widget.update(context, id)
         painted[key] = encoded
     }
+
+    private suspend fun readConfig(context: Context, id: GlanceId): ExitWidgetConfig =
+        decodeConfig(runCatching { getAppWidgetState(context, WidgetStateDef, id)[WidgetStateKeys.CONFIG] }.getOrNull())
+
+    /** Stores an exit-node widget's configuration and repaints it with the choice. */
+    internal suspend fun saveConfig(context: Context, appWidgetId: Int, config: ExitWidgetConfig) {
+        val app = context.applicationContext
+        val id = GlanceAppWidgetManager(app).getGlanceIdBy(appWidgetId)
+        updateAppWidgetState(app, WidgetStateDef, id) { prefs: Preferences ->
+            prefs.toMutablePreferences().apply { this[WidgetStateKeys.CONFIG] = encodeConfig(config) }
+        }
+        refresh(app)
+    }
+
+    /**
+     * The exit nodes a configuration screen offers, from the source the widget lists:
+     * the daemon when this process is attached to one, otherwise the cache. Blocking.
+     */
+    internal fun exitNodeChoices(context: Context): List<ExitRow> {
+        val app = context.applicationContext
+        val prefs = app.getSharedPreferences("appctr_${AccountManager.getActiveAccount(app).id}", Context.MODE_PRIVATE)
+        val status = if (Appctr.isRunning()) readStatus() else null
+        val live = status?.let { liveExitNodes(it) }
+        live?.let { ExitNodeCache.replace(prefs, it) }
+        val online = onlineById(status)
+        val options = exitNodeOptions(
+            live, ExitNodeCache.read(prefs),
+            prefs.getString("last_exit_node_id", "").orEmpty(), prefs.getString("last_exit_node_ip", "").orEmpty()
+        )
+        return exitRows(options, online, "", "", limit = Int.MAX_VALUE)
+    }
+
+    /** An exit-node widget's configuration, for its configuration screen. */
+    internal suspend fun loadConfig(context: Context, appWidgetId: Int): ExitWidgetConfig =
+        readConfig(context.applicationContext, GlanceAppWidgetManager(context.applicationContext).getGlanceIdBy(appWidgetId))
+
+    /** Which peers are online, by StableID; empty without a status. */
+    private fun onlineById(status: StatusResponse?): Map<String, Boolean> =
+        status?.peers?.values.orEmpty()
+            .mapNotNull { p -> p.id?.takeIf { it.isNotEmpty() }?.let { it to (p.online == true) } }.toMap()
 
     private fun readStatus(): StatusResponse? = runCatching {
         val json = Appctr.getStatusFromAPI()

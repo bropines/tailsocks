@@ -13,5 +13,7 @@
     android:previewLayout="@layout/widget_preview_exit_node"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
+    android:configure="io.github.bropines.tailscaled.ui.ExitWidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
     android:description="@string/widget_desc_exit">
 </appwidget-provider>

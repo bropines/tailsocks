@@ -20,4 +20,17 @@
     <string name="widget_toast_exit_disabled">Выходной узел отключён</string>
     <string name="widget_toast_exit_routing_format">Трафик идёт через %1$s</string>
     <string name="widget_toast_exit_unknown">Этот выходной узел больше не известен — список обновлён</string>
+
+    <!-- The exit-node widget's configuration (long press → Reconfigure) -->
+    <string name="widget_config_title">Узлы в виджете</string>
+    <string name="widget_config_help">Отметьте узлы, которые будут в этом виджете, и расставьте их стрелками. Если не отмечен ни один, виджет показывает все выходные узлы. Узел, который используется сейчас, виден всегда — отмечен он или нет.</string>
+    <string name="widget_config_show_best">Показывать «Лучший выходной узел»</string>
+    <string name="widget_config_show_best_desc">Кнопка, которая выбирает узел, рекомендуемый Tailscale прямо сейчас.</string>
+    <string name="widget_config_favourites">В этом виджете</string>
+    <string name="widget_config_others">Другие выходные узлы</string>
+    <string name="widget_config_all">Выходные узлы</string>
+    <string name="widget_config_gone">Сейчас нет в tailnet</string>
+    <string name="widget_config_offline">не в сети</string>
+    <string name="widget_config_move_up">Выше</string>
+    <string name="widget_config_move_down">Ниже</string>
 </resources>

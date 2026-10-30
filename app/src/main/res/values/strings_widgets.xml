@@ -21,4 +21,17 @@
     <string name="widget_toast_exit_disabled">Exit node turned off</string>
     <string name="widget_toast_exit_routing_format">Routing via %1$s</string>
     <string name="widget_toast_exit_unknown">That exit node is no longer known; the list was refreshed</string>
+
+    <!-- The exit-node widget's configuration (long press → Reconfigure) -->
+    <string name="widget_config_title">Widget exit nodes</string>
+    <string name="widget_config_help">Tick the nodes this widget lists and order them with the arrows. With none ticked it lists every exit node. The node in use is always shown, ticked or not.</string>
+    <string name="widget_config_show_best">Show “Best exit node”</string>
+    <string name="widget_config_show_best_desc">A button that picks the node Tailscale recommends right now.</string>
+    <string name="widget_config_favourites">Listed in this widget</string>
+    <string name="widget_config_others">Other exit nodes</string>
+    <string name="widget_config_all">Exit nodes</string>
+    <string name="widget_config_gone">Not in the tailnet right now</string>
+    <string name="widget_config_offline">offline</string>
+    <string name="widget_config_move_up">Move up</string>
+    <string name="widget_config_move_down">Move down</string>
 </resources>
