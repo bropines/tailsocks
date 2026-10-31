@@ -113,6 +113,7 @@
     <!-- Background & permissions -->
     <string name="search_kw_permissions">оптимизация батареи, батарея, уведомления, доступ ко всем файлам, будильники, без ограничений, фоновые ограничения, энергосбережение</string>
     <string name="search_kw_autostart">автостарт, запуск при включении, после перезагрузки, автозагрузка</string>
+    <string name="search_kw_hide_recents">скрыть из недавних, недавние приложения, недавние, список задач, многозадачность, скрыть приложение</string>
     <string name="search_kw_auto_reconnect">переподключение, реконнект, обрыв связи, перезапуск демона, отваливается, восстановление связи</string>
     <string name="search_kw_auto_reconnect_attempts">попытки, число попыток, повторы, лимит перезапусков</string>
     <string name="search_kw_watchdog">вотчдог, сторож, оживить службу, убитая служба, перезапуск службы, будильник, убивает в фоне, xiaomi, miui</string>

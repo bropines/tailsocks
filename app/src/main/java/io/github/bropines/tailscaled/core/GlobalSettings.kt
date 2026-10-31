@@ -17,6 +17,7 @@ object GlobalSettings {
     private const val KEY_TAILDROP_ROOT_URI = "taildrop_root_uri"
     private const val KEY_TAILDROP_FOLDER_HINT_DISMISSED = "taildrop_folder_hint_dismissed"
     private const val KEY_AUTO_START = "auto_start"
+    private const val KEY_HIDE_FROM_RECENTS = "hide_from_recents"
     private const val KEY_CP_ENABLED = "cp_enabled"
     private const val KEY_APP_THEME = "app_theme"
     private const val KEY_THEME_PRESET = "theme_preset"
@@ -51,6 +52,12 @@ object GlobalSettings {
 
     fun isAutoStartEnabled(context: Context) = getPrefs(context).getBoolean(KEY_AUTO_START, false)
     fun setAutoStartEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean(KEY_AUTO_START, enabled).apply()
+
+    fun isHideFromRecents(context: Context) = getPrefs(context).getBoolean(KEY_HIDE_FROM_RECENTS, false)
+    fun setHideFromRecents(context: Context, hidden: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_HIDE_FROM_RECENTS, hidden).apply()
+        TaskRecents.apply(context)
+    }
 
     // Control Plane Proxy
     fun isCPProxyEnabled(context: Context) = getPrefs(context).getBoolean(KEY_CP_ENABLED, false)
@@ -588,7 +595,7 @@ object GlobalSettings {
         "cp_enabled", "cp_type", "cp_host", "cp_port", "cp_user", "cp_pass", "cp_presets",
         "cp_byedpi_enabled", "cp_byedpi_flags", "cp_byedpi_ipv6_disabled",
         // Lifecycle and recovery
-        "force_bg", "auto_start", "auto_reconnect", "auto_reconnect_attempts",
+        "force_bg", "auto_start", KEY_HIDE_FROM_RECENTS, "auto_reconnect", "auto_reconnect_attempts",
         "service_watchdog", "automation_enabled",
         // TUN mode
         "tun_mode_enabled", "tun_full_tunnel", "tun_excluded_apps", "tun_excluded_cidrs",
@@ -633,6 +640,7 @@ object GlobalSettings {
         editor.apply()
         // The launcher shows the restored icon now, not at the next start.
         if (AppIcons.PREF in values) AppIcons.reconcile(context)
+        if (KEY_HIDE_FROM_RECENTS in values) TaskRecents.apply(context)
     }
 }
 

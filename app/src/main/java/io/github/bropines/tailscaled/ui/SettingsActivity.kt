@@ -501,6 +501,7 @@ fun SettingsScreen(
     var taildropFolder by remember { mutableStateOf(TaildropFolder.get(context)) }
     val taildropFolderChooser = rememberReceiveFolderChooser { taildropFolder = it }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
+    var hideFromRecents by remember { mutableStateOf(GlobalSettings.isHideFromRecents(context)) }
     var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
     var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
     var serviceWatchdog by remember { mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context)) }
@@ -2343,6 +2344,11 @@ fun SettingsScreen(
             SettingsSwitchItem(stringResource(R.string.settings_autostart_title), stringResource(R.string.settings_autostart_desc), Icons.Default.PowerSettingsNew, autoStart) {
                 GlobalSettings.setAutoStartEnabled(context, it)
                 autoStart = it
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            SettingsSwitchItem(stringResource(R.string.settings_hide_recents_title), stringResource(R.string.settings_hide_recents_desc), Icons.Default.VisibilityOff, hideFromRecents) {
+                GlobalSettings.setHideFromRecents(context, it)
+                hideFromRecents = it
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsSwitchItem(

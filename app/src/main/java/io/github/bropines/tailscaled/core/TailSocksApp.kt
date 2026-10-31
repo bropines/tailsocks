@@ -21,6 +21,7 @@ class TailSocksApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ProxyState.init(this)
+        TaskRecents.watch(this)
         ProfileHostinfo.migrateGlobalKey(this)
         // A key sent from a phone that the last process did not live to clear (KeyHandover).
         KeyHandover.sweep(this)

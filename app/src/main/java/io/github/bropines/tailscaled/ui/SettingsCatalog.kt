@@ -289,6 +289,7 @@ object SettingsCatalog {
         val service = R.string.settings_sect_service_perms
         row("permissions", SettingsPage.BACKGROUND, R.string.settings_permissions_title, R.string.settings_permissions_desc, R.string.search_kw_permissions, service, suggested = true)
         row("autostart", SettingsPage.BACKGROUND, R.string.settings_autostart_title, R.string.settings_autostart_desc, R.string.search_kw_autostart, service)
+        row("hide_recents", SettingsPage.BACKGROUND, R.string.settings_hide_recents_title, R.string.settings_hide_recents_desc, R.string.search_kw_hide_recents, service)
         row("auto_reconnect", SettingsPage.BACKGROUND, R.string.settings_auto_reconnect_title, R.string.settings_auto_reconnect_desc, R.string.search_kw_auto_reconnect, service)
         row("auto_reconnect_attempts", SettingsPage.BACKGROUND, R.string.settings_auto_reconnect_attempts_title, R.string.search_sum_auto_reconnect_attempts, R.string.search_kw_auto_reconnect_attempts, service, needs = Need.AUTO_RECONNECT)
         row("watchdog", SettingsPage.BACKGROUND, R.string.settings_watchdog_title, R.string.settings_watchdog_desc, R.string.search_kw_watchdog, service)

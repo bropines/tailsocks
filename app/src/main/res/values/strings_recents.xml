@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_hide_recents_title">Hide from recents</string>
+    <string name="settings_hide_recents_desc">TailSocks leaves the recent apps list; open it from its icon or the notification. The connection keeps running.</string>
+</resources>

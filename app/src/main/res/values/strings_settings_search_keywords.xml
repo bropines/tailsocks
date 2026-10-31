@@ -119,6 +119,7 @@
     <!-- Background & permissions -->
     <string name="search_kw_permissions">battery optimisation, battery optimization, battery, notifications, all files access, alarms, unrestricted, background restrictions</string>
     <string name="search_kw_autostart">autostart, boot, startup, start on boot, launch at startup, after reboot</string>
+    <string name="search_kw_hide_recents">hide from recents, recent apps, recents, overview, task list, hide app, multitasking</string>
     <string name="search_kw_auto_reconnect">reconnect, connection drops, restart the daemon, keeps disconnecting, recover</string>
     <string name="search_kw_auto_reconnect_attempts">attempts, retries, retry count, restart limit</string>
     <string name="search_kw_watchdog">watchdog, killed service, restart service, alarm, background kill, xiaomi, miui, keeps dying</string>

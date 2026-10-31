@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Hide from recents: Settings → Background & permissions; the connection keeps running, and backups carry it.
+
 ## [5.5.0] - 2026-10-30
 
 ### Added
