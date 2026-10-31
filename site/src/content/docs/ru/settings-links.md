@@ -182,6 +182,7 @@ adb shell am start -a android.intent.action.VIEW -d 'tailsocks://settings/tunnel
 |---|---|
 | Разрешения | `tailsocks://settings/background/permissions` |
 | Автозапуск при загрузке | `tailsocks://settings/background/autostart` |
+| Скрывать из недавних | `tailsocks://settings/background/hide_recents` |
 | Автопереподключение | `tailsocks://settings/background/auto_reconnect` |
 | Попыток перезапуска (0 — без лимита)<br><small>Появляется, когда включено автопереподключение</small> | `tailsocks://settings/background/auto_reconnect_attempts` |
 | Восстанавливать службу в фоне | `tailsocks://settings/background/watchdog` |

@@ -182,6 +182,7 @@ Every page and every row, as the app names them. A note under a row says when it
 |---|---|
 | Permissions | `tailsocks://settings/background/permissions` |
 | Auto-start on Boot | `tailsocks://settings/background/autostart` |
+| Hide from recents | `tailsocks://settings/background/hide_recents` |
 | Auto-reconnect | `tailsocks://settings/background/auto_reconnect` |
 | Restart attempts (0 = unlimited)<br><small>Shown once auto-reconnect is on</small> | `tailsocks://settings/background/auto_reconnect_attempts` |
 | Revive service in background | `tailsocks://settings/background/watchdog` |

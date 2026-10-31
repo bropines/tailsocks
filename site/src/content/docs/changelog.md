@@ -10,6 +10,12 @@ tableOfContents:
 
 The app shows the same list: once after each update, and any time under **What's new** in **About TailSocks** (the ⓘ on the main screen).
 
+## 5.6.0 — 2026-10-31
+
+### Added
+
+- Hide from recents: Settings → Background & permissions; the connection keeps running, and backups carry it.
+
 ## 5.5.0 — 2026-10-30
 
 ### Added
