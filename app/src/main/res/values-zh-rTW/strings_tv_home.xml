@@ -2,38 +2,38 @@
 <resources>
     <!-- Signing in without a browser on the device: the link as a QR code (ui/SignIn.kt) -->
     <!-- The logged-out card, on a phone: the link for another device to open -->
-    <string name="signin_other_device"></string>
-    <string name="signin_other_device_help"></string>
+    <string name="signin_other_device"/>
+    <string name="signin_other_device_help"/>
     <!-- %1$s: the device's name, %2$s: the link -->
-    <string name="signin_share_message"></string>
+    <string name="signin_share_message"/>
     <!-- The same on a television: a screen of its own -->
-    <string name="tv_signin_title"></string>
-    <string name="tv_signin_step"></string>
-    <string name="tv_signin_or_link"></string>
-    <string name="tv_signin_preparing"></string>
-    <string name="tv_signin_waiting"></string>
-    <string name="tv_signin_slow"></string>
-    <string name="tv_signin_new_code"></string>
-    <string name="tv_signin_new_code_hint"></string>
-    <string name="tv_signin_new_code_failed"></string>
-    <string name="tv_signin_not_ready"></string>
-    <string name="tv_signin_later"></string>
-    <string name="tv_signin_open"></string>
+    <string name="tv_signin_title">從你的手機上登入</string>
+    <string name="tv_signin_step"/>
+    <string name="tv_signin_or_link"/>
+    <string name="tv_signin_preparing"/>
+    <string name="tv_signin_waiting"/>
+    <string name="tv_signin_slow"/>
+    <string name="tv_signin_new_code"/>
+    <string name="tv_signin_new_code_hint"/>
+    <string name="tv_signin_new_code_failed"/>
+    <string name="tv_signin_not_ready"/>
+    <string name="tv_signin_later"/>
+    <string name="tv_signin_open"/>
     <!-- Home on a television: the remote's OK instead of a tap (the status card, the exit node row) -->
-    <string name="tv_home_start"></string>
-    <string name="tv_home_active"></string>
-    <string name="tv_home_active_root"></string>
-    <string name="tv_home_active_root_yielded"></string>
-    <string name="tv_home_active_root_shared"></string>
-    <string name="tv_home_degraded"></string>
-    <string name="tv_home_needs_login"></string>
-    <string name="tv_home_exit_node_none"></string>
+    <string name="tv_home_start"/>
+    <string name="tv_home_active"/>
+    <string name="tv_home_active_root"/>
+    <string name="tv_home_active_root_yielded"/>
+    <string name="tv_home_active_root_shared"/>
+    <string name="tv_home_degraded"/>
+    <string name="tv_home_needs_login"/>
+    <string name="tv_home_exit_node_none"/>
     <!-- Stopping asks first: OK on a remote is pressed by accident -->
-    <string name="tv_stop_title"></string>
-    <string name="tv_stop_text"></string>
+    <string name="tv_stop_title"/>
+    <string name="tv_stop_text"/>
     <!-- Onboarding on a television: the login step -->
-    <string name="tv_onboarding_login_desc"></string>
+    <string name="tv_onboarding_login_desc"/>
     <!-- Sign-in after a key the server did not accept; %1$s is the daemon's own reason. -->
-    <string name="tv_signin_key_refused"></string>
-    <string name="tv_signin_key_refused_reason"></string>
+    <string name="tv_signin_key_refused"/>
+    <string name="tv_signin_key_refused_reason"/>
 </resources>
