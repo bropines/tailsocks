@@ -465,4 +465,9 @@
     <string name="settings_byedpi_ipv6_disabled">強制使用 IPv4（關閉 IPv6）</string>
     <string name="settings_root_mode_disabled_toast">已關閉 Root 模式</string>
     <string name="settings_byedpi_status_stopped">已暫停</string>
+    <string name="first_start_select_lang">選擇介面語言</string>
+    <string name="first_start_welcome_title">歡迎使用 TailSocks</string>
+    <string name="settings_show_changelog_title">在更新後展示新變更</string>
+    <string name="first_start_mode_vpn_title">VPN 模式（TUN）</string>
+    <string name="first_start_mode_proxy_title">代理模式（SOCKS5）</string>
 </resources>
