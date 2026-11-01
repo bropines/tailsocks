@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The launcher icon: its row and picker in Settings → Appearance, and the icons' names (core/AppIcons.kt). --><resources>
     <string name="icon_title">應用圖標</string>
-    <string name="icon_note"/>
     <!-- The picker's sections. -->
     <string name="icon_group_classic">TailSocks</string>
     <string name="icon_group_pixel">8-bit</string>
