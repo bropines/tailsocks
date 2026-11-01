@@ -444,4 +444,25 @@
     <string name="perm_autostart_title">自動重啟</string>
     <string name="perm_battery_title">電池最佳化</string>
     <string name="perm_notifications_title">通知</string>
+    <string name="issue_report_action">報告問題</string>
+    <string name="issue_report_title">報告問題</string>
+    <string name="issue_report_copy">複製</string>
+    <string name="serve_export_copy_clipboard">複製到剪貼簿</string>
+    <string name="settings_proxy_copy_btn">複製連結</string>
+    <string name="settings_automation_copy_token">複製</string>
+    <string name="dns_cd_copy_ip">複製 IP</string>
+    <string name="issue_report_share">分享</string>
+    <string name="share_title">發送至…</string>
+    <string name="share_sending">正在發送…</string>
+    <string name="main_about_credits">致謝</string>
+    <string name="issue_list_action">新開議題</string>
+    <string name="main_dev_app">應用開發者： Bropines</string>
+    <string name="main_dev_patch">補丁開發者： Bropines</string>
+    <string name="main_dev_anet_patch">Anet 補丁： Asutorufa</string>
+    <string name="main_dev_core">核心開發者： Tailscale</string>
+    <string name="serve_editor_advanced">進階</string>
+    <string name="settings_control_proxy_disabled">未啟用</string>
+    <string name="settings_byedpi_ipv6_disabled">強制使用 IPv4（關閉 IPv6）</string>
+    <string name="settings_root_mode_disabled_toast">已關閉 Root 模式</string>
+    <string name="settings_byedpi_status_stopped">已暫停</string>
 </resources>
