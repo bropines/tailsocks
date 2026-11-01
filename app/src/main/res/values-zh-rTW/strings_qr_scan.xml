@@ -4,7 +4,6 @@
     <string name="qr_scan_action">掃描 QR Code</string>
     <string name="qr_scan_title">掃描 QR code</string>
     <string name="qr_scan_hint">將鏡頭對準 QR Code</string>
-    <string name="qr_scan_hint_more"/>
     <string name="qr_scan_gallery">從圖庫選擇</string>
     <string name="qr_scan_torch_on">打開手電筒</string>
     <string name="qr_scan_torch_off">關閉手電筒</string>
@@ -14,19 +13,12 @@
     <string name="qr_scan_camera_text">相機只會在屏幕亮起時工作，只會用來掃碼，不會紀錄或上傳至他處</string>
     <string name="qr_scan_allow">允許存取相機</string>
     <string name="qr_scan_denied_title">無相機權限</string>
-    <string name="qr_scan_denied_text"/>
     <string name="qr_scan_blocked_title">無相機存取權</string>
-    <string name="qr_scan_blocked_text"/>
     <string name="qr_scan_open_settings">打開設定</string>
     <string name="qr_scan_no_camera_title">沒有相機</string>
-    <string name="qr_scan_no_camera_text"/>
-    <string name="qr_scan_failed_title"/>
-    <string name="qr_scan_failed_text"/>
     <string name="qr_scan_retry">重試</string>
     <!-- What was read -->
     <string name="qr_scan_result_title">QR Code</string>
-    <string name="qr_scan_result_help"/>
-    <string name="qr_scan_result_web_help"/>
     <string name="qr_scan_open">打開</string>
     <string name="qr_scan_no_app">沒有應用可以打開</string>
     <string name="qr_scan_no_tailcat">此二維碼中無 TailCat 地址</string>
