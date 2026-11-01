@@ -2,7 +2,6 @@
 <resources>
     <!-- Settings → Appearance: how QR codes look (ui/QrStyle.kt) -->
     <string name="qr_style_title">QR codes</string>
-    <string name="qr_style_note"/>
     <string name="qr_style_sample">簡易 QR code</string>
     <string name="qr_style_squares">方形</string>
     <string name="qr_style_rounded">圓角</string>
