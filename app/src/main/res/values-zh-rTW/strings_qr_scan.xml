@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The QR scanner (ui/QrScanActivity.kt) -->
+    <string name="qr_scan_action"></string>
+    <string name="qr_scan_title"></string>
+    <string name="qr_scan_hint"></string>
+    <string name="qr_scan_hint_more"></string>
+    <string name="qr_scan_gallery"></string>
+    <string name="qr_scan_torch_on"></string>
+    <string name="qr_scan_torch_off"></string>
+    <string name="qr_scan_not_found"></string>
+    <!-- Camera access -->
+    <string name="qr_scan_camera_title"></string>
+    <string name="qr_scan_camera_text"></string>
+    <string name="qr_scan_allow"></string>
+    <string name="qr_scan_denied_title"></string>
+    <string name="qr_scan_denied_text"></string>
+    <string name="qr_scan_blocked_title"></string>
+    <string name="qr_scan_blocked_text"></string>
+    <string name="qr_scan_open_settings"></string>
+    <string name="qr_scan_no_camera_title"></string>
+    <string name="qr_scan_no_camera_text"></string>
+    <string name="qr_scan_failed_title"></string>
+    <string name="qr_scan_failed_text"></string>
+    <string name="qr_scan_retry"></string>
+    <!-- What was read -->
+    <string name="qr_scan_result_title"></string>
+    <string name="qr_scan_result_help"></string>
+    <string name="qr_scan_result_web_help"></string>
+    <string name="qr_scan_open"></string>
+    <string name="qr_scan_no_app"></string>
+    <string name="qr_scan_no_tailcat"></string>
+</resources>
