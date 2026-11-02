@@ -2,6 +2,8 @@
 
 *English version: [DISTRIBUTION.md](DISTRIBUTION.md)*
 
+> **Состояние на 2026-11-01:** TailSocks [есть в F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/): воспроизводимая сборка, опубликована с подписью автора ([fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), принят 2026-10-30). Новые релизы F-Droid находит сам по тегам `v*`, рецепт править не нужно. Ниже — исследование, которое к этому привело.
+
 Исследование от 2026-09-30; номера строк — по коммиту `730ff4e`. Что уже подготовлено:
 
 - `fastlane/metadata/android/{en-US,ru}/` — название, короткое и полное описание, `changelogs/README.txt` (как назвать файл списка изменений), `images/README.txt` (откуда брать скриншоты). Их читают и F-Droid, и IzzyOnDroid.

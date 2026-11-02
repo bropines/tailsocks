@@ -32,11 +32,11 @@
 <table align="center">
   <tr>
     <td align="center"><a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Download Release APK" /></a></td>
+    <td align="center"><a href="https://f-droid.org/packages/io.github.bropines.tailscaled/"><img src="https://img.shields.io/badge/Get_it_on-F--Droid-1976d2?style=for-the-badge&logo=f-droid&logoColor=white" alt="Get it on F-Droid" /></a></td>
     <td align="center"><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks"><img src="https://img.shields.io/badge/Get_it_on-Obtainium-7b5cf5?style=for-the-badge" alt="Get it on Obtainium" /></a></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/badge/⬇_All_Releases-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="All Releases" /></a></td>
-    <td align="center"><a href="https://boosty.to/pinus"><img src="https://img.shields.io/badge/❤️_Donate-Boosty-f15f2c?style=for-the-badge" alt="Donate on Boosty" /></a></td>
+    <td align="center" colspan="3"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/badge/⬇_All_Releases-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="All Releases" /></a> <a href="https://boosty.to/pinus"><img src="https://img.shields.io/badge/❤️_Donate-Boosty-f15f2c?style=for-the-badge" alt="Donate on Boosty" /></a></td>
   </tr>
 </table>
 
@@ -115,7 +115,7 @@ It tells you what is actually going on: whether the tailnet is connected, still 
 
 ## 🚀 Download
 
-Grab the APK from [Releases](https://github.com/bropines/tailsocks/releases/latest), or add the repository to [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks). The same APK installs on Android TV. First steps: [getting started](https://bropines.github.io/tailsocks/getting-started/).
+Grab the APK from [Releases](https://github.com/bropines/tailsocks/releases/latest), install it from [F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/) (built from source, with the same signature, so the two update each other), or add the repository to [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks). The same APK installs on Android TV. First steps: [getting started](https://bropines.github.io/tailsocks/getting-started/).
 
 Betas of the next version come out as GitHub pre-releases: the app offers them once *Receive beta versions* is on (Settings → Appearance & language), Obtainium once *Include prereleases* is on for it.
 

@@ -2,6 +2,8 @@
 
 *Русская версия: [DISTRIBUTION_RU.md](DISTRIBUTION_RU.md)*
 
+> **Status, 2026-11-01:** TailSocks is [on F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/), built reproducibly and published with the author's signature ([fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), merged 2026-10-30). New releases reach it by F-Droid's update check from the `v*` tags; the recipe needs no edits. What follows is the research that led there.
+
 Research from 2026-09-30; line numbers are as of commit `730ff4e`. What's already in place:
 
 - `fastlane/metadata/android/{en-US,ru}/` — title, short and full description, `changelogs/README.txt` (how to name the changelog file), `images/README.txt` (where to source screenshots). Both F-Droid and IzzyOnDroid read these.

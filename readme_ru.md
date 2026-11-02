@@ -32,11 +32,11 @@
 <table align="center">
   <tr>
     <td align="center"><a href="https://github.com/bropines/tailsocks/releases/latest"><img src="https://img.shields.io/badge/⬇_Download_APK-Release-2ea44f?style=for-the-badge&logo=android&logoColor=white" alt="Скачать Release APK" /></a></td>
+    <td align="center"><a href="https://f-droid.org/packages/io.github.bropines.tailscaled/"><img src="https://img.shields.io/badge/Установить_из-F--Droid-1976d2?style=for-the-badge&logo=f-droid&logoColor=white" alt="Установить из F-Droid" /></a></td>
     <td align="center"><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks"><img src="https://img.shields.io/badge/Установить_через-Obtainium-7b5cf5?style=for-the-badge" alt="Установить через Obtainium" /></a></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/badge/⬇_Все_Релизы-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" /></a></td>
-    <td align="center"><a href="https://boosty.to/pinus"><img src="https://img.shields.io/badge/❤️_Поддержать-Boosty-f15f2c?style=for-the-badge" alt="Поддержать на Boosty" /></a></td>
+    <td align="center" colspan="3"><a href="https://github.com/bropines/tailsocks/releases"><img src="https://img.shields.io/badge/⬇_Все_Релизы-GitHub-24292e?style=for-the-badge&logo=github&logoColor=white" alt="Все Релизы" /></a> <a href="https://boosty.to/pinus"><img src="https://img.shields.io/badge/❤️_Поддержать-Boosty-f15f2c?style=for-the-badge" alt="Поддержать на Boosty" /></a></td>
   </tr>
 </table>
 
@@ -115,7 +115,7 @@ TailSocks запускает на Android-телефоне (эксперимен
 
 ## 🚀 Скачать
 
-APK — на странице [релизов](https://github.com/bropines/tailsocks/releases/latest), или добавьте репозиторий в [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks). Тот же APK ставится на Android TV. Первые шаги — в [начале работы](https://bropines.github.io/tailsocks/ru/getting-started/).
+APK — на странице [релизов](https://github.com/bropines/tailsocks/releases/latest), в [F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/) (собран из исходников, с той же подписью, так что они обновляют друг друга), или добавьте репозиторий в [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks). Тот же APK ставится на Android TV. Первые шаги — в [начале работы](https://bropines.github.io/tailsocks/ru/getting-started/).
 
 Бета-версии следующего релиза выходят на GitHub как pre-release: приложение предлагает их, если включить «Получать бета-версии» (Настройки → Оформление и язык), Obtainium — если включить у него *Include prereleases*.
 
