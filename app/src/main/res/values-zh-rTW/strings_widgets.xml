@@ -1,33 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home-screen widgets (ui/Widgets.kt, ui/WidgetUpdates.kt) and their entries in the widget picker. --><resources>
-    <!-- The widget picker -->
-    <string name="widget_name_service"></string>
-    <string name="widget_name_exit"></string>
-    <string name="widget_desc_service"></string>
-    <string name="widget_desc_exit"></string>
-    <!-- The switch -->
-    <string name="widget_service_start"></string>
-    <string name="widget_service_stop"></string>
-    <string name="widget_refresh"></string>
-    <string name="widget_copy_ip"></string>
-    <!-- The exit node -->
-    <string name="widget_exit_node_title"></string>
-    <string name="widget_exit_node_inactive"></string>
-    <string name="widget_exit_node_format"></string>
-    <string name="widget_exit_direct"></string>
-    <string name="widget_toast_exit_disabled"></string>
-    <string name="widget_toast_exit_routing_format"></string>
-    <string name="widget_toast_exit_unknown"></string>
-    <!-- The exit-node widget's configuration (long press → Reconfigure) -->
-    <string name="widget_config_title"></string>
-    <string name="widget_config_help"></string>
-    <string name="widget_config_show_best"></string>
-    <string name="widget_config_show_best_desc"></string>
-    <string name="widget_config_favourites"></string>
-    <string name="widget_config_others"></string>
-    <string name="widget_config_all"></string>
-    <string name="widget_config_gone"></string>
-    <string name="widget_offline"></string>
-    <string name="widget_config_move_up"></string>
-    <string name="widget_config_move_down"></string>
-</resources>
+    </resources>
