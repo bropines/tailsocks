@@ -1,20 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Settings → Censorship bypass: the daemon's saved network map (tailscaled 1.104+). -->
-    <string name="core_netmap_cache_section"></string>
-    <string name="core_netmap_cache_help"></string>
-    <string name="core_netmap_cache_title"></string>
-    <string name="core_netmap_cache_desc"></string>
-    <string name="core_netmap_cache_status_granted"></string>
-    <string name="core_netmap_cache_status_withheld"></string>
-    <string name="core_netmap_cache_status_offline"></string>
-    <string name="core_netmap_cache_status_unknown"></string>
-    <string name="core_netmap_cache_clear_title"></string>
-    <string name="core_netmap_cache_clear_desc"></string>
-    <string name="core_netmap_cache_cleared"></string>
-    <string name="core_netmap_cache_clear_failed"></string>
-    <string name="core_control_port_section"></string>
-    <string name="core_control_port_help"></string>
-    <string name="core_control_port_title"></string>
-    <string name="core_control_port_desc"></string>
-</resources>
+    </resources>
