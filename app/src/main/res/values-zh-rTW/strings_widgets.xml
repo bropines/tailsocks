@@ -1,3 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The home-screen widgets (ui/Widgets.kt, ui/WidgetUpdates.kt) and their entries in the widget picker. --><resources>
-    </resources>
+    <string name="widget_name_exit">TailSocks 出口節點</string>
+    <string name="widget_desc_service">開關 TailSocks 並查看其連線方式</string>
+    <string name="widget_name_service">TailSocks 開關</string>
+    <string name="widget_desc_exit">開關與選擇出口節點</string>
+    <string name="widget_service_start">啟動</string>
+    <string name="widget_service_stop">停止</string>
+    <string name="widget_refresh">刷新</string>
+    <string name="widget_copy_ip">複製 tailnet 地址</string>
+    <string name="widget_exit_node_title">出口節點</string>
+    <string name="widget_exit_node_inactive">未活躍</string>
+    <string name="widget_exit_node_format">出口於：%1$s</string>
+    <string name="widget_exit_direct">直連</string>
+    <string name="widget_toast_exit_disabled">出口節點已關閉</string>
+    <string name="widget_toast_exit_routing_format">經 %1$s 路由</string>
+    <string name="widget_config_others">其它出口節點</string>
+    <string name="widget_config_all">出口節點</string>
+    <string name="widget_offline">離線</string>
+    <string name="widget_config_move_up">上移</string>
+    <string name="widget_config_move_down">下移</string>
+    <string name="widget_config_gone">現未在 tailnet 上</string>
+    <string name="widget_config_show_best">展示「最佳出口節點」</string>
+</resources>
