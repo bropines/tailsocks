@@ -6,6 +6,7 @@ description: Установка TailSocks на телефон и Android TV, в�
 ## Установка
 
 - Скачайте APK со страницы [релизов на GitHub](https://github.com/bropines/tailsocks/releases/latest). `universal` подходит любому устройству; сборки `arm64-v8a`, `armeabi-v7a`, `x86` и `x86_64` легче.
+- Или установите из [F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/). F-Droid собирает его из исходников и публикует с подписью разработчика, поэтому его сборка и APK с GitHub обновляют друг друга без переустановки. Новая версия появляется там через несколько дней после релиза на GitHub.
 - Или добавьте репозиторий в [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/bropines/tailsocks) — он будет сам ставить обновления.
 - Нужен Android 7.0 или новее.
 - На **Android TV** ставится тот же APK, лаунчер показывает TailSocks с баннером. Подробнее — в разделе [Android TV](/tailsocks/ru/android-tv/).
