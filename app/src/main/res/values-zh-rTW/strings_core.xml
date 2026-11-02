@@ -1,3 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    </resources>
+    <string name="core_control_port_title">僅限 443 端口</string>
+</resources>
