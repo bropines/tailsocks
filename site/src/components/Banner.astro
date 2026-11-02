@@ -1,0 +1,35 @@
+---
+// Every page carries the Keep Android Open notice (keepandroidopen.org), in the page's language.
+// It is plain markup: their banner.js would load a third-party script and write to localStorage.
+// A page's own `banner:` frontmatter, if one ever has it, still shows below it.
+import Default from '@astrojs/starlight/components/Banner.astro';
+
+const ru = Astro.locals.starlightRoute.locale === 'ru';
+const text = ru
+	? 'С 2027 года Google собирается блокировать приложения разработчиков, которых он не проверил, даже вне Play.'
+	: 'From 2027 Google plans to block apps whose developers it has not verified, even outside Play.';
+---
+
+<div class="kao" lang={ru ? 'ru' : 'en'}>
+	<span>{text}</span>
+	<a href="https://keepandroidopen.org/">Keep Android Open →</a>
+</div>
+<Default />
+
+<style>
+	.kao {
+		padding: 0.5rem var(--sl-nav-pad-x);
+		background-color: var(--sl-color-accent-low);
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-sm);
+		line-height: var(--sl-line-height-headings);
+		text-align: center;
+		text-wrap: balance;
+	}
+	.kao a {
+		margin-inline-start: 0.5em;
+		color: var(--sl-color-accent-high);
+		font-weight: 600;
+		white-space: nowrap;
+	}
+</style>

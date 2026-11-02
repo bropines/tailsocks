@@ -22,6 +22,7 @@ export default defineConfig({
 			social: [{ icon: 'github', label: 'GitHub', href: repo }],
 			editLink: { baseUrl: `${repo}/edit/site/site/` },
 			customCss: ['./src/styles/custom.css'],
+			components: { Banner: './src/components/Banner.astro' },
 			lastUpdated: false,
 			sidebar: [
 				{
