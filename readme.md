@@ -49,6 +49,11 @@
   <sub>Setup, connection modes, files, blocked networks, automation, troubleshooting</sub>
 </p>
 
+<p align="center">
+  <a href="https://keepandroidopen.org/"><img src="https://img.shields.io/badge/🔓_Keep_Android_Open-supported-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Keep Android Open" /></a><br/>
+  <sub>From 2027 Google plans to block apps whose developers it has not verified, even outside Play.</sub>
+</p>
+
 ---
 
 TailSocks runs a full [Tailscale](https://tailscale.com/) node on your Android phone (or, experimentally, Android TV) and lets you choose how it reaches the rest of the device: as a **local SOCKS5/HTTP proxy** that needs no VPN permission and coexists with any other VPN, as a **system-wide VPN** (TUN, split or full tunnel), or — on rooted devices — through a **real kernel interface** with policy routing. Everything Tailscale offers is there: [exit nodes](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), several accounts, Headscale, and a built-in DPI bypass for the control plane where Tailscale is blocked.

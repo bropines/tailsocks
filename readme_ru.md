@@ -49,6 +49,11 @@
   <sub>Установка, режимы подключения, файлы, обход блокировок, автоматизация, решение проблем</sub>
 </p>
 
+<p align="center">
+  <a href="https://keepandroidopen.org/"><img src="https://img.shields.io/badge/🔓_Keep_Android_Open-поддерживаем-3ddc84?style=for-the-badge&logo=android&logoColor=white" alt="Keep Android Open" /></a><br/>
+  <sub>С 2027 года Google собирается блокировать приложения разработчиков, которых он не проверил, даже вне Play.</sub>
+</p>
+
 ---
 
 TailSocks запускает на Android-телефоне (экспериментально — и на Android TV) полноценный узел [Tailscale](https://tailscale.com/) и даёт выбрать, как он доступен остальному устройству: как **локальный SOCKS5/HTTP-прокси**, которому не нужно разрешение VPN и который уживается с любым другим VPN; как **системный VPN** (TUN, раздельный или полный туннель); или — на рутованных устройствах — через **настоящий сетевой интерфейс ядра** с policy routing. Всё, что умеет Tailscale, на месте: [выходные узлы](https://tailscale.com/kb/1103/exit-nodes), [MagicDNS](https://tailscale.com/kb/1081/magicdns), [Taildrop™](https://tailscale.com/kb/1106/taildrop), [Taildrive™](https://tailscale.com/kb/1369/taildrive), [Serve & Funnel](https://tailscale.com/kb/1242/tailscale-serve), несколько аккаунтов, Headscale и встроенный обход DPI для управляющего канала там, где Tailscale блокируют.
