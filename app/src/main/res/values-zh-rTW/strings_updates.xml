@@ -2,9 +2,4 @@
 <resources>
     <!-- The beta channel of the in-app updater: betas are builds of the next version, published before it for testing -->
     <string name="settings_update_beta_title">接收測試版本</string>
-    <string name="settings_update_beta_desc"/>
-    <!-- Settings search: what a person types to find the switch above (a list, see strings_settings_search_keywords.xml) -->
-    <string name="search_kw_update_beta"/>
-    <!-- The app's name in the About dialog of a beta build: %1$s is TailSocks -->
-    <string name="main_about_beta_name"/>
 </resources>
