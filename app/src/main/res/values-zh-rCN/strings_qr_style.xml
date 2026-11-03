@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Appearance: how QR codes look (ui/QrStyle.kt) -->
+    <string name="qr_style_title">二维码</string>
+    <string name="qr_style_note">本应用展示给其他相机扫描的二维码外观。无论哪种样式，角块都是实心的、二维码保持深色在浅色上，任何相机都能识别。</string>
+    <string name="qr_style_sample">示例二维码</string>
+    <string name="qr_style_squares">方形</string>
+    <string name="qr_style_rounded">圆角</string>
+    <string name="qr_style_dots">圆点</string>
+    <string name="qr_palette_theme">主题</string>
+    <string name="qr_palette_mono">黑白</string>
+</resources>

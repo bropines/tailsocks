@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Handing a share's file to another app (core/TaildriveOpenPlan.kt, ui/TaildriveBrowser.kt):
+     the dialog for a file that only a web browser would take, and the switch for the link road. -->
+<resources>
+    <string name="taildrive_open_browseronly_title">没有可播放此文件的播放器</string>
+    <string name="taildrive_open_browseronly_body">本设备上没有能通过链接播放此类文件的应用 — 只有网页浏览器能打开。请安装支持网络链接的视频播放器，例如 VLC，或在另一台设备上打开该地址。</string>
+    <string name="taildrive_open_in_browser">仍用浏览器打开</string>
+    <!-- Content description of the bar's switch; it is read out with its state. -->
+    <string name="taildrive_open_via_link">通过链接打开文件</string>
+</resources>

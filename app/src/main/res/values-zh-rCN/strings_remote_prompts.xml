@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: what the managed device puts on its own screen when a paired device asks or changes something -->
+    <string name="remote_prompt_channel">来自已配对设备的请求</string>
+    <string name="remote_prompt_someone">一台已配对设备</string>
+
+    <!-- A request for a permission: the notification, the line on the screen, the card of the Permissions screen -->
+    <string name="remote_prompt_ask_title">%1$s 请求一项权限</string>
+    <string name="remote_prompt_ask_text">%1$s。打开应用以回应。</string>
+    <string name="remote_prompt_ask_toast">%1$s 请求一项权限：%2$s。打开 TailSocks 进行回应。</string>
+    <string name="remote_prompt_card_title">%1$s 请求：%2$s</string>
+    <string name="remote_prompt_card_note">远程不能直接允许：只能由本设备上的人操作。</string>
+    <string name="remote_prompt_card_granted">已允许。此处无需再操作。</string>
+    <string name="remote_prompt_card_no_page">本设备没有对应的设置页面。</string>
+    <string name="remote_prompt_perm_all_files">访问所有文件</string>
+    <string name="remote_prompt_perm_storage">存储</string>
+    <string name="remote_prompt_storage_reason">用于将接收的文件保存到任意文件夹，并共享本设备的文件夹。</string>
+
+    <!-- "Say whose hands you are in" -->
+    <string name="remote_prompt_identify">由 %1$s 管理</string>
+
+    <!-- A change made from afar is said in the words of the managed page's log: strings_remote.xml, strings_remote_managed.xml -->
+</resources>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's templates: the catalog, a template's page, the cards that offer them. -->
+    <string name="admin_pvt_catalog">模板</string>
+    <string name="admin_pvt_all">所有模板</string>
+    <string name="admin_pvt_all_help">现成的规则：远程管理、Taildrive、访客、对等中继等。每项都会先展示将要写入的内容，然后才生效。</string>
+    <string name="admin_pvt_search">查找模板</string>
+    <string name="admin_pvt_none_found">没有匹配的模板。</string>
+    <string name="admin_pvt_refresh">检查新模板</string>
+    <string name="admin_pvt_status_bundled">应用内置的模板。</string>
+    <string name="admin_pvt_status_checked">已于 %1$s 检查新模板。</string>
+    <string name="admin_pvt_status_checking">正在检查新模板…</string>
+    <string name="admin_pvt_status_error">无法检查新模板：%1$s。现有模板仍可使用。</string>
+    <string name="admin_pvt_updated">已更新</string>
+    <string name="admin_pvt_hs_partial">在 Headscale 上部分可用</string>
+    <string name="admin_pvt_hs_none">在 Headscale 上不可用</string>
+
+    <string name="admin_pvt_cat_all">全部</string>
+    <string name="admin_pvt_cat_access">访问</string>
+    <string name="admin_pvt_cat_ssh">SSH</string>
+    <string name="admin_pvt_cat_exit_nodes">出口节点</string>
+    <string name="admin_pvt_cat_subnets">子网</string>
+    <string name="admin_pvt_cat_taildrive">Taildrive</string>
+    <string name="admin_pvt_cat_remote">远程管理</string>
+    <string name="admin_pvt_cat_relays">中继</string>
+    <string name="admin_pvt_cat_dns">DNS</string>
+    <string name="admin_pvt_cat_funnel">Funnel</string>
+    <string name="admin_pvt_cat_k8s">Kubernetes</string>
+    <string name="admin_pvt_cat_guests">访客</string>
+    <string name="admin_pvt_cat_baseline">基础</string>
+
+    <string name="admin_pvt_back">所有模板</string>
+    <string name="admin_pvt_preview">应用后将添加的内容</string>
+    <string name="admin_pvt_preview_fill">填写上方字段即可预览将添加的内容。</string>
+    <string name="admin_pvt_nothing">策略中已包含全部内容：无需添加。</string>
+    <plurals name="admin_pvt_kept">
+        <item quantity="one">策略中已有的 %d 个部分不会重复写入。</item>
+        <item quantity="other">策略中已有的 %d 个部分不会重复写入。</item>
+    </plurals>
+    <string name="admin_pvt_apply">应用</string>
+    <string name="admin_pvt_apply_hint">请先填写所需字段。</string>
+    <string name="admin_pvt_applied">已从「%1$s」添加</string>
+    <string name="admin_pvt_read_more">了解更多</string>
+    <string name="admin_pvt_text_problem">不是此字段接受的值</string>
+
+    <string name="admin_pvt_self_tags">标签不拥有任何设备</string>
+    <string name="admin_pvt_self_tags_help">「他们自己的设备」仅适用于人：用户、组或所有成员。请去掉 %1$s，或去掉「他们自己的设备」。</string>
+    <string name="admin_pvt_bad_value">%1$s：「%2$s」不适用于此处</string>
+    <string name="admin_pvt_conflict">%1$s 在策略中已经是 %2$s，而不是 %3$s</string>
+    <string name="admin_pvt_conflict_help">请在它自己的页面上修改，或在此处选择其他值。</string>
+    <string name="admin_pvt_not_on_headscale_help">Headscale 的策略不接受此模板写入的内容。</string>
+    <string name="admin_pvt_unwritable">无法写入此策略：%1$s</string>
+</resources>

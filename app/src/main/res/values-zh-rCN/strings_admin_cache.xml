@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The copy of the console's lists kept on the phone, shown while the server is asked again. -->
+    <string name="admin_cache_note_loading">保存的副本来自 %1$s · 正在刷新…</string>
+    <string name="admin_cache_note_failed">保存的副本来自 %1$s · 无法刷新</string>
+    <string name="admin_cache_wait">仍在刷新保存的副本。列表更新后再试。</string>
+    <string name="admin_cache_stale">这是保存的副本，且无法刷新。下拉以重试。</string>
+</resources>

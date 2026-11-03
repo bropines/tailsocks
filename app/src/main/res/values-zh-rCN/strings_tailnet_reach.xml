@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Local proxies → Reachable from the tailnet (ui/TailnetReachSettings.kt, core/TailnetReach.kt). -->
+    <string name="tailnet_reach_card">可从 tailnet 访问</string>
+    <string name="tailnet_reach_intro">关闭时，这里的代理仅供此设备使用。开启后，你的 tailnet 中访问规则允许的所有设备都可以通过本机的 tailnet 地址使用它。远程管理、Taildrop、Taildrive 文件夹和 Serve 不需要这些开关。</string>
+    <string name="tailnet_reach_vpn">当前由原生 TUN 引擎承载 tailnet，而 TailSocks 本身在该 VPN 之外：无论是否开放，tailnet 都访问不到这些代理。这些开关在代理模式和 hev 引擎下有效。</string>
+    <string name="tailnet_reach_interface">当前由 Root 模式的接口承载 tailnet：监听所有地址（本地网络访问）的服务本来就能从 tailnet 访问，其他服务则不能。这些开关在代理模式和 hev 引擎下有效。</string>
+
+    <!-- The rows. -->
+    <string name="tailnet_reach_socks5">来自 tailnet 的 SOCKS5</string>
+    <string name="tailnet_reach_socks5_help">开放后，你的 tailnet 中其他设备可以以此设备的身份进入其本地网络并访问互联网。</string>
+    <string name="tailnet_reach_http">来自 tailnet 的 HTTP 代理</string>
+    <string name="tailnet_reach_http_help">开放后，你的 tailnet 中其他设备可以以此设备的身份进入其本地网络并访问互联网。它从不要求密码。</string>
+    <string name="tailnet_reach_dns">来自 tailnet 的 DNS 代理</string>
+    <string name="tailnet_reach_dns_help">开放后，你的 tailnet 中其他设备可以通过此设备解析域名，包括 MagicDNS 和分流 DNS 名称。</string>
+    <string name="tailnet_reach_drive">来自 tailnet 的 Taildrive 代理</string>
+    <string name="tailnet_reach_drive_help">开放后，你的 tailnet 中其他设备可以以此设备的身份打开它可打开的 Taildrive 文件夹。</string>
+
+    <!-- A row's state, before its explanation. -->
+    <string name="tailnet_reach_state_closed">仅此设备。</string>
+    <string name="tailnet_reach_state_open">已在 %1$s 开放。</string>
+    <string name="tailnet_reach_state_open_port">已在本机 tailnet 地址的端口 %1$s 上开放。</string>
+    <string name="tailnet_reach_state_off">代理已关闭。</string>
+    <string name="tailnet_reach_state_alias">它监听 %1$s，此地址无法放行 tailnet：127.0.0.1 才可以。</string>
+    <string name="tailnet_reach_state_interface">此模式下 tailnet 访问不到它。</string>
+    <string name="tailnet_reach_state_interface_wildcard">此模式下无论开关如何，tailnet 都会通过本地网络访问到达它。</string>
+
+    <!-- Warnings and the question before SOCKS5 opens without a password. -->
+    <string name="tailnet_reach_socks5_no_password">SOCKS5 代理没有用户名或密码：你的 tailnet 中访问规则允许的所有设备都可以使用它。</string>
+    <string name="tailnet_reach_set_password">设置密码</string>
+    <string name="tailnet_reach_drive_no_login">Taildrive 代理不要求登录：你的 tailnet 中访问规则允许的所有设备都可以通过它打开你的 Taildrive 文件夹。请在 Taildrive 的设置中开启登录。</string>
+    <string name="tailnet_reach_socks5_ask_title">对 tailnet 开放 SOCKS5？</string>
+    <string name="tailnet_reach_socks5_ask_text">它没有用户名或密码。你的 tailnet 中访问规则允许的任何设备都可以借由此设备进入其本地网络并访问互联网。请先设置密码，并只把密码交给应使用该代理的设备。</string>
+    <string name="tailnet_reach_set_password_and_open">设置密码并开放</string>
+    <string name="tailnet_reach_open_anyway">无密码开放</string>
+
+    <!-- Strict mode: other apps' services closed too, and the ports it leaves open. -->
+    <string name="tailnet_reach_strict">严格：同时关闭其他一切</string>
+    <string name="tailnet_reach_strict_help">在代理模式下，本机其他应用的服务——网络 adb、SSH 服务器、Syncthing——可从 tailnet 访问，与用户态网络中的任何 Tailscale 节点相同。严格模式会一并关闭它们；请在下方开放你需要的端口。</string>
+    <string name="tailnet_reach_extra">同时开放这些端口</string>
+    <string name="tailnet_reach_extra_desc">tailnet 仍可访问的其他应用端口，用逗号分隔：5555, 8022。默认为 TCP；UDP 请写 udp:1234。</string>
+    <string name="tailnet_reach_extra_bad">不是端口：%1$s。端口是 1 到 65535 之间的数字；UDP 请写 udp:1234。</string>
+    <string name="tailnet_reach_extra_own">%1$s：TailSocks 自身的端口，由其自己的开关开放。</string>
+
+    <!-- What the settings search finds these rows by. -->
+    <string name="search_kw_tailnet_socks5">tailnet 的 socks5, 共享代理, 给其他设备的代理, tailnet 代理, 把手机当代理, 可达, 开放端口, 暴露</string>
+    <string name="search_kw_tailnet_http_proxy">tailnet 的 http 代理, 共享 http 代理, 给其他设备的代理, 可达, 开放端口, 暴露</string>
+    <string name="search_kw_tailnet_dns_proxy">tailnet 的 dns, 共享 dns, 给其他设备的解析, 可达, 开放端口, 暴露</string>
+    <string name="search_kw_tailnet_drive_proxy">tailnet 的 taildrive 代理, tailnet 的 webdav, 共享 taildrive, 可达, 开放端口, 暴露</string>
+    <string name="search_kw_tailnet_strict">严格, 关闭端口, 其他应用, 网络 adb, 无线 adb, ssh, syncthing, 开放端口, 防火墙, 可达, 暴露</string>
+    <string name="search_kw_tailnet_extra_ports">开放端口, 允许端口, adb 5555, ssh 8022, 其他应用, 严格, 防火墙例外</string>
+    <string name="search_need_tailnet_strict">开启严格模式后显示</string>
+</resources>

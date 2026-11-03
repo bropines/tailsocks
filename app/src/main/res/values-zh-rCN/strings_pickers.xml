@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the pickers that moved from dropdown menus to bottom sheets, and
+  for the Permissions screen. A file of its own so it lands without touching
+  strings.xml; Android merges every values/*.xml into one table.
+-->
+<resources>
+    <!-- A number of days, for the audit-log period and the key-expiry picker. -->
+    <plurals name="pickers_days">
+        <item quantity="other">%d 天</item>
+    </plurals>
+
+    <!-- Audit logs: how far back to fetch. -->
+
+    <!-- Admin devices: sort order. The sheet title already says "sort", so these do not. -->
+
+    <!-- Tailnet settings: who may join other tailnets. The API values are none, admin, member. -->
+    <string name="pickers_role_none">无人</string>
+    <string name="pickers_role_admin">管理员</string>
+    <string name="pickers_role_member">所有成员</string>
+
+    <!-- Permissions: the folded note under a row whose state the system does not report. -->
+    <string name="perm_unknown_note">Android 不会告诉应用这项权限是否被允许，请在系统设置界面中确认</string>
+</resources>

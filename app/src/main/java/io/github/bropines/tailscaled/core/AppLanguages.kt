@@ -18,7 +18,7 @@ object AppLanguages {
     /** `app_locale` for "follow the system". */
     const val SYSTEM = "sys"
 
-    val TAGS: List<String> = listOf("en", "ru", "zh-TW", "ko")
+    val TAGS: List<String> = listOf("en", "ru", "zh-CN", "zh-TW", "ko")
 
     /**
      * [tag]'s name in its own language — what someone who reads only that language looks for
@@ -42,6 +42,7 @@ object AppLanguages {
     private val NATIVE = mapOf(
         "en" to "English",
         "ru" to "Русский",
+        "zh-CN" to "简体中文",
         "zh-TW" to "繁體中文",
         "ko" to "한국어",
         "ja" to "日本語",

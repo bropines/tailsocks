@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Policy tab: copying the policy file, and the network's map for an AI agent. -->
+    <string name="admin_pex_copy">复制策略</string>
+    <string name="admin_pex_copy_ai">为 AI 助手复制</string>
+    <string name="admin_pex_share_ai">为 AI 助手分享…</string>
+    <string name="admin_pex_help">两者都会要求验证指纹或锁屏。给 AI 助手的文本是一份任务说明和网络映射——用户、组、每台设备及其地址，以及策略；把它粘贴到与助手的对话中即可，本机不会发送任何内容。</string>
+    <string name="admin_pex_unlock_policy">复制策略</string>
+    <string name="admin_pex_unlock_ai">为 AI 助手复制</string>
+    <string name="admin_pex_unlock_share">为 AI 助手分享</string>
+    <string name="admin_pex_unlock_subtitle">其中包含你的网络映射</string>
+    <string name="admin_pex_copied_policy">策略已复制。它是你网络的访问映射：只粘贴到你信任的地方。</string>
+    <string name="admin_pex_copied_ai">已为 AI 助手复制：任务说明、%1$d 台设备和策略——你网络的完整映射。</string>
+    <string name="admin_pex_clip_policy">Tailnet 策略</string>
+    <string name="admin_pex_clip_ai">供 AI 助手使用的 Tailnet 映射</string>
+
+    <!-- The text for an AI agent (Markdown). Written to the agent, in the app's language. -->
+    <string name="admin_pex_title">我的 Tailscale 网络映射</string>
+    <string name="admin_pex_title_hs">我的 Headscale 网络映射</string>
+    <string name="admin_pex_task">以下是我的 Tailscale 网络的完整映射：策略文件和每台设备。请先阅读 Tailscale 的当前文档——它会变化，策略可能使用了比你已知更新的功能：</string>
+    <string name="admin_pex_task_hs">以下是我在 Headscale（Tailscale 客户端的自建协调服务器）上的网络的完整映射：策略文件和每台设备。请先阅读 Headscale 的当前文档——它只支持 Tailscale 策略的一部分——以及 Tailscale 的文档，了解其遵循的语法：</string>
+    <string name="admin_pex_task_end">然后请问我需要什么。在我确认之前不要改动任何内容。当你提议修改策略时，请给出策略文件中完整修改后的段落（例如整个「grants」列表）以及对应的测试（「tests」中的条目）。</string>
+    <string name="admin_pex_link_syntax">策略文件语法</string>
+    <string name="admin_pex_link_acls">ACL</string>
+    <string name="admin_pex_link_grants">授权</string>
+    <string name="admin_pex_link_tags">标签</string>
+    <string name="admin_pex_link_tests">测试</string>
+    <string name="admin_pex_link_autogroups">自动组</string>
+    <string name="admin_pex_link_remote">TailSocks 远程管理（TCP 端口 28115）</string>
+    <string name="admin_pex_link_hs_policy">Headscale：策略</string>
+    <string name="admin_pex_link_hs_features">Headscale：支持的功能</string>
+
+    <string name="admin_pex_h_tailnet">Tailnet</string>
+    <string name="admin_pex_tailnet_name">名称：%1$s</string>
+    <string name="admin_pex_tailnet_dns">MagicDNS 域名：%1$s</string>
+    <string name="admin_pex_server_tailscale">控制服务器：Tailscale</string>
+    <string name="admin_pex_server_hs">控制服务器：Headscale %1$s</string>
+    <string name="admin_pex_hs_policy_db">策略保存在 Headscale 的数据库中，通过其 API 设置。</string>
+    <string name="admin_pex_hs_policy_file">策略是 Headscale 服务器上的一个文件：更改在该文件中进行。</string>
+    <string name="admin_pex_hs_no_roles">Headscale 没有用户角色；带标签的设备不属于任何用户。</string>
+    <string name="admin_pex_external">策略在管理控制台之外管理（例如来自 Git 仓库）：更改在那里进行。</string>
+    <string name="admin_pex_made">映射生成时间：%1$s</string>
+
+    <string name="admin_pex_h_users">用户（%1$d）</string>
+    <!-- Column headers of the users table, separated by |. -->
+    <string name="admin_pex_users_cols">登录名|名称|角色</string>
+    <string name="admin_pex_h_groups">组（按策略中的定义）</string>
+    <string name="admin_pex_h_devices">设备（%1$d）</string>
+    <!-- Column headers of the devices table, separated by |. -->
+    <string name="admin_pex_devices_cols">设备|所有者或标签|系统|客户端|Tailscale IPv4|Tailscale IPv6|在线|出口节点|子网路由|密钥有效期</string>
+    <string name="admin_pex_h_policy">策略文件</string>
+
+    <string name="admin_pex_none">无</string>
+    <string name="admin_pex_not_loaded">未加载</string>
+    <string name="admin_pex_unknown">未知</string>
+    <string name="admin_pex_policy_unparsed">策略文件无法解析；见下方。</string>
+    <string name="admin_pex_shared_in">从其他 tailnet 共享而来</string>
+    <string name="admin_pex_not_authorized">未授权</string>
+    <string name="admin_pex_online">在线</string>
+    <string name="admin_pex_last_seen">最后在线 %1$s</string>
+    <string name="admin_pex_offline">离线</string>
+    <string name="admin_pex_approved">已批准</string>
+    <string name="admin_pex_not_approved">未批准</string>
+    <string name="admin_pex_advertised">已通告，%1$s</string>
+    <string name="admin_pex_expiry_off">永不（已禁用有效期）</string>
+</resources>

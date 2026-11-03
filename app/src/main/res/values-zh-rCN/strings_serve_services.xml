@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Serve rules published as a Tailscale Service (svc:name): where each service
+  this node serves stands in the tailnet, and the editor's explanation. The
+  older service strings live in strings.xml.
+-->
+<resources>
+    <!-- Under a service's heading on the Serve screen, while the service does not answer yet. -->
+    <string name="serve_svc_status_approved">已批准；正在等待 tailnet 分配其地址</string>
+    <string name="serve_svc_status_approved_auto">已自动批准；正在等待 tailnet 分配其地址</string>
+    <string name="serve_svc_status_awaiting">已在 tailnet 中定义；本节点正等待被批准为其主机</string>
+    <string name="serve_svc_status_not_defined">尚未在 tailnet 中定义</string>
+    <!-- Approves this node as the service's host through the Admin API, after unlocking. -->
+    <string name="serve_svc_approve_button">批准…</string>
+
+    <!-- The rule editor, under the This device / Service choice; folded to two lines. -->
+    <string name="serve_svc_help">服务是 tailnet 中独立的名称 svc:name，拥有自己的地址，由一个或多个带标签的节点提供服务。只有在管理员界面中定义了该服务、且本节点被批准为其主机后，它才会应答；策略中的自动批准规则会自行批准主机。Funnel 无法访问服务。</string>
+</resources>

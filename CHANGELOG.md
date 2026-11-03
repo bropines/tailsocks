@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Simplified Chinese (简体中文) interface: the client screens — main, peers, files, logs, network check, Serve & Funnel, Root Mode, settings — and the admin console, TV and remote screens.
+
 ## [5.6.0] - 2026-10-31
 
 ### Added

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Keys and Users tabs: keys, OAuth clients, users, invites, device shares. -->
+<resources>
+    <!-- Keys tab -->
+    <string name="admin_k_tab">密钥</string>
+    <string name="admin_k_none">没有密钥</string>
+    <string name="admin_k_create_title">新建密钥</string>
+    <string name="admin_k_create_auth_supporting">让设备加入 tailnet</string>
+    <string name="admin_k_create_client_supporting">供脚本使用的限定范围凭据</string>
+    <string name="admin_k_group_auth">认证密钥</string>
+    <string name="admin_k_group_auth_help">设备用它们加入 tailnet。吊销一个不会移除它添加过的设备。</string>
+    <string name="admin_k_group_client">OAuth 客户端</string>
+    <string name="admin_k_group_client_help">供脚本和集成使用的限定范围凭据。永不过期，可签发一小时有效期的令牌。</string>
+    <string name="admin_k_group_federated">联合身份</string>
+    <string name="admin_k_group_federated_help">CI 任务和云工作负载用各自的 OIDC 令牌登录；不存储密钥。</string>
+    <string name="admin_k_group_api">API 令牌</string>
+    <string name="admin_k_group_api_help">具有所有者权限的个人令牌，以及 OAuth 客户端签发的一小时有效期令牌。</string>
+    <string name="admin_k_group_other">其他</string>
+    <string name="admin_k_group_other_help">此应用不认识的密钥类型。</string>
+    <string name="admin_k_this_console">本管理控制台</string>
+    <string name="admin_k_revoke">吊销</string>
+    <string name="admin_k_created">创建于 %1$s</string>
+    <string name="admin_k_revoked_at">吊销于 %1$s</string>
+    <string name="admin_k_never_expires">永不过期</string>
+    <string name="admin_k_expired">已于 %1$s 过期</string>
+    <string name="admin_k_expires_soon">即将到期：%1$s</string>
+    <string name="admin_k_expires">到期时间 %1$s · %2$s</string>
+    <string name="admin_k_in">%1$s 后</string>
+    <string name="admin_k_ago">%1$s 前</string>
+    <plurals name="admin_k_span_days">
+        <item quantity="one">%d 天</item>
+        <item quantity="other">%d 天</item>
+    </plurals>
+    <plurals name="admin_k_span_hours">
+        <item quantity="one">%d 小时</item>
+        <item quantity="other">%d 小时</item>
+    </plurals>
+    <plurals name="admin_k_span_minutes">
+        <item quantity="one">%d 分钟</item>
+        <item quantity="other">%d 分钟</item>
+    </plurals>
+    <string name="admin_k_single_use">一次性</string>
+    <string name="admin_k_ephemeral">临时</string>
+    <string name="admin_k_preauthorized">已预先批准</string>
+
+    <!-- New auth key, new OAuth client -->
+    <string name="admin_k_create_auth_title">新建认证密钥</string>
+    <string name="admin_k_create_client_title">新建 OAuth 客户端</string>
+    <string name="admin_k_create">创建</string>
+    <string name="admin_k_desc_required">描述（必填）</string>
+    <string name="admin_k_desc_placeholder">家庭实验室服务器</string>
+    <string name="admin_k_desc_too_long">最多 %1$d 个字符。</string>
+    <string name="admin_k_desc_bad_chars">只能包含拉丁字母、数字、空格和连字符。</string>
+    <string name="admin_k_desc_missing">必须填写描述。</string>
+    <string name="admin_k_expiry">有效期</string>
+    <string name="admin_k_expiry_custom">自定义</string>
+    <string name="admin_k_expiry_days">天</string>
+    <string name="admin_k_expiry_days_range">从 1 到 %1$d。</string>
+    <string name="admin_k_tags">标签</string>
+    <string name="admin_k_tags_required">标签（必填）</string>
+    <string name="admin_k_tags_help">带标签的设备归其标签所有，而不属于任何人。这些选项是策略中定义的标签。</string>
+    <string name="admin_k_tags_scoped_help">OAuth 客户端创建的密钥必须带有它的标签（%1$s）或由这些标签拥有的标签。</string>
+    <string name="admin_k_client_tags_help">该客户端创建的设备和密钥会带有这些标签；一旦它可以写入设备或认证密钥，此项为必填。</string>
+    <string name="admin_k_tags_loading">正在读取策略中的标签…</string>
+    <string name="admin_k_tags_unreadable">无法读取策略中的标签；请在下面手动输入。%1$s</string>
+    <string name="admin_k_tags_none">策略的 tagOwners 中没有定义任何标签。</string>
+    <string name="admin_k_tags_other">其他标签</string>
+    <string name="admin_k_tags_bad">不是标签：%1$s</string>
+    <string name="admin_k_create_client_help">供脚本和集成使用的凭据：限定范围、归 tailnet 所有、永不过期。只授予它需要的范围。</string>
+    <string name="admin_k_scopes">范围</string>
+    <string name="admin_k_scope_off">关</string>
+    <string name="admin_k_scope_read">读取</string>
+    <string name="admin_k_scope_write">写入</string>
+    <string name="admin_k_scope_all">全部</string>
+    <string name="admin_k_scope_devices">设备</string>
+    <string name="admin_k_scope_routes">路由</string>
+    <string name="admin_k_scope_posture">合规属性</string>
+    <string name="admin_k_scope_device_invites">设备共享</string>
+    <string name="admin_k_scope_auth_keys">认证密钥</string>
+    <string name="admin_k_scope_oauth_keys">OAuth 客户端</string>
+    <string name="admin_k_scope_api_tokens">API 令牌</string>
+    <string name="admin_k_scope_federated">联合身份</string>
+    <string name="admin_k_scope_policy">策略文件</string>
+    <string name="admin_k_scope_users">用户</string>
+    <string name="admin_k_scope_webhooks">Webhook</string>
+    <string name="admin_k_scope_audit_logs">配置日志</string>
+    <string name="admin_k_scope_network_logs">网络流量日志</string>
+    <string name="admin_k_scope_log_streaming">日志流</string>
+    <string name="admin_k_scope_feature_settings">功能设置</string>
+    <string name="admin_k_scope_networking_settings">网络设置</string>
+    <string name="admin_k_scope_account_settings">账户设置</string>
+    <string name="admin_k_scope_services">服务</string>
+
+    <!-- Key changes, as the safety gates show them -->
+    <string name="admin_k_create_auth_effect">设备用它加入 tailnet：%1$s；它将在 %2$s 后过期。</string>
+    <string name="admin_k_warn_reusable_preauth">可重复使用且已预先批准：任何持有它的人都能在过期前不受审视地添加任意数量的设备。</string>
+    <string name="admin_k_warn_untagged">没有标签时，它添加的设备归密钥创建者所有。</string>
+    <string name="admin_k_change_client_create">创建 OAuth 客户端</string>
+    <string name="admin_k_change_client_create_effect">一个具有以下范围的新凭据。其密钥只显示一次。</string>
+    <string name="admin_k_warn_client_writes">它可以更改：%1$s。</string>
+    <string name="admin_k_warn_client_never_expires">它永不过期：在被吊销之前一直有效。</string>
+    <string name="admin_k_revoke_effect_credential">它会立即失效，所有用它登录的对象都将停止工作。</string>
+    <string name="admin_k_warn_revoke_reusable">可重复使用的密钥常存在于 CI 或置备脚本中：它们将无法再添加设备。</string>
+    <string name="admin_k_warn_revoke_client">使用此客户端的所有集成都会失去访问权限，它签发的令牌也将停止工作。</string>
+    <string name="admin_k_warn_revoke_federated">用此身份登录的工作负载（CI 任务、云服务）将失去访问权限。</string>
+    <string name="admin_k_warn_revoke_api">使用此令牌的脚本和工具将停止工作。</string>
+
+    <!-- The secret, shown once -->
+    <string name="admin_k_reveal_auth_title">新建认证密钥</string>
+    <string name="admin_k_reveal_auth_text">用它让设备登录；二维码可用另一台设备的相机扫描获取。</string>
+    <string name="admin_k_reveal_client_title">新建 OAuth 客户端</string>
+    <string name="admin_k_reveal_client_text">客户端 ID：%1$s。下方的密钥供脚本登录使用。</string>
+    <string name="admin_k_reveal_qr_description">密钥的二维码</string>
+    <string name="admin_k_reveal_qr_show">二维码</string>
+    <string name="admin_k_reveal_qr_hide">隐藏二维码</string>
+    <string name="admin_k_reveal_share">分享</string>
+
+    <!-- Users tab -->
+    <string name="admin_u_search">搜索用户</string>
+    <string name="admin_u_search_clear">清除搜索</string>
+    <string name="admin_u_filter_role">角色</string>
+    <string name="admin_u_filter_status">状态</string>
+    <string name="admin_u_filter_any">任意</string>
+    <string name="admin_u_none_match">没有匹配的用户。</string>
+    <string name="admin_u_clear_filters">清除筛选</string>
+    <string name="admin_u_online">在线</string>
+    <string name="admin_u_last_seen">最后在线 %1$s</string>
+    <string name="admin_u_type">类型</string>
+    <string name="admin_u_devices">设备</string>
+    <string name="admin_u_presence">活跃度</string>
+    <string name="admin_u_joined">加入时间</string>
+    <string name="admin_u_approve">批准</string>
+    <string name="admin_u_change_role">更改角色</string>
+    <string name="admin_u_suspend">暂停</string>
+    <string name="admin_u_restore">恢复</string>
+    <string name="admin_u_delete">删除用户</string>
+    <string name="admin_u_role_pick">%1$s 的角色</string>
+    <string name="admin_u_cannot_write">此凭据无法更改用户。</string>
+    <string name="admin_u_lock_own">这是你自己的用户：此凭据所代表的用户，或本机对应的用户。Tailscale 不允许令牌更改自己的用户；请换一个管理员账户操作。</string>
+    <string name="admin_u_lock_shared">这是其他 tailnet 的用户，此处有设备共享给了他们。其角色和状态归其自己的 tailnet 管理；要切断访问，请删除该设备的共享。</string>
+    <string name="admin_u_lock_owner">所有者只能通过在管理控制台中转让所有权来变更。</string>
+    <string name="admin_u_owner_transfer">不提供所有者选项：所有权需在管理控制台中转让。</string>
+    <string name="admin_u_open_console">打开管理控制台</string>
+
+    <string name="admin_u_role_owner_short">管理员，另加计费和 tailnet 本身</string>
+    <string name="admin_u_role_admin_short">管理控制台中的一切</string>
+    <string name="admin_u_role_network_admin_short">策略、DNS、网络设置</string>
+    <string name="admin_u_role_it_admin_short">用户和设备</string>
+    <string name="admin_u_role_billing_admin_short">计费；可读取其余内容</string>
+    <string name="admin_u_role_auditor_short">可读取一切，不可更改</string>
+    <string name="admin_u_role_member_short">仅使用 tailnet</string>
+    <string name="admin_u_role_owner_help">管理员能做的一切，另加管理计费和删除 tailnet。每个 tailnet 一个。</string>
+    <string name="admin_u_role_admin_help">管理控制台的完全访问权限：设备、用户、策略、设置和计费。</string>
+    <string name="admin_u_role_network_admin_help">管理策略文件、DNS 和网络设置；不能管理用户或计费。</string>
+    <string name="admin_u_role_it_admin_help">管理用户和设备；不能更改策略文件或网络设置。</string>
+    <string name="admin_u_role_billing_admin_help">管理计费；可读取管理控制台的其余内容。</string>
+    <string name="admin_u_role_auditor_help">可读取整个管理控制台（包括日志）；不做任何更改。</string>
+    <string name="admin_u_role_member_help">使用 tailnet；无管理控制台访问权限。</string>
+    <string name="admin_u_role_unknown_help">此应用不认识的角色。</string>
+    <string name="admin_u_status_active_help">最近 28 天内有活动。</string>
+    <string name="admin_u_status_idle_help">超过 28 天无活动。</string>
+    <string name="admin_u_status_suspended_help">在恢复之前无法访问 tailnet。</string>
+    <string name="admin_u_status_needs_approval_help">管理员批准后才能加入 tailnet。</string>
+    <string name="admin_u_status_over_billing_limit_help">提高套餐的用户数上限后才能加入。</string>
+    <string name="admin_u_status_unknown_help">此应用不认识的状态。</string>
+
+    <!-- User changes, as the safety gates show them -->
+    <string name="admin_u_change_role_effect">%1$s：%2$s</string>
+    <string name="admin_u_warn_role_up">这会赋予管理控制台的管理员权限。</string>
+    <string name="admin_u_warn_role_down">这会收回其管理员权限。</string>
+    <plurals name="admin_u_warn_suspend_devices">
+        <item quantity="one">其 %d 台设备会随之失去访问权限。</item>
+        <item quantity="other">其 %d 台设备会随之失去访问权限。</item>
+    </plurals>
+    <plurals name="admin_u_warn_delete_devices">
+        <item quantity="one">其 %d 台设备会随之被移除。</item>
+        <item quantity="other">其 %d 台设备会随之被移除。</item>
+    </plurals>
+
+    <!-- Invites to the tailnet -->
+    <string name="admin_u_invites">邀请</string>
+    <plurals name="admin_u_invites_open">
+        <item quantity="one">%d 个待接受</item>
+        <item quantity="other">%d 个待接受</item>
+    </plurals>
+    <string name="admin_u_invites_unavailable">不可用</string>
+    <string name="admin_u_invites_loading">正在加载…</string>
+    <string name="admin_u_invites_title">tailnet 邀请</string>
+    <string name="admin_u_invites_help">接受邀请的人将以对应角色加入 tailnet。已接受的邀请会离开此列表；此人会出现在用户中。</string>
+    <string name="admin_u_invites_need_token">邀请需要个人 API 令牌：Tailscale 只允许用户自己的密钥邀请他人或共享设备，OAuth 客户端不行。</string>
+    <string name="admin_u_invites_none">没有待接受的邀请。</string>
+    <string name="admin_u_invite_new">邀请他人</string>
+    <string name="admin_u_invite_create">创建邀请</string>
+    <string name="admin_u_invite_email">邮箱（可选）</string>
+    <string name="admin_u_invite_email_help">不填邮箱则会得到一个链接，由你自行转交。</string>
+    <string name="admin_u_invite_email_bad">这看起来不是邮箱地址。</string>
+    <string name="admin_u_invite_link">邀请链接</string>
+    <string name="admin_u_invite_link_only">链接邀请 %1$s</string>
+    <string name="admin_u_invite_sent">已发送邮件至 %1$s</string>
+    <string name="admin_u_copy_link">复制链接</string>
+    <string name="admin_u_resend">重新发送</string>
+    <string name="admin_u_invite_delete">删除</string>
+    <string name="admin_u_reveal_invite_title">邀请链接</string>
+    <string name="admin_u_reveal_invite_text">任何打开此链接的人都将以邀请对应的角色加入 tailnet。只把它交给你要邀请的人。</string>
+    <string name="admin_u_change_invite_create">邀请加入 tailnet</string>
+    <string name="admin_u_change_invite_email_effect">邀请将发送至 %1$s；接受后将以 %2$s 身份加入。</string>
+    <string name="admin_u_change_invite_link_effect">你会得到一个链接；打开它的人将以 %1$s 身份加入。</string>
+    <string name="admin_u_warn_invite_role">接受者将获得管理控制台中 %1$s 的角色。</string>
+    <string name="admin_u_warn_invite_link">任何持有链接的人都可以接受。</string>
+    <string name="admin_u_change_invite_resend">重新发送邀请给 %1$s</string>
+    <string name="admin_u_change_invite_resend_effect">邮件将再次发送；Tailscale 允许每分钟一次。</string>
+    <string name="admin_u_change_invite_delete">删除给 %1$s 的邀请</string>
+    <string name="admin_u_change_invite_delete_effect">邀请及其链接将失效；此后无人能用它加入。</string>
+
+    <!-- Device shares -->
+    <string name="admin_u_share_device">共享设备</string>
+    <string name="admin_u_share_device_sub">分享给外部人员</string>
+    <string name="admin_u_share_pick">共享哪台设备</string>
+    <string name="admin_u_share_title">共享 %1$s</string>
+    <string name="admin_u_share_help">共享让来自其他 tailnet 的人只能访问这一台设备，别无其他。每个邀请可以是邮件或链接。</string>
+    <string name="admin_u_share_none">未共享给任何人。</string>
+    <string name="admin_u_share_new">新建共享邀请</string>
+    <string name="admin_u_share_create">创建邀请</string>
+    <string name="admin_u_share_email_help">不填邮箱则会得到一个链接，由你自行转交。</string>
+    <string name="admin_u_share_multi">多次使用</string>
+    <string name="admin_u_share_multi_help">该链接最多可被接受 1,000 次，而非一次。</string>
+    <string name="admin_u_share_exit">允许作为出口节点</string>
+    <string name="admin_u_share_exit_help">当设备自荐为出口节点时，他们可以将自己的流量经由该设备转发。</string>
+    <string name="admin_u_share_accepted">已接受</string>
+    <string name="admin_u_share_pending">尚未接受</string>
+    <string name="admin_u_share_created">创建于 %1$s</string>
+    <string name="admin_u_share_delete">删除</string>
+    <string name="admin_u_reveal_share_title">%1$s 的共享链接</string>
+    <string name="admin_u_reveal_share_text">任何打开此链接的人都会在自己的 tailnet 中获得该设备。只把它交给你要共享的人。</string>
+    <string name="admin_u_change_share_create">共享 %1$s</string>
+    <string name="admin_u_change_share_email_effect">该设备的邀请将发送至 %1$s。</string>
+    <string name="admin_u_change_share_link_effect">你会得到一个指向该设备的链接，可自行转交。</string>
+    <string name="admin_u_warn_share_multi">任何持有链接的人都可以接受它，最多 1,000 次。</string>
+    <string name="admin_u_warn_share_exit">他们可以将该设备用作出口节点。</string>
+    <string name="admin_u_change_share_delete">删除 %1$s 的共享</string>
+    <string name="admin_u_change_share_delete_effect">邀请及其链接将失效。</string>
+    <string name="admin_u_warn_share_accepted">%1$s 已接受：删除后他们可能失去对该设备的访问。</string>
+</resources>

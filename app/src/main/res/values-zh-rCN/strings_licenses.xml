@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Open-source licenses (ui/LicensesActivity.kt), from About. -->
+<resources>
+    <string name="licenses_title">开源许可</string>
+    <string name="licenses_count">%d 个组件</string>
+    <string name="licenses_help">TailSocks 基于此处列出的开源软件构建，各软件均遵循自己的许可协议。点按组件可查看完整许可文本和项目页面。</string>
+    <string name="licenses_section_app">本应用</string>
+    <string name="licenses_section_go">Go 核心：tailscaled、CLI 与桥接层</string>
+    <string name="licenses_section_android">Android 库</string>
+    <string name="licenses_section_native">原生库</string>
+    <string name="licenses_section_other">随上述组件一同捆绑</string>
+    <string name="licenses_parts">%d 个库</string>
+    <string name="licenses_includes">包含</string>
+    <string name="licenses_open_page">项目页面</string>
+    <string name="licenses_load_failed">无法读取许可列表。</string>
+</resources>

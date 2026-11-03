@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's frame: the switch between the views, undo, the page navigation,
+     the states of the whole editor, and the Network page. -->
+<resources>
+    <!-- The views. -->
+    <string name="admin_pv_shell_to_json">以 JSON 编辑</string>
+    <string name="admin_pv_shell_to_visual">可视化编辑</string>
+    <string name="admin_pv_shell_undo">撤销</string>
+    <string name="admin_pv_shell_redo">重做</string>
+    <string name="admin_pv_shell_edit_json">编辑 JSON</string>
+    <string name="admin_pv_shell_edit_visual">可视化编辑</string>
+    <string name="admin_pv_shell_view_rules">查看规则</string>
+    <string name="admin_pv_shell_view_title">策略规则</string>
+    <string name="admin_pv_shell_refused">无法在此处完成此更改。请在 JSON 中编辑。</string>
+
+    <!-- The whole editor's states. -->
+    <string name="admin_pv_shell_unparsable_title">文件无法按策略解析</string>
+    <string name="admin_pv_shell_unparsable_text">各页面需要文件可解析。在 JSON 中修复后即可恢复。</string>
+    <string name="admin_pv_shell_open_json_at">在 JSON 中打开第 %1$d 行</string>
+    <string name="admin_pv_shell_undo_last">撤销上一次更改</string>
+    <string name="admin_pv_shell_duplicate_title">写了两次：%1$s</string>
+    <string name="admin_pv_shell_duplicate_text">只有最后一份生效，因此在此编辑可能会改错位置。在 JSON 中修复之前，各页面仅展示策略。</string>
+    <string name="admin_pv_shell_refusal_title">服务器拒绝了此策略</string>
+    <plurals name="admin_pv_shell_refusal_places">
+        <item quantity="one">已在 %d 张卡片上标记</item>
+        <item quantity="other">已在 %d 张卡片上标记</item>
+    </plurals>
+    <string name="admin_pv_shell_refusal_unplaced">该信息没有指向此处的任何规则。</string>
+    <string name="admin_pv_shell_refusal_stale">此后已被编辑。请重新审视以确认。</string>
+    <string name="admin_pv_shell_show_one">显示</string>
+    <string name="admin_pv_shell_refusal_prev">上一张卡片</string>
+    <string name="admin_pv_shell_refusal_next">下一张卡片</string>
+
+    <!-- The page rail's short names, where a name stands under its icon. -->
+    <string name="admin_pv_shell_short_approvers">批准</string>
+    <string name="admin_pv_shell_short_hosts">主机</string>
+    <string name="admin_pv_shell_short_attributes">属性</string>
+    <string name="admin_pv_shell_short_posture">合规</string>
+    <string name="admin_pv_shell_short_network">网络</string>
+
+    <!-- What a page's mark in the rail says to a screen reader. -->
+    <string name="admin_pv_shell_mark_error">服务器拒绝</string>
+    <string name="admin_pv_shell_mark_risk">新增风险</string>
+
+    <!-- An element, named in the review's "Show" buttons. -->
+    <string name="admin_pv_shell_el_acl">访问规则 %1$d</string>
+    <string name="admin_pv_shell_el_grant">授权 %1$d</string>
+    <string name="admin_pv_shell_el_ssh">SSH 规则 %1$d</string>
+    <string name="admin_pv_shell_el_attr">属性规则 %1$d</string>
+    <string name="admin_pv_shell_el_test">测试 %1$d</string>
+    <string name="admin_pv_shell_el_ssh_test">SSH 测试 %1$d</string>
+    <string name="admin_pv_shell_show">显示：%1$s</string>
+
+    <!-- The Network page. -->
+    <string name="admin_pv_net_options">连接选项</string>
+    <string name="admin_pv_net_random_port">随机客户端端口</string>
+    <string name="admin_pv_net_random_port_help">设备使用随机 UDP 端口而非 41641，某些防火墙需要如此。设备属性 randomize-client-port 可只对选定的设备实现同样效果。</string>
+    <string name="admin_pv_net_no_ipv4">不分配 IPv4 地址</string>
+    <string name="admin_pv_net_no_ipv4_help">设备只获得 IPv6 tailnet 地址，没有 100.x 地址。设备属性 disable-ipv4 可对选定设备实现，且是现在推荐的做法。</string>
+    <string name="admin_pv_net_cgnat">Mac 上到 tailnet 的路由</string>
+    <string name="admin_pv_net_cgnat_help">Mac 如何路由 100.64.0.0/10。自动：为整个网段添加一条路由，除非 Mac 上另有网络使用它。</string>
+    <string name="admin_pv_net_cgnat_auto">自动</string>
+    <string name="admin_pv_net_cgnat_always">整个网段一条路由</string>
+    <string name="admin_pv_net_cgnat_never">每台设备一条路由</string>
+    <string name="admin_pv_net_cgnat_other">按原文：%1$s</string>
+    <string name="admin_pv_net_odd_value">写入了此页面无法识别的值。</string>
+    <string name="admin_pv_net_other">其他部分</string>
+    <string name="admin_pv_net_other_help">完全按原文保留。可视化编辑器不会改动它们。</string>
+    <string name="admin_pv_net_line">第 %1$d 行</string>
+    <plurals name="admin_pv_net_fields">
+        <item quantity="one">%d 个字段</item>
+        <item quantity="other">%d 个字段</item>
+    </plurals>
+    <plurals name="admin_pv_net_items">
+        <item quantity="one">%d 项</item>
+        <item quantity="other">%d 项</item>
+    </plurals>
+</resources>

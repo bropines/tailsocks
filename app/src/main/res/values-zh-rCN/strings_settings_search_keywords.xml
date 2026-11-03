@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Settings search: the words people type to find a setting, one string per setting
+        (search_kw_<id>, the ids of ui/SettingsCatalog.kt).
+
+        For translators: this is a list, not a sentence. Separate the entries with commas; an
+        entry may be several words ("kill switch"). Write what a person would type in your
+        language when looking for the setting: other names for it, abbreviations, slang, the
+        problem it solves, typical values. Words of the setting's own title need not be
+        repeated, the order does not matter, and more is better. English and Russian are always
+        searched as well, whatever the language of the interface.
+    -->
+
+    <!-- The little words of a question, which a query is understood without: "how do I change the port" is "port". -->
+    <string name="search_stop_words">怎么, 如何, 怎样, 我, 的, 可以, 能否, 能不能, 能, 是不是, 吗, 呢, 在, 在哪, 哪里, 什么, 为什么, 帮我, 想要, 需要, 请, 修改, 更改, 设置, 配置, 启用, 禁用, 打开, 关闭, 切换, 用, 找, 获取, 选项</string>
+
+    <!-- The sections -->
+    <string name="search_kw_appearance">外观, 设计, 样式, 界面, 视觉, 自定义, 个性化, ui</string>
+    <string name="search_kw_account">个人资料, 登录, 节点, 连接, 账号设置, 账户</string>
+    <string name="search_kw_tunnel">vpn, tun, 连接模式, 如何连接, 流量走向, 整台设备, 所有应用, 全局</string>
+    <string name="search_kw_proxies">socks, socks5, http 代理, 本地代理, 监听, 127.0.0.1, localhost, 回环, nekobox, v2ray, sing-box, 应用代理</string>
+    <string name="search_kw_dns">解析, 解析器, 域名服务器, 域名解析, 域名, 分流 dns, 100.100.100.100</string>
+    <string name="search_kw_bypass">审查, 封锁, 屏蔽, 反审查, 突破封锁, 防火墙, 受限网络, 无法连接, 无法登录, rkn, 防火长城, 白名单</string>
+    <string name="search_kw_sharing">文件, 发送文件, 接收文件, 共享, 发布, 暴露服务</string>
+    <string name="search_kw_background">后台, 保活, 后台被杀, 保持连接, 掉线, 断开</string>
+    <string name="search_kw_backup">保存设置, 换新手机, 迁移, 复制设置, 加密压缩包, 备份</string>
+    <string name="search_kw_automation">自动化, intent, 广播, 脚本, 外部控制, api</string>
+    <string name="search_kw_diagnostics">调试, 排查, 错误报告, 问题, 不工作, 开发者选项, 诊断</string>
+    <string name="search_kw_advanced">实验性, 测试版, 实验室, 更多, 高级</string>
+
+    <!-- Appearance & language -->
+    <string name="search_kw_theme">深色模式, 浅色模式, 夜间模式, 深色主题, 浅色主题, 跟随系统, 白天, 夜晚</string>
+    <string name="search_kw_language">语言, 区域, english, russian, 翻译, 更改语言, русский, язык, 中文</string>
+    <string name="search_kw_ui_scale">字体大小, 文字大小, 缩放, 更大, 更小, 大字体, 密度, 显示大小</string>
+    <string name="search_kw_interface">电视模式, 电视, android tv, 平板模式, 手机模式, 遥控器, leanback, 电视界面, 设备类型</string>
+    <string name="search_kw_palette">颜色, 主题色, 强调色, 预设, 翡翠, 薰衣草, 蓝宝石, 琥珀, 单色, 东京夜, 配色</string>
+    <string name="search_kw_app_icon">启动器图标, 图标, logo, 更改图标, 桌面图标</string>
+    <string name="search_kw_qr_style">二维码, qr, 二维码样式, 圆点, 圆角, 方块</string>
+    <string name="search_kw_dynamic_color">material you, monet, 壁纸取色, 系统颜色, 动态主题, 动态色彩</string>
+    <string name="search_kw_amoled">amoled, oled, 纯黑, 真黑, 黑色主题, 黑色背景</string>
+    <string name="search_kw_show_changelog">更新日志, 新功能, 发行说明, 更新说明, 新闻</string>
+    <string name="search_kw_managed_on_main">主界面, 主屏幕, 远程管理, 托管设备, 胶囊标签, 隐藏, 电视, tv</string>
+    <string name="search_kw_connection_summary">主界面, 主屏幕, 状态卡片, 概览, 在线设备, 紧凑</string>
+    <string name="search_kw_update_check">更新, 升级, 新版本, github 发布, 自动更新</string>
+
+    <!-- Account & connection -->
+    <string name="search_kw_login_server">headscale, 控制服务器, 协调服务器, 自定义服务器, 自建, 登录网址, 服务器地址, ionscale</string>
+    <string name="search_kw_auth_key">密钥, 认证密钥, 预认证密钥, 预授权密钥, tskey, 登录密钥, 令牌, 免浏览器注册</string>
+    <string name="search_kw_device_name">主机名, 名称, 重命名, 机器名, 节点名, 设备名</string>
+    <string name="search_kw_exit_node">vpn 服务器, vpn 国家, 位置, 路由互联网, 更换 ip, 隐藏 ip, mullvad, 出口节点</string>
+    <string name="search_kw_exit_node_lan">本地网络, 局域网, 打印机, nas, 路由器, chromecast, 出口节点下的本地设备</string>
+    <string name="search_kw_accept_routes">子网, 接受路由, 子网路由器, 访问节点后的局域网, 路由</string>
+    <string name="search_kw_advertise_exit_node">作为出口节点, 共享互联网, 通告出口节点, 手机当 vpn 服务器, 充当出口节点</string>
+    <string name="search_kw_honest_hostinfo">os, android, linux, 设备型号, hostinfo, 伪装, 假装 linux, 管理端显示 linux</string>
+    <string name="search_kw_shields_up">shields up, 防火墙, 阻止入站, 入站, 隐私</string>
+    <string name="search_kw_posture">合规, 合规状态, 序列号, 组织检查, 设备检查, posture</string>
+    <string name="search_kw_tailnet_lock">tka, 节点签名, 签名密钥, 受信任密钥, 锁定, 节点密钥</string>
+    <string name="search_kw_advertise_routes">子网路由器, 共享局域网, 暴露子网, cidr, 192.168, 通告路由</string>
+    <string name="search_kw_advertise_tags">标签, acl 标签, tag:, 访问控制</string>
+    <string name="search_kw_relay">对等中继, 中继服务器, udp 中继, 中继流量, derp 替代</string>
+    <string name="search_kw_relay_port">中继端口, udp 端口, 端口转发, 固定端口</string>
+    <string name="search_kw_app_connector">连接器, saas, 域名路由, 应用连接器</string>
+    <string name="search_kw_ssh">ssh, shell, 终端, 远程 shell, sftp, scp, root shell, adb shell</string>
+    <string name="search_kw_logout">退出登录, 注销, 登出, 重置, 删除账号, 忘记, 删除节点密钥, 重新登录</string>
+
+    <!-- Tunnel mode -->
+    <string name="search_kw_mode_proxy">代理模式, socks 模式, 不用 vpn, 无需 vpn 权限, 用户态, 按应用代理, 与其他 vpn 共存, adguard</string>
+    <string name="search_kw_mode_vpn">vpn, tun, vpn 模式, 整台设备, 所有应用, 系统 vpn, vpnservice, 断网保护, kill switch, 始终开启, 无 vpn 时阻止连接, 钥匙图标</string>
+    <string name="search_kw_mode_root">root, su, magisk, kernelsu, apatch, 已 root, 超级用户, tailscale0, 内核接口</string>
+    <string name="search_kw_tun_engine">引擎, 原生 tun, hev, hev-socks5-tunnel, tun2socks, 兼容性</string>
+    <string name="search_kw_tun_uses_socks">hev 代理, tun 用 socks5, tun 的 socks 端口</string>
+    <string name="search_kw_tun_transparent">透明代理, 锁定, 无 vpn 时连接, 断网保护, 全部流量, 无网络, 全流量隧道</string>
+    <string name="search_kw_tun_swap">切换, 原地, 重启, 重连, 切换出口节点, 重建隧道</string>
+    <string name="search_kw_tun_ipv6">ipv6, v6, ipv6 泄漏, 路由 ipv6</string>
+    <string name="search_kw_tun_address">tun 地址, 接口地址, 网关, 10.0.0.1, tun ip</string>
+    <string name="search_kw_tun_excluded_cidrs">排除 ip, 绕过子网, 分流, cidr, 局域网直连, 排除网络</string>
+    <string name="search_kw_tun_excluded_apps">按应用, 分流, 绕过应用, 应用例外, vpn 外的应用, 银行应用, 白名单</string>
+    <string name="search_kw_root_tun">原生 tun, tailscale0, 内核 tun, linux 接口</string>
+    <string name="search_kw_root_service">开机脚本, service.d, magisk 服务, kernelsu, 开机启动, 系统服务, 重装脚本</string>
+    <string name="search_kw_root_cli">cli, tailscale 命令, termux, 命令行, shell, 终端</string>
+    <string name="search_kw_root_vpn_bypass">其他 vpn, 共存, fwmark, vpn 冲突, 保护套接字</string>
+    <string name="search_kw_root_take_device">覆盖其他 vpn, 默认路由, 强制路由, 优先级</string>
+    <string name="search_kw_root_kill_daemon">杀掉守护进程, 停止守护进程, sigterm, tailscaled 进程</string>
+
+    <!-- Local proxies -->
+    <string name="search_kw_socks5_address">端口, socks 端口, 监听地址, 绑定, 127.0.0.1, 48115, 更改端口, 代理地址</string>
+    <string name="search_kw_socks5_username">登录, 用户名, 代理认证, 身份验证, 凭据</string>
+    <string name="search_kw_socks5_password">密码, 代理认证, 身份验证, 口令</string>
+    <string name="search_kw_sagernet_link">nekobox, 分享链接, socks 链接, 复制链接, socks5 链接, v2rayng, 导入代理</string>
+    <string name="search_kw_http_enable">http 代理, https 代理, connect 代理, 浏览器代理, wi-fi 代理</string>
+    <string name="search_kw_http_address">http 端口, 8080, 端口, 监听地址</string>
+    <string name="search_kw_lan_access">局域网, wi-fi, 热点, 共享代理, 网络共享, 0.0.0.0, 其他设备, 给电视用的代理</string>
+
+    <!-- DNS -->
+    <string name="search_kw_magicdns">接受 dns, tailnet 名称, 短名称, ts.net, 主机名</string>
+    <string name="search_kw_dns_proxy_address">dns 端口, 1053, 本地 dns, dns 监听, 私人 dns, adguard 上游</string>
+    <string name="search_kw_root_dns_redirect">系统 dns, 全局 dns, dns 重定向, iptables, 所有应用用 magicdns</string>
+    <string name="search_kw_dns_fallbacks">备用 dns, 8.8.8.8, 1.1.1.1, 上游 dns, 后备 dns, google dns, cloudflare</string>
+    <string name="search_kw_doh_fallback">doh, dns over https, 加密 dns, 安全 dns</string>
+    <string name="search_kw_dns_screen">dns 状态, 解析服务器, 查询, nslookup, dig, 测试域名, dns 记录, 搜索域</string>
+
+    <!-- Censorship bypass -->
+    <string name="search_kw_control_proxy">登录代理, 上游代理, tailscale 代理, 无法登录, 协调服务器被封, 预设, 导入代理链接, 主机, 端口, 用户名, 密码</string>
+    <string name="search_kw_byedpi">byedpi, dpi, 绕过 dpi, desync, goodbyedpi, zapret, 反 dpi, sni, rkn</string>
+    <string name="search_kw_byedpi_flags">参数, desync 选项, 策略, 分片, 伪造, disorder</string>
+    <string name="search_kw_byedpi_ipv6">仅 ipv4, v6, 握手失败, byedpi 不用 ipv6</string>
+    <string name="search_kw_control_port">80 端口, 仅 https, tls, 控制连接, http 被封, 防火墙</string>
+    <string name="search_kw_netmap_cache">离线启动, 网络图缓存, 无服务器启动, 缓存网络图, 控制服务器不可达, 离线可用</string>
+    <string name="search_kw_netmap_cache_clear">删除缓存, 重置网络图, 清除缓存</string>
+
+    <!-- Sharing & access -->
+    <string name="search_kw_taildrop_folder">下载文件夹, 收到的文件, 保存位置, 文件去向, 下载, 接收文件夹</string>
+    <string name="search_kw_taildrive">共享文件夹, 分享文件夹, webdav, 网络驱动器, 文件共享</string>
+    <string name="search_kw_serve">发布, 开放端口, 反向代理, https 证书, 公网网址, web 服务器, 隧道到本机, ngrok</string>
+    <string name="search_kw_web_ui">web 界面, tailscale 网页, 浏览器管理, 8080, web 客户端</string>
+    <string name="search_kw_web_ui_address">web ui 端口, 127.0.0.1:8080, 监听地址, 端口</string>
+
+    <!-- Background & permissions -->
+    <string name="search_kw_permissions">电池优化, 电池, 通知, 所有文件访问, 闹钟, 不受限制, 后台限制</string>
+    <string name="search_kw_autostart">自启动, 开机, 开机启动, 开机自启, 重启后</string>
+    <string name="search_kw_hide_recents">从最近任务隐藏, 最近任务, 最近应用, 概览, 任务列表, 隐藏应用, 多任务</string>
+    <string name="search_kw_auto_reconnect">重连, 连接中断, 重启守护进程, 老是断线, 恢复</string>
+    <string name="search_kw_auto_reconnect_attempts">尝试次数, 重试, 重试次数, 重启次数上限</string>
+    <string name="search_kw_watchdog">看门狗, 服务被杀, 重启服务, 闹钟, 后台查杀, xiaomi, miui, 总被杀</string>
+    <string name="search_kw_keep_awake">电池, 唤醒锁, wakelock, 深度睡眠, doze, 待机, 耗电, 熄屏</string>
+
+    <!-- Backup & restore -->
+    <string name="search_kw_backup_full">备份, 保存全部, 所有账号, 压缩包, 密码</string>
+    <string name="search_kw_restore_full">恢复, 导入备份, 还原, 新手机</string>
+    <string name="search_kw_profile_export">导出, json, 保存配置, 分享设置, 导出设置</string>
+    <string name="search_kw_profile_import">导入, json, 加载配置, 导入设置</string>
+
+    <!-- Automation & API -->
+    <string name="search_kw_automation_enable">tasker, macrodroid, automate, 广播 intent, adb, 外部控制, 快捷方式, 脚本</string>
+    <string name="search_kw_automation_token">令牌, 密钥, 自动化密码, 生成令牌, 复制令牌</string>
+    <string name="search_kw_admin_console">管理面板, api 密钥, oauth, 管理设备, acl, tailnet 管理, 访问令牌</string>
+
+    <!-- Diagnostics & developer -->
+    <string name="search_kw_live_state">状态, 健康, 连接状态, 哪里有问题, socks5 检查, 守护进程状态, 现在</string>
+    <string name="search_kw_detailed_logs">详细, 调试日志, 详细日志, 日志级别, 更多日志</string>
+    <string name="search_kw_extra_args">参数, tailscale up, 命令行参数, 自定义参数, 高级选项, 额外参数</string>
+    <string name="search_kw_root_daemon_info">套接字路径, 日志文件, 服务脚本路径, 守护进程状态, 检查路由, ip rule, iptables, 路径</string>
+    <string name="search_kw_logs">日志, 记录, logcat, 导出日志, 分享日志, 错误</string>
+    <string name="search_kw_console">终端, 命令, cli, tailscale status, tailscale ping, shell</string>
+    <string name="search_kw_netcheck">netcheck, 网络检查, derp, 延迟, ping, nat 类型, udp, 中继区域, 连通性</string>
+    <string name="search_kw_show_onboarding">欢迎, 教程, 设置向导, 介绍, 首次启动</string>
+
+    <!-- Advanced -->
+    <string name="search_kw_remote_management">远程控制, 从其他设备管理, 配对, 配对码, 用手机控制电视, 完全控制, 网络访问文件</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_hide_recents_title">从最近任务中隐藏</string>
+    <string name="settings_hide_recents_desc">TailSocks 不再出现在最近应用列表中；可从图标或通知打开它。连接会保持运行。</string>
+</resources>

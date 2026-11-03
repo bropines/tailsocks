@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The link MTU finding on the network check. Kept apart from strings.xml so work
+     on it does not collide with edits there; Android merges every file in values/. -->
+<resources>
+    <string name="netcheck_mtu_small">此网络的 MTU 为 %1$d。直连需要 %2$d：大包可能丢失，中继流量不受影响。</string>
+    <string name="netcheck_mtu_help">Tailscale 用 WireGuard 封装每个数据包，最多增加 80 字节。当网络无法一次承载这样的包时，分片常被丢弃：小请求正常，直连路径上的大响应却始终到不了，而中继流量不受影响。该设置属于网络或主机，而不属于应用：同一台电脑上的其他 VPN、虚拟机的网卡。把接口的 MTU 提高到 1500 即可解决。</string>
+    <string name="netcheck_report_mtu_small">链路 MTU：⚠️ %2$s 上为 %1$d（直连需要 %3$d）\n</string>
+</resources>

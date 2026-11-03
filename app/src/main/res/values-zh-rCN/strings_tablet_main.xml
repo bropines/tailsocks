@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home screen's dashboard on a large window (ui/MainDashboard.kt). -->
+<resources>
+    <!-- The devices card: its way to the Peers screen -->
+    <string name="tablet_main_peers_all">所有设备</string>
+    <!-- The devices card while the service is up and the tailnet's list has not come yet -->
+    <string name="tablet_main_peers_waiting">正在等待设备列表…</string>
+    <!-- The devices card while the service is stopped, signed out or cut off -->
+    <string name="tablet_main_peers_offline">连接后，你的设备会显示在这里</string>
+    <!-- The devices card on a tailnet with no device but this one -->
+    <string name="tablet_main_peers_none">此 tailnet 上还没有其他设备</string>
+</resources>

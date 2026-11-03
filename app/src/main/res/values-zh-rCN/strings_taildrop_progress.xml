@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Files being received over Taildrop: the Incoming cards at the top of the inbox and the
+  progress notification. A file of its own so it lands without touching strings.xml.
+-->
+<resources>
+    <!-- Notification channel of the progress notification. -->
+    <string name="taildrop_progress_channel">Taildrop 传输</string>
+    <!-- Title of the progress notification while more than one file arrives. -->
+    <plurals name="taildrop_progress_receiving_files">
+        <item quantity="other">正在接收 %d 个文件</item>
+    </plurals>
+    <!-- "45.2 MB of 104.9 MB" -->
+    <string name="taildrop_progress_of_format">%1$s / %2$s</string>
+    <string name="taildrop_progress_left_seconds">剩余 %1$d 秒</string>
+    <string name="taildrop_progress_left_minutes">剩余 %1$d 分钟</string>
+    <string name="taildrop_progress_left_hours">剩余 %1$d 小时 %2$d 分</string>
+    <!-- Nothing has arrived for a few seconds. -->
+    <string name="taildrop_progress_stalled">正在等待数据</string>
+    <!-- Every byte is in; the file is being closed and put in place. -->
+    <string name="taildrop_progress_finishing">正在收尾…</string>
+    <!-- Received, and being copied into the default folder. -->
+    <string name="taildrop_progress_saving">正在保存到文件夹…</string>
+    <string name="taildrop_progress_interrupted">已中断</string>
+    <!-- Notification left when a transfer stopped before the end. -->
+    <string name="taildrop_progress_interrupted_title">接收已中断</string>
+    <plurals name="taildrop_progress_files">
+        <item quantity="other">%d 个文件</item>
+    </plurals>
+</resources>
