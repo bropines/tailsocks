@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Settings where a device is not offered everything in its usual place (core/DeviceProfile.kt):
+  the Advanced page a television's settings end with, saving and reading backups through the
+  app's own file browser, and Tailnet Lock on a device that cannot sign.
+-->
+<resources>
+    <!-- Settings → Advanced: the hub's last row, and the page behind it. -->
+    <string name="tv_settings_advanced">高级</string>
+    <string name="tv_settings_advanced_desc">主题、Root 模式、备份、诊断、日志、终端、DNS、Serve</string>
+    <string name="tv_settings_more">更多设置</string>
+    <string name="tv_settings_theme">主题与图标</string>
+    <string name="tv_settings_theme_desc">浅色或深色、配色方案、应用图标</string>
+    <string name="tv_settings_root">Root 模式</string>
+    <string name="tv_settings_root_desc">适用于已 root 的设备：守护进程通过 su 运行，VPN 槽位保持空闲</string>
+
+    <!-- Backups without the system\'s file picker. -->
+    <string name="tv_settings_backup_save_title">备份保存位置</string>
+    <string name="tv_settings_backup_save_here">保存到这里</string>
+    <string name="tv_settings_backup_pick_title">选择备份文件</string>
+
+    <!-- Tailnet Lock on a device that cannot confirm a signature. -->
+    <string name="tka_waiting_other_device">确认签名需要屏幕锁，而电视没有屏幕锁。请用持有受信任密钥的手机或电脑为这些节点签名。</string>
+    <string name="tka_key_help_show">本设备在 Tailnet Lock 中的密钥。按 OK 键将其显示为二维码，供手机摄像头扫描。</string>
+    <string name="tka_sign_me_help_show">在持有受信任密钥的设备上运行它，即可让本设备加入。按 OK 键将其显示为二维码，供手机摄像头扫描。</string>
+</resources>

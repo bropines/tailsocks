@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_update_in_console">在 Tailscale 管理控制台中更新</string>
+    <string name="admin_update_action">更新</string>
+    <string name="admin_update_help">Tailscale 的 API 无法更新客户端。此操作会在网页版管理控制台中打开该机器，登录状态与浏览器一致：当机器开启自动更新、在线且不是 Mac 时，那里才会显示「开始更新」按钮。</string>
+</resources>

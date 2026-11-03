@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's Relays page: Tailscale's DERP regions, excluded or used through the policy's derpMap. -->
+    <string name="admin_pv_derp_page">中继</string>
+    <!-- Under the icon in the narrow page rail, about 80dp. -->
+    <string name="admin_pv_derp_page_short">中继</string>
+    <string name="admin_pv_derp_title">中继服务器（DERP）</string>
+    <string name="admin_pv_derp_help">中继为位于严格 NAT 或防火墙之后、无法直连的设备转发流量，并帮助它们找到直连路径。排除某个区域只影响经由中继的连接：以它为归属中继的设备会转移到剩下的最近中继。延迟是设备最近上报值的中位数。</string>
+    <string name="admin_pv_derp_in_use">正在使用的 Tailscale 区域：%2$d 中的 %1$d 个</string>
+    <string name="admin_pv_derp_loading">正在加载 Tailscale 的中继列表…</string>
+    <string name="admin_pv_derp_failed_hint">没有 Tailscale 的列表时，只显示文件中已排除的区域。</string>
+    <string name="admin_pv_derp_none_left">已无中继可用：无法直连的设备将彼此无法访问。</string>
+    <string name="admin_pv_derp_omit">OmitDefaultRegions 已开启：不使用 Tailscale 的任何区域，只用文件中定义的区域。</string>
+    <string name="admin_pv_derp_headscale">Headscale 的中继映射来自其自身配置（config.yaml 的 derp 部分），而非策略。此处显示文件中的内容；请在 JSON 中编辑。</string>
+    <string name="admin_pv_derp_lock_spelling">中继映射写成了「%1$s」。服务器能读取，但编辑器不处理，请在 JSON 中编辑。</string>
+    <string name="admin_pv_derp_lock_shape">中继映射不是以区域对象的形式编写的。请在 JSON 中编辑。</string>
+    <string name="admin_pv_derp_lock_twice">Regions 或某个区域编号写了两次；只有最后一份生效。请在 JSON 中编辑。</string>
+
+    <string name="admin_pv_derp_group_home">你设备的归属中继</string>
+    <string name="admin_pv_derp_group_other">其他区域</string>
+    <string name="admin_pv_derp_group_all">Tailscale 区域</string>
+    <string name="admin_pv_derp_group_file">文件中已排除</string>
+    <string name="admin_pv_derp_group_own">文件中定义的区域</string>
+
+    <string name="admin_pv_derp_region">区域 %1$s</string>
+    <plurals name="admin_pv_derp_servers">
+        <item quantity="one">%d&#160;台服务器</item>
+        <item quantity="other">%d&#160;台服务器</item>
+    </plurals>
+    <plurals name="admin_pv_derp_home">
+        <item quantity="one">%d 台设备的归属中继</item>
+        <item quantity="other">%d 台设备的归属中继</item>
+    </plurals>
+    <string name="admin_pv_derp_latency">%1$d&#160;ms</string>
+    <plurals name="admin_pv_derp_latency_desc">
+        <item quantity="one">延迟中位数 %1$d ms，来自 %2$d 台设备</item>
+        <item quantity="other">延迟中位数 %1$d ms，来自 %2$d 台设备</item>
+    </plurals>
+    <string name="admin_pv_derp_used">使用中</string>
+    <string name="admin_pv_derp_excluded">已排除</string>
+    <string name="admin_pv_derp_replaced">已被文件中的区域取代</string>
+    <string name="admin_pv_derp_unknown">不在 Tailscale 当前列表中</string>
+    <string name="admin_pv_derp_last">仅剩的最后一个中继；无法排除</string>
+    <string name="admin_pv_derp_odd_entry">未按区域格式编写；见 JSON</string>
+
+    <string name="admin_pv_derp_confirm_title">排除 %1$s？</string>
+    <plurals name="admin_pv_derp_confirm_homes">
+        <item quantity="one">它是你 %1$d 台设备的归属中继：%2$s。它们会转移到另一个中继，通常是剩下的最近一个。直连不受影响。</item>
+        <item quantity="other">它是你 %1$d 台设备的归属中继：%2$s。它们会转移到另一个中继，通常是剩下的最近一个。直连不受影响。</item>
+    </plurals>
+    <string name="admin_pv_derp_confirm_more">%1$s 以及另外 %2$d 台</string>
+    <string name="admin_pv_derp_confirm_only_own">将只剩文件中定义的区域：%1$d 个。如果它们不可用，无法直连的设备将彼此失联。</string>
+    <string name="admin_pv_derp_confirm_ok">排除</string>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Television: Settings → Appearance → Interface, the switch between the usual interface and the TV one -->
+    <string name="tv_interface_title">界面</string>
+    <string name="tv_interface_auto">自动</string>
+    <string name="tv_interface_handheld">手机与平板</string>
+    <string name="tv_interface_tv">TV</string>
+    <string name="tv_interface_desc">「自动」会让电视使用 TV 界面，其他设备使用常规界面。TV 界面也可以在任何设备上手动开启：用边框标出遥控器选中的内容，与屏幕边缘留出边距，并去掉电视做不到的功能。「手机与平板」可在电视上将它关闭。</string>
+</resources>

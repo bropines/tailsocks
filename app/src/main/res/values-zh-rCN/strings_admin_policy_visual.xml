@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's shared parts: selector chips, the selector picker, element cards. -->
+<resources>
+    <!-- Selectors in plain words: the chip shows these, the picker adds the explanation. -->
+    <string name="admin_pv_sel_any">所有人</string>
+    <string name="admin_pv_sel_any_help">Tailnet 中的所有设备和用户，包括共享进来的设备。</string>
+    <string name="admin_pv_ag_member">所有成员</string>
+    <string name="admin_pv_ag_member_help">Tailnet 的所有直接成员，限他们自己拥有的设备；不包括共享进来的设备和带标签的设备。</string>
+    <string name="admin_pv_ag_tagged">带标签的设备</string>
+    <string name="admin_pv_ag_tagged_help">所有带有标签的设备。</string>
+    <string name="admin_pv_ag_self">他们自己的设备</string>
+    <string name="admin_pv_ag_self_help">对每个用户而言，即该用户拥有的设备。只能作为目标，且源只能是用户和组。</string>
+    <string name="admin_pv_ag_internet">互联网</string>
+    <string name="admin_pv_ag_internet_help">经出口节点访问的公网。只能作为目标。</string>
+    <string name="admin_pv_ag_nonroot">除 root 外的任意用户</string>
+    <string name="admin_pv_ag_nonroot_help">目标机器上除 root 外的任意登录名。</string>
+    <string name="admin_pv_ag_shared">接受共享的用户</string>
+    <string name="admin_pv_ag_shared_help">接受了来自此 tailnet 的设备共享的用户。</string>
+    <string name="admin_pv_ag_admin">管理员</string>
+    <string name="admin_pv_ag_owner">所有者</string>
+    <string name="admin_pv_ag_it_admin">IT 管理员</string>
+    <string name="admin_pv_ag_network_admin">网络管理员</string>
+    <string name="admin_pv_ag_billing_admin">计费管理员</string>
+    <string name="admin_pv_ag_auditor">审计员</string>
+    <string name="admin_pv_ag_role_help">Tailnet 中持有此角色的用户，限他们拥有的设备。</string>
+    <string name="admin_pv_ag_danger_all">任何人</string>
+    <string name="admin_pv_ag_danger_all_help">所有人，包括 tailnet 之外的。只能作为源；几乎不会是你想要的。</string>
+
+    <!-- Picker groups. -->
+    <string name="admin_pv_group_everyone">所有人及自动组</string>
+    <string name="admin_pv_group_groups">组</string>
+    <string name="admin_pv_group_tags">标签</string>
+    <string name="admin_pv_group_users">用户</string>
+    <string name="admin_pv_group_hosts">主机</string>
+    <string name="admin_pv_group_ipsets">IP 集</string>
+    <string name="admin_pv_group_postures">设备合规状态</string>
+
+    <string name="admin_pv_picker_search">搜索，或输入名称或地址</string>
+    <string name="admin_pv_picker_use">使用「%1$s」</string>
+    <string name="admin_pv_picker_none">无匹配项</string>
+    <string name="admin_pv_picker_done">完成</string>
+    <string name="admin_pv_tag_undefined">尚未列入 tagOwners</string>
+    <plurals name="admin_pv_devices">
+        <item quantity="one">%d 台设备</item>
+        <item quantity="other">%d 台设备</item>
+    </plurals>
+
+    <!-- Why a selector cannot go where it was put. -->
+    <string name="admin_pv_problem_empty">为空</string>
+    <string name="admin_pv_problem_not_here">此处不允许</string>
+    <string name="admin_pv_problem_undefined">此策略中未定义</string>
+    <string name="admin_pv_problem_headscale">Headscale 不接受此项</string>
+    <string name="admin_pv_problem_ports">不是端口列表：22、80,443、1000-2000 或 *</string>
+    <string name="admin_pv_problem_one_port">测试需要一个端口号</string>
+    <string name="admin_pv_problem_unknown">不是用户、组、标签、主机或地址</string>
+
+    <!-- Element cards. -->
+    <string name="admin_pv_add">添加</string>
+    <string name="admin_pv_remove">移除 %1$s</string>
+    <string name="admin_pv_edit_in_json">在 JSON 中编辑</string>
+    <string name="admin_pv_more_in_json">JSON 中还有：%1$s</string>
+    <string name="admin_pv_read_only">按原文显示；请在 JSON 中编辑。</string>
+    <string name="admin_pv_issue_list">某个字段的内容不是名称列表。</string>
+    <string name="admin_pv_issue_duplicate">某个字段写了两次；只有最后一条生效。</string>
+    <string name="admin_pv_issue_case">某个字段的拼写与文档名称不一致。</string>
+    <string name="admin_pv_issue_legacy">部分内容由旧版字段（users、ports 或 allow）表述。</string>
+    <string name="admin_pv_server_error">服务器拒绝了此项</string>
+    <!-- The pages of the visual editor. -->
+    <string name="admin_pv_section_access">访问</string>
+    <string name="admin_pv_section_ssh">SSH</string>
+    <string name="admin_pv_section_approvers">自动批准</string>
+    <string name="admin_pv_section_tests">测试</string>
+    <string name="admin_pv_section_groups">组</string>
+    <string name="admin_pv_section_tags">标签</string>
+    <string name="admin_pv_section_hosts">主机与 IP 集</string>
+    <string name="admin_pv_section_attributes">设备属性</string>
+    <string name="admin_pv_section_posture">设备合规状态</string>
+    <string name="admin_pv_section_network">网络及其他</string>
+    <string name="admin_pv_section_pending">%1$s 很快就能在这里编辑；在那之前，请用 JSON。</string>
+</resources>

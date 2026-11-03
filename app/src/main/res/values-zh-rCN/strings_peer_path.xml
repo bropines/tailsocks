@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  How each peer is reached right now: directly, through a peer relay (another
+  node of the tailnet), or through one of Tailscale's DERP relays. Shared by
+  the Peers list, a peer's details and the large window's device rows; the
+  older words they also use live in strings.xml and strings_states.xml.
+-->
+<resources>
+    <!-- Peer row, after the address: the kind of path, then the DERP region (fra) or its city. -->
+    <string name="peer_path_relay">中继</string>
+    <!-- Before a peer relay node's name on a row too narrow for "peer relay" as well: "via homelab-nas". -->
+    <string name="peer_path_via">经由</string>
+    <!-- The row as a screen reader states it; %1$s is the relay node's name. -->
+    <string name="peer_state_peer_relay_format">通过对等中继 %1$s</string>
+
+    <!-- The details sheet's status chips. %1$s is a node's name or a city. -->
+    <string name="peer_status_peer_relay_format">对等中继：%1$s</string>
+    <string name="peer_status_home_relay_format">归属中继：%1$s</string>
+
+    <!-- The route card's caption under the endpoint, the relay or the city. -->
+    <string name="peer_route_direct_local">直连，本地网络</string>
+    <string name="peer_route_direct_internet">直连，经由互联网</string>
+    <string name="peer_route_relay_format">经由 DERP 中继 · %1$s</string>
+    <string name="peer_route_peer_relay_format">经由对等中继 · %1$s</string>
+    <string name="peer_route_home">本设备的归属 DERP 中继</string>
+    <string name="peer_route_home_format">本设备的归属 DERP 中继 · %1$s</string>
+    <string name="peer_route_not_yet">尚无流量</string>
+    <string name="peer_route_not_yet_format">尚无流量 · 归属中继 %1$s</string>
+
+    <!-- Folded under the route card; the first sentence is what shows. -->
+    <string name="peer_path_help">DERP 中继是 Tailscale 的服务器；对等中继是你自己的某台设备。当两台设备无法直连时，两者都能转发流量，且仍为端到端加密，而对等中继通常快得多。Tailscale 会持续寻找直连路径，一旦可用便立即切换。</string>
+</resources>

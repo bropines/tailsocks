@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Signing a television in with a key a phone sends it. tvkey_*: the television's screen; keysend_*: the phone's sheet, opened by scanning the television's code. -->
+
+    <!-- Television: the way in, on the sign-in screen -->
+    <string name="tvkey_entry">使用手机发来的密钥</string>
+
+    <!-- Television: the code -->
+    <string name="tvkey_title">手机发来的密钥</string>
+    <string name="tvkey_opening">正在生成配对码…</string>
+    <string name="tvkey_scan_line">用手机上的 TailSocks 扫描此二维码</string>
+    <string name="tvkey_scan_help">扫码入口在应用主界面的顶栏。手机会要求输入认证密钥，并以加密方式发送到这里：两台设备在同一网络时经由本地网络，否则通过互联网上的中继，中继无法读取内容。在你于本屏幕确认之前，什么都不会生效。</string>
+    <string name="tvkey_scan_help_lan">扫码入口在应用主界面的顶栏。此电视无法连上互联网上的中继，因此手机必须处于同一 Wi-Fi 或有线网络；手机上的 VPN 可能会造成干扰。手机会要求输入认证密钥，并以加密方式发送到这里。在你于本屏幕确认之前，什么都不会生效。</string>
+    <string name="tvkey_this_tv">在手机上，此电视显示为 %1$s · %2$s</string>
+    <string name="tvkey_this_tv_named">在手机上，此电视显示为 %1$s</string>
+    <string name="tvkey_any_network">手机无需与电视处于同一网络</string>
+    <string name="tvkey_same_network">此配对码仅在此电视所在的网络内有效</string>
+    <string name="tvkey_waiting">等待手机 · 剩余 %1$s</string>
+    <plurals name="tvkey_refused">
+        <item quantity="other">已拒绝 %d 个非密钥请求</item>
+    </plurals>
+
+    <!-- Television: a key arrived -->
+    <string name="tvkey_offer_title">密钥已送达。要使用吗？</string>
+    <string name="tvkey_offer_from">来源</string>
+    <string name="tvkey_offer_key">密钥</string>
+    <string name="tvkey_offer_server">服务器</string>
+    <string name="tvkey_offer_relay">经中继</string>
+    <string name="tvkey_offer_relay_unnamed">通过中继</string>
+    <string name="tvkey_kind_tailscale_auth">Tailscale 认证密钥</string>
+    <string name="tvkey_kind_tailscale_client">Tailscale OAuth 客户端密钥</string>
+    <string name="tvkey_kind_headscale_auth">Headscale 预认证密钥</string>
+    <string name="tvkey_kind_other">此应用无法识别的密钥类型</string>
+    <string name="tvkey_server_same">保持不变：%1$s</string>
+    <string name="tvkey_server_new">不是此电视当前使用的服务器</string>
+    <string name="tvkey_check_label">核对配对码</string>
+    <string name="tvkey_check_help">只有当手机显示相同配对码时才确认。若显示的是另一个，或你并未发送任何内容，请拒绝。</string>
+    <string name="tvkey_offer_time">等待你的确认 · 剩余 %1$s</string>
+    <string name="tvkey_reject">拒绝</string>
+
+    <!-- Television: after the answer -->
+    <string name="tvkey_signing_in">正在使用密钥登录…</string>
+    <string name="tvkey_signed_in">已登录</string>
+    <string name="tvkey_new_code">换一个配对码</string>
+
+    <!-- Television: why there is no code and no key; one sentence each -->
+    <string name="tvkey_stop_no_network">此电视未连接任何本地网络，也无法连上中继：请为它连接 Wi-Fi 或网线。</string>
+    <string name="tvkey_stop_cannot_listen">电视无法在其网络上或通过中继开始等待手机连接。</string>
+    <string name="tvkey_stop_too_many">收到过多非密钥请求，配对码已被撤回。</string>
+    <string name="tvkey_stop_network_changed">电视的网络发生了变化，配对码已无法连接到它。</string>
+    <string name="tvkey_stop_service">TailSocks 已停止或重启，配对码也随之失效。</string>
+    <string name="tvkey_stop_expired">还没有手机发来密钥，配对码就已过期。</string>
+    <string name="tvkey_stop_not_answered">无人及时应答，密钥已被丢弃。</string>
+    <string name="tvkey_stop_rejected">密钥已被拒绝；此电视上没有任何更改。</string>
+    <string name="tvkey_stop_key_gone">密钥未及时被采用，现已失效：请在手机上重新发送。</string>
+    <string name="tvkey_stop_not_signed_in">该密钥未能让此电视登录：它可能已被用掉、已过期，或来自其他服务器。密钥已被移除，电视恢复原状。</string>
+    <string name="tvkey_stop_unknown">配对码出了点问题。</string>
+
+    <!-- Phone: the form -->
+    <string name="keysend_title">向此电视发送密钥</string>
+    <string name="keysend_target">发往电视 %1$s · %2$s</string>
+    <string name="keysend_target_named">发往电视 %1$s</string>
+    <string name="keysend_road_lan">经由你的本地网络</string>
+    <string name="keysend_road_both">经由你的本地网络，失败则改用中继</string>
+    <string name="keysend_road_relay">通过中继</string>
+    <string name="keysend_target_help">电视会在配对码旁显示相同的名称；若有地址，也会显示相同地址。若两者不一致，你扫描的配对码不属于该电视：请勿发送。</string>
+    <string name="keysend_key_label">认证密钥</string>
+    <string name="keysend_key_help">来自 tailnet 管理员界面的认证密钥（设置 → 密钥），或 Headscale 预认证密钥。最安全的是预先批准的一次性密钥：电视会将它用掉。密钥以加密方式送达电视——经由本地网络，或通过无法读取内容的中继——之后既不会再次显示，也不会保存在此手机上。</string>
+    <string name="keysend_paste">粘贴</string>
+    <string name="keysend_paste_empty">剪贴板中没有文本</string>
+    <plurals name="keysend_key_chars">
+        <item quantity="other">%d 个字符</item>
+    </plurals>
+    <string name="keysend_key_bad">认证密钥不含空格：只含拉丁字母、数字和标点符号。</string>
+    <string name="keysend_key_long">超出认证密钥的长度限制。</string>
+    <string name="keysend_key_api">这是 API 访问令牌。电视需要的是认证密钥。</string>
+    <string name="keysend_key_unknown">看起来不像 Tailscale 或 Headscale 密钥。将按原样发送。</string>
+    <string name="keysend_server_label">登录服务器（可选）</string>
+    <string name="keysend_server_help">仅用于自建服务器（如 Headscale）签发的密钥。留空则电视的服务器保持不变。</string>
+    <string name="keysend_server_bad">服务器地址形如 https://example.com</string>
+
+    <!-- Phone: sent -->
+    <string name="keysend_sending">正在向电视发送密钥…</string>
+    <string name="keysend_sending_lan">正在通过本地网络发送密钥…</string>
+    <string name="keysend_sending_relay">正在通过中继发送密钥。最多可能需要半分钟…</string>
+    <string name="keysend_compare">确认电视显示相同配对码，然后在电视上确认。</string>
+    <string name="keysend_compare_help">若电视显示另一个配对码，说明他人的密钥先到一步：请在电视上拒绝。切勿在电视上确认此处看不到的配对码。</string>
+    <string name="keysend_sent_to">已发送至 %1$s</string>
+    <string name="keysend_sent_relay">已通过中继发送</string>
+    <string name="keysend_stop_waiting">停止等待</string>
+    <string name="keysend_done">完成</string>
+    <string name="keysend_rescan">扫描新二维码</string>
+    <string name="keysend_edit">返回密钥输入</string>
+    <string name="keysend_network_hint">此配对码没有中继：电视没有互联网，或无法连上中继。因此手机必须处于电视所在的 Wi-Fi 或有线网络。此手机上的 VPN 可能会造成干扰，访客网络通常也会将设备互相隔离。</string>
+
+    <!-- Phone: how it ended; a title and one or two sentences -->
+    <string name="keysend_end_confirmed_title">已在电视上确认</string>
+    <string name="keysend_end_confirmed_text">电视已接收密钥，正在登录。</string>
+    <string name="keysend_end_rejected_title">在电视上被拒绝</string>
+    <string name="keysend_end_rejected_text">密钥未被使用。</string>
+    <string name="keysend_end_expired_title">电视上没有应答</string>
+    <string name="keysend_end_expired_text">无人及时确认，电视已丢弃该密钥。</string>
+    <string name="keysend_end_cancelled_title">电视关闭了配对码</string>
+    <string name="keysend_end_cancelled_text">尚无人应答，显示配对码的屏幕就已关闭，电视丢弃了该密钥。</string>
+    <string name="keysend_end_lost_title">连接中断</string>
+    <string name="keysend_end_lost_text">密钥已送达电视，但应答没有返回。电视屏幕会显示最终结果。</string>
+    <string name="keysend_end_taken_title">电视已收到其他密钥</string>
+    <string name="keysend_end_taken_text">另一台设备先发送了密钥，因此你的未被采用。若不是你发送的，请在电视上拒绝该密钥。</string>
+    <string name="keysend_end_unsupported_title">电视无法使用此密钥</string>
+    <string name="keysend_end_unsupported_text">其 TailSocks 是另一个版本。请更新两台设备上的应用。</string>
+    <string name="keysend_end_closed_title">配对码已失效</string>
+    <string name="keysend_end_closed_text">电视还在，但已不再监听：配对码已被使用、已过期或被关闭。</string>
+    <string name="keysend_end_unreachable_title">无法连接到电视</string>
+    <string name="keysend_end_unreachable_text">本地网络与中继均无应答。请确认电视在线，且仍显示此配对码。</string>
+    <string name="keysend_end_wrong_network_title">网络不一致</string>
+    <string name="keysend_end_wrong_network_text">此手机不在电视所属的任何网络内。</string>
+    <string name="keysend_end_relay_unavailable_title">无法连接中继</string>
+    <string name="keysend_end_relay_unavailable_text">在此手机的网络中没有找到电视，手机也无法连上中继。请检查手机的网络连接与 VPN，或将手机接入电视的网络。</string>
+    <string name="keysend_end_no_answer_title">电视没有应答</string>
+    <string name="keysend_end_no_answer_text">密钥已发出，但没有收到任何回应。如果电视现在询问是否接受密钥，请在电视上拒绝，然后重试。</string>
+    <string name="keysend_end_invalid_code_title">配对码已损坏</string>
+    <string name="keysend_end_invalid_code_text">它形如电视的配对码，但无法读取。请重新扫描。</string>
+    <string name="keysend_end_newer_code_title">来自新版 TailSocks 的配对码</string>
+    <string name="keysend_end_newer_code_text">请更新此手机上的应用，才能向该电视发送密钥。</string>
+    <string name="keysend_end_invalid_key_title">密钥无法发送</string>
+    <string name="keysend_end_invalid_server_title">服务器地址无法发送</string>
+    <string name="keysend_end_busy_title">仍在发送</string>
+    <string name="keysend_end_busy_text">上一个密钥还在发送中。请稍后重试。</string>
+    <string name="keysend_end_unknown_title">出了点问题</string>
+    <string name="keysend_end_unknown_text">电视屏幕会显示密钥是否送达。</string>
+</resources>

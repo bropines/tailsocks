@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's definitions pages: groups, tags, hosts and IP sets, auto approval, device attributes, postures. -->
+<resources>
+    <!-- Shared by the pages' editors. -->
+    <string name="admin_pvd_name">名称</string>
+    <string name="admin_pvd_rename">重命名</string>
+    <string name="admin_pvd_rename_title">重命名 %1$s？</string>
+    <plurals name="admin_pvd_rename_text">
+        <item quantity="one">%1$s 将改为 %2$s，包括其定义和使用它的 %3$d 处。</item>
+        <item quantity="other">%1$s 将改为 %2$s，包括其定义和使用它的 %3$d 处。</item>
+    </plurals>
+    <string name="admin_pvd_rename_text_unused">%1$s 将改为 %2$s。策略中还没有任何地方使用它。</string>
+    <plurals name="admin_pvd_rename_hint">
+        <item quantity="one">同时已在使用的 %d 处重命名</item>
+        <item quantity="other">同时已在全部 %d 处使用位置重命名</item>
+    </plurals>
+    <string name="admin_pvd_apply">应用</string>
+    <string name="admin_pvd_note">备注</string>
+    <string name="admin_pvd_note_help">以注释形式保留在文件中，位于其上方。</string>
+    <string name="admin_pvd_heading">其上方标题</string>
+    <string name="admin_pvd_heading_help">此注释是其下各项的标题；修改它会改变这些项的标题。</string>
+    <string name="admin_pvd_used_in">使用于</string>
+    <string name="admin_pvd_unused">尚未被使用</string>
+    <plurals name="admin_pvd_places">
+        <item quantity="one">用于 %d 处</item>
+        <item quantity="other">用于 %d 处</item>
+    </plurals>
+    <string name="admin_pvd_line">第 %d 行</string>
+    <string name="admin_pvd_show_all">显示全部 %d</string>
+    <string name="admin_pvd_more">另有 +%d</string>
+    <string name="admin_pvd_and_more">%s 及更多</string>
+    <plurals name="admin_pvd_delete_blocked">
+        <item quantity="one">用于 %d 处：请先将其移除，再删除。</item>
+        <item quantity="other">用于 %d 处：请先将其移除，再删除。</item>
+    </plurals>
+    <string name="admin_pvd_deleted">%s 已删除</string>
+    <string name="admin_pvd_delete">删除</string>
+    <string name="admin_pvd_duplicate">复制一份</string>
+    <string name="admin_pvd_move_up">上移</string>
+    <string name="admin_pvd_move_down">下移</string>
+    <string name="admin_pvd_remove_row">移除此行</string>
+    <string name="admin_pvd_create">创建</string>
+    <string name="admin_pvd_create_needs_name">请先取一个服务器接受的名称。</string>
+    <string name="admin_pvd_not_on_headscale">Headscale 不支持这些内容：只要策略中还有它们，服务器就会拒绝。</string>
+
+    <!-- Names and addresses. -->
+    <string name="admin_pvd_name_empty">请取一个名称</string>
+    <string name="admin_pvd_name_tag_start">标签名以字母开头</string>
+    <string name="admin_pvd_name_tag_chars">只能包含字母、数字和连字符</string>
+    <string name="admin_pvd_name_service_chars">只能包含小写字母、数字和连字符</string>
+    <string name="admin_pvd_name_host_chars">只能包含字母、数字、点、连字符和下划线；不能是地址</string>
+    <string name="admin_pvd_name_chars">只能包含字母、数字、点、连字符和下划线</string>
+    <string name="admin_pvd_name_taken">此名称已被占用</string>
+    <string name="admin_pvd_addr_empty">请输入地址</string>
+    <string name="admin_pvd_addr_bad">不是 IP 地址或网络：100.64.0.20、192.168.1.0/24、fd7a:115c:a1e0::1</string>
+    <string name="admin_pvd_addr_needs_prefix">请加上前缀长度：192.168.1.0/24</string>
+    <string name="admin_pvd_addr_bits">前缀长度超出范围：IPv4 为 0–32，IPv6 为 0–128</string>
+
+    <!-- Where a name is used, as the rows that lead there say it. -->
+    <string name="admin_pvd_place_acl">访问规则 %d</string>
+    <string name="admin_pvd_place_grant">授权 %d</string>
+    <string name="admin_pvd_place_ssh">SSH 规则 %d</string>
+    <string name="admin_pvd_place_attr">设备属性 %d</string>
+    <string name="admin_pvd_place_test">测试 %d</string>
+    <string name="admin_pvd_place_ssh_test">SSH 测试 %d</string>
+    <string name="admin_pvd_place_owners">%s 的所有者</string>
+    <string name="admin_pvd_place_members">%s 的成员</string>
+    <string name="admin_pvd_place_ipset">IP 集 %s</string>
+    <string name="admin_pvd_place_posture">合规状态 %s</string>
+    <string name="admin_pvd_place_default_posture">默认合规状态</string>
+    <string name="admin_pvd_place_route">%s 的自动批准</string>
+    <string name="admin_pvd_place_exit">出口节点的自动批准</string>
+    <string name="admin_pvd_place_service">%s 的自动批准</string>
+
+    <!-- Groups. -->
+    <string name="admin_pvd_groups_help">组为一组用户命名，规则可以用 group:admins 代替逐个列出人员。用户带标签的设备归属其标签，而不属于该用户所在的组。</string>
+    <string name="admin_pvd_groups_empty">组为用户集合命名，供规则使用</string>
+    <string name="admin_pvd_groups_pane_empty">选择一个组以查看和修改</string>
+    <string name="admin_pvd_group_new">新建组</string>
+    <string name="admin_pvd_group_members">成员</string>
+    <string name="admin_pvd_group_members_help">按登录名添加用户，可从 tailnet 的列表中选择；列表中还没有的登录名可以手动输入。</string>
+    <string name="admin_pvd_group_no_members">还没有成员：使用该组的规则不会覆盖任何人。</string>
+    <plurals name="admin_pvd_n_members">
+        <item quantity="one">%d 名成员</item>
+        <item quantity="other">%d 名成员</item>
+    </plurals>
+    <string name="admin_pvd_group_devices">他们的设备</string>
+    <string name="admin_pvd_group_devices_help">成员拥有且未打标签的设备：以此组为源的规则覆盖的范围。</string>
+    <string name="admin_pvd_group_no_devices">成员没有未打标签的设备</string>
+    <string name="admin_pvd_group_delete">删除组</string>
+
+    <!-- Tags. -->
+    <string name="admin_pvd_tags_help">标签为一类设备角色命名：规则访问 tag:server，而不是某个人的设备。标签所有者是有权将该标签赋予设备的人。</string>
+    <string name="admin_pvd_tags_empty">标签为设备角色命名，并指明谁可以赋予</string>
+    <string name="admin_pvd_tags_pane_empty">选择一个标签以查看和修改</string>
+    <string name="admin_pvd_tag_new">新建标签</string>
+    <string name="admin_pvd_tag_owners">所有者</string>
+    <string name="admin_pvd_tag_owners_help">谁可以将此标签赋予设备：用户、组、其他标签、管理员。</string>
+    <string name="admin_pvd_tag_owners_empty">没有所有者：只有管理员可以赋予。</string>
+    <string name="admin_pvd_tag_owned_by">所有者</string>
+    <string name="admin_pvd_tag_admins_only">仅管理员</string>
+    <string name="admin_pvd_tag_devices">带有此标签的设备</string>
+    <string name="admin_pvd_tag_no_devices">没有设备带有它</string>
+    <string name="admin_pvd_tag_delete">删除标签</string>
+    <plurals name="admin_pvd_tag_delete_carried">
+        <item quantity="one">%d 台设备带有此标签。它们会保留该标签，但标签将不再有任何定义。</item>
+        <item quantity="other">%d 台设备带有此标签。它们会保留该标签，但标签将不再有任何定义。</item>
+    </plurals>
+    <plurals name="admin_pvd_tag_rename_carried">
+        <item quantity="one">%1$d 台设备带有 %2$s，且会保留旧标签：请在设备列表中重新打标签。</item>
+        <item quantity="other">%1$d 台设备带有 %2$s，且会保留旧标签：请在设备列表中重新打标签。</item>
+    </plurals>
+    <plurals name="admin_pvd_unowned_title">
+        <item quantity="one">%d 个标签正在使用但没有所有者</item>
+        <item quantity="other">%d 个标签正在使用但没有所有者</item>
+    </plurals>
+    <string name="admin_pvd_unowned_help">服务器会拒绝使用未列入 tagOwners 的标签的规则，也没有人能赋予该标签。请添加它并将所有者设为 Admins，之后可以再修改。</string>
+    <string name="admin_pvd_unowned_help_hs">服务器会拒绝使用未列入 tagOwners 的标签的规则。请先添加，再选择谁可以赋予它。</string>
+    <string name="admin_pvd_unowned_add">添加</string>
+    <string name="admin_pvd_unowned_added">%s 已添加到 tagOwners</string>
+
+    <!-- Hosts and IP sets. -->
+    <string name="admin_pvd_hosts_help">主机为地址命名：规则可以访问 nas:443，而不是 100.64.0.20:443。IP 集将地址、网络、范围和主机归集到一个名称下。</string>
+    <string name="admin_pvd_hosts_pane_empty">选择一台主机或 IP 集以查看和修改</string>
+    <string name="admin_pvd_hosts_title">主机</string>
+    <string name="admin_pvd_hosts_empty">还没有主机</string>
+    <string name="admin_pvd_hosts_empty_page">主机为地址命名，供规则使用</string>
+    <string name="admin_pvd_host_new">新建主机</string>
+    <string name="admin_pvd_host_address">地址</string>
+    <string name="admin_pvd_host_address_help">IP 地址或网络：100.64.0.20、192.168.1.0/24、fd7a:115c:a1e0::1</string>
+    <string name="admin_pvd_host_devices">使用此地址的设备</string>
+    <string name="admin_pvd_host_no_device">tailnet 中没有设备使用此地址</string>
+    <string name="admin_pvd_host_delete">删除主机</string>
+    <string name="admin_pvd_host_create_hint">请先取名称并填写地址。</string>
+    <string name="admin_pvd_ipsets_title">IP 集</string>
+    <string name="admin_pvd_ipsets_help">地址、网络、范围、主机和其他集合，按顺序添加和移除；规则以 ipset:name 引用该集合。</string>
+    <string name="admin_pvd_ipsets_empty">还没有 IP 集</string>
+    <string name="admin_pvd_ipset_new">新建 IP 集</string>
+    <string name="admin_pvd_ipset_rows">地址</string>
+    <string name="admin_pvd_ipset_rows_help">自上而下应用：后面的行可以移除前面行添加的部分内容。</string>
+    <plurals name="admin_pvd_n_rows">
+        <item quantity="one">%d 行</item>
+        <item quantity="other">%d 行</item>
+    </plurals>
+    <string name="admin_pvd_ipset_op_add">添加</string>
+    <string name="admin_pvd_ipset_op_remove">移除</string>
+    <string name="admin_pvd_ipset_target">地址、范围、网络、host:name 或 ipset:name</string>
+    <string name="admin_pvd_ipset_target_short">地址、网络或名称</string>
+    <string name="admin_pvd_ipset_add_row">再加一行</string>
+    <string name="admin_pvd_ipset_first_row">第一个地址</string>
+    <string name="admin_pvd_ipset_create_hint">请先取名称并填写第一个地址。</string>
+    <string name="admin_pvd_ipset_delete">删除 IP 集</string>
+
+    <!-- Auto approval. -->
+    <string name="admin_pvd_approvers_help">设备通告的路由、出口节点和服务默认等待管理员批准；这些设备无需等待。</string>
+    <string name="admin_pvd_approvers_pane_empty">选择一项自动批准以查看和修改</string>
+    <string name="admin_pvd_approvers">自动批准对象</string>
+    <string name="admin_pvd_approvers_help_short">这些用户和组的设备，以及带有这些标签的设备。</string>
+    <string name="admin_pvd_approvers_empty">无人：由管理员手动批准。</string>
+    <string name="admin_pvd_approvers_create_hint">请先选择批准对象。</string>
+    <string name="admin_pvd_approver_devices">符合条件的设备</string>
+    <string name="admin_pvd_approver_no_devices">目前没有符合条件的设备</string>
+    <plurals name="admin_pvd_qualify">
+        <item quantity="one">%d 台设备符合条件</item>
+        <item quantity="other">%d 台设备符合条件</item>
+    </plurals>
+    <string name="admin_pvd_approved_for">批准对象</string>
+    <string name="admin_pvd_routes_title">子网路由</string>
+    <string name="admin_pvd_routes_empty">所有路由都等待管理员批准</string>
+    <string name="admin_pvd_route_new">新建路由</string>
+    <string name="admin_pvd_route_prefix">路由</string>
+    <string name="admin_pvd_route_prefix_help">带前缀长度的网络：192.168.1.0/24。通告它或其一部分的设备将获得批准。</string>
+    <string name="admin_pvd_route_taken">此路由已存在</string>
+    <string name="admin_pvd_route_delete">删除路由</string>
+    <string name="admin_pvd_route_create_hint">请先填写路由并选择批准对象。</string>
+    <string name="admin_pvd_exit_title">出口节点</string>
+    <string name="admin_pvd_exit_card">任意出口节点</string>
+    <string name="admin_pvd_exit_help">自荐为出口节点的设备若符合条件，会立即获得批准。</string>
+    <string name="admin_pvd_exit_empty">所有出口节点都等待管理员批准</string>
+    <string name="admin_pvd_exit_new">自动批准</string>
+    <string name="admin_pvd_exit_delete">停止自动批准</string>
+    <string name="admin_pvd_exit_deleted">出口节点恢复等待管理员批准</string>
+    <string name="admin_pvd_services_title">服务</string>
+    <string name="admin_pvd_services_empty">所有服务宿主都等待管理员批准</string>
+    <string name="admin_pvd_service_new">新建服务</string>
+    <string name="admin_pvd_service_help">无需管理员逐个批准即可托管此 Tailscale 服务的设备。</string>
+    <string name="admin_pvd_service_delete">删除</string>
+    <string name="admin_pvd_service_create_hint">请先为服务取名称并选择批准对象。</string>
+
+    <!-- Device attributes. -->
+    <string name="admin_pvd_attrs_help">设备属性为选定的设备开启功能：Funnel、Taildrive、Mullvad、NextDNS 配置。规则叠加生效；顺序无关紧要。</string>
+    <string name="admin_pvd_attrs_empty">设备属性为选定的设备开启 Funnel、Taildrive 等功能</string>
+    <string name="admin_pvd_attrs_pane_empty">选择一条规则以查看和修改</string>
+    <string name="admin_pvd_attr_new">新建规则</string>
+    <string name="admin_pvd_attr_create">添加规则</string>
+    <string name="admin_pvd_attr_create_hint">请选择设备和至少一个属性；两者都设置之前不会写入任何内容。</string>
+    <string name="admin_pvd_attr_targets">适用对象</string>
+    <string name="admin_pvd_attr_turns_on">开启</string>
+    <string name="admin_pvd_attr_none">无属性</string>
+    <string name="admin_pvd_attr_other">其他属性</string>
+    <string name="admin_pvd_attr_other_help">按原样写入：cap: 名称以及此编辑器未作说明的属性。</string>
+    <string name="admin_pvd_attr_type">输入属性</string>
+    <string name="admin_pvd_attr_type_problem">一个属性，不含空格或引号</string>
+    <string name="admin_pvd_attr_profile">配置 ID</string>
+    <string name="admin_pvd_attr_profile_problem">配置 ID，不含空格</string>
+    <string name="admin_pvd_attr_app">同时授予 %s</string>
+    <string name="admin_pvd_attr_ip_pool">来自 %s 的地址</string>
+    <string name="admin_pvd_attr_json_only">在 JSON 中编辑</string>
+    <string name="admin_pvd_attr_json_only_help">应用能力和 IP 池按原样保留；请在 JSON 编辑器中修改。</string>
+    <string name="admin_pvd_attr_devices">适用设备</string>
+    <string name="admin_pvd_attr_no_devices">目前没有匹配的设备</string>
+    <string name="admin_pvd_attr_unresolved">还有 %s，这只有服务器能确定。</string>
+    <string name="admin_pvd_rule_deleted">规则已删除</string>
+    <string name="admin_pvd_attr_funnel">Funnel</string>
+    <string name="admin_pvd_attr_funnel_help">这些设备可以用 Funnel 将服务发布到公网。Headscale 没有 Funnel。</string>
+    <string name="admin_pvd_attr_drive_share">Taildrive：共享文件夹</string>
+    <string name="admin_pvd_attr_drive_share_help">这些设备可以用 Taildrive 共享文件夹。谁可以打开共享由 drive 能力的授权决定。</string>
+    <string name="admin_pvd_attr_drive_access">Taildrive：打开共享</string>
+    <string name="admin_pvd_attr_drive_access_help">这些设备可以打开他人通过 Taildrive 共享的文件夹。</string>
+    <string name="admin_pvd_attr_mullvad">Mullvad 出口节点</string>
+    <string name="admin_pvd_attr_mullvad_help">这些设备可以使用 Mullvad 的出口节点。tailnet 需要开通 Mullvad 附加服务。</string>
+    <string name="admin_pvd_attr_random_port">随机 WireGuard 端口</string>
+    <string name="admin_pvd_attr_random_port_help">使用随机 UDP 端口而非 41641，适用于无法正确处理单端口多设备的防火墙。取代策略级的 randomizeClientPort。</string>
+    <string name="admin_pvd_attr_no_ipv4">不分配 Tailscale IPv4</string>
+    <string name="admin_pvd_attr_no_ipv4_help">这些设备不获得 100.x 地址，只有 Tailscale IPv6 地址。</string>
+    <string name="admin_pvd_attr_no_captive">不检测强制门户</string>
+    <string name="admin_pvd_attr_no_captive_help">客户端不再检测酒店和机场 Wi-Fi 的登录页。</string>
+    <string name="admin_pvd_attr_aaaa">MagicDNS 中的 IPv6</string>
+    <string name="admin_pvd_attr_aaaa_help">MagicDNS 也会返回设备的 IPv6 地址（AAAA 记录）。</string>
+    <string name="admin_pvd_attr_nextdns_private">不向 NextDNS 发送设备信息</string>
+    <string name="admin_pvd_attr_nextdns_private_help">不向 NextDNS 发送设备名称和型号。</string>
+    <string name="admin_pvd_attr_nextdns">NextDNS 配置</string>
+    <string name="admin_pvd_attr_nextdns_help">这些设备使用此 NextDNS 配置，由 NextDNS 作为 tailnet 的解析器。</string>
+    <string name="admin_pvd_attr_controld">Control D 配置</string>
+    <string name="admin_pvd_attr_controld_help">这些设备使用此 Control D 配置，由 Control D 作为 tailnet 的解析器。</string>
+
+    <!-- Device posture. -->
+    <string name="admin_pvd_postures_help">合规状态列出一台设备必须满足的条件——操作系统、客户端版本、安全软件——满足后引用它的规则才会放行该设备。</string>
+    <string name="admin_pvd_postures_empty">合规状态设定设备必须满足的条件，满足后规则才会放行</string>
+    <string name="admin_pvd_postures_pane_empty">选择一个合规状态以查看和修改</string>
+    <string name="admin_pvd_posture_new">新建合规状态</string>
+    <string name="admin_pvd_posture_conditions">条件</string>
+    <string name="admin_pvd_posture_conditions_help">每行一个，必须全部满足：node:os == \'macos\'、node:tsVersion &gt;= \'1.80\'、node:tsReleaseTrack == \'stable\'。语法由服务器检查。</string>
+    <string name="admin_pvd_posture_condition">条件 %d</string>
+    <string name="admin_pvd_posture_condition_empty">填写条件，或移除此行</string>
+    <string name="admin_pvd_posture_add_condition">再加一个条件</string>
+    <plurals name="admin_pvd_n_conditions">
+        <item quantity="one">%d 个条件</item>
+        <item quantity="other">%d 个条件</item>
+    </plurals>
+    <string name="admin_pvd_posture_on_failure">设备未通过时：%s。在 JSON 中编辑。</string>
+    <string name="admin_pvd_posture_delete">删除合规状态</string>
+    <string name="admin_pvd_posture_create_hint">请先取名称并填写第一个条件。</string>
+    <string name="admin_pvd_default_posture">默认合规状态</string>
+    <string name="admin_pvd_default_posture_help">所有未指定自身合规状态的访问规则都会要求它。</string>
+    <string name="admin_pvd_default_posture_none">无：未指定自身合规状态的规则会放行所有设备。</string>
+</resources>

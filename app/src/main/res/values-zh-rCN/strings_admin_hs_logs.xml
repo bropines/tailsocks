@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's Headscale backends, its audit logs and its Services (4.9.0). -->
+<resources>
+    <!-- Headscale: the tab -->
+    <string name="admin_hs_tab">服务器</string>
+    <string name="admin_hs_server_title">Headscale %1$s</string>
+    <string name="admin_hs_server_title_dev">Headscale（开发版）</string>
+    <string name="admin_hs_server_title_plain">Headscale</string>
+    <string name="admin_hs_server_address">地址</string>
+    <string name="admin_hs_server_api">API</string>
+    <string name="admin_hs_server_api_v1">REST API v1（0.25–0.29）</string>
+    <string name="admin_hs_server_api_v2">Tailscale 兼容 API v2（0.30+）</string>
+    <string name="admin_hs_server_build">构建</string>
+    <string name="admin_hs_server_policy">策略</string>
+    <string name="admin_hs_policy_database">保存在服务器上，可在此更改</string>
+    <string name="admin_hs_policy_file">服务器上的文件：此处只读</string>
+    <string name="admin_hs_policy_unknown">未知</string>
+    <string name="admin_hs_policy_file_readonly">策略是服务器上的一个文件（policy.mode: file）。可在此读取；只有编辑该文件时才会变化。</string>
+    <string name="admin_hs_server_node_expiry">节点密钥过期时间</string>
+    <string name="admin_hs_server_node_expiry_never">从不</string>
+    <string name="admin_hs_all_access">Headscale 的 API 密钥可以在服务器上做任何事。「只读」是本应用自己的承诺，而不是密钥的限制：持有该密钥的人仍然可以更改一切。</string>
+
+    <!-- Headscale: registration -->
+    <string name="admin_hs_register_title">注册设备</string>
+    <string name="admin_hs_register_help">在新设备上，用 tailscale up --login-server 加上此服务器的地址会显示一个链接（加 --qr 可显示二维码）。在此扫描或粘贴该链接，并选择设备归属谁。</string>
+    <string name="admin_hs_register_scan">扫描二维码</string>
+    <string name="admin_hs_register_paste">粘贴链接</string>
+    <string name="admin_hs_register_problem_empty">剪贴板为空：请先复制设备显示的链接。</string>
+    <string name="admin_hs_register_problem_link">这不是注册链接。它应形如 https://your-server/register/…</string>
+    <string name="admin_hs_register_problem_id">链接中没有有效的注册 ID；请重新完整复制。</string>
+    <string name="admin_hs_register_waiting">有设备正在等待加入</string>
+    <string name="admin_hs_register_from">来自 %1$s 的链接</string>
+    <string name="admin_hs_register_other_server">此链接由 %1$s 生成，而非此配置的服务器（%2$s）。它只能在生成它的服务器上注册。</string>
+    <string name="admin_hs_register_wrong_version">该 ID 的格式与此服务器版本使用的不一致；注册可能会失败。</string>
+    <string name="admin_hs_register_choose_user">选择用户</string>
+    <string name="admin_hs_register_as">所有者：%1$s</string>
+    <string name="admin_hs_register_no_users">还没有用户：请先在下面添加一个。</string>
+    <string name="admin_hs_register_do">注册</string>
+    <string name="admin_hs_register_reject">拒绝</string>
+    <string name="admin_hs_registered">%1$s 已作为 %2$s 的设备加入。</string>
+
+    <!-- Headscale: pre-auth keys -->
+    <string name="admin_hs_keys_title">预认证密钥</string>
+    <string name="admin_hs_keys_help">设备也可以不用链接，而用密钥加入：tailscale up --login-server %1$s --authkey 加上该密钥。无标签的密钥归属某个用户；带标签的密钥不属于任何人。</string>
+    <string name="admin_hs_keys_all">所有密钥</string>
+    <string name="admin_hs_keys_new">新建密钥</string>
+    <string name="admin_hs_key_tags">标签（可选）</string>
+    <string name="admin_hs_key_user">用户</string>
+    <string name="admin_hs_key_tagged_owner">带标签：用它加入的设备不属于任何用户</string>
+    <string name="admin_hs_key_reusable">可重复使用</string>
+    <string name="admin_hs_key_ephemeral">临时设备</string>
+    <string name="admin_hs_key_expiry">有效期</string>
+    <string name="admin_hs_key_create">创建</string>
+
+    <!-- Headscale: users -->
+    <string name="admin_hs_users_title">用户</string>
+    <string name="admin_hs_users_help">用户保存在服务器上；策略中以 name@ 的形式引用。通过 OIDC 登录的用户由服务器创建，而非此处。</string>
+    <string name="admin_hs_users_none">还没有用户。</string>
+    <string name="admin_hs_user_add">添加</string>
+    <string name="admin_hs_user_add_title">新建用户</string>
+    <string name="admin_hs_user_rename">重命名 %1$s</string>
+    <string name="admin_hs_user_delete">删除 %1$s</string>
+    <string name="admin_hs_user_rename_title">重命名 %1$s</string>
+    <string name="admin_hs_user_rename_help">策略中所有 %1$s@ 在那边也一并修改之前将不再匹配。</string>
+    <string name="admin_hs_user_name">名称</string>
+    <string name="admin_hs_user_name_help">小写，不含空格。</string>
+    <string name="admin_hs_user_name_error">请使用小写字母、数字、点和连字符；不含空格。</string>
+    <string name="admin_hs_user_display">显示名称（可选）</string>
+    <string name="admin_hs_user_email">邮箱（可选）</string>
+
+    <!-- Headscale: API keys -->
+    <string name="admin_hs_apikeys_title">API 密钥</string>
+    <string name="admin_hs_apikeys_help">程序和本管理控制台登录服务器所用的密钥。每个都有完全访问权限；列表中只显示前缀。</string>
+    <string name="admin_hs_apikeys_new">新建 API 密钥</string>
+    <string name="admin_hs_apikeys_new_text">该密钥在过期前对服务器有完全访问权限。它只显示一次。</string>
+    <string name="admin_hs_apikeys_own">本管理控制台</string>
+    <string name="admin_hs_apikeys_expired">已过期</string>
+    <string name="admin_hs_apikeys_expires">到期时间 %1$s</string>
+    <string name="admin_hs_apikeys_last_used">最后使用 %1$s</string>
+    <string name="admin_hs_apikeys_expire">使其过期</string>
+    <string name="admin_hs_apikey_secret_title">新建 API 密钥</string>
+    <string name="admin_hs_apikey_secret_text">请立即保存：服务器不会再次显示它。它对服务器有完全访问权限。</string>
+
+    <!-- Headscale: changes, as the confirm step shows them -->
+    <string name="admin_hs_change_register">为 %1$s 注册设备</string>
+    <string name="admin_hs_change_register_effect">持此链接等待的设备将以 %1$s 的设备身份加入网络。</string>
+    <string name="admin_hs_change_reject">拒绝等待中的设备</string>
+    <string name="admin_hs_change_reject_effect">持此链接等待的设备会被拒绝；它必须重新发起请求。</string>
+    <string name="admin_hs_change_user_create">添加用户 %1$s</string>
+    <string name="admin_hs_change_user_create_effect">该用户可以拥有设备和密钥；策略可以引用他们。</string>
+    <string name="admin_hs_change_user_rename">重命名用户 %1$s</string>
+    <string name="admin_hs_change_user_rename_effect">%1$s 将改为 %2$s。引用 %1$s@ 的策略规则在那边也一并修改之前将不再匹配。</string>
+    <string name="admin_hs_change_apikey_create">创建 API 密钥</string>
+    <plurals name="admin_hs_change_apikey_create_effect">
+        <item quantity="one">一把对服务器有完全访问权限的新密钥，有效期 %d 天。</item>
+        <item quantity="other">一把对服务器有完全访问权限的新密钥，有效期 %d 天。</item>
+    </plurals>
+    <string name="admin_hs_change_apikey_expire">使 API 密钥 %1$s 过期</string>
+    <string name="admin_hs_change_apikey_expire_effect">所有用此密钥登录的对象都会立即停止工作。</string>
+    <string name="admin_hs_diff_owner">所有者</string>
+    <string name="admin_hs_diff_user">用户</string>
+    <string name="admin_hs_diff_display_name">显示名称</string>
+    <string name="admin_hs_diff_email">邮箱</string>
+    <string name="admin_hs_diff_api_key">API 密钥</string>
+
+    <!-- Headscale: the profile editor -->
+    <string name="admin_hs_editor_url">服务器地址</string>
+    <string name="admin_hs_editor_url_help">设备用作 --login-server 的地址。HTTPS；明文 HTTP 仅限本机自身。</string>
+    <string name="admin_hs_editor_key">API 密钥</string>
+    <string name="admin_hs_editor_key_help">在服务器上创建：headscale apikeys create --expiration 90d。保存时会识别其 API 版本。</string>
+    <string name="admin_hs_editor_found_v1">此服务器使用 REST API v1（Headscale 0.25–0.29）。</string>
+    <string name="admin_hs_editor_found_v2">此服务器使用 Tailscale 兼容 API v2（Headscale 0.30 或更新版本）。</string>
+    <string name="admin_hs_editor_tailscale_url">那是 Tailscale 自己的 API：请在上方选择 Tailscale。</string>
+
+    <!-- Logs -->
+    <string name="admin_log_section_tailnet">Tailnet 日志</string>
+    <string name="admin_log_section_phone">本机所做的更改</string>
+    <string name="admin_log_section_phone_short">本机</string>
+    <plurals name="admin_log_count">
+        <item quantity="one">%d 个事件</item>
+        <item quantity="other">%d 个事件</item>
+    </plurals>
+    <plurals name="admin_log_window_hours">
+        <item quantity="one">%d 小时</item>
+        <item quantity="other">%d 小时</item>
+    </plurals>
+    <string name="admin_log_empty">此时间段内没有更改。</string>
+    <string name="admin_log_empty_filtered">此时间段内没有匹配这些筛选条件的记录。</string>
+    <string name="admin_log_filter_clear_all">清除筛选</string>
+    <string name="admin_log_filter_actor">谁</string>
+    <string name="admin_log_filter_target">对象</string>
+    <string name="admin_log_filter_event">事件</string>
+    <string name="admin_log_filter_event_any">任意事件</string>
+    <string name="admin_log_filter_actor_help">要搜索的名称或登录名，或直接输入用户或设备 ID。</string>
+    <string name="admin_log_filter_target_help">设备、用户或密钥名称或 ID 的任意片段。</string>
+    <string name="admin_log_filter_value">%1$s：%2$s</string>
+    <string name="admin_log_filter_clear">清除 %1$s</string>
+    <string name="admin_log_filter_apply">应用</string>
+    <string name="admin_log_day_today">今天</string>
+    <string name="admin_log_day_yesterday">昨天</string>
+    <string name="admin_log_day_unknown">时间未知</string>
+    <string name="admin_log_entry_title">%1$s · %2$s</string>
+    <string name="admin_log_entry_by">由 %1$s</string>
+    <string name="admin_log_entry_toggle">显示或隐藏详情</string>
+    <string name="admin_log_entry_expanded">详情已显示</string>
+    <string name="admin_log_entry_collapsed">详情已隐藏</string>
+    <plurals name="admin_log_more_changes">
+        <item quantity="one">另有 %d 项</item>
+        <item quantity="other">另有 %d 项</item>
+    </plurals>
+    <plurals name="admin_log_text_lines_changed">
+        <item quantity="one">%d 行有更改</item>
+        <item quantity="other">%d 行有更改</item>
+    </plurals>
+    <plurals name="admin_log_text_folded">
+        <item quantity="one">⋯ %d 行未更改</item>
+        <item quantity="other">⋯ %d 行未更改</item>
+    </plurals>
+    <string name="admin_log_no_change">值没有变化。</string>
+    <string name="admin_log_value">值</string>
+    <string name="admin_log_unknown">未知</string>
+    <string name="admin_log_detail_actor_type">执行者类型</string>
+    <string name="admin_log_detail_actor_tags">其标签</string>
+    <string name="admin_log_detail_origin">来源</string>
+    <string name="admin_log_detail_target_id">ID</string>
+    <string name="admin_log_detail_ephemeral">临时</string>
+    <string name="admin_log_detail_group">操作</string>
+    <string name="admin_log_detail_details">详情</string>
+    <string name="admin_log_phone_help">本机更改或尝试更改的内容，仅保存在本机。tailnet 自身的日志记录实际发生的更改。</string>
+    <string name="admin_log_phone_clear">清除</string>
+    <string name="admin_log_phone_empty">本机还没有更改记录。</string>
+    <string name="admin_log_phone_undo">撤销</string>
+
+    <!-- Logs: the API's actions -->
+    <string name="admin_log_action_login">已登录</string>
+    <string name="admin_log_action_logout">已登出</string>
+    <string name="admin_log_action_create">已创建</string>
+    <string name="admin_log_action_update">已更改</string>
+    <string name="admin_log_action_delete">已删除</string>
+    <string name="admin_log_action_cancel">已取消</string>
+    <string name="admin_log_action_revoke">已吊销</string>
+    <string name="admin_log_action_approve">已批准</string>
+    <string name="admin_log_action_suspend">已暂停</string>
+    <string name="admin_log_action_restore">已恢复</string>
+    <string name="admin_log_action_enable">已开启</string>
+    <string name="admin_log_action_disable">已关闭</string>
+    <string name="admin_log_action_accept">已接受</string>
+    <string name="admin_log_action_expired">已过期</string>
+    <string name="admin_log_action_push">已同步</string>
+    <string name="admin_log_action_verify">已验证</string>
+    <string name="admin_log_action_join_waitlist">已加入等待名单</string>
+    <string name="admin_log_action_invite">已邀请</string>
+    <string name="admin_log_action_join">已加入</string>
+    <string name="admin_log_action_leave">已离开</string>
+    <string name="admin_log_action_resend">已重新发送</string>
+    <string name="admin_log_action_migrate">已迁移到其他登录服务商</string>
+
+    <!-- Logs: what an event acted on -->
+    <string name="admin_log_target_tailnet">Tailnet</string>
+    <string name="admin_log_target_user">用户</string>
+    <string name="admin_log_target_group">组</string>
+    <string name="admin_log_target_node">设备</string>
+    <string name="admin_log_target_api_key">密钥</string>
+    <string name="admin_log_target_invite">邀请</string>
+    <string name="admin_log_target_share">共享</string>
+    <string name="admin_log_target_billing">计费</string>
+    <string name="admin_log_target_admin_console">管理控制台</string>
+    <string name="admin_log_target_web_interface">网页界面</string>
+    <string name="admin_log_target_webhook">Webhook</string>
+    <string name="admin_log_target_failed_request">失败的请求</string>
+
+    <!-- Logs: where an event came from, and who -->
+    <string name="admin_log_origin_admin_console">管理控制台</string>
+    <string name="admin_log_origin_api">API</string>
+    <string name="admin_log_origin_control">协调服务器</string>
+    <string name="admin_log_origin_idp">身份提供方</string>
+    <string name="admin_log_origin_node">某设备</string>
+    <string name="admin_log_origin_support">支持请求</string>
+    <string name="admin_log_origin_notification">通知</string>
+    <string name="admin_log_actor_user">用户</string>
+    <string name="admin_log_actor_node">设备</string>
+    <string name="admin_log_actor_automated">自动</string>
+    <string name="admin_log_actor_oauth_client">OAuth 客户端</string>
+    <string name="admin_log_actor_logstream">日志流</string>
+    <string name="admin_log_actor_secret_scanner">密钥扫描</string>
+    <string name="admin_log_actor_pam">访问管理</string>
+
+    <!-- Logs: which property changed -->
+    <string name="admin_log_prop_acl">策略文件</string>
+    <string name="admin_log_prop_tags">标签</string>
+    <string name="admin_log_prop_address">地址</string>
+    <string name="admin_log_prop_routes">路由</string>
+    <string name="admin_log_prop_auto_routes">自动批准的路由</string>
+    <string name="admin_log_prop_attributes">属性</string>
+    <string name="admin_log_prop_dns">DNS 设置</string>
+    <string name="admin_log_prop_email">邮箱</string>
+    <string name="admin_log_prop_security_email">安全邮箱</string>
+    <string name="admin_log_prop_support_email">支持邮箱</string>
+    <string name="admin_log_prop_exit_node">出口节点</string>
+    <string name="admin_log_prop_feature">功能</string>
+    <string name="admin_log_prop_key_expiry">密钥有效期</string>
+    <string name="admin_log_prop_device_approval">设备批准</string>
+    <string name="admin_log_prop_user_approval">用户批准</string>
+    <string name="admin_log_prop_name">名称</string>
+    <string name="admin_log_prop_key_duration">密钥有效期时长</string>
+    <string name="admin_log_prop_flow_logs">网络流量日志</string>
+    <string name="admin_log_prop_node_share">设备共享</string>
+    <string name="admin_log_prop_posture">设备合规状态</string>
+    <string name="admin_log_prop_role">角色</string>
+    <string name="admin_log_prop_webhook_events">Webhook 事件</string>
+    <string name="admin_log_prop_secret">密钥</string>
+    <string name="admin_log_prop_route_selection">路由选择</string>
+    <string name="admin_log_prop_services">服务集合</string>
+
+    <!-- Services -->
+    <string name="admin_svc_help">服务是 tailnet 中的一个名称和一组地址，由设备托管。宿主只有在此处或由自动批准者批准后才会对外提供该服务。</string>
+    <string name="admin_svc_new">新建</string>
+    <string name="admin_svc_empty">还没有服务</string>
+    <string name="admin_svc_no_address">还没有地址</string>
+    <string name="admin_svc_field_name">名称</string>
+    <string name="admin_svc_field_display_name">显示名称</string>
+    <string name="admin_svc_field_addresses">地址</string>
+    <string name="admin_svc_field_ports">端口</string>
+    <string name="admin_svc_field_tags">标签</string>
+    <string name="admin_svc_field_comment">备注</string>
+    <string name="admin_svc_field_ipv4">IPv4 地址（可选）</string>
+    <string name="admin_svc_ports_help">以逗号分隔：443, tcp:80, tcp:8000-8010。</string>
+    <string name="admin_svc_ipv4_help">留空则由 tailnet 自动分配。</string>
+    <string name="admin_svc_error_name">小写字母、数字和连字符，最多 63 个字符。</string>
+    <string name="admin_svc_error_ports">至少一个端口，如 443 或 tcp:443；范围如 tcp:8000-8010。</string>
+    <string name="admin_svc_error_ipv4">不是 IPv4 地址。</string>
+    <string name="admin_svc_rename_warning">这将重命名 %1$s：使用旧名称的客户端在改用新名称之前将无法使用该服务。</string>
+    <string name="admin_svc_editor_new">新建服务</string>
+    <string name="admin_svc_editor_edit">编辑服务</string>
+    <string name="admin_svc_hosts">宿主</string>
+    <string name="admin_svc_hosts_help">通告此服务的设备。批准某台设备后，它就能接收该服务的流量。</string>
+    <string name="admin_svc_hosts_none">还没有设备通告此服务。</string>
+    <string name="admin_svc_host_approved">已批准</string>
+    <string name="admin_svc_host_approved_auto">已自动批准</string>
+    <string name="admin_svc_host_not_approved">未批准</string>
+    <string name="admin_svc_host_ready">就绪</string>
+    <string name="admin_svc_change_create">创建服务 %1$s</string>
+    <string name="admin_svc_change_create_effect">该服务将获得其地址；通告它的设备在获批后即可托管。</string>
+    <string name="admin_svc_change_edit">更改服务 %1$s</string>
+    <string name="admin_svc_change_edit_effect">客户端将看到新定义；已批准的宿主保持批准状态。</string>
+    <string name="admin_svc_change_rename">重命名服务 %1$s</string>
+    <string name="admin_svc_change_rename_effect">它将变为 %1$s。使用旧名称的客户端在改用新名称之前将无法使用该服务。</string>
+    <string name="admin_svc_change_delete">删除服务 %1$s</string>
+    <string name="admin_svc_change_delete_effect">该服务及其地址将被移除；所有宿主都将停止提供它。</string>
+    <string name="admin_svc_diff_name">名称</string>
+    <string name="admin_svc_diff_display">显示名称</string>
+    <string name="admin_svc_diff_ports">端口</string>
+    <string name="admin_svc_diff_tags">标签</string>
+    <string name="admin_svc_diff_comment">备注</string>
+    <string name="admin_svc_diff_addrs">地址</string>
+    <string name="admin_svc_diff_service">服务</string>
+</resources>

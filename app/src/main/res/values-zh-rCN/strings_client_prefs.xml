@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Account & connection: the node's own switches (shields up, LAN access,
+         posture, peer relay, app connector) and the Tailnet Lock row. -->
+    <string name="client_prefs_sect_security">安全</string>
+
+    <string name="client_prefs_lan_title">允许局域网访问</string>
+    <string name="client_prefs_lan_desc">使用出口节点承载流量时，仍可直接访问本网络的设备——打印机、NAS、路由器。\n• 关闭：包括本地网络在内的一切都经出口节点。\n• 不使用出口节点时此项无影响。</string>
+
+    <string name="client_prefs_shields_title">阻止入站连接</string>
+    <string name="client_prefs_shields_desc">拒绝其他 tailnet 设备向此设备发起的一切连接，无论访问规则是否允许。\n• Taildrop、Taildrive、Serve、共享代理以及作为出口节点或中继的本设备都将不再应答他人。\n• 本设备主动发起的连接不受影响。\n• Funnel 开启时无法启用。</string>
+
+    <string name="client_prefs_posture_title">上报设备合规状态</string>
+    <string name="client_prefs_posture_desc">面向通过访问规则检查设备（合规检查）的组织。\n• tailnet 请求时，守护进程会上报设备序列号和网络接口的 MAC 地址。\n• 在 Android 上几乎没有或完全没有：序列号只提供给设备管理（MDM）应用，且未 root 时 Android 不会向应用透露 MAC 地址。\n• 操作系统及其版本总会上报——见“上报真实操作系统”。</string>
+
+    <string name="client_prefs_relay_title">充当对等中继</string>
+    <string name="client_prefs_relay_desc">在无法直连的 tailnet 设备之间经 UDP 中继流量，替代 DERP 服务器。\n• 消耗电量和流量：其他设备的连接会经过此手机——最好在 Wi-Fi 且充电时使用。\n• 仅在 tailnet 访问策略授予本设备中继权限时可用（tailscale.com/cap/relay）；管理终端中的可视化策略编辑器可以添加该授权。\n• 在移动数据或运营商 NAT 后方，其他设备很难连到本机；在路由器上转发固定端口会有所帮助。\n• Android 官方 Tailscale 应用无法这样做；TailSocks 运行自己的守护进程，因此可以。协调服务器仍可对本设备关闭它——届时此行会说明。</string>
+    <string name="client_prefs_relay_refused_by_control">协调服务器已对本设备关闭中继</string>
+    <string name="client_prefs_relay_port_title">中继 UDP 端口</string>
+    <string name="client_prefs_relay_port_any">任意空闲端口</string>
+    <string name="client_prefs_relay_port_desc">留空或 0：任意空闲端口，每次启动都会更换。选择固定端口即可在路由器上转发。</string>
+    <string name="client_prefs_relay_port_invalid">不是有效的 UDP 端口：请使用 0 到 65535 之间的数字。</string>
+    <plurals name="client_prefs_relay_sessions">
+        <item quantity="one">当前中继 %1$d 个连接</item>
+        <item quantity="other">当前中继 %1$d 个连接</item>
+    </plurals>
+
+    <string name="client_prefs_connector_title">应用连接器</string>
+    <string name="client_prefs_connector_desc">将 tailnet 经应用连接器路由的流量（SaaS 应用、只放行已知地址的网站）从此手机的互联网连接发出。\n• 需要为本设备设置标签，并在管理终端（应用）中为该标签配置应用连接器和允许的访问规则。\n• 消耗电量和流量：这些流量会从此手机发出。</string>
+
+    <string name="client_prefs_ssh_title">Tailscale SSH</string>
+    <string name="client_prefs_ssh_desc">按 tailnet 的 SSH 规则，tailnet 设备可用 ssh root@… 或 ssh shell@… 在此手机打开 shell。\n• 仅 Root 模式：守护进程以 root 运行，并以 root 或 shell 用户（adb 所用用户）启动每个会话。\n• 谁可以进入、以哪个用户身份、是否需先在浏览器确认（检查模式），均由 tailnet 策略的 ssh 规则决定。没有相应规则则无人可进入。\n• scp 和 SFTP 同样可用。会话起始于 /data/local/tmp。</string>
+    <string name="client_prefs_ssh_root_only">仅 Root 模式可用</string>
+
+    <string name="client_prefs_set_by_flag">由额外参数 %1$s 设置</string>
+    <string name="client_prefs_refused">守护进程拒绝：%1$s</string>
+
+    <!-- The Tailnet Lock row in Settings. -->
+    <string name="tka_title">Tailnet Lock</string>
+    <string name="tka_row_help">节点只有经受信任设备为其密钥签名后才能加入。打开以查看本机密钥和等待签名的节点。</string>
+    <string name="tka_summary_offline">连接后显示状态</string>
+    <string name="tka_summary_off">此 tailnet 中未启用</string>
+    <string name="tka_summary_signed">开启 · 此设备已签名</string>
+    <string name="tka_summary_signer">开启 · 此设备可为节点签名</string>
+    <string name="tka_summary_locked_out">开启 · 此设备被锁定在外</string>
+    <plurals name="tka_summary_waiting">
+        <item quantity="one">%1$d 个节点等待签名</item>
+        <item quantity="other">%1$d 个节点等待签名</item>
+    </plurals>
+
+    <!-- The Tailnet Lock screen. -->
+    <string name="tka_screen_help">启用 Tailnet Lock 后，节点须经持有受信任密钥的设备签名才能加入 tailnet——仅靠协调服务器无法添加节点。此屏幕显示本设备所见的锁定状态；若本设备持有受信任密钥，还可为等待中的节点签名。启用锁定、增删受信任密钥需在受信任设备上通过 CLI 完成。</string>
+    <string name="tka_offline">连接后可查看 Tailnet Lock 状态。</string>
+    <string name="tka_load_failed">守护进程未响应：%1$s</string>
+    <string name="tka_state_on">Tailnet Lock 已启用</string>
+    <string name="tka_state_off">Tailnet Lock 未启用</string>
+    <string name="tka_state_off_help">没有任何校验：由协调服务器单独决定谁能加入。可在受信任设备上用“tailscale lock init”启用；若要让此手机也能为节点签名，该命令需要下方此设备的密钥。</string>
+    <plurals name="tka_trusted_keys">
+        <item quantity="one">%1$d 个受信任签名密钥</item>
+        <item quantity="other">%1$d 个受信任签名密钥</item>
+    </plurals>
+    <string name="tka_sect_device">此设备</string>
+    <string name="tka_device_signer">持有受信任密钥：可为节点签名</string>
+    <string name="tka_device_signed">已签名：已在 tailnet 中</string>
+    <string name="tka_device_locked_out">未签名：在被受信任设备签名前与 tailnet 隔离</string>
+    <string name="tka_device_no_key">尚无密钥：此配置登录后即会出现</string>
+    <string name="tka_key_title">此设备的 Tailnet Lock 密钥</string>
+    <string name="tka_key_help">在受信任设备上执行“tailscale lock add …”将其添加为受信任密钥，即可从此手机为节点签名。点按复制。</string>
+    <string name="tka_sign_me_title">在受信任设备上运行的命令</string>
+    <string name="tka_sign_me_help">在持有受信任密钥的设备上运行此命令，即可让此手机加入。点按复制。</string>
+    <string name="tka_sect_waiting">等待签名</string>
+    <string name="tka_waiting_none">没有节点在等待签名。</string>
+    <string name="tka_waiting_not_signer">只有持有受信任密钥的设备才能为其签名。</string>
+    <string name="tka_waiting_no_lock">设置锁屏密码后才能从此手机为节点签名。</string>
+    <string name="tka_sign">签名</string>
+    <string name="tka_sign_dialog_title">为“%1$s”签名？</string>
+    <string name="tka_sign_dialog_body">%1$s\n%2$s\n节点密钥 %3$s\n\n此手机的密钥将为该节点签名，它随即在 Tailnet Lock 下加入 tailnet。只为认识的节点签名。接下来，手机将要求解锁。</string>
+    <string name="tka_sign_unlock_title">为“%1$s”签名</string>
+    <string name="tka_signed">“%1$s”已签名。</string>
+    <string name="tka_sign_failed">签名失败：%1$s</string>
+    <string name="tka_copied">已复制</string>
+</resources>

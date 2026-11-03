@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings search: the field, the lines above a list of results -->
+    <string name="search_settings_hint">搜索设置</string>
+    <string name="search_recent">最近找到</string>
+    <string name="search_suggested">常用</string>
+    <string name="search_none">未找到与“%1$s”相关的内容</string>
+    <string name="search_closest">没有完全匹配。最接近的：</string>
+    <string name="search_read_as">已按“%1$s”显示结果</string>
+
+    <!-- Why a found setting is not on its page right now. One line each; the result then opens the row that brings it. -->
+    <string name="search_need_tun">在 VPN（TUN）模式下显示</string>
+    <string name="search_sum_tun_transparent">无出口节点时全部流量走 TailSocks：Android 锁定模式或始终开启时</string>
+    <string name="search_need_tun_native">使用原生 TUN 引擎时显示</string>
+    <string name="search_need_tun_hev">使用 hev-socks5-tunnel 引擎时显示</string>
+    <string name="search_need_tun_or_root">在 VPN（TUN）和 Root 模式下显示</string>
+    <string name="search_need_root">在 Root 模式下显示</string>
+    <string name="search_need_tun_or_root_tun">在 VPN（TUN）模式，以及开启原生 TUN 的 Root 模式下显示</string>
+    <string name="search_need_root_tun">开启原生 TUN 的 Root 模式下显示</string>
+    <string name="search_need_http_proxy">开启 HTTP 代理后显示</string>
+    <string name="search_need_auto_reconnect">开启自动重连后显示</string>
+    <string name="search_need_web_ui">开启 Web 界面后显示</string>
+    <string name="search_need_automation">允许外部自动化后显示</string>
+    <string name="search_need_relay">开启对等中继后显示</string>
+    <string name="search_need_static_colors">动态取色关闭时显示</string>
+
+    <!-- One line of what a setting does, for the rows that say it nowhere on their page -->
+    <string name="search_sum_theme">浅色、深色或跟随系统</string>
+    <string name="search_sum_language">系统语言、英语或俄语</string>
+    <string name="search_sum_palette">界面的强调色</string>
+    <string name="search_sum_login_server">用自己的协调服务器替代 Tailscale 的</string>
+    <string name="search_sum_auth_key">使用预认证密钥登录，无需浏览器</string>
+    <string name="search_sum_device_name">此设备在 tailnet 中的名称</string>
+    <string name="search_sum_exit_node">将全部互联网流量经 tailnet 中另一台设备发送</string>
+    <string name="search_sum_logout">退出此配置登录并忘记其节点密钥</string>
+    <string name="search_sum_tun_engine">由谁运行隧道：tailscaled 本身或 hev-socks5-tunnel</string>
+    <string name="search_sum_tun_uses_socks">hev 引擎将所有数据包转发进入的本地代理</string>
+    <string name="search_sum_tun_excluded_apps">不经过隧道的应用</string>
+    <string name="search_sum_socks5_address">SOCKS5 代理监听的地址和端口</string>
+    <string name="search_sum_socks5_username">SOCKS5 代理的用户名；需与密码一起设置</string>
+    <string name="search_sum_socks5_password">SOCKS5 代理的密码；需与用户名一起设置</string>
+    <string name="search_sum_sagernet_link">供 SagerNet、NekoBox 等使用的 socks5:// 代理链接</string>
+    <string name="search_sum_dns_proxy_address">解析 tailnet 名称的本地 DNS 的地址和端口</string>
+    <string name="search_sum_dns_fallbacks">tailnet DNS 无应答时询问的服务器</string>
+    <string name="search_sum_doh_fallback">最后尝试的 DNS-over-HTTPS 服务器</string>
+    <string name="search_sum_control_proxy">经自建代理访问协调服务器</string>
+    <string name="search_sum_byedpi_flags">启动 ByeByeDPI 时使用的 desync 参数</string>
+    <string name="search_sum_taildrop_folder">通过 Taildrop 收到的文件的保存位置</string>
+    <string name="search_sum_web_ui_address">Web 界面监听的地址和端口</string>
+    <string name="search_sum_auto_reconnect_attempts">放弃前重启守护进程的次数</string>
+    <string name="search_sum_backup_full">所有账号和设置打包进一个受密码保护的文件</string>
+    <string name="search_sum_restore_full">用完整备份中的账号和设置替换全部现有内容</string>
+    <string name="search_sum_profile_export">将当前配置的设置导出为 JSON 文件</string>
+    <string name="search_sum_profile_import">从 JSON 文件加载配置的设置</string>
+    <string name="search_sum_automation_token">其他应用每条命令都必须携带的密钥</string>
+    <string name="search_sum_live_state">守护进程、代理和隧道的实时状态</string>
+    <string name="search_sum_root_daemon_info">套接字和日志路径、守护进程状态、路由检查</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailcat_paw_show_cd">一只随 U I I A I 旋转的猫</string>
+    <plurals name="aside_count_spins">
+        <item quantity="other">猫已被转起来 %1$d 次。U I I A I。</item>
+    </plurals>
+</resources>

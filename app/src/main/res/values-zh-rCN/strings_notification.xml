@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The ongoing connection card in the notification shade. A file of its own so
+  it lands without touching strings.xml; Android merges every values/*.xml into
+  one table. Where the main screen already has the words (Starting…, Connection
+  problem, Sign-in needed, the health titles) the card reuses those, so the two
+  never disagree; only what the card says and the screen does not lives here.
+-->
+<resources>
+    <!-- The channel, as the system settings list it. -->
+    <string name="notif_channel_status">连接状态</string>
+    <!-- The one action on the card. -->
+    <string name="notif_action_stop">停止</string>
+
+    <!-- Live states, read from the daemon on the refresh tick. -->
+    <string name="notif_connected">已连接</string>
+    <string name="notif_connecting">正在连接…</string>
+    <string name="notif_needs_login_text">打开 TailSocks 登录</string>
+    <string name="notif_awaiting_approval">等待批准</string>
+    <string name="notif_awaiting_approval_text">在管理员界面批准此设备</string>
+    <string name="notif_os_refused_text">退出登录后重新登录，或重新关闭“上报真实操作系统”</string>
+
+    <!-- Under "Connected" when no exit node is in use: how the tailnet reaches apps. -->
+    <string name="notif_mode_root">Root 模式</string>
+    <string name="notif_mode_tun">TUN 模式</string>
+    <!-- %1$s is the SOCKS5 listen address, e.g. 127.0.0.1:1055. -->
+    <string name="notif_mode_proxy">SOCKS5 监听于 %1$s</string>
+
+    <!-- The service's own moves: starting, stopping, recovering. -->
+    <string name="notif_stopping">正在停止…</string>
+    <string name="notif_restarting">正在重启…</string>
+    <string name="notif_reconnecting">正在重新连接…</string>
+    <string name="notif_reconnecting_text">正在重启守护进程以恢复连接</string>
+    <string name="notif_waiting_network">正在等待网络…</string>
+    <string name="notif_waiting_network_text">设备恢复在线后会自动重连</string>
+    <string name="notif_connection_lost">连接已断开</string>
+    <string name="notif_connection_lost_text">守护进程意外停止</string>
+    <string name="notif_root_failed">Root 守护进程启动失败</string>
+</resources>

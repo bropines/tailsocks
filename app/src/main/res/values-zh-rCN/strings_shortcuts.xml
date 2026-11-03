@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher shortcuts (ui/AppShortcuts.kt): short labels fit about 10 characters. -->
+    <string name="shortcut_toggle_short">开 / 关</string>
+    <string name="shortcut_toggle_long">开启或关闭 TailSocks</string>
+    <string name="shortcut_exit_node_short">出口节点</string>
+    <string name="shortcut_exit_node_long">选择出口节点</string>
+    <string name="shortcut_tailcat_short">TailCat</string>
+    <string name="shortcut_tailcat_long">打开 TailCat</string>
+    <string name="shortcut_send_file_short">发送文件</string>
+    <string name="shortcut_send_file_long">使用 Taildrop 发送文件</string>
+</resources>

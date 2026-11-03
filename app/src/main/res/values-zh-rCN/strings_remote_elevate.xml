@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: full rights for a guest for a while (core/RemoteElevate.kt, ui/RemoteElevate*.kt). -->
+
+    <!-- The managed device's page: the switch, and a guest's row -->
+    <string name="remote_elevate_switch_title">允许访客临时获得完整权限</string>
+    <string name="remote_elevate_switch_help">开启后，便可临时授予访客所有者的设备在此能做的全部操作，时长从 15 分钟到一天不等——且必须由本设备前的人用屏幕锁确认。访客可以提出请求；远程无法直接授予。\n• 关闭此项会立即结束已授予的权限。\n• 停止 TailSocks、退出登录、账号、密码、Root 模式以及开启完全控制，本来就只能在本设备操作。</string>
+    <string name="remote_elevate_give">临时授予完整权限…</string>
+    <string name="remote_elevate_give_named">临时授予 %1$s 完整权限</string>
+    <string name="remote_elevate_take_back">收回权限</string>
+    <string name="remote_elevate_take_back_named">收回 %1$s 的完整权限</string>
+    <string name="remote_elevate_row">完整权限 · 至 %1$s</string>
+    <string name="remote_elevate_row_full">完整权限及完全控制 · 至 %1$s</string>
+    <string name="remote_access_guest_elevate">经本设备前的人确认后，临时拥有所有者的权限</string>
+    <string name="remote_can_elevate_request">请求临时获得完整权限</string>
+
+    <!-- The question that gives them -->
+    <string name="remote_elevate_title_give">授予 %1$s 完整权限？</string>
+    <string name="remote_elevate_title_asked">%1$s 请求完整权限</string>
+    <string name="remote_elevate_help">这一次它可以在本设备上做所有者的设备能做的事。但它仍不能停止 TailSocks、退出登录、更改账号或查看密码。你可以随时收回权限。</string>
+    <string name="remote_elevate_for_how_long">授权时长</string>
+    <string name="remote_elevate_len_15m">15 分钟</string>
+    <string name="remote_elevate_len_1h">1 小时</string>
+    <string name="remote_elevate_len_8h">8 小时</string>
+    <string name="remote_elevate_len_pairing_left">至配对结束（%1$s）</string>
+    <string name="remote_elevate_len_pairing">配对剩余时长</string>
+    <string name="remote_elevate_asked_mark">%1$s · 已请求</string>
+    <string name="remote_elevate_full_title">同时授予完全控制</string>
+    <string name="remote_elevate_full_help">按名称访问存储、发送文件、共享文件夹、路由和诊断信息——仅限该访客、仅限这一次。</string>
+    <string name="remote_elevate_full_on">本设备的完全控制已开启，因此会随权限一并授予。</string>
+    <string name="remote_elevate_lock">你需要用本设备的屏幕锁确认：指纹、人脸、PIN 或密码。</string>
+    <string name="remote_elevate_no_lock">本设备没有屏幕锁，因此确认者是谁无从核验。只有当你本人就在本设备前时才授予完整权限。</string>
+    <string name="remote_elevate_confirm">授予完整权限</string>
+    <string name="remote_elevate_decline">拒绝</string>
+    <string name="remote_elevate_prompt_title">%1$s 的完整权限</string>
+    <string name="remote_elevate_fail_lock">无法在本设备上请求屏幕锁确认，因此未授予任何权限。</string>
+    <string name="remote_elevate_fail_lockout">尝试次数过多：屏幕锁已暂时停用。未授予任何权限。</string>
+    <string name="remote_elevate_fail_not_proven">屏幕锁未能确认。未授予任何权限。</string>
+    <string name="remote_elevate_fail_not_saved">无法保存在本设备上，因此未授予任何权限。</string>
+    <string name="remote_elevate_fail_off">本设备上的访客完整权限已关闭。</string>
+    <string name="remote_elevate_fail">未向 %1$s 授予任何权限。请重试。</string>
+    <string name="remote_elevate_given">%1$s 已获得完整权限，有效期至 %2$s</string>
+    <string name="remote_elevate_taken">%1$s 已恢复为访客</string>
+    <string name="remote_elevate_gone">该设备已不再是本设备的访客，或访客完整权限已关闭。</string>
+
+    <!-- A guest's request, as this device says it -->
+    <string name="remote_elevate_ask_text">%1$s。打开以回应：需要用本设备的屏幕锁确认。</string>
+    <string name="remote_notice_elevate_ask">请求获得 %1$s 的完整权限</string>
+    <string name="remote_elevate_ask_toast">%1$s 请求获得 %2$s 的完整权限。打开 TailSocks 进行回应。</string>
+
+    <!-- While they last -->
+    <string name="remote_elevate_channel">已授予完整权限</string>
+    <string name="remote_elevate_notif_one">%1$s 已获得完整权限</string>
+    <plurals name="remote_elevate_notif_many">
+        <item quantity="other">%d 台设备已获得完整权限</item>
+    </plurals>
+    <string name="remote_elevate_until">至 %1$s</string>
+    <string name="remote_elevate_until_full">至 %1$s，含完全控制</string>
+
+    <!-- The log of recent remote changes -->
+    <string name="remote_log_elevated">已授予 %1$s 的完整权限</string>
+    <string name="remote_log_elevated_full">已授予 %1$s 的完整权限及完全控制</string>
+    <string name="remote_log_elevate_asked">请求获得 %1$s 的完整权限</string>
+    <string name="remote_log_elevation_ended">完整权限已结束</string>
+    <string name="remote_log_elevation_time">完整权限已结束：已到期</string>
+    <string name="remote_log_elevation_taken_back">完整权限已收回</string>
+    <string name="remote_log_elevation_switch_off">完整权限已结束：本设备上的开关已关闭</string>
+    <string name="remote_log_elevation_guests_off">完整权限已结束：访客不被放行</string>
+
+    <!-- The managing device -->
+    <string name="rmanage_rights_ask">请求完整权限</string>
+    <string name="rmanage_rights_ask_help">%1$s 可以临时授予本设备所有者的权限。需要那边的人用屏幕锁确认；在此处无法直接获得。</string>
+    <string name="rmanage_rights_asked_shown">%1$s 已显示该请求。那边有人确认后权限才会生效。</string>
+    <string name="rmanage_rights_asked_notified">那边屏幕上没有打开 TailSocks，因此 %1$s 显示了一条通知。有人确认后权限才会生效。</string>
+    <string name="rmanage_rights_asked_waiting">%1$s 已收到请求。那边打开 TailSocks 后即会弹出。</string>
+    <string name="rmanage_rights_left">完整权限 · 剩余 %1$s</string>
+    <string name="rmanage_fact_rights">完整权限</string>
+    <string name="rmanage_rights_until">至 %1$s · 剩余 %2$s</string>
+    <string name="rmanage_rights_until_full">至 %1$s · 剩余 %2$s · 含完全控制</string>
+    <string name="rmanage_rights_help">在 %1$s 上临时授予：本设备可在那边做所有者的设备能做的事。权限会自行到期，或可在那边收回。</string>
+    <string name="rmanage_rights_dialog_title">向 %1$s 请求完整权限</string>
+    <string name="rmanage_rights_dialog_text">需要 %1$s 前的人用屏幕锁确认。在此之前不会授予任何权限。</string>
+    <string name="rmanage_rights_send">请求</string>
+</resources>

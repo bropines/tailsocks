@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The installed Root Mode boot script and its version (Settings → Tunnel mode → Root).
+     Kept apart from strings.xml so work on it does not collide with edits there. -->
+<resources>
+    <string name="settings_root_script_outdated">脚本已过时：由 TailSocks %1$s 安装，而当前版本会写入不同的脚本。请重新安装，以便重启后守护进程按当前版本的方式启动。</string>
+    <string name="settings_root_script_outdated_unknown">脚本已过时：安装它的 TailSocks 版本尚未给脚本标记版本。请重新安装，以便重启后守护进程按当前版本的方式启动。</string>
+</resources>

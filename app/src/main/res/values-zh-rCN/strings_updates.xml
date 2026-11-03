@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The beta channel of the in-app updater: betas are builds of the next version, published before it for testing -->
+    <string name="settings_update_beta_title">接收测试版</string>
+    <string name="settings_update_beta_desc">更新检查也会提供测试版：先于正式版发布、供测试的下一版本构建，其中某些功能可能无法正常工作。如需回退，请关闭此项，并在下一个稳定版发布后安装该版本。</string>
+    <!-- Settings search: what a person types to find the switch above (a list, see strings_settings_search_keywords.xml) -->
+    <string name="search_kw_update_beta">预发布, 抢先版, 内测, 测试版, 尝鲜, 测试构建, 更新通道, 不稳定版, 每日构建, beta</string>
+    <!-- The app's name in the About dialog of a beta build: %1$s is TailSocks -->
+    <string name="main_about_beta_name">%1$s 测试版</string>
+</resources>

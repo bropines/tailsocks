@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher icon: its row and picker in Settings → Appearance, and the icons' names (core/AppIcons.kt). -->
+<resources>
+    <string name="icon_title">应用图标</string>
+    <string name="icon_note">启动器可能需要几秒钟才会显示新图标。旧图标对应的主屏幕图标或固定快捷方式可能会消失：请重新添加。</string>
+
+    <!-- The picker's sections. -->
+    <string name="icon_group_classic">TailSocks</string>
+    <string name="icon_group_pixel">8-bit</string>
+    <string name="icon_group_animals">狐狸和 TailCat</string>
+    <string name="icon_group_seasonal">节日</string>
+    <string name="icon_group_discreet">低调</string>
+
+    <!-- The icons. -->
+    <string name="icon_fox_sock">狐狸袜</string>
+    <string name="icon_flat_curl">扁平卷尾</string>
+    <string name="icon_line_tail">线条尾巴</string>
+    <string name="icon_pixel_sock">8-bit 袜子</string>
+    <string name="icon_pixel_fox">8-bit 狐狸</string>
+    <string name="icon_sleepy_fox">打盹狐狸</string>
+    <string name="icon_facet_fox">棱面狐狸</string>
+    <string name="icon_sock_thief">袜子小偷</string>
+    <string name="icon_mesh_paw">网格爪印</string>
+    <string name="icon_stocking">圣诞袜</string>
+    <string name="icon_pumpkin">南瓜袜</string>
+    <string name="icon_knit">针织</string>
+    <string name="icon_hex_tile">六边形</string>
+</resources>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The share browser's downloads, its path bar and its link switch (ui/TaildriveBrowser.kt,
+     ui/TaildriveDownloadUi.kt, ui/TaildrivePathBar.kt, core/TaildriveDownloads.kt), and the
+     download folder of Settings (ui/TaildriveDownloadSetting.kt). -->
+<resources>
+    <!-- A row's button, the bar's button in selection mode. -->
+    <string name="taildrive_download">下载</string>
+    <!-- Content description of a file row's button. -->
+    <string name="taildrive_download_file">下载 %1$s</string>
+    <!-- The bar's way into selection mode where there is no long press: a television. -->
+    <string name="taildrive_select">选择</string>
+    <string name="taildrive_select_all">全选</string>
+    <string name="taildrive_select_none">取消选择</string>
+    <plurals name="taildrive_selected">
+        <item quantity="other">已选 %d 项</item>
+    </plurals>
+
+    <!-- Asked before a download that holds folders. The numbers fill in as the folders are walked. -->
+    <string name="taildrive_download_folders_title">所选内容包含文件夹</string>
+    <string name="taildrive_download_folders_body">将连同其中的全部内容一起下载：%1$s — %2$s。</string>
+    <!-- The same while the folders are still being counted: %2$s ends in an ellipsis. -->
+    <string name="taildrive_download_folders_body_counting">将连同其中的全部内容一起下载：%1$s — %2$s</string>
+    <plurals name="taildrive_download_folders">
+        <item quantity="other">%d 个文件夹</item>
+    </plurals>
+    <plurals name="taildrive_download_files">
+        <item quantity="other">%d 个文件</item>
+    </plurals>
+    <string name="taildrive_download_counting">正在统计…</string>
+    <string name="taildrive_download_counting_so_far">已统计 %1$s，仍在统计…</string>
+    <string name="taildrive_download_all">全部下载</string>
+    <string name="taildrive_download_files_only">仅下载文件</string>
+
+    <!-- Choosing where a download goes. -->
+    <string name="taildrive_download_pick_title">保存位置</string>
+    <string name="taildrive_download_pick_confirm">保存到这里</string>
+    <string name="taildrive_download_folder_lost">下载文件夹已不可用。请选择保存位置。</string>
+    <string name="taildrive_download_taildrop_unwritable">Taildrop 文件夹当前无法写入。请选择保存位置。</string>
+
+    <!-- A download as it runs and ends: the page's panel and the notification. -->
+    <string name="taildrive_download_channel">Taildrive 下载</string>
+    <string name="taildrive_download_to">正在下载到 %1$s</string>
+    <plurals name="taildrive_download_saved">
+        <item quantity="other">已将 %1$d 个文件保存到 %2$s</item>
+    </plurals>
+    <string name="taildrive_download_nothing_saved">未下载任何内容</string>
+    <string name="taildrive_download_cancelled">下载已取消</string>
+    <string name="taildrive_download_stopped">Taildrive 已停止，下载被中断。</string>
+    <plurals name="taildrive_download_missing">
+        <item quantity="other">%d 项未下载</item>
+    </plurals>
+    <string name="taildrive_download_reason_not_found">未找到</string>
+    <string name="taildrive_download_reason_denied">无权访问</string>
+    <string name="taildrive_download_reason_timeout">超时无响应</string>
+    <string name="taildrive_download_reason_network">连接中断</string>
+    <string name="taildrive_download_reason_incomplete">接收不完整</string>
+    <string name="taildrive_download_reason_write">无法写入此处</string>
+    <string name="taildrive_download_reason_unlisted">无法读取文件夹</string>
+    <string name="taildrive_download_open_folder">打开文件夹</string>
+    <!-- After a download into a folder chosen for it. -->
+    <string name="taildrive_download_keep">始终保存到此处</string>
+    <string name="taildrive_download_keep_help">下载将不再询问，直接保存到此文件夹。可在「设置 → 共享与访问 → Taildrive 下载」中更改。</string>
+    <string name="taildrive_download_kept">下载现在保存到 %1$s</string>
+
+    <!-- Settings → Sharing & access → Storage. -->
+    <string name="taildrive_download_folder_title">Taildrive 下载</string>
+    <string name="taildrive_download_folder_ask">每次都询问。从其他设备的共享中下载的文件，由你为每次下载选择保存位置。</string>
+    <string name="taildrive_download_folder_set_format">%1$s。从其他设备的共享中下载的文件将保存到此处。</string>
+    <string name="taildrive_download_folder_taildrop_format">与 Taildrop 相同：%1$s</string>
+    <!-- The three choices of the row's dialog; the first is the default. -->
+    <string name="taildrive_download_mode_taildrop">与 Taildrop 相同</string>
+    <string name="taildrive_download_folder_reset">每次都询问</string>
+    <string name="taildrive_download_mode_ask_note">每次下载都选择文件夹</string>
+    <string name="taildrive_download_mode_choose">选择文件夹</string>
+    <string name="taildrive_download_mode_choose_note">选择一次并记住</string>
+    <string name="taildrive_download_mode_picker_help">Android 不允许应用直接选择存储根目录或 Download 目录本身——请在其中选择或新建一个文件夹。</string>
+    <!-- What the settings search knows the row by (ui/SettingsCatalog.kt). -->
+    <string name="search_sum_taildrive_download_folder">从 Taildrive 共享下载的文件保存在哪里</string>
+    <string name="search_kw_taildrive_download_folder">下载文件夹, 下载, 保存位置, 文件去向, 共享, 每次都询问, 与 taildrop 相同</string>
+
+    <!-- The path under the title: its names open their level; the field takes a typed one. -->
+    <string name="taildrive_path_edit">输入路径</string>
+    <string name="taildrive_path_field">路径</string>
+    <string name="taildrive_path_placeholder">设备/共享/文件夹</string>
+    <string name="taildrive_path_go">前往</string>
+    <string name="taildrive_path_looking">正在查找…</string>
+    <string name="taildrive_path_missing">%2$s 中没有“%1$s”</string>
+    <string name="taildrive_path_go_to">前往 %1$s</string>
+    <string name="taildrive_path_failed">无法读取 %1$s</string>
+
+    <!-- The bar's link switch: what it does, said when it is pressed. -->
+    <string name="taildrive_link_on">文件通过链接打开——适用于无法直接打开文件的播放器，或 Android 7 上需要拖动进度的情况</string>
+    <string name="taildrive_link_off">文件直接打开</string>
+    <string name="taildrive_link_needs_proxy">链接需要 Taildrive 代理。要开启吗？</string>
+    <string name="taildrive_link_turn_on">开启</string>
+    <!-- Content description and tooltip of the switch while it is on and the proxy is not there. -->
+    <string name="taildrive_link_proxy_off_desc">通过链接打开文件——代理已关闭</string>
+    <string name="taildrive_link_opened_directly">代理已关闭——已直接打开</string>
+    <string name="taildrive_link_opened_directly_silent">代理无响应——已直接打开</string>
+    <string name="taildrive_link_opened_no_seek">代理已关闭——已直接打开；拖动进度需要代理</string>
+    <string name="taildrive_link_opened_no_seek_silent">代理无响应——已直接打开；拖动进度需要它</string>
+    <string name="taildrive_link_turn_on_proxy">开启代理</string>
+</resources>

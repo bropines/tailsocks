@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- "Recent remote changes": why a paired device was refused. Each of these follows "Refused: ". -->
+    <string name="remote_denied_wrong_token">其配对密钥与本设备提供给它的不一致</string>
+    <string name="remote_denied_user_changed">该设备现在属于另一个账号</string>
+    <string name="remote_denied_class_lost_owner">它以所有者身份配对，现不再是所有者：需要重新配对</string>
+    <string name="remote_denied_class_lost_guest">当前不允许访客接入</string>
+    <!-- %1$s: what was asked for, as one of the two below words it: "to see the settings", "to change settings" -->
+    <string name="remote_denied_op_needs_full">完全控制已关闭，开启它才能%1$s</string>
+    <string name="remote_denied_op_not_allowed">不允许它%1$s</string>
+    <!-- %1$s: something that is seen, "the settings" -->
+    <string name="remote_denied_to_see">查看%1$s</string>
+    <!-- %1$s: something that is done, "change settings" -->
+    <string name="remote_denied_to_do">%1$s</string>
+    <!-- %1$s: a setting and the value asked for, "MagicDNS (off)" -->
+    <string name="remote_denied_setting_only_at_device">%1$s — 这种方式下只能在设备本机上更改</string>
+    <string name="remote_denied_setting_needs_full">%1$s — 完全控制已关闭</string>
+    <!-- %1$s: a name as the other device sent it -->
+    <string name="remote_denied_setting_unknown">不存在可远程更改的此项设置：%1$s</string>
+    <string name="remote_denied_action_unknown">不存在可远程执行的操作：%1$s</string>
+    <string name="remote_denied_permission_unknown">不存在可远程申请的权限：%1$s</string>
+    <string name="remote_denied_file_outside_storage">文件不在本设备存储范围内：%1$s</string>
+</resources>

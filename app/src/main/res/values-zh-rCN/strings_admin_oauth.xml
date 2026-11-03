@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="admin_oauth_client_id_optional">可以留空：密钥中已包含。</string>
+    <string name="admin_oauth_client_id_mismatch">此客户端 ID 与密钥不匹配。留空则从密钥中读取。</string>
+</resources>

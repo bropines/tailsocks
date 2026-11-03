@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the tailnet's policy lets this device do with Taildrive, where a person looks: the
+     Taildrive screen (ui/TaildriveActivity.kt), the share browser (ui/TaildriveBrowser.kt) and the
+     document picker (core/TailsocksFileProvider.kt). The verdicts are worded like the netmap
+     cache's (core_netmap_cache_status_*). -->
+<resources>
+    <!-- The Taildrive screen: one line beside the switches, one beside the other devices' folders. -->
+    <string name="taildrive_verdict_share_allowed">服务器允许此设备共享文件夹。</string>
+    <string name="taildrive_verdict_share_denied">服务器不允许此设备共享文件夹。</string>
+    <string name="taildrive_verdict_access_allowed">服务器允许此设备打开其他设备的文件夹。</string>
+    <string name="taildrive_verdict_access_denied">服务器不允许此设备打开其他设备的文件夹。</string>
+    <string name="taildrive_verdict_unknown">连接后即可查看服务器是否允许。</string>
+    <string name="taildrive_verdict_share_help">tailnet 策略中已开启 Taildrive：本设备需要 drive:share 属性，还需一条授权让其他设备能访问其文件夹。在此之前，下方文件夹会保留，只是谁都看不到。</string>
+    <string name="taildrive_verdict_access_help">tailnet 策略必须为本设备授予 drive:access 属性。没有它，其他设备的文件夹无法在此打开。</string>
+    <string name="taildrive_shares_not_live">已保留，但在服务器允许之前不会共享。</string>
+    <string name="taildrive_fix_policy">在策略中允许</string>
+    <string name="taildrive_fix_policy_help">策略编辑器会打开，并附上一条现成的规则，用于你自己设备之间的 Taildrive。保存前你可以先行审阅。</string>
+
+    <!-- The share browser: this device may not open shares / its own Taildrive does not answer. -->
+    <string name="taildrive_browser_error_not_permitted">此设备无权打开共享</string>
+    <string name="taildrive_browser_error_not_permitted_help">tailnet 策略必须为本设备授予 drive:access 属性。管理员可以在策略中允许。</string>
+    <string name="taildrive_browser_error_no_answer">Taildrive 无响应</string>
+    <string name="taildrive_browser_error_no_answer_help">本设备自身的 Taildrive 关闭了连接：可能 tailnet 尚未加载，或其策略未为此设备开放 Taildrive。请连接后重试。</string>
+
+    <!-- The document picker: one line under a folder that cannot be listed. -->
+    <string name="taildrive_unavailable_not_connected">不可用——TailSocks 未连接</string>
+    <string name="taildrive_unavailable_not_permitted">不可用——tailnet 策略不允许此设备打开共享</string>
+    <string name="taildrive_unavailable_no_answer">不可用——Taildrive 无响应；连接后重试</string>
+    <string name="taildrive_unavailable_timeout">不可用——超时无响应</string>
+    <string name="taildrive_unavailable_failed">不可用——请稍后重试</string>
+</resources>

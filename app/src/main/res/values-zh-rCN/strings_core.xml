@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Censorship bypass: the daemon's saved network map (tailscaled 1.104+). -->
+    <string name="core_netmap_cache_section">不依赖服务器启动</string>
+    <string name="core_netmap_cache_help">守护进程可以把最近一次网络映射保存在设备上，启动时先据此连接你的设备，无需等待协调服务器应答 — 这样即使服务器被封锁或响应缓慢，tailnet 也能建立。服务器通过 cache-network-maps 节点属性为每台设备启用此项；tailnet 策略可用 disable-cache-network-maps 撤销。在服务器应答之前，设备只知道已保存的映射：新增或移除的设备、变更的访问规则以及在线状态，都要等到那时才能同步。</string>
+    <string name="core_netmap_cache_title">从已保存的网络映射启动</string>
+    <string name="core_netmap_cache_desc">关闭时，不使用已保存的映射，并在下次联系服务器时将其删除。更改此项会重启连接。</string>
+    <string name="core_netmap_cache_status_granted">服务器允许此设备保留映射。</string>
+    <string name="core_netmap_cache_status_withheld">服务器不允许此设备保留映射；将不使用映射启动。</string>
+    <string name="core_netmap_cache_status_offline">未联系到协调服务器：正在使用设备已有的映射运行。</string>
+    <string name="core_netmap_cache_status_unknown">连接后即可查看服务器是否允许。</string>
+    <string name="core_netmap_cache_clear_title">清除网络映射缓存</string>
+    <string name="core_netmap_cache_clear_desc">删除所有账号已保存的映射。只要上面的开关处于开启状态，从服务器获取的下一个映射就会被重新保存。</string>
+    <string name="core_netmap_cache_cleared">网络映射缓存已清除</string>
+    <string name="core_netmap_cache_clear_failed">无法清除缓存：%1$s</string>
+    <string name="core_control_port_section">控制连接</string>
+    <string name="core_control_port_help">Tailscale 通常以明文 80 端口建立控制连接，握手通过后便一直保持。有些网络会放行该握手，随后悄悄丢弃数据流：设备虽然登录成功，却始终收不到网络映射，应用卡在“正在连接”。走 443 端口时，整个交互都处于 TLS 之内。</string>
+    <string name="core_control_port_title">仅使用 443 端口</string>
+    <string name="core_control_port_desc">关闭时，会优先尝试 80 端口，与官方客户端一致。仅当你的网络无法连通协调服务器的 443 端口时才应关闭此项。更改此项会重启连接。</string>
+</resources>

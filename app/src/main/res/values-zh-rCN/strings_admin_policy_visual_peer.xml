@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's Peer relays page: grants with the tailscale.com/cap/relay capability. -->
+    <string name="admin_pvr_page">对等中继</string>
+    <!-- Under the icon in the narrow page rail, about 80dp. -->
+    <string name="admin_pvr_page_short">对等中继</string>
+    <string name="admin_pvr_help">对等中继是 tailnet 中为无法直连的两台设备转发流量的设备，通常比 Tailscale 的 DERP 服务器更快。此处的规则指定哪些设备可以使用哪些中继。中继本身需在设备上开启：tailscale set --relay-server-port=40000，并确保该 UDP 端口可达。两端都需要 Tailscale 1.86 或更新版本；Android、iOS 和 Apple TV 无法充当对等中继。</string>
+    <string name="admin_pvr_add">添加规则</string>
+    <string name="admin_pvr_pane_empty">选择一条规则以查看和修改</string>
+    <string name="admin_pvr_empty">还没有对等中继：无法直连的设备将经由 Tailscale 的 DERP 服务器</string>
+    <!-- "2 relays for 5 devices": %1$s is admin_pvr_n_relays, %2$s admin_pvr_n_clients. -->
+    <string name="admin_pvr_coverage">%1$s，供 %2$s 使用</string>
+    <plurals name="admin_pvr_n_relays">
+        <item quantity="one">%d 个中继</item>
+        <item quantity="other">%d 个中继</item>
+    </plurals>
+    <plurals name="admin_pvr_n_clients">
+        <item quantity="one">%d 台设备</item>
+        <item quantity="other">%d 台设备</item>
+    </plurals>
+    <!-- A tag on a card: devices the rule names that will not relay or use a relay. -->
+    <plurals name="admin_pvr_n_out">
+        <item quantity="one">%d 个被排除</item>
+        <item quantity="other">%d 个被排除</item>
+    </plurals>
+    <!-- Short labels in a card's left column. -->
+    <string name="admin_pvr_c_relays">中继</string>
+    <string name="admin_pvr_c_for">供</string>
+    <string name="admin_pvr_c_also">附加</string>
+    <string name="admin_pvr_also_via">经由 %s</string>
+    <string name="admin_pvr_also_posture">仅限 %s</string>
+    <!-- %1$s is a device name, %2$s its operating system. -->
+    <string name="admin_pvr_note_os">%1$s：%2$s 无法充当对等中继</string>
+    <!-- %1$s is a device name, %2$s its Tailscale version. -->
+    <string name="admin_pvr_note_old">%1$s：Tailscale %2$s，对等中继需要 1.86</string>
+    <string name="admin_pvr_note_shared">%1$s：来自其他 tailnet 的共享设备，而对等中继只服务本 tailnet</string>
+    <string name="admin_pvr_rule_title">对等中继规则 %d</string>
+    <string name="admin_pvr_mixed">同时是访问规则：%s</string>
+    <string name="admin_pvr_mixed_help">其设备随所授权的访问一同确定，需在「访问」页面修改。把中继拆分为独立规则即可在此编辑。</string>
+    <string name="admin_pvr_split">拆分为独立规则</string>
+    <string name="admin_pvr_open_access">在「访问」中打开</string>
+    <!-- On an access rule's peer relay capability: opens it on the Peer relays page. -->
+    <string name="admin_pvr_open">打开</string>
+    <string name="admin_pvr_f_relays">中继设备</string>
+    <string name="admin_pvr_f_relays_help">充当对等中继的设备，可用标签、主机、IP 集或 Tailscale 地址指定。每台设备都要在本地开启后才会中继：tailscale set --relay-server-port=40000。</string>
+    <string name="admin_pvr_f_clients">可使用中继的设备</string>
+    <string name="admin_pvr_f_clients_help">固定在一处、位于严格 NAT 或防火墙之后的设备，如办公室或云网络。不要选经常更换网络的手机和笔记本，也不要选所有人：它们都会尝试使用中继。</string>
+    <string name="admin_pvr_d_relays">将作为中继</string>
+    <string name="admin_pvr_d_clients">将使用中继</string>
+    <string name="admin_pvr_d_none">列表中没有设备</string>
+    <string name="admin_pvr_d_help">依据管理控制台的设备列表。它只说明设备的运行环境，不代表其中继已开启：中继开关设置在设备上，可用 tailscale status 查看。</string>
+    <string name="admin_pvr_delete">删除规则</string>
+    <string name="admin_pvr_delete_cap">移除中继</string>
+    <string name="admin_pvr_deleted">对等中继规则已删除</string>
+    <string name="admin_pvr_deleted_cap">已从规则中移除中继</string>
+    <string name="admin_pvr_new">新建对等中继规则</string>
+    <string name="admin_pvr_new_sub">哪些设备中继，供谁使用</string>
+    <string name="admin_pvr_create_hint">请先选择中继和可使用它们的设备。</string>
+    <!-- Risk lint: a peer relay grant with *, autogroup:member, autogroup:tagged or autogroup:danger-all as its source. -->
+    <string name="admin_pvr_risk_relay">面向所有人的中继</string>
+    <string name="admin_pvr_risk_relay_help">这类设备都会尝试使用中继，其流量可能绕远路。Tailscale 建议改为指定位于严格 NAT 之后的设备。</string>
+</resources>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- QR codes to show (ui/QrCode.kt) -->
+    <string name="qr_show">显示二维码</string>
+    <string name="qr_image">二维码</string>
+    <string name="qr_too_long">内容过长，无法生成二维码</string>
+    <string name="qr_share">分享</string>
+    <string name="qr_copied">已复制</string>
+    <string name="qr_show_text">显示文本</string>
+    <string name="qr_hide_text">隐藏文本</string>
+
+    <!-- TailCat: the same code as a link or as the command -->
+    <string name="qr_tab_link">链接</string>
+    <string name="qr_tab_command">命令</string>
+    <string name="qr_tailcat_server_link_help">用任意手机的相机扫描，即可在 TailSocks 中打开，并自动填入连接到此手机的配置。如果服务器允许任何人接入，客户端只需该地址。</string>
+    <string name="qr_tailcat_connection_link_help">用任意手机的相机扫描，即可在 TailSocks 中打开，并自动填入此连接。代理的登录名和密码仅留在本机。</string>
+
+    <!-- TailCat -->
+    <string name="qr_tailcat_server_title">连接到此手机</string>
+    <string name="qr_tailcat_server_help">在电脑上用 tailcat CLI 运行的命令；TailSocks 的扫描器（TailCat 里的“扫描二维码”）也能读取。如果服务器允许任何人接入，客户端只需该地址。</string>
+    <string name="qr_tailcat_connection_help">用于此连接、供电脑使用的 tailcat 命令；TailSocks 的扫描器也能读取。代理的登录名和密码仅留在本机。</string>
+
+    <!-- Serve -->
+    <string name="qr_serve_title">在另一台设备上打开</string>
+    <string name="qr_serve_tailnet_help">仅在 tailnet 内的设备上可打开。</string>
+    <string name="qr_serve_public_help">公开：通过 Funnel，在互联网上任何位置都可打开。</string>
+</resources>

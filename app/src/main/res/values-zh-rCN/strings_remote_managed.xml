@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management, the managed device's own page (ui/RemoteManagedScreen.kt): the two switches
+         beyond the main one, what a paired device may do, and the newer lines of the log -->
+    <string name="remote_managed_switch_help">用本屏幕上的配对码完成配对的设备，可通过 tailnet 查看此 TailSocks 并更改部分内容。具体可更改的项目列在“已配对设备可以做什么”下。</string>
+
+    <!-- Full control -->
+    <string name="remote_full_title">完全控制</string>
+    <string name="remote_full_help">此后，本账号的已配对设备可以把本设备作为出口节点或路由器提供出去；若网络文件访问也已开启，还可查看本设备存储中每个文件的名称、把其中任意文件发送给自己、添加共享文件夹，以及读取已抹除敏感信息的应用日志。\n• 它只能在本设备上开启，别处不行。已配对设备只能关闭它。\n• 访客只有在本设备临时授予完整权限期间才能获得它。</string>
+    <string name="remote_full_confirm_title">开启完全控制？</string>
+    <string name="remote_full_confirm_text">本账号的每台已配对设备都将能把本设备作为出口节点或路由器提供出去。若网络文件访问也已开启，它们还能查看本设备存储中每个文件的名称、把其中任意文件发送给自己、添加共享文件夹，并读取应用日志。\n\n谁拿着已配对的手机，谁就握有这一切。</string>
+    <string name="remote_full_confirm_yes">开启</string>
+
+    <!-- Guests -->
+    <string name="remote_guests_title">允许他人的设备以访客身份配对</string>
+    <string name="remote_guests_help_lasts">访客可以查看状态并选择出口节点，其配对会在 %1$s 后自行结束。</string>
+    <string name="remote_guests_help_plain">访客可以查看状态并选择出口节点。</string>
+    <string name="remote_guests_help_off">• 关闭：只有本账号自己的设备可以配对；已配对的访客在重新开启前会被拒绝。</string>
+    <string name="remote_guests_help_off_tagged">• 本设备已打标签，因此没有所有者：关闭此项后任何人都无法配对；已配对的访客在重新开启前会被拒绝。</string>
+    <string name="remote_paired_help_owners">现在只有与本设备登录同一账号的设备可以配对：访客不被放行。它会以所有者身份配对，并一直保留到被撤销。</string>
+    <string name="remote_paired_nobody">现在无人可以配对：本设备已打标签，没有所有者，且访客不被放行。</string>
+    <string name="remote_paired_guest_refused">访客关闭期间被拒绝</string>
+    <!-- %1$s is "3 days ago", "just now" -->
+    <string name="remote_paired_since">配对于 %1$s</string>
+
+    <!-- What a paired device may do: every line is put together from the bridge's own lists.
+         The names in a list are joined with remote_access_list_more, and, in a sentence, the last
+         one with remote_access_list_last. -->
+    <string name="remote_access_title">已配对设备可以做什么</string>
+    <string name="remote_access_guest">访客</string>
+    <string name="remote_access_owner">所有者</string>
+    <string name="remote_access_owner_full">所有者（完全控制已开启）</string>
+    <string name="remote_access_full">有完全控制时</string>
+    <string name="remote_access_never">任何人、任何时候都不能</string>
+    <string name="remote_access_not_applied">TailSocks 未运行，上述开关尚未生效。启动后本列表会随之更新。</string>
+    <string name="remote_access_list_more">%1$s、%2$s</string>
+    <string name="remote_access_list_last">%1$s 和 %2$s</string>
+    <string name="remote_access_guests_off">既不能配对也不能管理：访客不被放行</string>
+    <string name="remote_access_like_guest">访客可做的一切</string>
+    <string name="remote_access_see">查看 %1$s</string>
+    <string name="remote_access_set">更改：%1$s</string>
+    <string name="remote_access_set_guarded">更改（未确认则自动还原）：%1$s</string>
+    <string name="remote_access_set_on_only">只能开启、不能关闭：%1$s</string>
+    <string name="remote_access_set_off_only">只能关闭、不能开启：%1$s</string>
+    <string name="remote_access_set_needs_full">关闭（开启需要完全控制）：%1$s</string>
+    <string name="remote_access_set_with_full">开启：%1$s</string>
+    <string name="remote_access_permissions">请求在本设备上显示某项权限的页面（是否允许仍由你决定）：%1$s</string>
+
+    <!-- What can be seen: fits after remote_access_see -->
+    <string name="remote_can_status">状态</string>
+    <string name="remote_can_exit_nodes">出口节点</string>
+    <string name="remote_can_settings">设置</string>
+    <string name="remote_can_files">接收的文件列表</string>
+    <string name="remote_can_folders">共享文件夹及其路径</string>
+    <string name="remote_can_storage_list">本设备存储中每个文件的名称</string>
+    <string name="remote_can_diag_report">诊断报告</string>
+    <string name="remote_can_diag_log">已抹除敏感信息的应用日志</string>
+    <!-- What can be done: each begins a line or follows a comma -->
+    <string name="remote_can_exit_node_set">选择出口节点</string>
+    <string name="remote_can_settings_set">更改设置</string>
+    <string name="remote_can_action">执行操作</string>
+    <string name="remote_can_files_delete">删除接收到的文件</string>
+    <string name="remote_can_unpair">自行解除配对</string>
+    <string name="remote_can_permission_request">请求在本设备上显示某项权限的页面</string>
+    <string name="remote_can_confirm">确认自己的更改</string>
+    <string name="remote_can_identify">在本屏幕上显示自己的名称</string>
+    <string name="remote_can_shares_remove">停止共享某个文件夹</string>
+    <string name="remote_can_shares_add">共享其他文件夹</string>
+    <string name="remote_can_storage_send">把存储中的任意文件发送给自己</string>
+    <string name="remote_can_act_reconnect">重连</string>
+    <string name="remote_can_act_reconnect_relays">重新连接中继服务器</string>
+    <string name="remote_can_act_receive_folder_default">重置失效的接收文件夹</string>
+    <string name="remote_can_act_save_received">把等待中的文件存入接收文件夹</string>
+    <!-- Settings: each follows a colon, in a list -->
+    <string name="remote_can_set_accept_routes">接受子网路由</string>
+    <string name="remote_can_set_exit_node_lan_access">出口节点下的局域网访问</string>
+    <string name="remote_can_set_tun_mode">TUN 模式</string>
+    <string name="remote_can_set_auto_reconnect">自动重连</string>
+    <string name="remote_can_set_auto_start">开机后自启动</string>
+    <string name="remote_can_set_keep_awake">保持连接唤醒</string>
+    <string name="remote_can_set_taildrive_enabled">共享文件夹（Taildrive）</string>
+    <string name="remote_can_set_taildrive_proxy_enabled">Taildrive 代理</string>
+    <string name="remote_can_set_advertise_exit_node">把本设备作为出口节点提供</string>
+    <string name="remote_can_set_advertise_routes">它通告的子网路由</string>
+    <string name="remote_can_set_full_control">完全控制</string>
+    <string name="remote_can_set_exit_node">出口节点</string>
+    <!-- A permission is named by the Permissions screen's own strings (RemotePromptRules.title); the VPN consent has no row there -->
+    <string name="remote_perm_vpn">VPN 连接</string>
+    <!-- What nobody may: each begins the line or follows a comma -->
+    <string name="remote_never_stop">永久停止 TailSocks</string>
+    <string name="remote_never_sign_out">退出登录</string>
+    <string name="remote_never_account">更改账号或登录服务器</string>
+    <string name="remote_never_credentials">读取或设置密码或密钥</string>
+    <string name="remote_never_control_proxy">更改控制面代理或审查绕过设置</string>
+    <string name="remote_never_root_mode">改动 Root 模式</string>
+    <string name="remote_never_grant_permission">授予权限</string>
+    <string name="remote_never_full_control_on">开启完全控制</string>
+
+    <!-- The log: the lines of the newer operations -->
+    <string name="remote_log_permission">请求了一项权限：%1$s</string>
+    <string name="remote_log_confirmed">已确认：%1$s</string>
+    <string name="remote_log_reverted">已还原：%1$s</string>
+    <string name="remote_log_reverted_unconfirmed">已还原：%1$s（未确认）</string>
+    <string name="remote_log_reverted_none">已移除出口节点：更改未确认，且原先的节点也已不存在</string>
+    <string name="remote_log_identify">请求在本设备上显示名称</string>
+    <string name="remote_log_share_added">已共享文件夹</string>
+    <string name="remote_log_share_removed">已停止共享文件夹</string>
+    <string name="remote_log_file_sent">已向其发送文件</string>
+    <string name="remote_log_browse">浏览了存储</string>
+    <string name="remote_log_diag">诊断</string>
+    <string name="remote_log_diag_log">读取了应用日志</string>
+    <string name="remote_log_diag_report">读取了诊断报告</string>
+    <!-- "%1$s (%2$s)": a setting and its value, a request and what came of it -->
+    <string name="remote_log_on">开</string>
+    <string name="remote_log_off">关</string>
+    <string name="remote_log_none">无</string>
+    <string name="remote_log_result_shown">已在屏幕上显示</string>
+    <string name="remote_log_result_notified">已显示通知</string>
+    <string name="remote_log_result_waiting">待打开 TailSocks 后显示</string>
+    <string name="remote_log_result_unseen">无法显示</string>
+    <!-- What the bridge remarks on a line when the app did not simply do as asked -->
+    <string name="remote_log_remark_pending">应用尚未响应</string>
+    <string name="remote_log_remark_late">延迟生效</string>
+    <string name="remote_log_remark_failed_late">延迟后失败</string>
+    <string name="remote_log_remark_not_asked">未询问应用</string>
+    <string name="remote_log_remark_bad_answer">应用的应答无法识别</string>
+    <string name="remote_log_remark_not_put_back">应用拒绝还原</string>
+</resources>

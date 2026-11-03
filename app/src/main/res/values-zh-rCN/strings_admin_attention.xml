@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's "Needs attention" home and its background checks (4.9.0). -->
+<resources>
+    <string name="admin_attention_tab">需要处理</string>
+
+    <!-- The list -->
+    <plurals name="admin_attention_count">
+        <item quantity="one">%d 项需要处理</item>
+        <item quantity="other">%d 项需要处理</item>
+    </plurals>
+    <string name="admin_attention_empty_title">没有需要处理的事项</string>
+    <string name="admin_attention_empty_text">没有设备或用户等待批准，一周内也没有密钥到期。</string>
+    <string name="admin_attention_not_checked">未使用此凭据检查：%1$s</string>
+    <string name="admin_attention_source_users">用户</string>
+    <string name="admin_attention_source_keys">认证密钥</string>
+    <string name="admin_attention_scanning">正在读取每台设备的路由…</string>
+    <plurals name="admin_attention_scan_capped">
+        <item quantity="one">已读取 %2$d 台设备中 %1$d 台的路由。</item>
+        <item quantity="other">已读取 %2$d 台设备中 %1$d 台的路由。</item>
+    </plurals>
+
+    <string name="admin_attention_section_approvals">等待批准</string>
+    <string name="admin_attention_section_credential">此终端</string>
+    <string name="admin_attention_section_expiry">即将到期的密钥</string>
+    <string name="admin_attention_section_problems">问题</string>
+    <string name="admin_attention_section_routes">等待批准的路由</string>
+    <string name="admin_attention_section_updates">有可用更新</string>
+
+    <string name="admin_attention_device_approval">设备等待批准</string>
+    <string name="admin_attention_user_approval">用户等待批准</string>
+    <string name="admin_attention_credential_refused">终端的凭据被拒绝</string>
+    <string name="admin_attention_credential_refused_short">被拒绝：已过期或已吊销</string>
+    <string name="admin_attention_credential_refused_desc">凭据已过期或被吊销。请在配置中更换，以重新读取 tailnet。</string>
+    <string name="admin_attention_credential_expiring">将于 %1$s 过期</string>
+    <string name="admin_attention_credential_name">此终端的凭据</string>
+    <string name="admin_attention_device_key_expiring">设备密钥将于 %1$s 过期</string>
+    <string name="admin_attention_device_key_expired">设备密钥已于 %1$s 过期</string>
+    <string name="admin_attention_auth_key_expiring">认证密钥将于 %1$s 过期</string>
+    <string name="admin_attention_lock_error">Tailnet Lock 错误</string>
+    <string name="admin_attention_lock_error_desc">请在网页版管理终端中为设备签名或将其移除：%1$s</string>
+    <string name="admin_attention_multiple">多台机器在使用此设备的密钥</string>
+    <string name="admin_attention_multiple_desc">其状态可能被复制到了另一台机器。请检查该设备；若副本并非你所有，请使其密钥过期。</string>
+    <string name="admin_attention_routes">通告的路由尚未获批</string>
+    <string name="admin_attention_exit_node">自荐为出口节点</string>
+    <string name="admin_attention_exit_node_route">出口节点</string>
+    <string name="admin_attention_update">运行 %1$s；有可用更新</string>
+    <string name="admin_attention_update_plain">有可用更新</string>
+
+    <plurals name="admin_attention_in_days">
+        <item quantity="one">%d 天后</item>
+        <item quantity="other">%d 天后</item>
+    </plurals>
+    <plurals name="admin_attention_in_hours">
+        <item quantity="one">%d 小时后</item>
+        <item quantity="other">%d 小时后</item>
+    </plurals>
+    <string name="admin_attention_within_hour">一小时内</string>
+    <plurals name="admin_attention_days_ago">
+        <item quantity="one">%d 天前</item>
+        <item quantity="other">%d 天前</item>
+    </plurals>
+    <plurals name="admin_attention_hours_ago">
+        <item quantity="one">%d 小时前</item>
+        <item quantity="other">%d 小时前</item>
+    </plurals>
+    <string name="admin_attention_just_now">刚刚</string>
+
+    <!-- Actions -->
+    <string name="admin_attention_approve">批准</string>
+    <string name="admin_attention_reject">拒绝</string>
+    <string name="admin_attention_open">打开</string>
+    <string name="admin_attention_open_keys">密钥</string>
+    <string name="admin_attention_replace">更换</string>
+    <string name="admin_attention_reject_device">拒绝 %1$s</string>
+    <string name="admin_attention_reject_device_effect">Tailscale 没有拒绝操作：设备会被删除。它可以重新登录申请加入。</string>
+    <string name="admin_attention_reject_user">拒绝 %1$s</string>
+    <string name="admin_attention_reject_user_effect">Tailscale 没有拒绝操作：用户会被删除。他们可以重新登录再次申请。</string>
+
+    <!-- Background checks -->
+    <string name="admin_attention_checks_title">后台检查</string>
+    <string name="admin_attention_checks_desc">会定期读取此 tailnet，并对每个等待批准的新设备或用户、每个即将到期的密钥各提醒一次。它只读取：在通知中批准或拒绝仍需解锁。</string>
+    <string name="admin_attention_checks_read_only">此配置为只读，因此其通知只会打开终端。</string>
+    <string name="admin_attention_checks_interval">检查频率</string>
+    <string name="admin_attention_interval_15">每 15 分钟</string>
+    <string name="admin_attention_interval_60">每小时</string>
+    <string name="admin_attention_interval_360">每 6 小时</string>
+    <string name="admin_attention_checks_notifications_off">TailSocks 的通知已关闭：检查仍在运行，但不会显示。</string>
+    <string name="admin_attention_checks_allow">允许</string>
+
+    <!-- Notifications -->
+    <string name="admin_attention_channel">管理提醒</string>
+    <string name="admin_attention_channel_desc">你管理的 tailnet 中等待批准的设备和用户，以及即将到期的密钥</string>
+    <plurals name="admin_attention_notif_expiry_title">
+        <item quantity="one">%d 个密钥即将到期</item>
+        <item quantity="other">%d 个密钥即将到期</item>
+    </plurals>
+    <plurals name="admin_attention_notif_more">
+        <item quantity="one">还有 %d 项</item>
+        <item quantity="other">还有 %d 项</item>
+    </plurals>
+    <string name="admin_attention_open_console">打开终端</string>
+
+    <!-- Approve or Reject from a notification -->
+    <string name="admin_attention_action_checking">正在检查 %1$s…</string>
+    <string name="admin_attention_action_gone">%1$s 已不在 tailnet 中；未做任何更改。</string>
+    <string name="admin_attention_action_not_pending">%1$s 不再等待批准；未做任何更改。</string>
+    <string name="admin_attention_action_read_failed">无法检查 %1$s，因此未做任何更改：%2$s</string>
+    <string name="admin_attention_action_profile_gone">该管理配置已不存在。</string>
+</resources>

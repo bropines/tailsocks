@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TUN mode: the engine picker on the TUN settings page -->
+    <string name="tun_engine_title">TUN 引擎</string>
+    <string name="tun_engine_native">原生</string>
+    <string name="tun_engine_native_short">推荐：由 tailscaled 运行隧道</string>
+    <string name="tun_engine_hev_short">兼容性：经由本地 SOCKS5 代理</string>
+    <string name="tun_engine_native_desc">原生：由 tailscaled 自行运行隧道。MagicDNS、拆分 DNS 和出口节点直接来自守护进程。\n• 开启或关闭出口节点，或已接受的子网路由发生变化时，会就地重建隧道；仅当重建失败时才重启守护进程几秒。\n• MTU 1280。如果在此设备上表现异常，请改用 hev-socks5-tunnel。</string>
+    <string name="tun_engine_hev_desc">hev-socks5-tunnel，兼容引擎。每个数据包都经由本地 SOCKS5 代理。\n• 如果原生引擎在此设备上表现异常，可改用此引擎。\n• 切换引擎会重启守护进程几秒。</string>
+    <!-- Root Mode with the native TUN: the same excluded ranges, as throw routes in the daemon's table -->
+    <string name="settings_root_excluded_cidrs_desc">逗号分隔的子网，出口节点开启时仍留在真实网络 — 与 VPN 模式下的列表相同。链路本地地址始终如此。</string>
+    <!-- TUN mode on, the VPN slot taken by another VPN app (TunVpnService.isDisplaced) -->
+    <string name="main_tun_displaced_desc">另一个 VPN 应用占用了 VPN 通道。TailSocks 继续以代理方式运行；重新连接即可夺回该通道。</string>
+    <!-- TUN card: the native engine's in-place device swap (patch 24) -->
+    <string name="settings_tun_swap_title">就地重建隧道</string>
+    <string name="settings_tun_swap_desc">开启或关闭出口节点，或出现新的子网路由时，将运行中的守护进程迁移到新隧道。关闭时：改为重启守护进程几秒。</string>
+    <!-- TUN card: transparent mode (TunTransparent, patch 25) -->
+    <string name="settings_tun_transparent_title">透明模式</string>
+    <string name="settings_tun_transparent_off">关闭</string>
+    <string name="settings_tun_transparent_lockdown">Android 锁定模式下</string>
+    <string name="settings_tun_transparent_always">始终</string>
+    <string name="settings_tun_transparent_off_short">没有出口节点时，只有 tailnet 流量走 VPN</string>
+    <string name="settings_tun_transparent_lockdown_short">仅在 Android 锁定模式开启时</string>
+    <string name="settings_tun_transparent_always_short">无论有无出口节点，所有流量都走 TailSocks</string>
+    <string name="settings_tun_transparent_off_desc">关闭。没有出口节点时只有 tailnet 流量走 VPN；在 Android 的“阻止不使用 VPN 的连接”下，将完全没有网络。</string>
+    <string name="settings_tun_transparent_lockdown_desc">在 Android 的“阻止不使用 VPN 的连接”下且没有出口节点时，TailSocks 接管所有流量，并自行将非 tailnet 流量发出，网络得以继续可用。比直连慢；ping 不通。</string>
+    <string name="settings_tun_transparent_always_desc">始终：即使没有出口节点，所有流量也都走 TailSocks，非 tailnet 流量直接发出。比直连慢；ping 不通。</string>
+</resources>

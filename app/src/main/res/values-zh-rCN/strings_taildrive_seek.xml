@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Sharing & access → Storage: what another app gets when it opens a Taildrive file (ui/TaildriveSeekSetting.kt). -->
+    <string name="taildrive_seek_title">在其他应用中拖动进度</string>
+    <string name="taildrive_seek_desc_off">关闭：其他应用以流式方式接收 Taildrive 文件 — 复制会全速进行，播放器只能从头播放、无法拖动进度。TailSocks 自带浏览器在代理开启时，仍会通过 Taildrive 代理链接把影片和音乐交给播放器，该链接支持拖动进度。</string>
+    <string name="taildrive_seek_desc_on">开启：播放器可以在其他应用从 Taildrive 打开的影片中随意跳转。但每次读取都会经过 TailSocks，因此复制文件更慢 — 当 TailSocks 不在前台时尤其慢。</string>
+    <string name="search_sum_taildrive_seek">其他应用能否在 Taildrive 文件中拖动进度，或以全速复制</string>
+    <string name="search_kw_taildrive_seek">拖动进度, 快进, 快退, 影片, 视频, 播放器, 流式播放, 复制速度, 文件管理器, 文档, 其他应用, taildrive</string>
+</resources>

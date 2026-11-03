@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The visual policy editor's catalogues: app capabilities, device posture attributes, declarative node sharing. -->
+    <!-- A feature's name and how far along Tailscale says it is: "Group visibility (alpha)". -->
+    <string name="admin_pvc_staged">%1$s（%2$s）</string>
+    <string name="admin_pvc_alpha">alpha</string>
+    <string name="admin_pvc_beta">beta</string>
+
+    <!-- Grant app capabilities. -->
+    <string name="admin_pvc_cap_relay_help">允许规则的源在无法直连时将其目标用作对等中继。</string>
+    <string name="admin_pvc_cap_webui">设备网页界面</string>
+    <string name="admin_pvc_cap_secrets">密钥（setec）</string>
+    <string name="admin_pvc_cap_pam">特权访问（PAM）</string>
+    <string name="admin_pvc_cap_pam_help">Tailscale PAM：源可以对目标服务、数据库、SSH、Kubernetes 或 S3 执行哪些操作。其权限在 JSON 中设置。</string>
+    <string name="admin_pvc_cap_tailsql">TailSQL 查询</string>
+    <string name="admin_pvc_cap_golink">Golink 管理</string>
+
+    <!-- Device attribute (nodeAttrs) app capabilities. -->
+    <string name="admin_pvc_node_groups">组可见性</string>
+    <string name="admin_pvc_node_groups_help">这些设备会得知访问它们的用户属于哪些组，供通过 tsnet 或 LocalAPI 读取的应用使用。设备上需要 Tailscale 1.97.8 或更新版本。</string>
+    <string name="admin_pvc_node_connectors">应用连接器</string>
+    <string name="admin_pvc_node_connectors_help">将这些设备变为应用连接器：它们代表 tailnet 访问所列域名。</string>
+
+    <!-- Device attributes: netmap caching (Tailscale 1.98, client capability 135). -->
+    <string name="admin_pvc_attr_cache">缓存网络映射</string>
+    <string name="admin_pvc_attr_cache_help">设备将网络映射保存在磁盘上，启动时先据此连接，无需等待控制服务器应答：启动更快，控制服务器缓慢时也能连接到对端。需要 Tailscale 1.98 或更新版本。</string>
+    <string name="admin_pvc_attr_no_cache">绝不缓存网络映射</string>
+    <string name="admin_pvc_attr_no_cache_help">覆盖 Tailscale 的默认值，为这些设备关闭缓存；优先于「缓存网络映射」。</string>
+    <string name="admin_pvc_attr_cache_both">两者同时开启：以「绝不缓存」为准，这些设备不缓存</string>
+    <!-- Under a switch on Headscale: the attribute is accepted but only Tailscale's control plane reads it. -->
+    <string name="admin_pvc_attr_no_effect">在 Headscale 上不起作用</string>
+
+    <!-- Device posture. -->
+    <string name="admin_pvc_on_failure_help">onFailure（beta）是未通过检查的设备用户看到的内容：管理控制台中的标记、客户端的警告或通知、或你自定义的消息。</string>
+    <string name="admin_pvc_pa_title">用于检查的属性</string>
+    <string name="admin_pvc_pa_summary">操作系统与客户端版本、国家、公网 IP、MDM 与 EDR</string>
+    <string name="admin_pvc_pa_operators">运算符：==、!=、IN、NOT IN、IS SET、NOT SET，数字和版本还可用 &lt;、&lt;=、&gt;=、&gt;。设备缺少该属性时，无论用什么运算符都不会匹配。</string>
+    <string name="admin_pvc_pa_from_device">由设备上报</string>
+    <string name="admin_pvc_pa_from_control">由 Tailscale 识别</string>
+    <string name="admin_pvc_pa_from_integration">来自 MDM 与 EDR 集成</string>
+    <string name="admin_pvc_pa_from_custom">自定义</string>
+    <!-- The add button of an attribute, said to a screen reader: %s is the attribute's name. -->
+    <string name="admin_pvc_pa_use">以 %s 开始一个条件</string>
+    <string name="admin_pvc_pa_os">操作系统</string>
+    <string name="admin_pvc_pa_os_help">macos、windows、linux、ios、android、freebsd、openbsd、illumos，浏览器中的 SSH 控制台则用 js。</string>
+    <string name="admin_pvc_pa_os_version">操作系统版本</string>
+    <string name="admin_pvc_pa_os_version_help">用引号括起的版本号，按版本比较，可用 &lt;、&lt;=、&gt;= 和 &gt;。</string>
+    <string name="admin_pvc_pa_ts_version">Tailscale 版本</string>
+    <string name="admin_pvc_pa_ts_version_help">用引号括起的客户端版本，按版本比较。</string>
+    <string name="admin_pvc_pa_track">发布通道</string>
+    <string name="admin_pvc_pa_track_help">stable 或 unstable。</string>
+    <string name="admin_pvc_pa_auto_update">自动更新</string>
+    <string name="admin_pvc_pa_auto_update_help">只有使用 Tailscale 自带的自动更新才为 true；通过应用商店更新的算作 false。</string>
+    <string name="admin_pvc_pa_encrypted">客户端状态加密</string>
+    <string name="admin_pvc_pa_encrypted_help">客户端是否以加密方式保存其状态：true 或 false。</string>
+    <string name="admin_pvc_pa_country">国家</string>
+    <string name="admin_pvc_pa_country_help">设备公网 IP 所在的国家，两个大写字母（ISO 3166-1）。Standard 套餐及以上。</string>
+    <string name="admin_pvc_pa_public_ip">公网 IP 地址</string>
+    <string name="admin_pvc_pa_public_ip_help">设备访问 Tailscale 所用的地址，可用 ==、!=、IN 或 NOT IN 与地址、CIDR 或 IP 集比较。功能处于 beta：需先在管理控制台的设置中开启。Standard 套餐及以上。</string>
+    <!-- %1$s is the integration's product name, %2$s the attributes it reports. -->
+    <string name="admin_pvc_pa_integration_help">%2$s：连接 %1$s 集成后由其上报。Standard 套餐及以上。</string>
+    <string name="admin_pvc_pa_custom">自定义属性</string>
+    <string name="admin_pvc_pa_custom_help">通过 API 或设备配置设置，位于 custom: 下。Premium 套餐及以上。</string>
+
+    <!-- Declarative node sharing: the policy's externalTailnets section. -->
+    <string name="admin_pvc_ext_title">声明式节点共享</string>
+    <string name="admin_pvc_ext_help">通过策略在互信的 tailnet 之间共享设备，双方各自选择加入。下面每个 tailnet 都是此文件信任的对象；此处的授权以 group://alias/name 的形式引用其组和标签。在 JSON 中编辑。</string>
+    <string name="admin_pvc_ext_id">Tailnet ID：%s</string>
+    <string name="admin_pvc_ext_incoming_yes">接受来自它的连接</string>
+    <string name="admin_pvc_ext_incoming_no">不接受来自它的连接</string>
+    <string name="admin_pvc_ext_refs">此处可引用：%s</string>
+    <string name="admin_pvc_ext_refs_none">不能引用此 tailnet 的任何内容</string>
+    <plurals name="admin_pvc_ext_used">
+        <item quantity="one">在 %d 条授权中被引用</item>
+        <item quantity="other">在 %d 条授权中被引用</item>
+    </plurals>
+    <!-- Another tailnet's group or tag: "group:eng from partner". -->
+    <string name="admin_pvc_ext_selector">来自 %2$s 的 %1$s</string>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive on a television and the way into the other devices' shares (ui/TaildriveActivity.kt,
+     ui/TaildriveParts.kt). Kept apart from strings.xml; Android merges every file under values/. -->
+<resources>
+    <!-- The same line as taildrive_enable_needs_access, for a screen with a remote instead of a finger. -->
+    <string name="taildrive_enable_needs_access_tv">尚无权访问文件——按 OK 键授权</string>
+
+    <!-- The way into the other devices' shares: the row, and the icon's description. -->
+    <string name="taildrive_browse_title">浏览其他设备的共享</string>
+    <string name="taildrive_browse_desc">打开其他设备与本机共享的文件夹，并播放其中的文件。</string>
+
+    <!-- Adding a share where the system has no folder picker: the app\'s own. -->
+    <string name="taildrive_add_browse_title">选择文件夹</string>
+    <string name="taildrive_add_browse_desc">浏览本设备的存储</string>
+    <string name="taildrive_pick_title">选择要共享的文件夹</string>
+    <string name="taildrive_pick_confirm">共享此文件夹</string>
+
+    <!-- The address card of a screen with no clipboard. -->
+    <string name="taildrive_address_title">WebDAV 地址</string>
+    <string name="taildrive_address_login_hidden">代理要求登录。</string>
+    <string name="taildrive_address_show_login">显示登录信息</string>
+    <string name="taildrive_address_hide_login">隐藏登录信息</string>
+    <string name="taildrive_address_qr">用手机或电脑扫描，即可在那台设备上打开该地址。</string>
+    <string name="taildrive_address_qr_login">二维码中包含登录信息。</string>
+
+    <!-- Removing a share: asked on a television only. %1$s is the share\'s name. -->
+    <string name="taildrive_remove_title">停止共享“%1$s”？</string>
+    <string name="taildrive_remove_body">文件夹仍保留在本设备上。其他设备将无法再打开它。</string>
+    <string name="taildrive_remove_confirm">停止共享</string>
+</resources>

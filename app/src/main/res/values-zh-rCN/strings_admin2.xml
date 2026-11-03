@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console's safety pipeline, profiles and credential handling (4.9.0). -->
+<resources>
+    <!-- Opening the console -->
+    <string name="admin2_view_unlock_title">解锁管理控制台</string>
+    <string name="admin2_view_unlock_subtitle">其中显示你 tailnet 的设备和用户</string>
+    <string name="admin2_view_unlock_unavailable">本机无法显示解锁提示，因此管理控制台保持锁定。</string>
+
+    <!-- Read-only states -->
+    <string name="admin2_readonly_no_lock_title">只读：未设置锁屏</string>
+    <string name="admin2_readonly_no_lock_desc">更改需通过指纹、人脸或锁屏解锁，而本机没有设置锁屏。请在系统设置中设置 PIN、图案或密码，以便在此进行更改；在那之前管理控制台只展示 tailnet。</string>
+    <string name="admin2_readonly_profile_title">只读配置</string>
+    <string name="admin2_readonly_profile_desc">此配置从不进行更改。编辑配置以允许更改；编辑需要解锁。</string>
+    <string name="admin2_readonly_scope_title">此凭据只能读取</string>
+
+    <!-- Unlocking a change -->
+    <string name="admin2_write_unlock_title">确认更改</string>
+    <string name="admin2_unlock_cancelled">已取消；未做任何更改。</string>
+    <string name="admin2_unlock_lockout">尝试次数过多。请稍后再试；未做任何更改。</string>
+    <string name="admin2_unlock_unavailable">本机无法使用解锁提示；未做任何更改。</string>
+    <string name="admin2_unlock_not_proven">本机密钥库未接受此次解锁。请使用 PIN、图案或密码；未做任何更改。</string>
+    <string name="admin2_unlock_no_lock">请设置锁屏以进行更改；未做任何更改。</string>
+    <string name="admin2_unlock_error">解锁失败；未做任何更改。</string>
+
+    <!-- Refusals -->
+    <string name="admin2_refused_read_only">此配置为只读；未做任何更改。</string>
+    <string name="admin2_refused_not_allowed">此凭据无权这样做；未做任何更改。</string>
+    <string name="admin2_refused_own_credential">这是管理控制台自身运行所用的密钥。请在网页版管理控制台中吊销它，或先将此配置切换到其他凭据。</string>
+    <string name="admin2_refused_own_user">这是你自己的用户。请换一个管理员账户进行更改。</string>
+    <string name="admin2_refused_shared">此设备是从其他 tailnet 共享进来的；只有该 tailnet 可以修改它。</string>
+    <string name="admin2_refused_gates">未确认；未做任何更改。</string>
+    <string name="admin2_refused_policy">策略文件在其专属编辑器中编辑。</string>
+
+    <!-- The confirm dialog -->
+    <string name="admin2_class_low">低风险</string>
+    <string name="admin2_class_medium">需要解锁</string>
+    <string name="admin2_class_high">高风险</string>
+    <string name="admin2_class_policy">策略更改</string>
+    <string name="admin2_confirm_target">适用对象</string>
+    <string name="admin2_confirm_diff">更改内容</string>
+    <string name="admin2_confirm_before">之前</string>
+    <string name="admin2_confirm_after">之后</string>
+    <string name="admin2_confirm_nothing">无</string>
+    <string name="admin2_confirm_type">输入 %1$s 以确认</string>
+    <string name="admin2_confirm_type_label">名称</string>
+    <string name="admin2_confirm_unlock_note">发送前将要求通过指纹、人脸或锁屏解锁。</string>
+    <string name="admin2_confirm_apply">解锁并应用</string>
+    <string name="admin2_confirm_this_device">这就是你正在使用的手机；它可能失去与 tailnet 的连接。</string>
+    <string name="admin2_applying">正在应用…</string>
+
+    <!-- Outcomes -->
+    <string name="admin2_outcome_verified">%1$s：已完成并核实</string>
+    <string name="admin2_outcome_applied">%1$s：已完成</string>
+    <string name="admin2_outcome_mismatch">%1$s：已发送，但服务器显示的结果不同。请刷新查看当前状态。</string>
+    <string name="admin2_outcome_failed">%1$s：失败。%2$s</string>
+    <string name="admin2_undo">撤销</string>
+
+    <!-- API errors -->
+    <string name="admin2_error_unauthorized">凭据被拒绝：已过期或已吊销。请在配置中更换。</string>
+    <string name="admin2_error_payment">你的 Tailscale 套餐不包含此功能。</string>
+    <string name="admin2_error_forbidden_scope">不允许：凭据需要 %1$s 范围。</string>
+    <string name="admin2_error_forbidden">此凭据无权执行。</string>
+    <string name="admin2_error_not_found">未找到；可能已被移除。</string>
+    <string name="admin2_error_conflict">冲突：已在其他地方被更改。请刷新后重试。</string>
+    <string name="admin2_error_precondition">自加载后已在服务器上发生变化。请刷新后重试。</string>
+    <string name="admin2_error_bad_request">服务器拒绝了请求：%1$s</string>
+    <string name="admin2_error_bad_request_plain">服务器拒绝了请求。</string>
+    <string name="admin2_error_rate_limited">请求过多。请一分钟后重试。</string>
+    <string name="admin2_error_server">服务器出错（%1$d）。请稍后重试。</string>
+    <string name="admin2_error_network">无法连接到 API：%1$s</string>
+    <string name="admin2_error_decode">无法读取服务器的应答（%1$s）。</string>
+    <string name="admin2_error_unsupported">此服务器不支持该操作。</string>
+    <string name="admin2_error_other">出了点问题：%1$s</string>
+    <string name="admin2_error_request_id">请求 %1$s</string>
+    <string name="admin2_retry">重试</string>
+    <plurals name="admin2_unreadable_items">
+        <item quantity="one">%d 项无法读取，未显示。</item>
+        <item quantity="other">%d 项无法读取，未显示。</item>
+    </plurals>
+
+    <!-- Credentials -->
+    <string name="admin2_credential_missing">此配置尚未存储凭据。</string>
+    <string name="admin2_credential_unreadable">存储的凭据已无法打开：可能是恢复了备份，或本机密钥库被重置。请重新输入。</string>
+    <string name="admin2_credential_fix">输入凭据</string>
+    <string name="admin2_secret_show">显示</string>
+    <string name="admin2_secret_hide">隐藏</string>
+    <string name="admin2_secret_stored">已存储。留空则保留原值。</string>
+    <string name="admin2_secret_copy">复制</string>
+    <string name="admin2_secret_saved">我已保存</string>
+    <string name="admin2_secret_copied">已复制，并已在剪贴板中标记为敏感内容。</string>
+    <string name="admin2_secret_once">它只显示一次：请立即复制。管理控制台不会保存它。</string>
+    <string name="admin2_webhook_secret_title">Webhook 签名密钥</string>
+    <string name="admin2_webhook_secret_text">用它校验每个事件的 Tailscale-Webhook-Signature 标头。</string>
+
+    <!-- Profiles -->
+    <string name="admin2_profile_add">添加配置</string>
+    <string name="admin2_profile_new_title">新建管理配置</string>
+    <string name="admin2_profile_edit_title">编辑配置</string>
+    <string name="admin2_profile_edit">编辑此配置</string>
+    <string name="admin2_profile_delete">删除此配置</string>
+    <string name="admin2_profile_delete_title">删除此配置？</string>
+    <string name="admin2_profile_delete_text">将从此手机移除 %1$s 及其存储的凭据。tailnet 中不会有任何变化。</string>
+    <string name="admin2_profile_intro">配置是一个控制服务器加一份凭据。它与 TailSocks 所连接的账户无关。</string>
+    <string name="admin2_profile_name">配置名称</string>
+    <string name="admin2_profile_name_placeholder">例如：家庭 tailnet</string>
+    <string name="admin2_profile_advanced">服务器和 tailnet</string>
+    <string name="admin2_profile_base_url">API 地址</string>
+    <string name="admin2_profile_base_url_help">仅限 HTTPS；访问本机自身（127.0.0.1、localhost）允许使用明文 HTTP。</string>
+    <string name="admin2_profile_url_https">请使用 https://。凭据绝不会以未加密方式经网络发送。</string>
+    <string name="admin2_profile_url_malformed">不是管理控制台可用的地址，例如 https://api.tailscale.com</string>
+    <string name="admin2_profile_url_userinfo">请不要在地址中写入用户名和密码。</string>
+    <string name="admin2_profile_tailnet">Tailnet ID</string>
+    <string name="admin2_profile_tailnet_help">留「-」即使用凭据自身的 tailnet，或填入管理控制台「常规设置」中的 Tailnet ID。</string>
+    <string name="admin2_profile_read_only">只读</string>
+    <string name="admin2_profile_read_only_desc">无论凭据允许什么，都绝不通过此配置进行更改。更安全的做法是使用只有读取范围的 OAuth 客户端：这样 Tailscale 也会强制执行。</string>
+    <string name="admin2_profile_save">保存</string>
+    <string name="admin2_profile_save_anyway">不检查直接保存</string>
+    <string name="admin2_profile_checking">正在检查凭据…</string>
+    <string name="admin2_profile_check_failed">凭据无效。%1$s</string>
+    <string name="admin2_profile_secret_required">请输入凭据。</string>
+    <string name="admin2_profile_client_id_required">请输入 OAuth 客户端 ID。</string>
+    <string name="admin2_profile_switch_title">管理配置</string>
+    <string name="admin2_profile_read_only_badge">只读</string>
+    <string name="admin2_auth_token_help">来自管理控制台（设置 → 密钥）的个人 API 访问令牌。它以你自己的角色执行操作，有效期为 1–90 天。</string>
+    <string name="admin2_auth_oauth_help">OAuth 客户端严格按授予的范围执行操作，且不会过期。只授予读取范围的客户端能让管理控制台真正只读。</string>
+    <string name="admin2_unlock_to_allow_writes">允许通过 %1$s 进行更改</string>
+    <string name="admin2_settings_none">未设置</string>
+
+    <!-- Devices -->
+    <plurals name="admin2_devices_count">
+        <item quantity="one">%d 台设备</item>
+        <item quantity="other">%d 台设备</item>
+    </plurals>
+    <string name="admin2_device_online">在线</string>
+    <string name="admin2_device_last_seen">最后在线 %1$s</string>
+    <string name="admin2_device_shared">共享进来</string>
+    <string name="admin2_device_this_phone">本机</string>
+    <string name="admin2_device_multiple_connections">多台机器使用此节点密钥连接：其状态在设备之间被复制过。</string>
+    <string name="admin2_device_lock_error">Tailnet Lock：%1$s</string>
+    <string name="admin2_device_rename_help">其 MagicDNS 名称将变为 name.%1$s。字母、数字和连字符。</string>
+    <string name="admin2_device_tags_owner_warning">标签将成为设备的所有者：它将不再属于 %1$s。</string>
+    <string name="admin2_device_tags_none">无标签</string>
+    <string name="admin2_device_tags_new">添加标签</string>
+    <string name="admin2_device_tags_invalid">标签以 tag: 开头，并在策略的 tagOwners 中定义。</string>
+    <string name="admin2_device_routes_unreadable">无法加载路由。</string>
+
+    <!-- Users -->
+    <string name="admin2_user_you">你</string>
+    <string name="admin2_role_owner">所有者</string>
+    <string name="admin2_role_admin">管理员</string>
+    <string name="admin2_role_it_admin">IT 管理员</string>
+    <string name="admin2_role_network_admin">网络管理员</string>
+    <string name="admin2_role_billing_admin">计费管理员</string>
+    <string name="admin2_role_auditor">审计员</string>
+    <string name="admin2_role_member">成员</string>
+    <string name="admin2_status_active">活跃</string>
+    <string name="admin2_status_idle">空闲</string>
+    <string name="admin2_status_suspended">已暂停</string>
+    <string name="admin2_status_needs_approval">等待批准</string>
+    <string name="admin2_status_over_billing_limit">超出计费上限</string>
+    <string name="admin2_user_type_member">成员</string>
+    <string name="admin2_user_type_shared">与 tailnet 共享</string>
+    <plurals name="admin2_user_devices">
+        <item quantity="one">%d 台设备</item>
+        <item quantity="other">%d 台设备</item>
+    </plurals>
+
+    <!-- Keys -->
+    <string name="admin2_key_type_auth">认证密钥</string>
+    <string name="admin2_key_type_api">API 令牌</string>
+    <string name="admin2_key_type_client">OAuth 客户端</string>
+    <string name="admin2_key_type_federated">联合身份</string>
+    <string name="admin2_key_type_unknown">密钥</string>
+    <string name="admin2_key_reusable">可重复使用</string>
+    <string name="admin2_key_reusable_desc">可注册多台设备。</string>
+    <string name="admin2_key_ephemeral_desc">用其注册的设备在离线后很快会被移除。</string>
+    <string name="admin2_key_preauth_desc">用其注册的设备无需设备批准。</string>
+
+    <!-- Webhooks -->
+    <plurals name="admin2_webhook_events">
+        <item quantity="one">%d 个事件</item>
+        <item quantity="other">%d 个事件</item>
+    </plurals>
+    <string name="admin2_webhook_provider">格式</string>
+    <string name="admin2_webhook_provider_plain">纯 JSON</string>
+
+    <!-- Tailnet settings -->
+    <string name="admin2_settings_https_title">HTTPS 证书</string>
+    <string name="admin2_settings_route_selection_title">路由选择</string>
+    <string name="admin2_route_failover">主备故障转移</string>
+    <string name="admin2_route_regional">区域路由</string>
+    <string name="admin2_route_regional_failover">带故障转移的区域路由</string>
+    <string name="admin2_settings_unknown">未设置</string>
+
+    <!-- The console's own log -->
+    <string name="admin2_result_verified">已完成，已核实</string>
+    <string name="admin2_result_applied">已完成</string>
+    <string name="admin2_result_mismatch">与预期不符</string>
+    <string name="admin2_result_failed">失败</string>
+    <string name="admin2_result_refused">已中止</string>
+
+    <!-- Changes: titles and effects -->
+    <string name="admin2_change_rename">重命名 %1$s</string>
+    <string name="admin2_change_rename_effect">它在 MagicDNS 中将变为 %1$s；指向旧名称的链接将失效。</string>
+    <string name="admin2_change_tags">更改 %1$s 的标签</string>
+    <string name="admin2_change_tags_effect">谁可以访问它将取决于这些标签对应的策略。</string>
+    <string name="admin2_change_routes">更改 %1$s 的路由</string>
+    <string name="admin2_change_routes_effect">已批准路由的流量将经由该设备。</string>
+    <string name="admin2_change_exit_on">将 %1$s 用作出口节点</string>
+    <string name="admin2_change_exit_off">停止将 %1$s 用作出口节点</string>
+    <string name="admin2_change_exit_effect">设备可以将全部互联网流量经由它发送。</string>
+    <string name="admin2_change_authorize">授权 %1$s</string>
+    <string name="admin2_change_authorize_effect">该设备将加入 tailnet。</string>
+    <string name="admin2_change_deauthorize">取消授权 %1$s</string>
+    <string name="admin2_change_deauthorize_effect">该设备将被切断与 tailnet 的连接，直到再次被授权。</string>
+    <string name="admin2_change_expiry_off">禁用 %1$s 的密钥过期</string>
+    <string name="admin2_change_expiry_off_effect">其节点密钥将不再过期。</string>
+    <string name="admin2_change_expiry_on">启用 %1$s 的密钥过期</string>
+    <string name="admin2_change_expiry_on_effect">其密钥将按原定时间过期；若该时间已过，设备必须重新登录。</string>
+    <string name="admin2_change_expire">使 %1$s 的密钥过期</string>
+    <string name="admin2_change_expire_effect">该设备将被登出，必须重新认证。</string>
+    <string name="admin2_change_delete_device">删除 %1$s</string>
+    <string name="admin2_change_delete_device_effect">该设备将从 tailnet 中移除。无法撤销：只能重新登录。</string>
+    <string name="admin2_change_key_create">生成认证密钥</string>
+    <string name="admin2_change_key_create_effect">一个可在 tailnet 中注册设备的新密钥。</string>
+    <string name="admin2_change_key_revoke">吊销 %1$s</string>
+    <string name="admin2_change_key_revoke_effect">它将立即失效。它已注册的设备会保留。</string>
+    <string name="admin2_change_user_approve">批准 %1$s</string>
+    <string name="admin2_change_user_approve_effect">该用户将可以加入 tailnet。</string>
+    <string name="admin2_change_user_role">更改 %1$s 的角色</string>
+    <string name="admin2_change_user_role_effect">用户在 tailnet 及其管理控制台中的权限将随角色而变。</string>
+    <string name="admin2_change_user_suspend">暂停 %1$s</string>
+    <string name="admin2_change_user_suspend_effect">该用户将失去对 tailnet 的访问，其设备也一样。</string>
+    <string name="admin2_change_user_restore">恢复 %1$s</string>
+    <string name="admin2_change_user_restore_effect">该用户及其设备将恢复访问。</string>
+    <string name="admin2_change_user_delete">删除 %1$s</string>
+    <string name="admin2_change_user_delete_effect">该用户及其设备将从 tailnet 中移除。无法撤销。</string>
+    <string name="admin2_change_magicdns_on">开启 MagicDNS</string>
+    <string name="admin2_change_magicdns_off">关闭 MagicDNS</string>
+    <string name="admin2_change_magicdns_on_effect">设备将在 tailnet 中获得名称。</string>
+    <string name="admin2_change_magicdns_off_effect">类似 host.tailnet.ts.net 的名称将无法解析。</string>
+    <string name="admin2_change_nameservers">更改全局域名服务器</string>
+    <string name="admin2_change_nameservers_effect">设备将用这些解析器解析 tailnet 之外的名称。</string>
+    <string name="admin2_change_nameservers_none_effect">所有全局域名服务器都会被移除，MagicDNS 也会随之关闭。</string>
+    <string name="admin2_change_split_add">将 %1$s 路由到其专属域名服务器</string>
+    <string name="admin2_change_split_add_effect">%1$s 下的名称由 %2$s 解析。</string>
+    <string name="admin2_change_split_remove">停止路由 %1$s</string>
+    <string name="admin2_change_split_remove_effect">%1$s 下的名称将重新由全局域名服务器解析。</string>
+    <string name="admin2_change_search">更改搜索域</string>
+    <string name="admin2_change_search_effect">简短名称将在这些域下查找。</string>
+    <string name="admin2_change_setting">更改「%1$s」</string>
+    <string name="admin2_change_setting_effect">一项 tailnet 范围设置：适用于每台设备和每个用户。</string>
+    <string name="admin2_change_webhook_create">添加 Webhook</string>
+    <string name="admin2_change_webhook_create_effect">Tailnet 事件将发送至 %1$s。</string>
+    <string name="admin2_change_webhook_test">测试 %1$s</string>
+    <string name="admin2_change_webhook_delete">删除发往 %1$s 的 Webhook</string>
+    <string name="admin2_change_webhook_delete_effect">事件将不再发送到该地址。无法撤销。</string>
+    <string name="admin2_change_service_host_on">批准 %1$s 作为 %2$s 的宿主</string>
+    <string name="admin2_change_service_host_off">吊销 %1$s 作为 %2$s 的宿主</string>
+    <string name="admin2_change_service_host_effect">已批准的宿主将接收该服务的流量。</string>
+    <string name="admin2_change_service_publish">在 tailnet 中发布 %1$s</string>
+    <string name="admin2_change_service_publish_effect">用本机的端口定义该服务，并批准本机作为其宿主。</string>
+    <string name="admin2_diff_name">名称</string>
+    <string name="admin2_diff_tags">标签</string>
+    <string name="admin2_diff_routes">已批准的路由</string>
+    <string name="admin2_diff_role">角色</string>
+    <string name="admin2_diff_status">状态</string>
+    <string name="admin2_diff_authorized">已授权</string>
+    <string name="admin2_diff_device">设备</string>
+    <string name="admin2_diff_key">密钥</string>
+    <string name="admin2_diff_nameservers">域名服务器</string>
+    <string name="admin2_diff_search">搜索域</string>
+    <string name="admin2_diff_url">地址</string>
+    <string name="admin2_yes">是</string>
+    <string name="admin2_no">否</string>
+    <string name="admin2_on">开</string>
+    <string name="admin2_off">关</string>
+</resources>

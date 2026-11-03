@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Remote management: network access to a device's files (appctr/remote_files.go). The
+         managed device's own switch, the question before it is turned on, and the managing
+         device's lock before it shows another device's files. -->
+
+    <!-- The managed device's page -->
+    <string name="remote_netfiles_title">网络文件访问</string>
+    <string name="remote_netfiles_help">让拥有完整权限的已配对设备浏览本设备存储并取走文件、查看和编辑本设备的共享文件夹，以及读取本设备的日志和诊断报告。\n• 关闭后，无论完全控制如何设置，远程谁都拿不到这些内容。\n• 临时获得完整权限的访客，只有在授权时此项已开启的情况下才能访问文件。\n• 它只能在本设备上开启，别处不行。</string>
+    <string name="remote_netfiles_confirm_title">要把本设备的文件向网络开放吗？</string>
+    <string name="remote_netfiles_confirm_text">拥有完整权限的已配对设备将能查看本设备存储中每个文件的名称、把其中任意文件发送给自己、查看、添加和移除共享文件夹，以及读取应用日志和诊断报告。\n\n日志中的敏感信息会被抹除，但过滤器终究只是过滤器。谁掌握这样一台设备，谁就掌握这一切。</string>
+    <string name="remote_netfiles_confirm_lock">接下来，请用本设备的屏幕锁确认。</string>
+    <string name="remote_netfiles_confirm_no_lock">本设备没有屏幕锁，因此这次选择就是唯一的确认。</string>
+    <string name="remote_netfiles_confirm_yes">开放文件</string>
+    <string name="remote_netfiles_prompt_title">向网络开放文件</string>
+    <string name="remote_netfiles_lock_failed">无法请求本设备的屏幕锁，文件保持关闭。</string>
+    <string name="remote_netfiles_lockout">尝试次数过多：屏幕锁已暂时停用。文件保持关闭。</string>
+    <string name="remote_access_with_files">网络文件访问关闭时保持关闭</string>
+    <string name="remote_never_files_on">开启网络文件访问</string>
+
+    <!-- The question that gives a guest full rights, where the files are closed -->
+    <string name="remote_elevate_files_closed">文件保持关闭：本设备的网络文件访问已关闭，因此这些权限不包括本设备的存储、共享文件夹、日志或报告——即使之后开启也一样。</string>
+    <string name="remote_elevate_full_help_no_files">把本设备作为出口节点或路由器提供——仅限该访客、仅限这一次。</string>
+
+    <!-- The log of recent remote changes; each follows "Refused: " -->
+    <!-- %1$s: what was asked for, "to see the diagnostics report" -->
+    <string name="remote_denied_op_needs_files">网络文件访问已关闭，需先开启才能%1$s</string>
+    <!-- %1$s: a setting and the value asked for, "the Taildrive proxy (off)" -->
+    <string name="remote_denied_setting_needs_files">%1$s — 网络文件访问已关闭</string>
+
+    <!-- The managing device: the files closed there -->
+    <!-- %1$s: the managed device -->
+    <string name="rmanage_files_closed">%1$s 上的文件访问已关闭</string>
+    <string name="rmanage_files_closed_short">文件访问已关闭</string>
+    <string name="rmanage_files_closed_hint">在那边开启：远程管理 → 网络文件访问。</string>
+    <string name="rmanage_files_closed_hint_full">在那边开启：远程管理 → 完全控制和网络文件访问。</string>
+    <string name="rmanage_files_closed_rights">那边授予本设备的完整权限不包含文件。</string>
+    <string name="rmanage_lock_files_closed">那边的网络文件访问已关闭。</string>
+
+    <!-- The managing device: its own lock before another device's files -->
+    <!-- %1$s: the managed device -->
+    <string name="rmanage_files_unlock_title">%1$s 的文件</string>
+    <string name="rmanage_files_unlock_subtitle">确认是你本人</string>
+    <string name="rmanage_shares_show">显示共享文件夹</string>
+    <string name="rmanage_files_lock_help">会先请求本设备的屏幕锁。验证后在此页面打开期间保持 5 分钟有效。</string>
+    <string name="rmanage_files_no_lock">本设备没有屏幕锁，因此任何使用本设备的人都能打开 %1$s 的文件。</string>
+    <string name="rmanage_files_unlock_failed">无法在本设备上请求屏幕锁，因此未打开任何内容。</string>
+    <string name="rmanage_files_unlock_lockout">尝试次数过多：屏幕锁已暂时停用。</string>
+</resources>

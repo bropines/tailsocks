@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The peer's "Copy as…": the button in the details sheet, and a long press on a row of the list. -->
+    <string name="peer_copy_as">复制为…</string>
+    <string name="peer_copy_as_title">将 %1$s 复制为…</string>
+    <!-- What each ready-to-paste form is, under the form itself. -->
+    <string name="peer_copy_short_name">MagicDNS 名称</string>
+    <string name="peer_copy_full_name">完整 MagicDNS 名称</string>
+    <string name="peer_copy_ipv4">IPv4 地址</string>
+    <string name="peer_copy_ipv6">IPv6 地址</string>
+    <string name="peer_copy_web">网页</string>
+    <!-- %1$s is the program the peer reports on that port: nginx, jellyfin… -->
+    <string name="peer_copy_web_service">网页 · %1$s</string>
+    <string name="peer_copy_ping">延迟测试</string>
+    <string name="peer_copy_tailscale_ping">Tailscale 延迟测试</string>
+</resources>

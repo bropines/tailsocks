@@ -1,0 +1,1119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 快捷设置磁贴 -->
+    <string name="tile_state_connecting">连接中…</string>
+    <string name="tile_state_disconnecting">断开中…</string>
+
+    <!-- 主界面 -->
+    <string name="status_stopped">已停止</string>
+    <string name="status_running">运行中</string>
+    <string name="action_stop">断开连接</string>
+    <string name="tap_to_start">点按启动</string>
+
+    <!-- 设置项 -->
+    <string name="extra_args_desc">追加到 tailscale up 的参数，叠加在应用自身设置之上。\n• 支持：--accept-routes、--accept-dns、--shields-up、--ssh、--exit-node-allow-lan-access、--report-posture、--hostname、--login-server、--advertise-routes、--advertise-tags、--advertise-exit-node、--advertise-connector、--relay-server-port、--relay-server-static-endpoints。\n• 用 --no-flag 或 =false 取反。\n• 其余参数会被忽略并记录到日志。\n• 此处设置的路由与标签会在启动后被「通告路由」「通告标签」覆盖——请在那里设置。</string>
+
+    <!-- 日志 -->
+    <string name="logs_title">日志</string>
+    <string name="logs_copied">日志已复制到剪贴板</string>
+
+    <!-- 通用操作 -->
+    <string name="action_cancel">取消</string>
+    <string name="action_save">保存</string>
+    <string name="action_delete">删除</string>
+    <string name="action_add">添加</string>
+    <string name="action_close">关闭</string>
+    <string name="action_github">GitHub</string>
+    <string name="issue_report_action">反馈问题</string>
+    <string name="issue_list_action">查看议题</string>
+    <string name="issue_report_title">反馈问题</string>
+    <string name="issue_report_intro">以下就是报告包含的全部内容：没有节点名、没有地址、没有密钥、没有账号名——认证密钥与登录服务器只报告「有 / 无」，绝不报告具体值。请先阅读，再复制、分享，或直接提交到 issue 表单。</string>
+    <string name="issue_report_gathering">正在收集…</string>
+    <string name="issue_report_copy">复制</string>
+    <string name="issue_report_share">分享</string>
+    <string name="issue_report_open">新建 issue</string>
+    <string name="issue_report_copied">报告已复制</string>
+    <string name="issue_report_template">**发生了什么**\n\n\n**本应发生什么**\n\n\n**复现步骤**\n1. \n2. \n\n**诊断信息**</string>
+    <string name="action_clear">清除</string>
+    <string name="action_rename">重命名</string>
+    <string name="action_confirm">确认</string>
+    <string name="action_generate">生成</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_copy">复制</string>
+    <string name="action_open">打开</string>
+    <string name="action_send">发送</string>
+    <string name="action_back">返回</string>
+    <string name="action_more">更多选项</string>
+    <string name="action_unlock">解锁控制台</string>
+
+    <!-- 通用占位符 / 空状态 -->
+    <string name="copied_to_clipboard">%1$s 已复制到剪贴板！</string>
+    <string name="error_generic">错误：%1$s</string>
+    <string name="cannot_open_browser">无法打开浏览器</string>
+
+    <!-- ======================== 管理面板 ======================== -->
+
+    <!-- 管理：锁屏 -->
+    <string name="admin_locked_title">管理控制台已锁定</string>
+    <string name="admin_locked_desc">访问管理工具需要身份验证。</string>
+    <string name="admin_cd_locked">已锁定</string>
+
+    <!-- 管理：概览 -->
+    <string name="admin_console_title">管理控制台</string>
+    <string name="admin_tab_devices">设备</string>
+    <string name="admin_tab_users">用户</string>
+    <string name="admin_tab_services">服务</string>
+    <string name="admin_tab_webhooks">Webhook</string>
+    <string name="admin_tab_logs">日志</string>
+    <string name="admin_tab_web_links">网页链接</string>
+    <string name="admin_tab_settings">设置</string>
+    <string name="admin_cd_refresh">刷新</string>
+
+    <!-- 管理：密钥生成对话框 -->
+    <string name="admin_key_generated_title">密钥生成成功</string>
+    <string name="admin_key_generated_text">请立即复制该密钥，它不会再次显示：</string>
+
+    <!-- 管理：接入设置 -->
+    <string name="admin_setup_integration_title">Tailscale API 集成</string>
+    <string name="admin_setup_tab_token">个人令牌</string>
+    <string name="admin_setup_tab_oauth">OAuth 客户端</string>
+    <string name="admin_setup_token_label">API 访问令牌（tskey-api-…）</string>
+    <string name="admin_setup_client_id_label">OAuth 客户端 ID</string>
+    <string name="admin_setup_client_id_placeholder">例如 cKXXXXX</string>
+    <string name="admin_setup_client_secret_label">OAuth 客户端密钥（tskey-client-…）</string>
+
+    <!-- 管理：代理设置 -->
+    <string name="admin_proxy_config_title">API 代理配置</string>
+    <string name="admin_proxy_control_plane">控制服务器代理（自动）</string>
+    <string name="admin_proxy_direct">直连（不使用代理）</string>
+    <string name="admin_proxy_local_socks5">Tailsocks SOCKS5 代理</string>
+    <string name="admin_proxy_custom_socks5">自定义 SOCKS5 代理</string>
+    <string name="admin_proxy_control_plane_desc">沿用为 Tailscale 协调服务器配置的代理（ByeDpi / CP Proxy）。</string>
+    <string name="admin_proxy_socks5_host">SOCKS5 主机</string>
+    <string name="admin_proxy_socks5_host_placeholder">例如 192.168.1.100</string>
+    <string name="admin_proxy_socks5_port">SOCKS5 端口</string>
+    <string name="admin_proxy_socks5_port_placeholder">例如 1080</string>
+    <string name="admin_proxy_username_optional">代理用户名（可选）</string>
+    <string name="admin_proxy_password_optional">代理密码（可选）</string>
+    <string name="admin_proxy_local_desc_setup">通过当前启用的 Socks5 服务器转发 API 请求。想让 API 走出口节点时很有用。</string>
+    <string name="admin_proxy_socks5_required">需要有效的 SOCKS5 主机与端口</string>
+
+    <!-- 管理：DNS 标签页 -->
+    <string name="admin_dns_global_ns_title">全局 DNS 服务器</string>
+    <string name="admin_dns_no_custom_ns">未配置自定义 DNS 服务器</string>
+    <string name="admin_dns_split_title">分流 DNS（域名路由）</string>
+    <string name="admin_dns_no_split">未配置分流 DNS 路由</string>
+    <string name="admin_dns_add_split_route">添加分流 DNS 路由</string>
+    <string name="admin_dns_domain_label">域名</string>
+    <string name="admin_dns_domain_placeholder">例如 corp.internal</string>
+    <string name="admin_dns_ns_list_label">DNS 服务器（逗号分隔）</string>
+    <string name="admin_dns_ns_list_placeholder">例如 10.0.0.1, 10.0.0.2</string>
+    <string name="admin_dns_search_domains_title">DNS 搜索域</string>
+    <string name="admin_dns_no_search_domains">未配置搜索域</string>
+    <string name="admin_dns_search_domain_placeholder">例如 mycompany.com</string>
+    <string name="admin_dns_tailnet_name_title">Tailnet 名称</string>
+    <string name="admin_dns_tailnet_name_desc">把 tailnet 域名改成自定义名称（如 *.ts.net）。出于安全考虑，必须在 Tailscale 官方管理控制台完成。</string>
+    <string name="admin_dns_rename_web">在网页上重命名 Tailnet</string>
+
+    <!-- 管理：用户标签页 -->
+    <string name="admin_users_no_users">未找到用户</string>
+    <string name="admin_users_role">角色</string>
+    <string name="admin_users_status">状态</string>
+
+    <!-- 管理：密钥标签页 -->
+    <string name="admin_keys_status_revoked">已吊销</string>
+    <string name="admin_keys_status_expired">已过期</string>
+    <string name="admin_keys_desc_label">描述</string>
+
+    <!-- 管理：Webhook 标签页 -->
+    <string name="admin_webhooks_title">Webhook 端点</string>
+    <string name="admin_webhooks_add">添加端点</string>
+    <string name="admin_webhooks_no_webhooks">未配置 Webhook</string>
+    <string name="admin_webhooks_add_title">添加 Webhook 端点</string>
+    <string name="admin_webhooks_url_label">端点 URL</string>
+
+    <!-- 管理：网页链接标签页 -->
+    <string name="admin_web_title">安全网页设置</string>
+    <string name="admin_web_desc">以下操作需要更高的安全等级，只能在 Tailscale 官方网页管理面板中完成。</string>
+    <string name="admin_web_billing_title">账单与套餐</string>
+    <string name="admin_web_billing_desc">管理网络套餐，查看发票、余额与支付信息。</string>
+    <string name="admin_web_idp_title">身份提供方（SSO/IdP）</string>
+    <string name="admin_web_idp_desc">为你的网络配置认证提供方（Google、Microsoft、GitHub、Okta 等）。</string>
+    <string name="admin_web_acl_title">可视化策略编辑器</string>
+    <string name="admin_web_acl_desc">Tailscale 自带的编辑器：无需 HuJSON 即可编辑规则、组与标签。文件本身在「策略」标签页中编辑。</string>
+    <string name="admin_web_lock_title">Tailnet Lock</string>
+    <string name="admin_web_lock_desc">启用端到端配置加密，防止未经授权的节点加入。</string>
+    <string name="admin_web_apps_title">应用集成（Apps）</string>
+    <string name="admin_web_apps_desc">管理第三方集成（Slack、GitHub、VS Code、Heroku）以接收网络事件。</string>
+    <string name="admin_web_domain_title">域名重命名</string>
+    <string name="admin_web_domain_desc">把 Tailnet 域名（*.ts.net 前缀）改成独一无二的名字。</string>
+
+    <!-- 管理：设置标签页 -->
+    <string name="admin_settings_auth_keys_title">认证密钥</string>
+    <string name="admin_settings_auth_keys_desc">为此 Tailnet 生成、列出并吊销认证密钥。</string>
+    <string name="admin_settings_key_expiry_title">默认密钥有效期</string>
+    <string name="admin_settings_access_title">访问与审批控制</string>
+    <string name="admin_settings_device_approval_title">需要设备审批</string>
+    <string name="admin_settings_user_approval_title">需要用户审批</string>
+    <string name="admin_settings_software_title">设备软件管理</string>
+    <string name="admin_settings_auto_updates_title">自动更新</string>
+    <string name="admin_settings_flow_logging_title">网络流日志</string>
+    <string name="admin_settings_posture_title">终端状态（Posture）信息收集</string>
+    <string name="admin_settings_external_tailnets_title">外部 Tailnet 访问</string>
+
+    <!-- ======================== 界面组件 ======================== -->
+
+    <!-- 节点详情 -->
+    <string name="peer_pinging">正在测量延迟…</string>
+    <string name="peer_ping_result">延迟：%1$s</string>
+    <string name="peer_ping_self">本机</string>
+    <string name="peer_ping_self_caption">不测量到自身的往返</string>
+    <string name="peer_cd_ping_card">测量到 %1$s 的往返延迟</string>
+    <string name="peer_send_file">发送文件</string>
+    <string name="peer_copied">已复制</string>
+    <string name="peer_cd_expanded">已展开</string>
+    <string name="peer_cd_collapsed">已折叠</string>
+    <string name="peer_status_online">在线</string>
+    <string name="peer_status_offline">离线</string>
+    <string name="peer_status_os_unknown">未知系统</string>
+    <string name="peer_status_direct">直连</string>
+    <string name="peer_status_relay_format">中继：%1$s</string>
+    <string name="peer_conn_latency">往返延迟</string>
+    <string name="peer_conn_tap_to_measure">点按测量</string>
+    <string name="peer_conn_ping_failed">测量失败</string>
+    <string name="peer_route_relay">经 DERP 中继</string>
+    <string name="peer_taildrop_ok">可接收文件</string>
+    <string name="peer_taildrop_blocked">无法接收文件</string>
+    <string name="peer_taildrop_no_netmap">尚无网络地图</string>
+    <string name="peer_taildrop_not_running">该设备上 Tailscale 未运行</string>
+    <string name="peer_taildrop_missing_cap">该 tailnet 已关闭 Taildrop：你的设备缺少文件共享能力</string>
+    <string name="peer_taildrop_offline">设备离线</string>
+    <string name="peer_taildrop_no_peer_info">尚无该设备的信息</string>
+    <string name="peer_taildrop_unsupported_os">该设备的系统不支持 Taildrop</string>
+    <string name="peer_taildrop_no_peer_api">该设备未开放 peer API</string>
+    <string name="peer_taildrop_other_user">属于其他用户或标签。此类设备之间的 Taildrop 无法开启：守护进程需要两个只有 Tailscale 官方才能签发的权限，而控制台拒绝对 tailscale.com 域名下的任何名称授权。解决办法是不给个人设备加标签，改用按用户或 autogroup 授权。</string>
+    <string name="peer_taildrop_self_short">本机</string>
+    <string name="peer_taildrop_self">这就是你所在的设备：文件会从这里发到你的其他设备，而不是发到本机。</string>
+    <string name="peer_traffic_total">已传输</string>
+    <string name="peer_group_addresses">地址</string>
+    <string name="peer_group_route">路由</string>
+    <string name="peer_group_connection">连接</string>
+    <string name="peer_group_device">设备</string>
+    <string name="peer_group_capabilities">能力</string>
+    <string name="peer_group_traffic">流量</string>
+    <string name="peer_group_timing">时间线</string>
+    <string name="peer_group_other">其他</string>
+    <string name="peer_exit_node_selected">已选为出口节点</string>
+    <string name="peer_exit_node_offered">可作为出口节点</string>
+
+    <!-- ======================== 主活动 ======================== -->
+
+    <string name="main_account_name_label">账号名称</string>
+    <string name="main_new_name_label">新名称</string>
+    <string name="main_switch_account_title">切换账号？</string>
+    <string name="main_switch_account_text">切换到「%1$s」将重启内核，确定吗？</string>
+    <string name="main_restart_switch">重启并切换</string>
+    <string name="main_about_title">关于 TailSocks</string>
+    <string name="main_app_version">应用版本：%1$s</string>
+    <string name="main_core_version">Tailscale 内核：%1$s</string>
+    <string name="main_new_version">新版本：%1$s</string>
+    <string name="main_license_text">代理通过官方 Tailscale 内核运行。\n许可证：BSD-3-Clause\n</string>
+    <string name="main_dev_app">应用开发者：Bropines</string>
+    <string name="main_dev_patch">补丁开发者：Bropines</string>
+    <string name="main_dev_anet_patch">Anet 补丁：Asutorufa</string>
+    <string name="main_dev_core">内核开发者：Tailscale</string>
+    <string name="main_about_credits">鸣谢</string>
+    <string name="main_check_updates">检查应用更新</string>
+    <string name="main_update_checking">检查中…</string>
+    <string name="main_update_download">下载并安装更新</string>
+    <string name="main_update_install_cached">安装更新</string>
+    <string name="main_update_downloading">正在下载更新… %d%%</string>
+    <string name="main_update_installing">正在打开安装程序…</string>
+    <string name="main_update_grant_perm">请授予安装应用更新的权限。</string>
+    <string name="main_update_up_to_date">应用已是最新版本！</string>
+    <string name="main_no_exit_nodes">没有可用的出口节点</string>
+    <string name="main_select_exit_node">选择出口节点</string>
+    <string name="main_exit_node_none">无</string>
+    <string name="main_battery_warn_title">电池优化已开启</string>
+    <string name="main_battery_warn_desc">TailSocks 可能在后台被杀死。点按以关闭优化。</string>
+    <string name="main_network_sync_title">网络同步警告</string>
+    <string name="main_network_sync_desc">受网络退避影响，首次解析机器地图可能需要 1–3 分钟。请不要重启。</string>
+
+    <!-- ======================== 设置 ======================== -->
+
+    <string name="settings_logout_title">退出 Tailnet？</string>
+    <string name="settings_logout_text">这会通过原生 LocalAPI 清除当前会话与节点状态，你需要重新登录。继续吗？</string>
+    <string name="settings_amoled_black_desc">深色模式下使用纯黑背景</string>
+    <string name="settings_backup_password_title">备份加密密码</string>
+    <string name="settings_backup_password_text">输入用于加密备份的密码。恢复时需要使用同一密码。</string>
+    <string name="settings_restore_password_title">备份解密密码</string>
+    <string name="settings_restore_password_text">输入加密该备份时使用的密码。</string>
+    <string name="settings_password_label">密码</string>
+    <string name="settings_proxy_apply">应用并保存</string>
+    <string name="settings_field_example">示例：%1$s</string>
+    <string name="settings_suggested">建议：</string>
+    <string name="settings_sagernet_copied">已复制 SagerNet 链接！</string>
+
+    <!-- ======================== 终端 ======================== -->
+    <string name="console_title">终端</string>
+    <string name="console_cd_toggle_wrap">切换自动换行</string>
+    <string name="console_clear_desc">清除</string>
+    <string name="console_add_preset">+ 添加</string>
+    <string name="console_cd_history">命令历史</string>
+
+    <!-- ======================== 终端 ======================== -->
+    <string name="console_placeholder">命令…</string>
+    <string name="console_cd_run">运行</string>
+    <string name="console_new_preset_title">新建预设</string>
+    <string name="console_new_preset_label">例如 up --ssh</string>
+    <string name="console_cd_copy">复制输出</string>
+    <string name="console_copied">输出已复制</string>
+    <string name="console_preset_dialog_title">预设</string>
+    <string name="console_preset_insert">插入</string>
+
+    <!-- ======================== DNS 管理 ======================== -->
+    <string name="dns_error_parse_failed">解析 DNS 状态失败。\n\n原始输出：\n%1$s</string>
+    <string name="dns_status_unavailable">⚠ DNS 状态不可用</string>
+    <string name="dns_lookup_tool">DNS 查询工具</string>
+    <string name="dns_lookup_placeholder">例如 peer.ts.net 或 google.com</string>
+    <string name="dns_cd_query">查询</string>
+    <string name="dns_config_status">配置状态</string>
+    <string name="dns_split_route">分流路由</string>
+    <string name="dns_cd_copy_domain">复制域名</string>
+    <string name="dns_domain_copied">域名已复制</string>
+    <string name="dns_ips_copied">IP 已复制</string>
+    <string name="dns_test_local_server_title">本地 DNS 服务器</string>
+    <string name="dns_test_btn">测试</string>
+    <string name="dns_test_success_format">成功（应答 %1$d 字节，延迟 %2$d 毫秒）</string>
+    <string name="dns_test_failed_format">失败：%1$s</string>
+    <string name="dns_magic_status">状态</string>
+    <string name="dns_magic_enabled">已启用</string>
+    <string name="dns_magic_disabled">已禁用</string>
+    <string name="dns_network_domain">网络域名</string>
+    <string name="dns_device_name">设备 DNS 名称</string>
+
+    <!-- ======================== Taildrop / 文件 ======================== -->
+    <string name="files_hub_title">文件</string>
+    <string name="files_empty_inbox">暂无接收到的文件</string>
+    <string name="files_empty_history">暂无历史记录</string>
+    <string name="files_sending">发送中…</string>
+    <string name="files_auto_save_failed">自动保存失败：%1$s</string>
+    <string name="files_save_error">保存出错：%1$s</string>
+    <string name="files_sent">已发送！</string>
+    <string name="files_peer_no_id">守护进程列出的 %1$s 没有节点 ID，无法确定发送目标。请刷新列表后重试</string>
+    <string name="share_failed_format">无法发送 %1$s：%2$s</string>
+    <string name="taildrop_notif_channel">接收到的文件</string>
+    <string name="taildrop_received_title">收到文件</string>
+    <string name="taildrop_received_from_format">%1$s，来自 %2$s</string>
+    <string name="action_refresh">刷新</string>
+    <string name="action_ping_all">全部测延迟</string>
+    <string name="exit_node_fastest">已测节点中最快</string>
+
+    <!-- ======================== 日志界面 ======================== -->
+    <string name="logs_saved">日志已保存</string>
+    <string name="logs_dns_flushed">DNS 缓存已刷新</string>
+    <string name="logs_cd_flush_dns">刷新 DNS 缓存</string>
+    <string name="logs_cleared">已清除</string>
+    <string name="logs_copied_tail">日志过大：仅复制了末尾部分。用「保存」导出完整日志</string>
+    <string name="logs_root_clear_failed">无法清除守护进程日志（root shell 失败）</string>
+    <string name="logs_search_placeholder">搜索…</string>
+    <string name="logs_cd_jump_to_end">跳到末尾</string>
+    <string name="logs_cd_logcat">包含应用的 logcat</string>
+    <string name="logs_expand_more">… 展开（还有 %1$d 行）</string>
+    <string name="logs_collapse">… 收起</string>
+    <string name="logs_day_today">今天</string>
+    <string name="logs_day_yesterday">昨天</string>
+    <string name="logs_clear_app">应用日志</string>
+    <string name="logs_clear_daemon">守护进程日志</string>
+    <string name="logs_clear_all">全部</string>
+
+    <!-- ======================== 主界面 ======================== -->
+    <string name="main_add_account_title">添加账号</string>
+    <string name="main_add_account_authkey_label">认证密钥（可选）</string>
+    <string name="main_add_account_authkey_hint">填了密钥则首次启动即自动注册；留空则通过浏览器登录。</string>
+    <string name="main_rename_account_title">重命名账号</string>
+    <string name="main_update_available_format">🚀 有新的 TailSocks 版本：%1$s</string>
+    <string name="main_refreshing_config">正在刷新配置…</string>
+    <string name="main_cannot_open_battery_settings">无法打开电池设置</string>
+    <string name="main_error_socks5_empty">🚫 错误：SOCKS5 地址不能为空！</string>
+    <string name="main_check_failed_format">检查失败：%1$s</string>
+    <string name="main_cd_refresh_config">刷新配置</string>
+    <string name="main_cd_admin_api">管理 API</string>
+    <string name="main_cd_about_licenses">关于与许可</string>
+    <string name="accounts_sheet_title">账号</string>
+    <string name="accounts_sheet_help">每个账号各自保有登录、设置、状态与接收的文件；同一时间只有一个在运行。切换会重启守护进程，离开的账号保留其会话。</string>
+    <string name="accounts_done">完成</string>
+    <string name="accounts_add">添加账号</string>
+    <string name="accounts_signed_in">已登录</string>
+    <string name="accounts_never_signed_in">从未登录</string>
+    <string name="accounts_not_connected">未连接</string>
+    <string name="accounts_badge_authkey">已配置认证密钥</string>
+    <string name="accounts_badge_honest">以 Android 设备注册</string>
+    <string name="main_delete_account_confirm_title">删除配置「%1$s」？</string>
+    <string name="main_delete_account_confirm_text">确定删除该账号吗？其全部状态、偏好与密钥都会被永久移除。</string>
+    <string name="main_route_traffic_directly">流量直连</string>
+    <string name="main_status_active">已启动</string>
+    <string name="main_status_starting">启动中…</string>
+    <string name="main_status_please_wait">请稍候…</string>
+    <string name="main_status_active_desc">服务正在运行 · 点击停止</string>
+    <string name="main_status_starting_desc">正在唤醒守护进程…</string>
+    <string name="main_exit_node_none_label">出口节点：无</string>
+    <string name="main_traffic_routed">流量已路由</string>
+    <string name="main_exit_node_none_desc">点按选择出口节点</string>
+    <string name="main_exit_node_routed_desc">经出口节点：%1$s</string>
+    <string name="menu_console">终端</string>
+    <string name="menu_peers">设备</string>
+    <string name="menu_logs">日志</string>
+    <string name="menu_files">文件</string>
+    <string name="menu_netcheck">网络检查</string>
+    <string name="menu_settings">设置</string>
+
+    <!-- ======================== 网络诊断 ======================== -->
+    <string name="netcheck_title">网络检查</string>
+    <string name="netcheck_report_copied">报告已复制到剪贴板</string>
+    <string name="netcheck_analyzing">正在分析连接…</string>
+    <string name="netcheck_connection_health">--- 连接健康 ---\n</string>
+    <string name="netcheck_status">状态：%1$s\n</string>
+    <string name="netcheck_tailscale_ip">Tailscale IP：%1$s\n</string>
+    <string name="netcheck_running_diagnostics">\n--- 运行诊断 ---\n</string>
+    <string name="netcheck_udp">UDP：%1$s\n</string>
+    <string name="netcheck_ipv4">IPv4：%1$s\n</string>
+    <string name="netcheck_ipv6">IPv6：%1$s\n</string>
+    <string name="netcheck_nat_mapping">NAT 映射不一致：%1$s\n</string>
+    <string name="netcheck_nearest_derp">最近的 DERP ID：%1$d\n</string>
+    <string name="netcheck_derp_latency">\n--- DERP 延迟 ---\n</string>
+    <string name="netcheck_peer_summary">\n--- 设备概览 ---\n</string>
+    <string name="netcheck_total_peers">设备总数：%1$d\n</string>
+    <string name="netcheck_online_peers">在线设备：%1$d\n</string>
+    <string name="netcheck_cd_copy_report">复制报告</string>
+    <string name="netcheck_cd_run_diagnostics">运行诊断</string>
+    <string name="netcheck_hint">诊断可帮助你了解 NAT 穿透与 DERP 中继的使用情况。</string>
+    <string name="netcheck_connected">已连接</string>
+    <string name="netcheck_offline">离线</string>
+    <string name="netcheck_ip_label">IP：%1$s</string>
+    <string name="netcheck_testing_latency_desc">正在测试网络延迟与 UDP 穿透…</string>
+    <string name="netcheck_sect_protocol">协议能力</string>
+    <string name="netcheck_udp_stun">UDP STUN 支持</string>
+    <string name="netcheck_ipv4_conn">IPv4 连通性</string>
+    <string name="netcheck_ipv6_conn">IPv6 连通性</string>
+    <string name="netcheck_nat_varies">NAT 映射不一致</string>
+    <string name="netcheck_peers_map">活跃设备拓扑</string>
+    <string name="netcheck_sect_derp">DERP 延迟</string>
+    <string name="netcheck_nearest_label">最近</string>
+    <string name="netcheck_nearest_format">最近：%1$s</string>
+    <string name="netcheck_failed">诊断失败</string>
+    <string name="netcheck_working">工作中</string>
+    <string name="netcheck_blocked">被阻断</string>
+    <string name="netcheck_available">可用</string>
+    <string name="netcheck_unavailable">不可用</string>
+    <string name="netcheck_nat_varies_no">否（对直连友好的 NAT）</string>
+    <string name="netcheck_nat_varies_yes">是（对称 NAT）</string>
+    <string name="netcheck_peers_online_format">%1$d / %2$d 在线</string>
+    <string name="netcheck_peers_online_none">0 / %1$d 在线</string>
+
+    <!-- ======================== 设备 ======================== -->
+    <string name="peers_title">设备</string>
+    <string name="peers_search_placeholder">按名称、IP 或系统搜索…</string>
+    <string name="peers_sending">发送中…</string>
+    <string name="peers_sent">已发送！</string>
+    <string name="peers_failed_format">失败：%1$s</string>
+    <string name="peers_daemon_not_running">守护进程未运行</string>
+    <string name="peers_network_error">网络错误</string>
+    <string name="action_start_service">启动服务</string>
+    <string name="action_retry">重试</string>
+
+    <!-- ======================== Serve 与 Funnel ======================== -->
+    <string name="serve_title">Serve 与 Funnel</string>
+    <string name="serve_node_card_title">本节点</string>
+    <string name="serve_node_expand">显示能力</string>
+    <string name="serve_node_collapse">隐藏能力</string>
+    <string name="serve_cap_cert">HTTPS 证书</string>
+    <string name="serve_cap_cert_ok">可用于 %1$s</string>
+    <string name="serve_cap_cert_no">不可用：该节点没有 HTTPS 能力</string>
+    <string name="serve_cap_funnel_ok">允许的端口：%1$s</string>
+    <string name="serve_cap_funnel_no">tailnet 策略不允许</string>
+    <string name="serve_cap_services">服务（svc:）</string>
+    <string name="serve_cap_services_ok">允许：节点已打标签</string>
+    <string name="serve_cap_services_no">需要已打标签的节点</string>
+    <string name="serve_cap_unknown">尚未加载</string>
+    <string name="serve_rules_heading">规则</string>
+    <string name="serve_service_heading">服务 %1$s</string>
+    <string name="serve_empty_title">尚无任何服务</string>
+    <string name="serve_empty_text">一条规则可以把本机端口、固定文本或重定向暴露给你的 tailnet，或经 Funnel 暴露到公网。</string>
+    <string name="serve_kind_proxy">本地服务</string>
+    <string name="serve_kind_text">文本</string>
+    <string name="serve_kind_redirect">重定向</string>
+    <string name="serve_kind_tcp">TCP 端口</string>
+    <string name="serve_desc_proxy">代理到 %1$s</string>
+    <string name="serve_desc_text">提供文本：%1$s</string>
+    <string name="serve_desc_redirect">重定向到 %1$s</string>
+    <string name="serve_desc_tcp">转发 TCP 到 %1$s</string>
+    <string name="serve_tag_public">公开</string>
+    <string name="serve_tag_tailnet">Tailnet</string>
+    <string name="serve_health_ok">目标可达</string>
+    <string name="serve_health_bad">目标不可达</string>
+    <string name="serve_menu_copy_link">复制链接</string>
+    <string name="serve_menu_pause">暂停</string>
+    <string name="serve_menu_resume">恢复</string>
+    <string name="serve_tag_paused">已暂停</string>
+    <string name="serve_resume_conflict">无法恢复：端口 %1$d 已被另一条规则占用</string>
+    <string name="serve_editor_new">新建规则</string>
+    <string name="serve_editor_edit">编辑规则</string>
+    <string name="serve_editor_what">要暴露的内容</string>
+    <string name="serve_editor_target_proxy">本地地址</string>
+    <string name="serve_editor_target_text">要提供的文本</string>
+    <string name="serve_editor_target_redirect">目标 URL</string>
+    <string name="serve_editor_target_tcp">转发到（主机:端口）</string>
+    <string name="serve_editor_port">本节点的端口</string>
+    <string name="serve_editor_who">谁可以访问</string>
+    <string name="serve_editor_public">公网（Funnel）</string>
+    <string name="serve_editor_public_anyone">持有链接的任何人</string>
+    <string name="serve_editor_public_no_cap">该节点不允许使用 Funnel</string>
+    <string name="serve_editor_public_ports">Funnel 可用于端口 %1$s</string>
+    <string name="serve_editor_public_tls">Funnel 需要 HTTPS</string>
+    <string name="serve_editor_public_service">服务仅限 tailnet 内</string>
+    <string name="serve_editor_tailnet_only">仅本 tailnet</string>
+    <string name="serve_editor_scope">范围</string>
+    <string name="serve_editor_scope_node">本设备</string>
+    <string name="serve_editor_scope_service">服务</string>
+    <string name="serve_editor_service_name">服务名称</string>
+    <string name="serve_editor_advanced">高级</string>
+    <string name="serve_editor_plain_http">纯 HTTP，无 TLS</string>
+    <string name="serve_editor_proxy_protocol">PROXY 协议</string>
+    <string name="serve_editor_target_required">请填写目标</string>
+    <string name="serve_editor_port_invalid">每个端口必须在 1–65535 之间</string>
+    <string name="serve_editor_conflict">该端口与路径已有规则</string>
+    <string name="serve_svc_publish_title">在 tailnet 中发布服务 %1$s</string>
+    <string name="serve_svc_publish_text">tailnet 只有在服务定义完成、且本节点被批准为其宿主后才会应答。解锁后都可在此通过管理 API 完成。</string>
+    <string name="serve_svc_publish_action">定义并批准本节点</string>
+    <string name="serve_svc_publish_no_api">该 tailnet 尚未配置管理 API。请在「设置 → 管理 API」中配置，或在管理控制台定义服务并批准此宿主。</string>
+    <string name="serve_svc_open_console">打开管理控制台</string>
+    <string name="serve_svc_publish_failed">发布服务失败：%1$s</string>
+    <string name="serve_svc_biometric_subtitle">通过管理 API 修改 tailnet</string>
+    <string name="serve_menu_publish">发布到 tailnet…</string>
+    <string name="serve_svc_status_published">已在 tailnet 发布 · %1$s</string>
+    <string name="serve_svc_status_unpublished">尚未进入 tailnet：请定义服务并批准本节点</string>
+    <string name="serve_svc_publish_button">发布…</string>
+    <string name="serve_svc_update_button">更新…</string>
+    <string name="serve_svc_log_title">发布日志</string>
+    <string name="serve_log_reading">正在从 tailnet 读取 %1$s…</string>
+    <string name="serve_log_found">已找到；端点：%1$s</string>
+    <string name="serve_log_not_found">尚不在 tailnet，正在定义</string>
+    <string name="serve_log_defining">正在用 %1$s 写入定义…</string>
+    <string name="serve_log_defined">定义已写入</string>
+    <string name="serve_log_approving">正在批准本节点（%1$s）为宿主…</string>
+    <string name="serve_log_approved">宿主已批准</string>
+    <string name="serve_log_no_node_id">未知本节点 ID；请在管理控制台批准宿主</string>
+    <string name="serve_log_error">错误：%1$s</string>
+    <string name="serve_log_waiting">正在等待 tailnet 分配服务地址…</string>
+    <string name="serve_log_published">已发布到 %1$s</string>
+    <string name="serve_log_still_waiting">15 秒后仍无地址；管理控制台会显示宿主是否需要进一步配置</string>
+    <string name="serve_editor_publish_after">保存后发布到 tailnet</string>
+    <string name="serve_editor_service_required">请输入服务名称</string>
+    <string name="serve_kind_file">文件</string>
+    <string name="serve_desc_file">提供来自 %1$s 的文件</string>
+    <string name="serve_editor_path">本机上的路径</string>
+    <string name="serve_editor_insecure_backend">后端使用自签名证书</string>
+    <string name="serve_editor_tls_tcp">转发前终止 TLS</string>
+    <string name="serve_editor_proxy_protocol_none">无</string>
+    <string name="serve_cert_saved">证书保存成功</string>
+    <string name="serve_save_failed_format">保存失败：%1$s</string>
+    <string name="serve_error_format">错误：%1$s</string>
+    <string name="serve_waiting_dns">正在等待 DNS…</string>
+    <string name="serve_cd_export_cert">导出 HTTPS 证书…</string>
+    <string name="serve_cd_clear_all">移除全部规则…</string>
+    <string name="serve_cd_add_rule">添加规则</string>
+    <string name="serve_link_copied">链接已复制！</string>
+    <string name="serve_clear_title">清空 Serve 与 Funnel？</string>
+    <string name="serve_clear_text">这将彻底清除本节点本地与远端的全部 Serve/Funnel 配置。确定吗？</string>
+    <string name="serve_clear_confirm">清除</string>
+    <string name="serve_export_title">导出 HTTPS 证书</string>
+    <string name="serve_export_text_format">你正在导出 %1$s 的 Let\'s Encrypt TLS 证书与私钥。\n\n请选择导出方式：</string>
+    <string name="serve_export_save_file">保存到文件</string>
+    <string name="serve_cert_copied">证书已复制到剪贴板！</string>
+    <string name="serve_export_copy_clipboard">复制到剪贴板</string>
+
+    <!-- ======================== 设置 ======================== -->
+    <string name="settings_title">设置</string>
+    <string name="settings_root_sect_title">Root 模式与系统服务（实验性）</string>
+    <string name="settings_root_enable_desc">实验性功能，仍在开发中。\n• 守护进程以 su 运行，使用内核 TUN（tailscale0）与 iptables。\n• 作者仍在测试和调试此模式。</string>
+    <string name="settings_root_service_title">开机自启 Magisk/KernelSU 服务（实验性）</string>
+    <string name="settings_root_service_desc">将脚本安装到 /data/adb/service.d/，用于独立于应用开机启动</string>
+    <string name="settings_root_cli_title">安装 Tailscale CLI 工具（实验性）</string>
+    <string name="settings_root_cli_desc">为 Termux 和 root shell 安装 tailscale 可执行包装</string>
+    <string name="settings_root_info_title">守护进程运行信息（实验性）</string>
+    <string name="settings_root_disabled_general_note">Root 模式下不可用（实验性）</string>
+    <string name="settings_root_script_reinstall">重新安装脚本</string>
+    <string name="settings_root_routing_check">检查路由</string>
+    <string name="settings_root_script_reinstalled">服务脚本已重新安装</string>
+    <string name="settings_backup_saved">备份已保存</string>
+    <string name="settings_restore_app_too_new">该备份由 TailSocks %1$s 导出，比已安装的 %2$s 更新。请先更新应用再恢复。</string>
+    <string name="settings_restore_format_too_new">该备份使用格式版本 %1$d，当前构建最高支持 %2$d。请先更新应用再恢复。</string>
+    <string name="settings_restore_wrong_package">该备份属于另一个应用（%1$s）。</string>
+    <string name="settings_backup_failed_format">备份失败：%1$s</string>
+    <string name="settings_restored_success">设置恢复成功。请重启应用。</string>
+    <string name="settings_restore_failed_format">恢复失败：%1$s</string>
+    <string name="settings_full_backup_saved">加密备份已保存</string>
+    <string name="settings_full_backup_failed_format">完整备份失败：%1$s</string>
+    <string name="settings_read_backup_failed">读取备份文件失败</string>
+    <string name="settings_full_restore_success">恢复完成。请强制重启应用。</string>
+    <string name="settings_full_restore_failed">恢复失败：密码错误或文件损坏</string>
+    <string name="settings_error_format">错误：%1$s</string>
+    <string name="settings_logged_out">已成功退出登录</string>
+    <string name="settings_logout_confirm">退出登录</string>
+    <string name="settings_sect_personalization">个性化</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_theme_title">界面主题</string>
+    <string name="settings_ui_scale_title">界面缩放</string>
+    <string name="settings_ui_scale_desc">整个应用的文字、按钮与间距相对系统显示大小的缩放。100% 表示跟随系统。</string>
+    <string name="settings_lang_title">应用语言</string>
+    <string name="settings_lang_sys">跟随系统</string>
+    <string name="settings_preset_default">默认</string>
+    <string name="settings_preset_lavender">薰衣草</string>
+    <string name="settings_preset_emerald">翡翠</string>
+    <string name="settings_preset_sapphire">蓝宝石</string>
+    <string name="settings_preset_amber">琥珀</string>
+    <string name="settings_preset_monochrome">单色</string>
+    <string name="settings_preset_tokionight">东京夜（TokioNight）</string>
+    <string name="settings_palette_title">配色方案</string>
+    <string name="settings_dynamic_color_title">动态取色</string>
+    <string name="settings_dynamic_color_desc">使用 Material You 系统取色</string>
+    <string name="settings_amoled_black_title">AMOLED 纯黑</string>
+    <string name="settings_sect_storage">存储</string>
+    <string name="settings_taildrop_folder_title">Taildrop 保存文件夹</string>
+    <string name="settings_autostart_title">开机自启动</string>
+    <string name="settings_autostart_desc">开机时启动 TailSocks</string>
+    <string name="settings_auto_reconnect_title">自动重连</string>
+    <string name="settings_auto_reconnect_desc">连接未建立或中断时自动重启守护进程。等待你登录不算失败。</string>
+    <string name="settings_auto_reconnect_attempts_title">重启尝试次数（0 = 不限）</string>
+    <string name="settings_watchdog_title">后台自动保活</string>
+    <string name="settings_watchdog_desc">每 15 分钟检查服务是否存活，必要时重新启动。\n• 请允许「闹钟与提醒」，以便在后台发起检查。\n• 在限制后台启动的系统上，还需授予自启动权限。</string>
+    <string name="settings_root_dns_redirect_title">系统级 DNS 走 MagicDNS</string>
+    <string name="settings_root_dns_redirect_desc">把整台设备的 DNS 查询交给 MagicDNS。若希望由其他 VPN 或 DNS 过滤应用接管系统解析，请关闭。</string>
+    <string name="settings_sect_socks5">SOCKS5 代理（内置）</string>
+    <string name="settings_sect_lan">局域网访问</string>
+    <string name="settings_lan_access_title">向局域网开放代理</string>
+    <string name="settings_lan_access_desc">目前仅绑定 127.0.0.1。启用后，本网络中的其他设备也可使用 SOCKS5、HTTP 代理与本地 DNS。</string>
+    <string name="settings_lan_access_listening">正在监听所有网卡——地址如下。</string>
+    <string name="settings_lan_endpoint_lan">Wi‑Fi / 局域网</string>
+    <string name="settings_lan_endpoint_tailnet">Tailnet</string>
+    <string name="settings_lan_endpoint_none">当前网络下暂无地址</string>
+    <string name="settings_lan_copied">已复制：%1$s</string>
+    <string name="settings_lan_access_no_auth_warning">SOCKS5 代理没有用户名和密码。本网络中的任何人都可以经由你的 tailnet 转发流量。</string>
+    <string name="settings_socks5_address_title">SOCKS5 地址</string>
+    <string name="settings_socks5_username_title">SOCKS5 用户名</string>
+    <string name="settings_socks5_password_title">SOCKS5 密码</string>
+    <string name="settings_sagernet_copy">复制 SagerNet 链接</string>
+    <string name="settings_sagernet_copy_for">为哪个客户端复制 SagerNet 链接…</string>
+    <string name="settings_sagernet_copy_local">本机</string>
+    <string name="settings_sect_http">HTTP 代理（内置）</string>
+    <string name="settings_http_enable_title">启用 HTTP 代理</string>
+    <string name="settings_http_enable_desc">为不支持 SOCKS5 的应用提供本地 HTTP 代理服务</string>
+    <string name="settings_http_address_title">HTTP 代理地址</string>
+    <string name="settings_http_desc">在指定端口启动本地 HTTP 代理。让不支持 SOCKS5 的应用无需认证即可把流量路由到 Tailscale 网络。</string>
+    <string name="settings_sect_control_proxy">控制面代理</string>
+    <string name="settings_control_proxy_enabled_format">已启用（%1$s）</string>
+    <string name="settings_control_proxy_disabled">已禁用</string>
+    <string name="settings_sect_service_ad">服务通告</string>
+    <string name="settings_ad_tags_title">通告标签</string>
+    <string name="settings_ad_tags_desc">为此节点申请访问控制标签</string>
+    <string name="settings_applied_tags_label">已应用标签：%1$s</string>
+    <string name="settings_ad_routes_title">通告路由</string>
+    <string name="settings_ad_routes_desc">把本地子网通告进 Tailnet</string>
+    <string name="settings_dns_proxy_address_title">DNS 代理地址</string>
+    <string name="settings_sect_fallback_dns">备用 DNS 服务器</string>
+    <string name="settings_dns_fallbacks_title">DNS 备用服务器</string>
+    <string name="settings_doh_fallback_title">DoH 备用地址</string>
+    <string name="settings_sect_flags_logs">参数与日志</string>
+    <string name="settings_accept_routes_desc">允许网络下发路由配置</string>
+    <string name="settings_accept_dns_desc">允许网络下发 DNS 配置</string>
+    <string name="settings_force_bg_desc">整个会话持有唤醒锁，让连接在深度休眠时仍保持。更耗电。</string>
+    <string name="settings_detailed_logs_title">详细日志</string>
+    <string name="settings_detailed_logs_desc">关闭日志过滤（非常吵！）</string>
+    <string name="settings_extra_args_title">额外参数</string>
+    <string name="settings_sect_account_format">账号设置：%1$s</string>
+    <string name="settings_login_server_title">登录服务器（Headscale）</string>
+    <string name="settings_auth_key_title">认证密钥</string>
+    <string name="settings_exit_node_title">出口节点</string>
+    <string name="settings_sect_web">网页界面</string>
+    <string name="settings_web_enable_title">启用 Web UI</string>
+    <string name="settings_web_enable_desc">运行内置的 Tailscale Web 服务</string>
+    <string name="settings_web_address_title">Web UI 地址</string>
+    <string name="settings_sect_admin_api">管理控制台 API</string>
+
+    <!-- ======================== 高级配置 / 备份 ======================== -->
+    <string name="settings_sect_adv_profile">高级配置</string>
+    <string name="settings_logout_reset_title">退出登录并重置节点</string>
+    <string name="settings_password_empty">密码不能为空</string>
+    <string name="settings_backup_action">备份</string>
+    <string name="settings_restore_action">恢复</string>
+    <string name="settings_control_proxy_title">控制面代理</string>
+    <string name="settings_control_proxy_enable">启用代理</string>
+    <string name="settings_control_proxy_type">代理类型</string>
+    <string name="settings_control_proxy_host">主机</string>
+    <string name="settings_control_proxy_port">端口</string>
+    <string name="settings_control_proxy_username">用户名（可选）</string>
+    <string name="settings_control_proxy_password">密码（可选）</string>
+    <string name="settings_not_set">未设置</string>
+    <string name="settings_local_api_error_format">LocalAPI 错误：%1$s</string>
+    <string name="settings_none">无</string>
+    <string name="settings_exit_node_select">选择出口节点</string>
+    <string name="settings_exit_node_empty">没有可用的出口节点</string>
+    <string name="share_title">发送到…</string>
+    <string name="share_files_count_format">%1$d 个文件</string>
+    <string name="share_sending">发送中…</string>
+
+    <!-- Taildrive -->
+    <string name="taildrive_title">Taildrive 共享</string>
+    <string name="taildrive_cd_add">添加共享</string>
+    <string name="taildrive_perm_required">需要存储权限</string>
+    <string name="taildrive_perm_desc">Taildrive 需要访问全部文件的权限，才能把共享目录暴露给你的 Tailnet。</string>
+    <string name="taildrive_perm_desc_storage">Taildrive 需要存储权限才能把共享文件夹开放给你的 tailnet。</string>
+    <string name="taildrive_grant_perm">授予权限</string>
+    <string name="taildrive_enable_title">启用 Taildrive</string>
+    <string name="taildrive_enable_desc">把本机目录共享给 Tailnet 中的其他节点。</string>
+    <string name="taildrive_enable_proxy_title">启用 TailDrive 代理</string>
+    <string name="taildrive_enable_proxy_desc">让本地应用访问远端共享目录。</string>
+    <string name="taildrive_proxy_ip">本地代理 IP</string>
+    <string name="taildrive_proxy_port">本地代理端口</string>
+    <string name="taildrive_require_auth">需要身份验证</string>
+    <string name="taildrive_require_auth_desc">用 Basic 认证保护本地代理。</string>
+    <string name="taildrive_username">用户名</string>
+    <string name="taildrive_password">密码</string>
+    <string name="taildrive_webdav_url_title">WebDAV 地址（点按复制）</string>
+    <string name="taildrive_copied_url">地址已复制到剪贴板</string>
+    <string name="taildrive_shared_folders">共享文件夹</string>
+    <string name="taildrive_disabled_msg">Taildrive 已禁用</string>
+    <string name="taildrive_empty_shares">尚未共享任何文件夹</string>
+    <string name="taildrive_share_a_folder">共享一个文件夹</string>
+    <string name="taildrive_edit_title">编辑文件夹共享</string>
+    <string name="taildrive_add_title">添加文件夹共享</string>
+    <string name="taildrive_share_name">共享名称</string>
+    <string name="taildrive_share_name_placeholder">例如 downloads</string>
+    <string name="taildrive_physical_path">本机物理路径</string>
+    <string name="taildrive_physical_path_placeholder">/storage/emulated/0/Download</string>
+    <string name="taildrive_err_fields_empty">请填写所有字段</string>
+    <string name="taildrive_err_path_invalid">路径不存在或不是文件夹</string>
+    <string name="taildrive_err_name_exists">共享名称已存在</string>
+    <string name="taildrive_err_resolve_path">无法解析物理文件夹路径，请手动输入。</string>
+    <string name="taildrive_err_grant_storage">请在应用设置中授予存储权限</string>
+    <string name="taildrive_unavailable_no_fileserver">不可用——该节点的文件服务未运行（Windows/macOS：打开 Tailscale 应用）</string>
+    <string name="taildrive_unavailable_forbidden">不可用——没有此共享的访问权限</string>
+    <string name="taildrive_unavailable_not_found">不可用——该节点上已无此共享</string>
+
+    <!-- 节点详情 -->
+    <string name="peer_details_prev">上一个</string>
+    <string name="peer_details_next">下一个</string>
+    <string name="files_open_file_chooser">打开文件</string>
+    <string name="files_error_cant_open">无法打开：%1$s</string>
+
+    <!-- TUN 模式 -->
+    <string name="tun_notif_active">VPN 隧道已启用</string>
+    <string name="settings_sect_tun_mode">TUN 模式设置</string>
+    <string name="settings_tun_excluded_cidrs_title">排除的 IP 段</string>
+    <string name="settings_tun_excluded_cidrs_desc">使用出口节点时留在真实网络上的子网，逗号分隔。需要 Android 13+。</string>
+    <string name="settings_tun_excluded_apps_title">排除的应用</string>
+    <string name="settings_tun_excluded_apps_desc">%1$d 个应用保持隧道之外（VPN 与 Root）</string>
+    <string name="title_activity_tun_excluded_apps">排除的应用</string>
+    <string name="tun_apps_filter_all">全部</string>
+    <string name="tun_apps_filter_excluded">已绕过</string>
+    <string name="settings_tun_address_title">TUN 地址</string>
+    <string name="settings_tun_address_desc">带前缀长度的 IPv4 地址（例如 10.0.0.1/8）</string>
+    <string name="settings_tun_ipv6_title">让全部 IPv6 走隧道</string>
+    <string name="settings_tun_ipv6_desc">tailnet 地址始终走隧道；这里说的是其余 IPv6 流量。\n• 仅当你的出口节点确实承载 IPv6 时开启。\n• 否则带 IPv6 地址的网站会卡住而不是回退到 IPv4。</string>
+    <string name="main_tun_full_tunnel_desc">全部流量都经 VPN 路由</string>
+    <string name="main_tun_split_tunnel_desc">仅 Tailscale 子网流量经 VPN 路由</string>
+
+    <!-- DPI 绕过 -->
+    <string name="settings_tab_byedpi">DPI 绕过</string>
+    <string name="settings_byedpi_enable">启用 ByeByeDPI 绕过</string>
+    <string name="settings_byedpi_flags">ByeByeDPI 参数</string>
+    <string name="settings_byedpi_status_active">生效中：socks5://%1$s</string>
+    <string name="settings_byedpi_status_stopped">已停止</string>
+    <string name="settings_byedpi_status_ignored">生效中：socks5://%1$s · 已忽略：%2$s</string>
+    <string name="settings_byedpi_status_builtin">生效中：socks5://%1$s · 使用内置参数，你提供的未被接受</string>
+    <string name="settings_byedpi_status_failed">未运行（代码 %1$d）：无控制连接。详见日志</string>
+    <string name="settings_byedpi_desc">通过本地分片绕过对 Tailscale 协调服务器流量的审查 / DPI。完全在用户态运行。</string>
+    <string name="settings_proxy_import">导入代理链接 / URI</string>
+    <string name="settings_proxy_import_error">代理链接格式无效</string>
+    <string name="settings_proxy_copy_btn">复制链接</string>
+    <string name="settings_proxy_copied">代理配置已复制到剪贴板！</string>
+
+    <!-- 登录 -->
+    <string name="main_logged_out_title">需要登录</string>
+    <string name="main_logged_out_desc">你的 TailSocks 节点尚未登录。若网络受限，请先配置 DPI 绕过或代理再登录。</string>
+    <string name="main_logged_out_btn_login">登录</string>
+    <string name="main_logged_out_authkey_label">认证密钥（tskey-auth-…）</string>
+
+    <!-- 引导页 -->
+    <string name="first_start_welcome_title">欢迎使用 TailSocks</string>
+    <string name="first_start_welcome_desc">轻量高效的 Tailscale 网络客户端，轻松连接你的设备。</string>
+    <string name="first_start_how_title">工作原理</string>
+    <string name="first_start_how_desc">默认情况下，TailSocks 运行在 userspace-networking 模式，无需 root 或特殊 VPN 权限。若要透明地路由整机流量，可在应用设置中启用 TUN 模式。</string>
+    <string name="first_start_bypass_title">绕过审查</string>
+    <string name="first_start_bypass_desc">连接 Tailscale 协调服务器遇到问题？启用 ByeByeDPI 自动绕过审查与数据包检测。</string>
+    <string name="first_start_login_title">登录与权限</string>
+    <string name="first_start_login_desc">首先为设备授权。若标准网页登录无法加载，稍后可在配置设置中填写认证密钥或 OAuth 客户端凭据。请授予通知权限以便后台运行。</string>
+    <string name="first_start_btn_next">下一步</string>
+    <string name="first_start_btn_back">上一步</string>
+    <string name="first_start_btn_finish">开始使用</string>
+    <string name="first_start_key_oauth_hint_title">用认证密钥或 OAuth 登录</string>
+    <string name="first_start_key_oauth_hint_desc">若标准网页登录打不开、或网页上没有立刻出现密钥登录按钮，可使用认证密钥或 OAuth 客户端凭据。两者都可在「设置 → 配置」标签页配置。</string>
+    <string name="first_start_select_lang">选择界面语言</string>
+    <string name="first_start_mode_proxy_title">代理模式（SOCKS5）</string>
+    <string name="first_start_mode_proxy_desc">无 VPN 权限即可后台运行，更省电，但其他应用需自行配置代理。</string>
+    <string name="first_start_mode_vpn_title">VPN 模式（TUN）</string>
+    <string name="first_start_mode_vpn_desc">接管并路由整机全部流量通过 Tailscale。需要系统 VPN 权限。</string>
+    <string name="first_start_cp_warning_title">协调服务器</string>
+    <string name="first_start_cp_warning_desc">官方 Tailscale 服务器在俄罗斯等地可能被封锁。若使用自建 Headscale 服务器，请在下方填写其地址；留空则用默认。</string>
+    <string name="first_start_cp_field_label">服务器地址（例如 https://hs.example.com）</string>
+    <string name="first_start_bypass_mode_none">不绕过（直连）</string>
+    <string name="first_start_bypass_mode_bbd">ByeByeDPI（内置 DPI 绕过）</string>
+    <string name="first_start_bypass_mode_proxy">自定义代理（HTTP/SOCKS5）</string>
+    <string name="first_start_proxy_link_label">代理链接（socks5://user:pass@ip:port）</string>
+    <string name="first_start_proxy_host_label">代理主机</string>
+    <string name="first_start_proxy_port_label">端口</string>
+    <string name="first_start_authkey_label">认证密钥（tskey-auth-…）</string>
+    <string name="settings_show_onboarding">显示引导页</string>
+    <string name="settings_show_onboarding_desc">重新运行安装向导与欢迎页</string>
+    <string name="first_start_permissions_title">权限与服务</string>
+    <string name="first_start_permissions_desc">授予必要的系统权限，保证后台稳定运行。</string>
+
+    <!-- 代理预设 -->
+    <string name="settings_proxy_preset_save_title">保存代理预设</string>
+    <string name="settings_proxy_preset_name_label">预设名称</string>
+    <string name="settings_proxy_preset_save_btn">保存</string>
+    <string name="settings_proxy_preset_fill_fields_error">请先填写主机与端口！</string>
+    <string name="settings_byedpi_warning_override">注意：启用 ByeByeDPI 会用它自带的本地代理服务覆盖控制面代理设置。</string>
+    <string name="settings_byedpi_ipv6_disabled">强制 IPv4（禁用 IPv6）</string>
+    <string name="settings_byedpi_ipv6_disabled_desc">强制 ByeDPI 代理只用 IPv4 解析与连接，避免在 IPv6 地址上握手失败。</string>
+
+    <!-- 权限引导 -->
+    <string name="onboarding_perm_notif_title">允许通知</string>
+    <string name="onboarding_perm_grant">授予</string>
+    <string name="onboarding_perm_battery_title">忽略电池优化</string>
+    <string name="onboarding_perm_battery_desc">防止后台服务被杀</string>
+    <string name="onboarding_perm_battery_configure">去配置</string>
+    <string name="onboarding_perm_battery_toast">找到 TailSocks 并关闭优化</string>
+    <string name="onboarding_perm_battery_error">无法打开设置</string>
+
+    <!-- 连接问题 -->
+    <string name="main_conn_issue_title">连接问题</string>
+    <string name="main_conn_issue_desc">似乎存在连接问题。若协调服务器被封锁，请配置自定义代理或启用 ByeByeDPI。</string>
+    <string name="main_conn_issue_btn_proxy">配置代理</string>
+    <string name="main_logged_out_btn_stop_short">停止</string>
+
+    <!-- Root 模式 -->
+    <string name="settings_root_kill_daemon_title">停止时结束 Root 守护进程</string>
+    <string name="settings_root_kill_daemon_desc">点击停止时向 libtailscale.so 进程发送终止信号（SIGTERM/SIGKILL）。</string>
+    <string name="settings_root_warning_dialog_title">警告：实验性 Root 模式</string>
+    <string name="settings_root_warning_dialog_body">启用 Root 模式后，TailSocks 将使用超级用户权限直接控制内核 TUN 网络接口。\n\n注意：此功能为实验性。项目作者（bropines）仍在积极开发与调试该模式。</string>
+    <string name="settings_root_warning_dialog_confirm">知道了，启用</string>
+    <string name="settings_root_warning_dialog_cancel">取消</string>
+    <string name="settings_root_banner_warning">实验性模式\nRoot 模式仍在开发中。项目作者（bropines）仍在测试和调试该模式。</string>
+
+    <!-- 自动化 -->
+    <string name="settings_automation_title">Tasker 与自动化</string>
+    <string name="settings_automation_enable_title">允许外部自动化</string>
+    <string name="settings_automation_enable_desc">允许通过广播 Intent 进行后台控制（Tasker、MacroDroid、ADB）</string>
+    <string name="settings_automation_token_label">安全令牌（必填）</string>
+    <string name="settings_automation_token_placeholder">未设置令牌前所有 Intent 都会被拒绝——请点击「生成」</string>
+    <string name="settings_automation_no_token">尚未设置安全令牌——在配置之前，所有自动化 Intent 都会被拒绝。</string>
+    <string name="settings_automation_token_active">令牌已生效。Intent 必须携带 extra：secret=\"%1$s\"</string>
+    <string name="settings_automation_generate_token">生成</string>
+    <string name="settings_automation_copy_token">复制</string>
+    <string name="settings_automation_token_copied">令牌已复制到剪贴板</string>
+
+    <!-- 更新日志 -->
+    <string name="settings_show_changelog_title">更新后显示新变化</string>
+    <string name="settings_show_changelog_desc">应用更新后显示一次变更列表</string>
+    <string name="whats_new_title">%1$s 的新变化</string>
+    <string name="whats_new_full_changelog">完整变更日志</string>
+    <string name="whats_new_unavailable">无法加载变更日志。</string>
+    <string name="main_about_whats_new">新变化</string>
+
+    <!-- 原先硬编码在 Kotlin 中的文案 -->
+    <string name="settings_root_mode_enabled_toast">已启用 Root 模式</string>
+    <string name="settings_root_mode_disabled_toast">已关闭 Root 模式</string>
+    <string name="settings_root_access_unavailable">未获得 root 权限（su 不可用）</string>
+    <string name="settings_root_service_script_installed">服务脚本已安装到 service.d</string>
+    <string name="settings_root_service_script_removed">服务脚本已移除</string>
+    <string name="settings_root_service_script_failed">管理 service.d 脚本失败</string>
+    <string name="settings_root_cli_installed">CLI 包装已安装到 %1$s</string>
+    <string name="settings_root_cli_removed">CLI 包装已移除</string>
+    <string name="settings_root_cli_failed">管理 CLI 包装失败</string>
+    <string name="settings_root_daemon_status_label">守护进程状态：</string>
+    <string name="settings_root_daemon_status_running">运行中（socket 有响应）</string>
+    <string name="settings_root_daemon_status_stopped">未运行 / socket 无响应</string>
+    <string name="settings_proxy_parsed_success">代理链接解析成功！</string>
+    <string name="settings_proxy_clipboard_empty">剪贴板与输入框都是空的</string>
+    <string name="settings_proxy_cd_paste_parse">粘贴并解析</string>
+    <string name="settings_proxy_preset_add_chip">保存</string>
+    <string name="settings_copy_cd_format">复制 %1$s</string>
+    <string name="main_submit_key">提交密钥</string>
+    <string name="main_proxy_setup">代理设置</string>
+    <string name="main_key_saved_restarting">密钥已保存，正在重启服务…</string>
+    <string name="main_installer_failed_format">安装程序失败：%1$s</string>
+    <string name="taildrop_saved_to_downloads_format">已保存到下载：%1$s</string>
+    <string name="taildrop_save_failed_format">保存失败：%1$s</string>
+    <string name="taildrop_file_deleted">文件已删除</string>
+    <string name="taildrive_add_choose">选择添加文件夹的方式：</string>
+    <string name="taildrive_add_picker_title">系统文件夹选择器</string>
+    <string name="taildrive_add_picker_desc">浏览并选择文件夹</string>
+    <string name="taildrive_add_manual_title">手动输入路径</string>
+    <string name="taildrive_add_manual_desc">输入路径（例如 /storage/emulated/0/Download）</string>
+    <string name="taildrive_share_full_storage">共享整个存储</string>
+    <string name="dns_cd_test_server">测试 DNS 服务器</string>
+    <string name="dns_cd_copy_ip">复制 IP</string>
+    <string name="notif_channel_alerts">连接提醒</string>
+    <string name="revive_refused_title">TailSocks 已断开</string>
+    <string name="revive_refused_text">系统停止了服务且不允许其再次启动。点按重新连接。</string>
+    <string name="perm_ask_title">后台被停止</string>
+    <string name="perm_ask_text">系统停止了 TailSocks 且不允许其再次启动。请允许自启动，这样应用更新或内存清理后不再断开连接。</string>
+    <string name="perm_ask_grant">允许</string>
+    <string name="perm_ask_later">稍后</string>
+    <string name="perm_ask_never">不再询问</string>
+    <string name="perm_ask_all">所有权限</string>
+    <string name="perm_title">权限</string>
+    <string name="perm_intro">全部可选。每一项都能让连接更可靠。</string>
+    <string name="perm_open">打开</string>
+    <string name="perm_open_failed">该设备上无法打开此设置页</string>
+    <string name="perm_state_granted">已授予</string>
+    <string name="perm_state_denied">未授予</string>
+    <string name="perm_state_unknown">未知——Android 不报告此项</string>
+    <string name="perm_state_na">此 Android 版本无需该项</string>
+    <string name="perm_autostart_title">自启动</string>
+    <string name="perm_autostart_reason">让应用在被系统杀掉后还能回来</string>
+    <string name="perm_alarms_title">闹钟与提醒</string>
+    <string name="perm_alarms_reason">让 15 分钟的检查能按时重启服务</string>
+    <string name="perm_battery_title">电池优化</string>
+    <string name="perm_battery_reason">熄屏时保持连接存活</string>
+    <string name="perm_notifications_title">通知</string>
+    <string name="perm_notifications_reason">显示连接状态并在断开时提醒</string>
+    <string name="perm_install_title">安装未知应用</string>
+    <string name="perm_install_reason">安装应用内下载的更新所需</string>
+    <string name="settings_permissions_title">权限</string>
+    <string name="settings_permissions_desc">可选权限及其状态</string>
+    <string name="settings_watchdog_exact_error">无法打开闹钟与提醒设置</string>
+
+    <!-- 4.0 设置重组：分类 -->
+    <string name="settings_cat_account">账号与连接</string>
+    <string name="settings_cat_account_desc">登录服务器、认证密钥、设备名、出口节点、路由</string>
+    <string name="settings_cat_tunnel">隧道模式</string>
+    <string name="settings_cat_tunnel_desc">代理、VPN（TUN）或 Root——流量如何离开本机</string>
+    <string name="settings_cat_proxies">本地代理</string>
+    <string name="settings_cat_proxies_desc">SOCKS5 与 HTTP 监听、局域网访问</string>
+    <string name="settings_cat_dns_desc">MagicDNS、DNS 代理与备用服务器</string>
+    <string name="settings_cat_bypass">绕过审查</string>
+    <string name="settings_cat_bypass_desc">控制面代理与 ByeByeDPI</string>
+    <string name="settings_cat_sharing">共享与访问</string>
+    <string name="settings_cat_sharing_desc">Taildrop、Taildrive、Serve 与 Funnel、网页界面</string>
+    <string name="settings_cat_background">后台与权限</string>
+    <string name="settings_cat_background_desc">自启动、重连、权限、保持连接</string>
+    <string name="settings_cat_appearance">外观与语言</string>
+    <string name="settings_cat_appearance_desc">主题、配色、应用语言</string>
+    <string name="settings_cat_backup">备份与恢复</string>
+    <string name="settings_cat_backup_desc">应用完整备份与单个配置导出</string>
+    <string name="settings_cat_automation">自动化与 API</string>
+    <string name="settings_cat_automation_desc">Tasker、外部命令、管理控制台访问</string>
+    <string name="settings_cat_diagnostics">诊断与开发者</string>
+    <string name="settings_cat_diagnostics_desc">日志、终端、额外参数、守护进程详情</string>
+    <string name="settings_keep_awake_title">保持连接唤醒</string>
+    <string name="settings_accept_subnet_routes_title">接受子网路由</string>
+    <string name="settings_magicdns_title">使用 MagicDNS</string>
+    <string name="settings_device_name_title">设备名称</string>
+    <string name="settings_backup_full_title">完整备份（加密）</string>
+    <string name="settings_restore_full_title">恢复完整备份</string>
+    <string name="settings_profile_export_title">导出此配置</string>
+    <string name="settings_profile_import_title">导入配置</string>
+    <string name="settings_root_tun_title">原生 Linux TUN（tailscale0）</string>
+    <string name="settings_root_tun_desc_native">通过 su 创建原生 Linux 内核接口 tailscale0。Android 的 VpnService 槽位 100% 空闲。</string>
+    <string name="settings_root_tun_desc_proxy">通过 su 以 SOCKS5/代理模式运行守护进程（使用「本地代理」设置）。</string>
+    <string name="settings_advertise_exit_node_title">作为出口节点运行</string>
+    <string name="settings_advertise_exit_node_desc">把本设备作为出口节点提供给 tailnet 中的其他设备使用其互联网流量。</string>
+    <string name="settings_sect_troubleshooting">故障排查</string>
+    <string name="settings_tunnel_mode_proxy">代理</string>
+    <string name="settings_tunnel_mode_vpn">VPN（TUN）</string>
+    <string name="settings_tunnel_mode_root">Root</string>
+    <string name="settings_tunnel_mode_proxy_desc">无需 VPN 权限即可后台运行。其他应用需要自行指向本地 SOCKS5 或 HTTP 代理。</string>
+    <string name="settings_tunnel_mode_vpn_desc">通过 Android VPN 接口把整机流量路由进 Tailscale。会请求系统 VPN 权限。</string>
+    <string name="settings_tunnel_mode_root_desc">守护进程通过 su 在内核接口 tailscale0 上运行；Android 的 VPN 槽位保持空闲。\n• 整机的路由与 DNS 都会改变：所有应用都经 MagicDNS 解析；选择出口节点后所有应用的流量都走它。\n• 下方的排除应用不会走出口节点。\n• 它们的域名仍由 MagicDNS 解析：Android 以系统解析器自身的身份发起应用的 DNS 查询，按应用排除无法看到它。</string>
+    <string name="settings_sect_share_links">与你的 tailnet 共享</string>
+    <string name="settings_link_taildrive_desc">本机通过 Taildrive 提供给其他设备的文件夹</string>
+    <string name="settings_link_serve_desc">在 tailnet 内、或面向整个互联网发布本地服务</string>
+    <string name="settings_sect_tools">工具</string>
+    <string name="settings_link_dns_desc">当前解析器、MagicDNS 记录与域名查询测试</string>
+    <string name="settings_link_admin_desc">管理 tailnet：设备、密钥、ACL 与 DNS</string>
+    <string name="settings_link_logs_desc">支持过滤与导出的实时守护进程日志</string>
+    <string name="settings_link_console_desc">直接在设备上运行 tailscale 命令</string>
+    <string name="settings_link_netcheck_desc">DERP 中继、延迟与 NAT 类型</string>
+    <string name="settings_sect_resolver">解析器</string>
+    <string name="settings_sect_service_perms">服务与权限</string>
+    <string name="settings_sect_backup_files">备份文件</string>
+    <string name="settings_tun_uses_socks_title">转发进本地 SOCKS5 代理</string>
+    <string name="settings_tun_uses_socks_desc">%1$s——与代理模式、Taildrive 和管理 API 共用。点按修改。</string>
+    <string name="settings_tun_warning_title">要占用 VPN 槽位吗？</string>
+    <string name="settings_tun_warning_body">Android 同一时间只运行一个 VPN。开启后会占用槽位；之后任何占用它的 VPN 或广告拦截器都会以同样方式断开 TailSocks。</string>
+    <string name="settings_tun_warning_body_busy">当前有另一个 VPN 在运行——广告拦截、私有 DNS 或另一条隧道。开启会从其手中取走槽位，在切回来之前它将停止过滤。</string>
+    <string name="settings_tun_warning_confirm">开启</string>
+    <string name="main_status_active_root_desc">由系统经 tailscale0 路由 • 点按停止</string>
+    <string name="settings_root_vpn_bypass_title">忽略其他 VPN</string>
+    <string name="settings_root_vpn_bypass_desc">守护进程会像 VPN 应用保护自身连接那样为自己的连接打上标记，其他 VPN 客户端无法吞掉它们。\n• 仅当你想把这条隧道跑进另一个客户端里时才关闭。</string>
+    <string name="tun_excluded_apps_count">绕过隧道：%1$d</string>
+    <string name="tun_excluded_apps_not_installed">本设备未安装</string>
+
+    <!-- Root 模式与另一 VPN 共存 -->
+    <string name="settings_root_take_device_title">仍然接管整机</string>
+    <string name="settings_root_take_device_desc">从占用本机的另一个 VPN 手中取回默认路由与 DNS。\n• 关闭：TailSocks 把它们留给该 VPN，只接管被它排除在隧道外的应用。\n• 开启：一切归 TailSocks；那个 VPN 的应用会失去自己的隧道。</string>
+    <string name="settings_root_take_device_dialog_title">从另一个 VPN 手中接管本机？</string>
+    <string name="settings_root_take_device_dialog_body">另一个 VPN 正持有本机的默认路由与 DNS。取回后所有应用的流量与域名查询都会走 TailSocks，那个 VPN 所保护的应用会失去隧道、其过滤随之停止——而且它不会收到任何通知。关闭此项可把设备还回去。</string>
+    <string name="settings_root_take_device_confirm">接管整机</string>
+    <string name="settings_root_yielded_banner">另一个 VPN 持有本机。\n• 仅 tailnet 地址与 MagicDNS 名称会被路由。\n• 出口节点与系统级 DNS 在它停止前保持关闭。</string>
+    <string name="main_root_yielded_title">仅 Tailnet</string>
+    <string name="main_root_yielded_desc">另一个 VPN 持有本机：出口节点与系统级 DNS 已关闭。tailnet 地址与 MagicDNS 名称仍然可用。</string>
+    <string name="main_status_active_root_yielded_desc">仅 Tailnet——另一个 VPN 持有本机 • 点按停止</string>
+    <string name="main_exit_node_inert_label">出口节点未生效</string>
+    <string name="main_exit_node_inert_desc">已选择 %1$s，但另一个 VPN 持有本机</string>
+    <string name="settings_root_shared_banner">另一个 VPN 持有本机，但把一些应用留在了隧道之外。\n• 这些应用改走 TailSocks，包括出口节点与 MagicDNS。\n• 其余应用仍归那个 VPN。</string>
+    <string name="settings_root_dns_shared_desc">对另一个 VPN 排除的应用生效；它自身的解析仍归它管。</string>
+    <string name="main_root_shared_title">与另一 VPN 共享</string>
+    <string name="main_root_shared_desc">它持有本机；被它排除的应用走我们，附带出口节点与 MagicDNS。</string>
+    <string name="main_status_active_root_shared_desc">正在接载另一个 VPN 排除的应用 • 点按停止</string>
+    <string name="main_exit_node_partial_label">出口节点：部分</string>
+    <string name="main_exit_node_partial_desc">%1$s——仅对另一个 VPN 排除的应用生效</string>
+
+    <!-- 上报给协调服务器的系统信息 -->
+    <string name="settings_honest_hostinfo_title">报告真实系统</string>
+    <string name="settings_honest_hostinfo_desc">把此配置的节点注册为 Android 设备，带上真实机型与版本，而不是 Linux 命令行客户端。\n• 协调服务器会把节点与注册时的系统绑定。\n• 对已登录的配置而言，这意味着一份新配置。</string>
+    <string name="settings_honest_hostinfo_dialog_title">此配置已注册</string>
+    <string name="settings_honest_hostinfo_dialog_body">其节点注册为 %1$s。协调服务器会拒绝注册后操作系统发生变化的节点（「node OS changed since last connection」），并停止下发网络地图。要改用此设置新建一份配置吗？新节点将以全新身份重新注册；为旧节点做的审批（路由、出口节点、服务）不会随之迁移。</string>
+    <string name="settings_honest_hostinfo_create_profile">新建配置</string>
+    <string name="honest_hostinfo_os_linux">Linux</string>
+    <string name="honest_hostinfo_os_android">Android</string>
+    <string name="honest_hostinfo_checkbox_desc">以 Android 设备注册，附带真实机型。关闭：像以前一样注册为 Linux 命令行客户端。以后更改需要新建配置。</string>
+
+    <!-- 守护进程自行退出 / 协调服务器拒绝 -->
+    <string name="daemon_crashed_title">TailSocks 已失去连接</string>
+    <string name="daemon_crashed_text">守护进程自行停止了。点按重新连接。</string>
+    <string name="coordinator_os_refused_title">协调服务器拒绝了此设备</string>
+    <string name="coordinator_os_refused_text">它的操作系统自注册以来发生了变化，协调服务器不再下发网络地图。请退出后重新登录以重新注册节点，或把「报告真实系统」改回关闭。</string>
+    <string name="coordinator_os_refused_short">被协调服务器拒绝：系统已变化</string>
+
+    <!-- 长按状态卡的小彩蛋（纯装饰，没有任何代码读回它们） -->
+    <string-array name="status_asides">
+        <item>100.64.0.0/10——一整个国家，而住在里面的只有你。</item>
+        <item>你发出的每个数据包都走了一条你永远看不到的捷径。</item>
+        <item>守护进程一直醒着。它不介意。</item>
+        <item>在某个地方，一台 DERP 中继刚把你的流量当成了私事。</item>
+        <item>NAT 穿透：两台躲在路由器后面的机器，都坚信对方应该先开口。</item>
+        <item>不，它不是 VPN。这就是你上周吵过的那个老话题。</item>
+        <item>tailnet 是一个群聊，成员全是电脑，而且没人发言。</item>
+        <item>MagicDNS 并不神奇。只是没人敢大声说出来。</item>
+        <item>你的设备是一个节点。它已经当了一阵子了。恭喜。</item>
+        <item>这张卡片被按了一下。别的事情都没有发生，这正是它的意义。</item>
+        <item>按住的时间刚好够你读完这句——也就是说，让你留在这里的并不是这个连接。</item>
+        <item>从这里到出口节点之间大约有十一跳，其中四跳属于你从没听说过的公司，而它们每一家今天都比你更惨。</item>
+        <item>隧道不管你盯不盯着它。它按顺序、不作评论地搬运你交给它的一切，直到电池耗尽，或你再次按下这张卡片。</item>
+        <item>凌晨 3:14 提交的。测试呢？你就是测试。</item>
+        <item>开发者又把 release 装到正在用的应用上了。服务对此已经和解。</item>
+        <item>下载文件夹里放着同一构建的十一个 APK。每一个迟早都用得上。</item>
+        <item>「让它能用」——三个字，最后变成了一次半发版。</item>
+        <item>不是这个应用的问题。是另一台机器上的 Tailscale 窗口没开。凌晨三点验证过。</item>
+        <item>刺猬还在雾里。马还在原地。果酱包原封未动。</item>
+        <item>你按住了卡片。守护进程也稳住了。</item>
+        <item>没有那句口令就永远不会 push。这是此地的唯一铁律。</item>
+        <item>这代码一半由一个神经网络写成，另一半由另一个写成。它们偶尔意见一致。</item>
+        <item>每个彩蛋都是 strings.xml 里某行没人愿意审的文案。</item>
+        <item>补丁版本比用户还多。两个数字都在涨。</item>
+        <item>电量 89%，凌晨三点，而你还在测账号切换。</item>
+        <item>节点遍布阿姆斯特丹、法兰克福、赫尔辛基和莫斯科。你窝在沙发上。</item>
+        <item>赫尔辛基的某台 DERP 中继完全不知道你是谁。这样也好。</item>
+        <item>包发出去了。包回来了。包什么都不会告诉你。</item>
+        <item>守护进程告诉协调服务器自己是 Linux。服务器信了。皆大欢喜。</item>
+        <item>在 netd 之下改路由，就像趁人家睡着时重新摆布别人家的家具。</item>
+        <item>盯着这张卡片看久了，它会开始回望你。它早就在看了。</item>
+        <item>这个位置本来可以放广告——只不过没有广告、没有经理、没有变现计划，老实说，也没有计划。</item>
+        <item>这个应用里为「守护进程万一死了怎么办」写的检查，比某些婚姻里的还多。</item>
+        <item>新构建装好了，服务死了，点按启动。每次发版都从一场小型葬礼开始。</item>
+        <item>在你和这一行字之间：Compose、两个协程、一个本地 socket、一个用 Go 写的守护进程、一份靠善意维持的补丁，以及一个在凌晨三点决定「长按总得干点什么」的人。</item>
+        <item>原生引擎从 4.2.0 起就绪，至今仍标着实验性。这里别的也一样。</item>
+        <item>个人简介写着「Coder -_-」。言简意赅。</item>
+        <item>雇主一栏：「Not a Company」。薪水也相符。</item>
+        <item>六十个公开仓库。完成的自己数。</item>
+        <item>星标最多的那个仓库是给 xray 写的配置编辑器。不是这一个。</item>
+        <item>在某个角落，有一份 Termux 下 tailscaled 的「能用」实现。引号是作者自己加的。</item>
+        <item>一个 AmneziaWG 客户端、一个 Tailscale 客户端，上面再叠一层代理。互联网还是那个互联网。</item>
+        <item>在给 Google Lens 写 OCR 库和做漫画翻译器之间，居然还有时间写个 VPN 客户端。</item>
+        <item>下载文件夹里，漫画目录就挨着 tailscaled 的日志。优先级一目了然。</item>
+        <item>简介说还在学 Kotlin 和 Go。代码在两方面都同意。</item>
+        <item>Homebrew tap 零星标。总得有人做。</item>
+        <item>有人用 Python 重写了 Windows 11 截图工具的 OCR 引擎。没有任何理由。这个人也写了这个应用。</item>
+        <item>每个 issue 都以「哪个版本」开头。现在报告会在问题之前先回答它。</item>
+        <item>诊断信息里没有节点名也没有地址。段子里没有任何保证。</item>
+        <item>在某个地方，有人正在写一条没带版本、没带设备、没带日志的 bug 报告。反正不是从这里发的。</item>
+        <item>又按住了。计数器又加一了。这就是全部功能。</item>
+        <item>出口节点选择器现在会标出最快的节点。最慢的那个已经很努力了。</item>
+        <item>只有一个设备的 tailnet 也是 tailnet。只是一个孤独的 tailnet。</item>
+        <item>如果更新之后服务死了，那不是更新的错。是厂商的错。</item>
+        <item>电池优化开着，服务死了，而 issue 里写着「应用自己关掉了」。</item>
+        <item>「关于」页在雾里画了只刺猬。没人要求过。也没人后悔。</item>
+        <item>四个计数器，没有一个离开过设备。业界最诚实的遥测。</item>
+        <item>在按下与数据包之间隔着我们自己的十一道检查——数据包还是先到了。</item>
+        <item>读到这儿了？这行结束了。隧道没有。</item>
+    </string-array>
+    <string name="aside_count_holds">这是第 %1$d 次长按。是的，有人在数。</string>
+    <string name="aside_count_toggles">服务已被开关 %1$d 次。它每一次都记得。</string>
+    <string name="aside_count_pings">「全部测延迟」被按了 %1$d 次。节点们已经认得你的脚步声。</string>
+    <string name="aside_count_switches">账号已切换 %1$d 次。还是没切对。</string>
+    <string name="aside_first">第一次。之后会更糟。</string>
+    <string name="aside_ten">十次长按。严格来说算上瘾了。</string>
+    <string name="aside_fortytwo">四十二。答案是有了，问题是弄丢了。</string>
+    <string name="aside_hundred">一百次长按。本想说点什么让你去干点正事，但我们俩都清楚。</string>
+
+    <string name="settings_socks5_auth_needs_both">两个都要填——只填一个会被忽略，代理仍对外开放</string>
+
+    <!-- 连接状态与健康（4.5.0） -->
+    <string name="health_relay_unreachable">无法连接中继</string>
+    <string name="health_relay_timeout">中继无响应</string>
+    <string name="health_relay_region">中继区域不可用</string>
+    <string name="health_coord_unreachable">无法连接协调服务器</string>
+    <string name="health_coord_timeout">协调服务器无响应</string>
+    <string name="health_tls_failed">安全连接失败</string>
+    <string name="health_network_down">无网络</string>
+    <string name="health_udp_unavailable">UDP 不可用</string>
+    <string name="health_network_error">网络错误</string>
+    <string name="health_login">需要登录</string>
+    <string name="health_dns_unavailable">Tailscale DNS 无应答</string>
+    <string name="health_dns_fallback_text">期间由备用服务器应答；连接本身正常。</string>
+    <string name="health_dns_down_text">在它恢复应答前，网站可能打不开。</string>
+    <string name="health_more">还有 %1$d 项</string>
+    <string name="health_action_reconnect">重连</string>
+    <string name="health_action_bypass">绕过</string>
+    <string name="health_reconnecting">正在重连…</string>
+    <string name="summary_online">%1$d / %2$d 在线</string>
+    <string name="summary_relay">中继 %1$s</string>
+    <string name="main_status_connecting">正在连接</string>
+    <string name="main_status_connecting_desc">正在等待 tailnet 网络地图</string>
+    <string name="main_status_degraded">连接有问题</string>
+    <string name="main_status_degraded_desc">%1$s • 点按停止</string>
+    <string name="main_status_needs_login">需要登录</string>
+    <string name="main_status_needs_login_desc">在下方登录 • 点按停止</string>
+    <string name="main_status_state_on">开</string>
+    <string name="main_status_state_off">关</string>
+    <string name="main_status_action_stop">停止</string>
+    <string name="main_status_action_start">启动</string>
+    <string name="settings_update_check_title">启动时检查更新</string>
+    <string name="settings_update_check_desc">每次打开应用都向 GitHub 查询新版本。「关于」页始终可以手动检查。</string>
+    <string name="help_expand">显示更多</string>
+    <string name="help_collapse">收起</string>
+    <string name="login_use_key">使用密钥</string>
+    <string name="login_hide_key">隐藏密钥</string>
+    <string name="settings_diag_socket_path">Socket 路径</string>
+    <string name="settings_diag_log_file">日志文件</string>
+    <string name="settings_diag_no_output">（无输出）</string>
+    <string name="settings_connection_summary_title">连接摘要</string>
+    <string name="settings_connection_summary_desc">在状态卡下方显示设备、在线节点、出口节点与中继。关闭后主界面保持一屏。</string>
+</resources>

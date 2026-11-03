@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Words a television is told instead of a phone's, where the phone's are worth keeping on a phone
+  (chosen at run time by isTv): a battery and a charger, a phone as the device in hand. And the
+  words the walk through the app in Russian found written into the code.
+-->
+<resources>
+    <string name="client_prefs_relay_desc_tv">在无法直连的 tailnet 设备之间经 UDP 中继流量，替代 DERP 服务器。\n• 消耗流量：其他设备的连接会经过此设备。\n• 仅在 tailnet 访问策略授予本设备中继权限时可用（tailscale.com/cap/relay）；管理员界面中的可视化策略编辑器可以添加该授权。\n• 在运营商 NAT 后方，其他设备很难连到本设备；在路由器上转发固定端口会有所帮助。\n• Android 官方 Tailscale 应用无法这样做；TailSocks 运行自己的守护进程，因此可以。协调服务器仍可对本设备关闭它——届时此行会说明。</string>
+    <string name="client_prefs_connector_desc_tv">将 tailnet 经应用连接器路由的流量（SaaS 应用、只放行已知地址的网站）从此设备的互联网连接发出。\n• 需要为本设备设置标签，并在管理员界面（应用）中为该标签配置应用连接器和允许的访问规则。\n• 消耗流量：这些流量会从此设备发出。</string>
+    <string name="tka_state_off_help_tv">不进行任何校验：由协调服务器单独决定谁能加入。可在受信任的设备上通过“tailscale lock init”开启。</string>
+    <string name="first_start_chip_proxy">代理模式</string>
+    <string name="first_start_chip_vpn">VPN（TUN）模式</string>
+    <string name="settings_diag_service_script">服务脚本路径</string>
+</resources>

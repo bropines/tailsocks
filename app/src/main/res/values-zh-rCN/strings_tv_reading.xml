@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The reading screens on a television (logs, console, peers, licences, the live state card):
+  what a remote needs said in words where a phone has a gesture or an icon. A file of its own
+  so it lands without touching strings.xml.
+-->
+<resources>
+    <!-- The text size button of the logs and the console; %1$d is the size in percent. -->
+    <string name="tv_text_size">文字 %1$d%%</string>
+
+    <!-- Logs: the buttons of the top bar and the in-app save. -->
+    <string name="tv_logs_logcat">Logcat</string>
+    <string name="tv_logs_unfold_long">展开长条目</string>
+    <string name="tv_logs_fold_long">收起长条目</string>
+    <!-- Under a long entry that is cut short; %1$d is how many lines are hidden. -->
+    <string name="tv_logs_folded_more">… 还有 %1$d 行（展开长条目）</string>
+    <string name="tv_logs_to_start">跳到开头</string>
+    <string name="tv_logs_save_title">日志保存文件夹</string>
+    <string name="tv_logs_save_here">保存到这里</string>
+    <string name="tv_logs_saved_title">日志已保存</string>
+    <string name="tv_logs_saved_where">文件位于：</string>
+
+    <!-- Console: the command line, and the twins of what a held button does on a phone. -->
+    <string name="tv_console_wrap">自动换行</string>
+    <string name="tv_console_edit_title">命令</string>
+    <!-- %1$s is a command. -->
+    <string name="tv_console_insert_cd">将 %1$s 填入命令输入框</string>
+    <string name="tv_console_delete_cd">删除 %1$s</string>
+
+    <!-- Peers: a value to read from the sofa instead of a copy to paste. -->
+    <string name="tv_peer_show_as">显示为…</string>
+    <string name="tv_peer_press_to_measure">按 OK 键测量</string>
+    <string name="tv_value_show">放大显示</string>
+    <string name="tv_value_scan">用手机摄像头扫描此二维码</string>
+
+    <!-- Licences. -->
+    <string name="tv_licenses_help">TailSocks 构建于此处列出的开源软件之上，各自遵循自己的许可证。选中一个组件即可阅读其许可证；用方向键滚动文本。</string>
+
+    <!-- The live state card. -->
+    <string name="tv_diag_live_help">此页面打开期间每 2 秒刷新一次；红色表示存在问题。用方向键滚动卡片；「检查 SOCKS5」会再次测试该端口。</string>
+    <string name="tv_diag_live_recheck">检查 SOCKS5</string>
+</resources>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Taildrive downloads as a queue: the panel under the share list (ui/TaildriveDownloadUi.kt), its
+     notification (core/TaildriveDownloads.kt), and the "Parallel downloads" setting
+     (ui/TaildriveDownloadSetting.kt). -->
+<resources>
+    <!-- The panel's first line while several downloads run or wait; the second part only when some wait. -->
+    <string name="taildrive_queue_downloading">正在下载</string>
+    <plurals name="taildrive_queue_in_queue">
+        <item quantity="other">队列中 %d 个</item>
+    </plurals>
+    <!-- Under it: how many files are being written right now. -->
+    <!-- Next to the sizes: files that are over, of all found. The quantity is the second number. -->
+    <plurals name="taildrive_queue_files_done">
+        <item quantity="other">已完成 %1$d/%2$d 个文件</item>
+    </plurals>
+    <!-- The same while folders are still being walked and more may be found. -->
+    <plurals name="taildrive_queue_files_done_counting">
+        <item quantity="other">已完成 %1$d/%2$d 个（仍在统计）</item>
+    </plurals>
+    <!-- A download in the list, by what was selected: "Season 2 and 3 more". -->
+    <string name="taildrive_queue_and_more">%1$s 及另外 %2$d 项</string>
+    <!-- A download that waits its turn, and where it will go. -->
+    <!-- The list unfolded with nothing running. -->
+    <plurals name="taildrive_queue_finished">
+        <item quantity="other">已完成 %d 项下载</item>
+    </plurals>
+    <string name="taildrive_queue_clear">清除已完成</string>
+    <!-- Content descriptions of the button that unfolds and folds the list. -->
+    <string name="taildrive_queue_show">显示全部下载</string>
+    <string name="taildrive_queue_hide">隐藏列表</string>
+
+    <!-- The notification: its title while several files are written, and its button while more than one download runs or waits. -->
+    <plurals name="taildrive_queue_notify_files">
+        <item quantity="other">正在下载 %d 个文件</item>
+    </plurals>
+    <plurals name="taildrive_queue_downloads">
+        <item quantity="other">%d 项下载</item>
+    </plurals>
+    <string name="taildrive_queue_cancel_all">全部取消</string>
+
+    <!-- Settings → Sharing & access → Storage. -->
+    <string name="taildrive_parallel_title">并行下载</string>
+    <!-- %1$d: how many files from shares download at the same time. -->
+    <plurals name="taildrive_parallel_desc">
+        <item quantity="other">一次最多 %1$d 个文件。网络好时更多更快；网络慢时更少更温和。</item>
+    </plurals>
+    <!-- The choices: how many files at once, with a word on each. -->
+    <string name="taildrive_parallel_one">逐个下载</string>
+    <string name="taildrive_parallel_two">慢速连接下更省资源</string>
+    <string name="taildrive_parallel_three">默认</string>
+    <string name="taildrive_parallel_four">网络良好时最快</string>
+    <!-- What the settings search knows the row by (ui/SettingsCatalog.kt). -->
+    <string name="search_sum_taildrive_parallel">同时从 Taildrive 共享下载多少个文件</string>
+    <string name="search_kw_taildrive_parallel">并行, 同时, 并发, 一次多个, 下载队列, 下载, 速度, 线程, taildrive</string>
+    <string name="taildrive_queue_cancel_item">取消此下载</string>
+    <string name="taildrive_queue_dismiss_item">从列表中移除</string>
+</resources>

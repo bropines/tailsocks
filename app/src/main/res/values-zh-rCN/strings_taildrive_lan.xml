@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Taildrive proxy's "Allow from the local network" switch and what comes with it
+     (core/TaildriveLan.kt, ui/TaildriveLanParts.kt, the address card of ui/TaildriveParts.kt).
+     Kept apart from strings.xml; Android merges every file under values/. -->
+<resources>
+    <!-- The switch. Named as Settings → Local proxies names its own section for the same thing. -->
+    <string name="taildrive_lan_title">允许局域网访问</string>
+    <string name="taildrive_lan_off_desc">只有本设备上的应用可以打开代理。开启后，它也会响应你网络中的其他设备，并要求其登录。</string>
+    <!-- The one line that says why the login cannot be switched off; folded after its first sentence. -->
+    <string name="taildrive_lan_on_desc">你网络中的其他设备可凭登录信息打开代理。若无需登录，同一 Wi-Fi 下的任何人都能打开你 tailnet 中共享的所有文件夹，因此开启此项期间会始终要求验证。关闭后，将恢复为你之前所选的设置。</string>
+    <!-- On, as an install older than the switch may have it: no login. The notice under the row says the rest. -->
+    <string name="taildrive_lan_on_open_desc">你网络中的其他设备可以打开代理，且不会要求它们登录。</string>
+    <!-- The third state: an address typed by hand under Advanced. %1$s is that address. -->
+    <string name="taildrive_lan_custom_desc">监听 %1$s，这是手动设置的地址。选择此项可改为局域网或仅本设备。</string>
+    <string name="taildrive_lan_custom_badge">自定义</string>
+
+    <!-- "Require authentication" while the switch is on. -->
+    <string name="taildrive_lan_auth_locked">在允许局域网访问期间保持开启。</string>
+
+    <!-- What the switch offers at a custom address. %1$s is the address. -->
+    <string name="taildrive_lan_choice_text">代理监听 %1$s，这是手动设置的地址。</string>
+    <string name="taildrive_lan_choice_on_desc">监听所有网络接口。将要求登录。</string>
+    <string name="taildrive_lan_choice_off_title">仅本设备</string>
+    <string name="taildrive_lan_choice_off_desc">监听 127.0.0.1。</string>
+
+    <!-- An install that already listened on every interface with no login: said once, until it is closed. -->
+    <string name="taildrive_lan_open_title">局域网访问无需登录</string>
+    <string name="taildrive_lan_open_text">此代理此前已被设置为无登录响应局域网，目前依然如此：同一 Wi-Fi 下的任何人都能打开你 tailnet 中共享的所有文件夹。要求登录可以堵上这一漏洞。当前正在使用该代理的应用和设备将需要登录，且在允许局域网访问期间会一直要求登录。</string>
+    <string name="taildrive_lan_open_action">要求登录</string>
+
+    <!-- The bind address, for those who need a particular one. -->
+    <string name="taildrive_lan_advanced">高级</string>
+    <string name="taildrive_lan_bind_help">代理监听的地址。127.0.0.1 表示仅本设备，0.0.0.0 表示所有网络接口：上面的开关用于设置这两者。其他地址将按原样使用，此时开关会将其显示为自定义。</string>
+
+    <!-- The address card. -->
+    <string name="taildrive_address_this_device">只有本设备上的应用可以打开它。要从其他设备访问，请开启“允许局域网访问”。</string>
+    <string name="taildrive_address_no_network">本设备当前未连接任何局域网，因此只有本机应用可以打开代理。请连接 Wi-Fi 或网线。</string>
+    <!-- %1$s is another address of this device, on another local network. -->
+    <string name="taildrive_address_also">也可通过 %1$s 访问</string>
+</resources>

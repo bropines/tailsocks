@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Remote management, the managing device's page (ui/RemoteManage*.kt): another device's
+  TailSocks run from this one. A file of its own; the pairing form and the problems of the
+  first version are in strings_remote.xml. "This device" is the one in hand, which may be a
+  phone, a tablet or a television: nothing here says "phone" or "tap".
+-->
+<resources>
+    <string name="rmanage_subtitle">远程管理 · 实验性</string>
+    <string name="rmanage_paired">已配对</string>
+    <string name="rmanage_fold_open">显示</string>
+    <string name="rmanage_fold_close">隐藏</string>
+
+    <!-- Why a thing is there and does not answer: one sentence, and its two-word form for a folded card -->
+    <string name="rmanage_deny_full">%1$s 上的完全控制已关闭。它只能在设备本机上开启。</string>
+    <string name="rmanage_deny_owner">只有所有者才能执行此操作。</string>
+    <string name="rmanage_deny_full_short">需要完全控制</string>
+    <string name="rmanage_deny_owner_short">仅所有者</string>
+    <string name="rmanage_guest_note">访客可以查看、选择出口节点并标识设备。其余功能属于所有者。</string>
+
+    <!-- The header -->
+    <string name="rmanage_android">Android %1$s</string>
+    <plurals name="rmanage_warnings">
+        <item quantity="other">%d 条警告</item>
+    </plurals>
+    <string name="rmanage_level_basic">基础</string>
+    <string name="rmanage_level_full">完全控制</string>
+    <string name="rmanage_until_revoked">直到撤销</string>
+    <string name="rmanage_left">剩余 %1$s</string>
+    <string name="rmanage_identify">标识</string>
+    <string name="rmanage_identify_help">会在该设备的屏幕上显示几秒钟谁在管理它。适合用来区分两台电视。</string>
+    <string name="rmanage_identify_shown">%1$s 正在其屏幕上显示谁在管理它。</string>
+    <string name="rmanage_identify_notified">那边屏幕上没有打开 TailSocks，因此 %1$s 显示了一条通知。</string>
+    <string name="rmanage_identify_unseen">无法显示任何内容：%1$s 上没有打开 TailSocks，且其通知已关闭。</string>
+
+    <!-- A change that is confirmed by itself -->
+    <string name="rmanage_guard_checking">正在确认 %1$s 仍有响应…</string>
+    <string name="rmanage_guard_applied">已在 %1$s 上生效。</string>
+    <string name="rmanage_guard_silent">%1$s 没有响应。到 %3$s 时，它会自行还原该更改（%2$s）。仍在尝试…</string>
+    <string name="rmanage_guard_away">%1$s 未及时响应，已自行还原该更改（%2$s）。正在等待它恢复…</string>
+    <string name="rmanage_guard_reverted">确认未能及时送达 %1$s，更改已被自行还原。%2$s</string>
+    <string name="rmanage_guard_unclear">%1$s 未说明是否保留了该更改。%2$s</string>
+    <string name="rmanage_value_now">%1$s：%2$s。</string>
+    <string name="rmanage_on">开</string>
+    <string name="rmanage_off">关</string>
+
+    <!-- Problems the first version did not have -->
+    <string name="rmanage_problem_guard_pending">%1$s 上还有一项更改正在确认。请稍后重试。</string>
+    <string name="rmanage_problem_unclear">%1$s 未及时响应。更改可能仍会生效：你看到的内容即设备此刻报告的状态。</string>
+
+    <!-- The page before the device answers, and a device that cannot be asked. %1$s in "As of" and "Paired" is a time: "5 min ago", "12 Oct" -->
+    <string name="rmanage_heard">截至 %1$s</string>
+    <string name="rmanage_paired_since">配对于 %1$s</string>
+    <string name="rmanage_fact_paired">已配对</string>
+    <string name="rmanage_problem_offline_since">%1$s 离线。最近在线：%2$s。</string>
+    <string name="rmanage_problem_left">本设备已看不到 %1$s。它可能已被移除、登录了其他账号，或 tailnet 的访问规则发生了变化。</string>
+    <string name="rmanage_one_tailnet">只有在能看见某台设备时才能管理它：须在同一个 tailnet 内，且该 tailnet 的访问规则（ACL）允许本设备访问它。被规则挡在外面的设备根本不会显示在本设备上。</string>
+    <string name="rmanage_start_own">启动 TailSocks</string>
+    <string name="rmanage_starting_own">正在本设备上启动 TailSocks…</string>
+
+    <!-- Connection -->
+    <string name="rmanage_group_connection">连接</string>
+    <string name="rmanage_sum_no_exit">无出口节点</string>
+    <string name="rmanage_sum_exit">经 %1$s</string>
+    <string name="rmanage_exit_suggested">推荐</string>
+    <string name="rmanage_setting_accept_dns_help">解析 tailnet 内的名称并使用其 DNS 设置。</string>
+    <string name="rmanage_setting_accept_routes_help">访问 tailnet 中其他设备通告的子网。</string>
+    <string name="rmanage_setting_lan_help">使用出口节点时仍可访问本地网络。</string>
+    <string name="rmanage_relays">重新连接中继</string>
+    <string name="rmanage_relays_help">在不重启任何组件的情况下重新连接中继服务器。</string>
+    <string name="rmanage_reconnect_help">在设备上重启连接。该设备会有几秒钟无法访问。</string>
+
+    <!-- Why a switch does not move -->
+    <string name="rmanage_lock_needs_full">开启此项需要完全控制。</string>
+    <string name="rmanage_lock_off_at_device">此项只能在设备本机关闭。</string>
+    <string name="rmanage_lock_on_at_device">此项只能在设备本机开启。</string>
+    <string name="rmanage_lock_read_only">此项无法远程更改。</string>
+
+    <!-- Files -->
+    <string name="rmanage_group_files">文件</string>
+    <string name="rmanage_send">发送文件</string>
+    <string name="rmanage_send_progress">正在发送 %1$s…</string>
+    <string name="rmanage_send_done_one">%1$s 已发送。</string>
+    <plurals name="rmanage_send_done">
+        <item quantity="other">已发送 %d 个文件。</item>
+    </plurals>
+    <string name="rmanage_send_failed">%1$s 未能发送：%2$s</string>
+    <string name="rmanage_cannot_receive">%1$s 上的 TailSocks 未连接，现在无法接收文件。</string>
+    <string name="rmanage_cannot_send">本设备无法向 %1$s 发送：%2$s</string>
+    <string name="rmanage_receive_ready">接收到的文件会保存到 %1$s。</string>
+    <string name="rmanage_receive_ready_free">接收到的文件会保存到 %1$s。剩余空间 %2$s。</string>
+    <string name="rmanage_receive_needs_access">文件夹 %1$s 需要设备上的存储权限。在授予之前，接收到的文件会暂存在 TailSocks 内。</string>
+    <string name="rmanage_receive_unavailable">无法写入文件夹 %1$s。接收到的文件会暂存在 TailSocks 内。</string>
+    <string name="rmanage_receive_inbox">接收到的文件保留在设备上的 TailSocks 内。</string>
+    <string name="rmanage_receive_reset">使用默认文件夹</string>
+    <string name="rmanage_ask_storage">请求存储权限</string>
+    <string name="rmanage_files_waiting">暂存在 TailSocks 内</string>
+    <string name="rmanage_files_saved">已保存到文件夹</string>
+    <string name="rmanage_files_saved_help">接收文件夹最近保存的文件。它们在设备本机上管理。</string>
+    <string name="rmanage_save_received">移至文件夹</string>
+    <string name="rmanage_browse">浏览存储</string>
+    <string name="rmanage_browse_help">浏览设备的文件夹并下载文件。</string>
+    <string name="rmanage_browse_title">%1$s 的存储</string>
+    <string name="rmanage_fetch_confirm">下载</string>
+    <string name="rmanage_fetch_title">下载 %1$s？</string>
+    <string name="rmanage_fetch_text">%1$s。它通过 Taildrop 传输，会存入本设备接收的文件中。</string>
+    <string name="rmanage_fetch_sending">正在下载 %1$s（%2$s）…</string>
+    <string name="rmanage_fetch_sent">%1$s 已下载。它在本设备接收的文件中。</string>
+    <string name="rmanage_fetch_sent_ago">%1$s 已于 %2$s前下载完成。它在本设备接收的文件中。</string>
+    <string name="rmanage_fetch_failed">%1$s 未能下载：%2$s</string>
+    <string name="rmanage_fetch_failed_plain">%1$s 未能下载。</string>
+    <string name="rmanage_fetch_open">打开接收的文件</string>
+    <string name="rmanage_sum_saves_to">保存到 %1$s</string>
+    <string name="rmanage_sum_inbox">文件保留在 TailSocks 内</string>
+    <string name="rmanage_sum_not_connected">暂时无法接收</string>
+    <plurals name="rmanage_sum_waiting">
+        <item quantity="other">%d 个文件等待中</item>
+    </plurals>
+
+    <!-- Shared folders -->
+    <string name="rmanage_group_shares">共享文件夹</string>
+    <string name="rmanage_shares_none">尚无共享内容。</string>
+    <plurals name="rmanage_shares_count">
+        <item quantity="other">%d 个文件夹</item>
+    </plurals>
+    <plurals name="rmanage_shares_guest">
+        <item quantity="other">已共享 %d 个文件夹。其名称仅对所有者显示。</item>
+    </plurals>
+    <string name="rmanage_sum_shares_off">Taildrive 已关闭</string>
+    <string name="rmanage_share_add">共享一个文件夹</string>
+    <string name="rmanage_share_add_help">在设备存储中选择一个文件夹，并给共享起个名称。</string>
+    <string name="rmanage_share_pick_title">要在 %1$s 上共享的文件夹</string>
+    <string name="rmanage_share_pick_confirm">共享此文件夹</string>
+    <string name="rmanage_share_name_title">共享名称</string>
+    <string name="rmanage_share_name_label">名称</string>
+    <string name="rmanage_share_name_rule">1–40 个拉丁字母、数字或下划线。</string>
+    <string name="rmanage_share_name_action">共享</string>
+    <string name="rmanage_share_remove">停止共享 %1$s</string>
+    <string name="rmanage_share_remove_title">停止共享“%1$s”？</string>
+    <string name="rmanage_share_remove_text">该文件夹及其文件仍保留在 %1$s 上。其他设备将无法再打开它。</string>
+    <string name="rmanage_share_remove_action">停止共享</string>
+    <string name="rmanage_setting_taildrive">Taildrive</string>
+    <string name="rmanage_setting_taildrive_help">把下方文件夹共享给 tailnet。</string>
+    <string name="rmanage_setting_taildrive_proxy">Taildrive 代理</string>
+    <string name="rmanage_setting_taildrive_proxy_help">让设备上的应用打开其他设备共享的文件夹。</string>
+
+    <!-- Permissions -->
+    <string name="rmanage_group_permissions">权限</string>
+    <string name="rmanage_permissions_help">TailSocks 在设备上持有的权限。请求不会直接授予：它只会把 Android 自己的页面呈现给设备前的人。</string>
+    <string name="rmanage_perm_storage">存储权限</string>
+    <string name="rmanage_perm_notifications">通知</string>
+    <string name="rmanage_perm_battery">电池优化豁免</string>
+    <string name="rmanage_perm_vpn">VPN 授权</string>
+    <string name="rmanage_perm_alarms">精确闹钟</string>
+    <string name="rmanage_perm_install">安装更新</string>
+    <string name="rmanage_perm_autostart">自启动</string>
+    <string name="rmanage_perm_granted">已授予</string>
+    <string name="rmanage_perm_missing">未授予</string>
+    <string name="rmanage_perm_unknown">Android 不报告此项</string>
+    <string name="rmanage_perm_ask">在设备上请求</string>
+    <string name="rmanage_perm_ask_named">在设备上请求：%1$s</string>
+    <string name="rmanage_perm_vpn_note">只能在设备本机授予</string>
+    <string name="rmanage_asked_shown">页面已在 %1$s 上打开。需要那边的人允许。</string>
+    <string name="rmanage_asked_notified">已向 %1$s 发出请求。那边有人打开 TailSocks 后页面即会弹出。</string>
+    <string name="rmanage_asked_waiting">需要先有人在 %1$s 上打开 TailSocks，页面届时才会弹出。</string>
+    <string name="rmanage_sum_perm_ok">已全部授予</string>
+    <plurals name="rmanage_sum_perm_missing">
+        <item quantity="other">缺少 %d 项</item>
+    </plurals>
+
+    <!-- Device -->
+    <string name="rmanage_group_device">设备</string>
+    <string name="rmanage_fact_app">TailSocks</string>
+    <string name="rmanage_fact_app_older">%1$s · 比本设备上的版本旧（%2$s）</string>
+    <string name="rmanage_fact_daemon">Tailscale</string>
+    <string name="rmanage_fact_android">Android</string>
+    <string name="rmanage_fact_android_value">%1$s（API %2$d）</string>
+    <string name="rmanage_fact_model">机型</string>
+    <string name="rmanage_fact_mode">模式</string>
+    <string name="rmanage_mode_proxy">代理</string>
+    <string name="rmanage_mode_tun">TUN</string>
+    <string name="rmanage_mode_tun_native">TUN · 原生引擎</string>
+    <string name="rmanage_mode_tun_hev">TUN · hev-socks5-tunnel</string>
+    <string name="rmanage_mode_root">Root</string>
+    <string name="rmanage_fact_key">节点密钥</string>
+    <string name="rmanage_key_never">永不过期</string>
+    <string name="rmanage_key_expired">已过期</string>
+    <string name="rmanage_key_in">%1$s 后过期</string>
+    <string name="rmanage_fact_build">构建版本</string>
+    <string name="rmanage_fact_state">状态</string>
+    <string name="rmanage_health_title">警告</string>
+    <string name="rmanage_setting_tun">TUN 模式</string>
+    <string name="rmanage_setting_tun_help">让整台设备经 tailnet 路由。若通过该方式无法访问设备，它会自动回退。</string>
+    <string name="rmanage_setting_auto_reconnect_help">连接建立不起来时，在设备上重启连接。此项可以远程开启，但不能远程关闭。</string>
+    <string name="rmanage_setting_auto_start">重启后启动</string>
+    <string name="rmanage_setting_auto_start_help">重启或断电后 TailSocks 会自行恢复。此项可以远程开启，但不能远程关闭。</string>
+    <string name="rmanage_setting_keep_awake_help">深度休眠时保持连接。此项可以远程开启，但不能远程关闭。</string>
+    <string name="rmanage_setting_advertise_exit_help">把设备作为出口节点提供给 tailnet。</string>
+    <string name="rmanage_not_approved">正在管理员界面中等待审批。</string>
+    <string name="rmanage_routes">它通告的子网</string>
+    <string name="rmanage_routes_none">无</string>
+    <string name="rmanage_routes_pending">%1$s（尚未批准）</string>
+    <string name="rmanage_routes_label">子网，用逗号分隔</string>
+    <string name="rmanage_routes_help">例如 192.168.5.0/24。留空表示不通告。填写列表需要完全控制。</string>
+    <string name="rmanage_routes_bad">这不是有效的子网列表。</string>
+    <string name="rmanage_routes_full">通告子网需要完全控制，而它只能在设备本机开启。在此处只能撤回。</string>
+    <string name="rmanage_routes_clear">撤回</string>
+    <string name="rmanage_first_build">%1$s 上的 TailSocks 是远程管理功能的早期版本。在那边更新后，权限、共享文件夹等内容才会显示在这里。</string>
+    <string name="rmanage_sum_device">TailSocks %1$s</string>
+    <string name="rmanage_sum_device_android">TailSocks %1$s · Android %2$s</string>
+
+    <!-- Diagnostics -->
+    <string name="rmanage_group_diag">诊断</string>
+    <string name="rmanage_sum_diag">日志与报告</string>
+    <string name="rmanage_diag_log">日志</string>
+    <string name="rmanage_diag_log_help">那边应用日志的最后几行。发送前，密钥、密码和登录链接都会先在设备本机被替换。</string>
+    <string name="rmanage_diag_report">报告</string>
+    <string name="rmanage_diag_report_help">版本、设备、权限、网络和模式。不含名称、地址、密钥或账号。</string>
+    <string name="rmanage_diag_log_title">%1$s 的日志</string>
+    <string name="rmanage_diag_report_title">%1$s 的报告</string>
+    <string name="rmanage_diag_empty">没有可显示的内容。</string>
+    <plurals name="rmanage_diag_scrubbed">
+        <item quantity="other">%d 条敏感信息已在设备上替换为 […]</item>
+    </plurals>
+    <string name="rmanage_share">分享</string>
+    <string name="rmanage_copied">已复制</string>
+
+    <!-- Pairing -->
+    <string name="rmanage_group_pairing">配对</string>
+    <string name="rmanage_fact_class">本设备是</string>
+    <string name="rmanage_class_help">所有者是与被管理设备属于同一账号的设备。其他任何设备都是访客。</string>
+    <string name="rmanage_fact_level">级别</string>
+    <string name="rmanage_level_help">完全控制会额外允许把设备作为出口节点或路由器提供，并且在那边网络文件访问也开启时，允许访问存储、共享文件夹和诊断信息。两者都只能在设备本机开启，绝不能远程开启。</string>
+    <string name="rmanage_fact_valid">有效期</string>
+    <string name="rmanage_full_off">关闭完全控制</string>
+    <string name="rmanage_full_off_title">关闭 %1$s 上的完全控制？</string>
+    <string name="rmanage_full_off_text">再次开启只能在该设备本机进行。</string>
+    <string name="rmanage_full_off_action">关闭</string>
+
+    <!-- The devices this one manages -->
+    <string name="rmanage_devices_title">你管理的设备</string>
+    <string name="rmanage_device_online">在线</string>
+    <string name="rmanage_device_offline">离线</string>
+    <string name="rmanage_device_gone">不在本 tailnet 中</string>
+</resources>

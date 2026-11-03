@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The visual policy editor's rule pages: Access, SSH, Tests; their editors; and the kit's later additions. -->
+<resources>
+    <!-- Kit additions. -->
+    <string name="admin_pv_more_count">+%1$d</string>
+    <string name="admin_pv_picker_broad">开放范围超过大多数规则所需</string>
+    <string name="admin_pv_group_logins">登录名</string>
+    <string name="admin_pv_json">JSON</string>
+    <string name="admin_pv_line">第 %1$d 行</string>
+    <string name="admin_pv_not_now">暂不</string>
+    <string name="admin_pv_pane_empty">选择一条规则在此查看</string>
+
+    <!-- Card rows: short, they stand in a narrow column. -->
+    <string name="admin_pv_c_who">谁</string>
+    <string name="admin_pv_c_reach">可达</string>
+    <string name="admin_pv_c_ports">端口</string>
+    <string name="admin_pv_c_via">经由</string>
+    <string name="admin_pv_c_apps">附加</string>
+    <string name="admin_pv_c_posture">合规</string>
+    <string name="admin_pv_c_proto_only">仅 %1$s</string>
+    <string name="admin_pv_c_nothing">尚无</string>
+    <string name="admin_pv_c_ssh_to">SSH 目标</string>
+    <string name="admin_pv_c_ssh_as">身份</string>
+    <string name="admin_pv_c_from">来自</string>
+    <string name="admin_pv_c_test_accept">可达</string>
+    <string name="admin_pv_c_test_deny">已阻止</string>
+    <string name="admin_pv_c_sshtest_accept">可进入</string>
+    <string name="admin_pv_c_sshtest_check">需复检</string>
+    <string name="admin_pv_c_sshtest_deny">被拒绝</string>
+    <string name="admin_pv_kind_acl">ACL</string>
+    <string name="admin_pv_kind_grant">授权</string>
+
+    <!-- Ports in words. -->
+    <string name="admin_pv_port_all">所有端口</string>
+    <string name="admin_pv_port_ssh">SSH（22）</string>
+    <string name="admin_pv_port_https">HTTPS（443）</string>
+    <string name="admin_pv_port_web">Web（80, 443）</string>
+    <string name="admin_pv_port_http">HTTP（80）</string>
+    <string name="admin_pv_port_dns">DNS（53）</string>
+    <string name="admin_pv_port_rdp">RDP（3389）</string>
+    <string name="admin_pv_ip_proto_all">%1$s，所有端口</string>
+    <string name="admin_pv_ip_proto_ports">%1$s %2$s</string>
+    <string name="admin_pv_chip_all">所有端口</string>
+    <string name="admin_pv_chip_ssh">SSH</string>
+    <string name="admin_pv_chip_https">HTTPS</string>
+    <string name="admin_pv_chip_web">Web</string>
+    <string name="admin_pv_chip_http">HTTP</string>
+    <string name="admin_pv_chip_dns">DNS</string>
+    <string name="admin_pv_chip_rdp">RDP</string>
+    <string name="admin_pv_chip_other">其他…</string>
+    <string name="admin_pv_ports_list">端口</string>
+    <string name="admin_pv_ports_hint">22、80,443、8000-8999 或 *</string>
+    <string name="admin_pv_port_one">端口</string>
+    <string name="admin_pv_port_one_hint">一个端口号：测试只尝试该端口。</string>
+    <string name="admin_pv_ip_other">其他端口或协议</string>
+    <string name="admin_pv_ip_hint">8080、tcp:8443、udp:3478 或 icmp:*</string>
+    <string name="admin_pv_ip_none">未选择端口：此授权尚未开放任何内容。</string>
+    <string name="admin_pv_ip_none_apps">无端口：此授权只提供应用能力，不涉及网络访问。</string>
+
+    <!-- Destinations. -->
+    <string name="admin_pv_dest_title">目标</string>
+    <string name="admin_pv_dest_ports_for">%1$s 上的端口</string>
+    <string name="admin_pv_dest_host">设备或地址</string>
+    <string name="admin_pv_dest_ports">哪些端口</string>
+    <string name="admin_pv_dest_port">哪个端口</string>
+    <string name="admin_pv_dest_remove">移除</string>
+
+    <!-- Coverage. -->
+    <string name="admin_pv_cov_title">这条规则连接了谁</string>
+    <string name="admin_pv_cov_internet">互联网</string>
+    <string name="admin_pv_cov_self">他们自己的设备</string>
+    <string name="admin_pv_cov_more">更多</string>
+    <string name="admin_pv_and">%1$s 和 %2$s</string>
+    <string name="admin_pv_cov_from">来自</string>
+    <string name="admin_pv_cov_to">到</string>
+    <string name="admin_pv_cov_said">连接 %1$s</string>
+    <string name="admin_pv_cov_help">在本机依据管理控制台的设备列表统计。以服务器为准：它还知道共享进来的设备以及本机无法解析的内容。</string>
+    <string name="admin_pv_server_check">询问服务器 %1$s 能访问什么</string>
+    <string name="admin_pv_server_none">按此草稿，%1$s 无法访问任何内容。</string>
+    <string name="admin_pv_server_failed">服务器未能应答。请重试，或在「审视」中检查。</string>
+
+    <!-- Editors: shared. -->
+    <string name="admin_pv_more_options">更多选项</string>
+    <string name="admin_pv_more_summary">协议、设备合规状态</string>
+    <string name="admin_pv_note">备注</string>
+    <string name="admin_pv_note_heading">此规则上方的标题</string>
+    <string name="admin_pv_note_placeholder">为什么需要它，谁提出的</string>
+    <string name="admin_pv_note_save">保存</string>
+    <string name="admin_pv_note_help">以 // 注释的形式写在文件中该规则的正上方；规则移动时随之移动。</string>
+    <string name="admin_pv_note_heading_help">此注释是其下各条规则的标题：修改它会改变标题，且规则被移动或删除时标题仍保留。</string>
+    <string name="admin_pv_action_delete">删除</string>
+    <string name="admin_pv_action_duplicate">复制一份</string>
+    <string name="admin_pv_action_test">添加测试</string>
+    <string name="admin_pv_action_convert">转换为授权</string>
+    <string name="admin_pv_action_discard">放弃</string>
+
+    <!-- Access page. -->
+    <plurals name="admin_pv_access_count">
+        <item quantity="one">%d 条访问规则</item>
+        <item quantity="other">%d 条访问规则</item>
+    </plurals>
+    <string name="admin_pv_access_help">规则叠加生效：只要有任一规则允许，连接即被允许，否则一律不允许。规则的顺序只影响你的分组展示。</string>
+    <string name="admin_pv_add_rule">添加规则</string>
+    <string name="admin_pv_add_here">在「%1$s」下添加规则</string>
+    <string name="admin_pv_divider_grants">授权</string>
+    <string name="admin_pv_divider_acls">ACL 规则</string>
+    <string name="admin_pv_access_empty">此策略中还没有访问规则</string>
+    <string name="admin_pv_templates">从模板开始</string>
+    <string name="admin_pv_rule_title">访问规则</string>
+    <string name="admin_pv_rule_new">新建访问规则</string>
+    <string name="admin_pv_rule_new_note">一旦写明了谁和哪里，就会写入策略。在那之前不会有任何变化。</string>
+    <string name="admin_pv_rule_new_note_grant">一旦写明了谁、哪里以及哪些端口，就会写入策略。在那之前不会有任何变化。</string>
+    <string name="admin_pv_f_who">谁</string>
+    <string name="admin_pv_f_reach">可以访问</string>
+    <string name="admin_pv_f_reach_acl_help">每个目标有各自的端口：点按即可更改。</string>
+    <string name="admin_pv_f_ports">端口与协议</string>
+    <string name="admin_pv_f_via">仅经由</string>
+    <string name="admin_pv_f_via_help">流量必须经由带有这些标签的设备：出口节点、子网路由器或应用连接器。</string>
+    <string name="admin_pv_f_via_acl_help">只有授权能经由设备转发：在此选择会将该规则转换为授权。</string>
+    <string name="admin_pv_f_via_acl_ports">只有授权能经由设备转发，而一条授权只有一个端口列表：请为所有目标设置相同端口，或使用「转换为授权」。</string>
+    <string name="admin_pv_f_posture">仅限通过检查的设备</string>
+    <string name="admin_pv_f_posture_help">源设备在连接时必须满足这些合规状态。</string>
+    <string name="admin_pv_f_proto">协议</string>
+    <string name="admin_pv_f_proto_help">「任意」指 TCP、UDP 和 ICMP。选择其一则只允许该协议。</string>
+    <string name="admin_pv_proto_any">任意</string>
+    <string name="admin_pv_proto_other">协议名称或编号</string>
+    <string name="admin_pv_proto_hint">sctp、gre、esp，或 0 到 255 的 IANA 编号</string>
+    <string name="admin_pv_proto_bad">不是协议名称，也不是 0 到 255 的编号</string>
+    <string name="admin_pv_f_apps">应用能力</string>
+    <string name="admin_pv_f_apps_help">目标上的应用允许这些人做什么。这些应用的设置在 JSON 中编辑；此授权的其余部分在本页编辑。</string>
+    <string name="admin_pv_app_drive">Taildrive 共享</string>
+    <string name="admin_pv_app_tsidp">使用 tsidp 登录</string>
+    <string name="admin_pv_app_kubernetes">Kubernetes API</string>
+    <string name="admin_pv_app_relay">对等中继</string>
+    <string name="admin_pv_rule_deleted">规则已删除</string>
+    <string name="admin_pv_rule_duplicated">已在规则下方添加副本</string>
+    <plurals name="admin_pv_converted">
+        <item quantity="one">已转换为授权</item>
+        <item quantity="other">已转换为 %d 条授权</item>
+    </plurals>
+    <string name="admin_pv_deleted_offer">该访问已不存在。要添加一个测试，一旦它再次出现就失败吗？</string>
+    <string name="admin_pv_deleted_offer_action">添加测试</string>
+    <string name="admin_pv_test_added">测试已添加</string>
+    <string name="admin_pv_test_none">此规则中没有可供测试检查的内容：测试需要一个用户、组、标签或主机作为源，以及一个端口。</string>
+
+    <!-- SSH page. -->
+    <plurals name="admin_pv_ssh_count">
+        <item quantity="one">%d 条 SSH 规则</item>
+        <item quantity="other">%d 条 SSH 规则</item>
+    </plurals>
+    <string name="admin_pv_ssh_help">谁可以对哪些设备、以哪个登录名打开 Tailscale SSH 会话。要求检查的规则优先于直接放行的规则。</string>
+    <string name="admin_pv_ssh_add">添加 SSH 规则</string>
+    <string name="admin_pv_ssh_empty">没有 SSH 规则：目前无人可以使用 Tailscale SSH</string>
+    <string name="admin_pv_ssh_title">SSH 规则</string>
+    <string name="admin_pv_ssh_new">新建 SSH 规则</string>
+    <string name="admin_pv_ssh_new_note">一旦写明了谁、对哪些设备以及以什么身份，就会写入策略。在那之前不会有任何变化。</string>
+    <string name="admin_pv_f_ssh_to">可以 SSH 到</string>
+    <string name="admin_pv_f_ssh_to_help">带标签的设备、某个用户自己的设备，或对所有人统一使用「他们自己的设备」。</string>
+    <string name="admin_pv_f_ssh_as">以身份</string>
+    <string name="admin_pv_f_ssh_as_help">目标机器上的登录名：root、某个名称，或「除 root 外的任意用户」。</string>
+    <string name="admin_pv_f_ssh_mode">模式</string>
+    <string name="admin_pv_ssh_accept">直接放行</string>
+    <string name="admin_pv_ssh_check">检查</string>
+    <string name="admin_pv_ssh_accept_help">规则所列的人可直接打开会话。</string>
+    <string name="admin_pv_ssh_check_help">当上次检查超过下面的周期时，用户需在浏览器中重新登录；之后会话才会打开。</string>
+    <string name="admin_pv_ssh_check_every">每 %1$s 检查一次</string>
+    <string name="admin_pv_ssh_check_always">每次都要检查</string>
+    <string name="admin_pv_hours">%1$s 小时</string>
+    <string name="admin_pv_f_ssh_period">多久后重新检查</string>
+    <string name="admin_pv_ssh_period_always">每次</string>
+    <string name="admin_pv_ssh_period_hint">30m、2h 或 1h30m：从一分钟到 168 小时</string>
+    <string name="admin_pv_ssh_period_bad">从 1m 到 168h，例如 30m、2h 或 1h30m</string>
+    <string name="admin_pv_ssh_more_summary">环境变量、设备合规状态</string>
+    <string name="admin_pv_f_env">会话可以设置的环境变量</string>
+    <string name="admin_pv_f_env_help">SSH 客户端可以传递的名称，例如用于 Git 的 GIT_*；* 和 ? 匹配任意字符。</string>
+    <string name="admin_pv_f_env_bad">字母、数字、_ 以及通配符 * 和 ?</string>
+    <string name="admin_pv_ssh_port22">访问规则没有为涉及的所有设备开放 22 端口</string>
+    <string name="admin_pv_ssh_port22_help">Tailscale SSH 除本规则外还需要一条访问规则：让相同的人能在 22 端口访问这些设备。</string>
+    <string name="admin_pv_ssh_port22_add">添加该访问规则</string>
+    <string name="admin_pv_ssh_port22_added">已添加 22 端口的访问规则</string>
+    <string name="admin_pv_ssh_deleted">SSH 规则已删除</string>
+
+    <!-- Tests page. -->
+    <plurals name="admin_pv_tests_count">
+        <item quantity="one">%d 个测试</item>
+        <item quantity="other">%d 个测试</item>
+    </plurals>
+    <plurals name="admin_pv_sshtests_count">
+        <item quantity="one">%d 个 SSH 测试</item>
+        <item quantity="other">%d 个 SSH 测试</item>
+    </plurals>
+    <string name="admin_pv_tests_help">保存策略时服务器会运行每个测试，若有测试未通过则拒绝该策略。</string>
+    <string name="admin_pv_tests_empty">测试用于证明策略持续允许或阻止关键访问</string>
+    <string name="admin_pv_tests_none">还没有访问测试。</string>
+    <string name="admin_pv_sshtests_none">还没有 SSH 测试。</string>
+    <string name="admin_pv_divider_sshtests">SSH 测试</string>
+    <string name="admin_pv_test_add">添加测试</string>
+    <string name="admin_pv_sshtest_add">添加 SSH 测试</string>
+    <string name="admin_pv_test_from_rule">从规则创建</string>
+    <string name="admin_pv_test_from_rule_title">从哪条规则创建测试？</string>
+    <string name="admin_pv_test_title">访问测试</string>
+    <string name="admin_pv_test_new">新建访问测试</string>
+    <string name="admin_pv_test_new_note">一旦有了源和一个目标，就会写入策略。在那之前不会有任何变化。</string>
+    <string name="admin_pv_sshtest_title">SSH 测试</string>
+    <string name="admin_pv_sshtest_new">新建 SSH 测试</string>
+    <string name="admin_pv_sshtest_new_note">一旦有了源、设备和登录名，就会写入策略。在那之前不会有任何变化。</string>
+    <string name="admin_pv_f_test_src">来自</string>
+    <string name="admin_pv_f_test_src_help">一个用户、组、标签、主机或地址：测试从该处检查。</string>
+    <string name="admin_pv_f_sshtest_src_help">一个用户、组或标签：测试以它们的身份检查。</string>
+    <string name="admin_pv_f_test_accept">必须可达</string>
+    <string name="admin_pv_f_test_accept_help">如果其中任何一个在其端口上不可达，策略将被拒绝。</string>
+    <string name="admin_pv_f_test_deny">必须不可达</string>
+    <string name="admin_pv_f_test_deny_help">如果其中任何一个在其端口上可达，策略将被拒绝。</string>
+    <string name="admin_pv_test_more_summary">协议</string>
+    <string name="admin_pv_f_test_posture">设备合规属性</string>
+    <string name="admin_pv_f_test_posture_help">源设备会按拥有这些属性进行测试。在 JSON 中编辑。</string>
+    <string name="admin_pv_f_sshtest_accept">无需检查即可进入的身份</string>
+    <string name="admin_pv_f_sshtest_accept_help">除非这些登录名无需检查即可打开，否则策略会被拒绝。</string>
+    <string name="admin_pv_f_sshtest_check">检查后可以进入的身份</string>
+    <string name="admin_pv_f_sshtest_check_help">除非这些登录名要求重新登录，否则策略会被拒绝。</string>
+    <string name="admin_pv_f_sshtest_deny">被拒绝的身份</string>
+    <string name="admin_pv_f_sshtest_deny_help">如果这些登录名中的任何一个能打开会话，策略会被拒绝。</string>
+    <string name="admin_pv_test_deleted">测试已删除</string>
+    <string name="admin_pv_test_duplicated">已在测试下方添加副本</string>
+    <string name="admin_pv_test_delete_title">删除此测试？</string>
+    <string name="admin_pv_test_delete_text">测试守护着策略：服务器会拒绝破坏测试的更改。没有它，开放或关闭此访问的更改将悄然生效。撤销可将其恢复。</string>
+</resources>

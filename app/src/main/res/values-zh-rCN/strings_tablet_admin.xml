@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The admin console on large windows: the tab rail and the detail panes (admin/AdminAdaptive.kt). -->
+<resources>
+    <!-- The narrow tab rail (840–1199dp) has about 80dp under each icon: the tabs whose names do not fit -->
+    <string name="tablet_admin_rail_attention">关注</string>
+    <string name="tablet_admin_rail_users">用户</string>
+    <string name="tablet_admin_rail_web">Web</string>
+    <!-- Two-pane, the detail pane when there is nothing in the list to show -->
+    <string name="tablet_admin_user_pane_empty">选中用户的详情会显示在这里</string>
+    <string name="tablet_admin_service_pane_empty">选中服务的主机会显示在这里</string>
+    <string name="tablet_admin_webhook_pane_empty">选中 Webhook 的事件会显示在这里</string>
+    <string name="tablet_admin_log_pane_empty">选中事件带来的变更会显示在这里</string>
+</resources>

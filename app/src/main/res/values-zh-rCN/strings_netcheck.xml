@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Network diagnostics. Kept apart from strings.xml so work on this screen does
+     not collide with edits there; Android merges every file in values/. -->
+<resources>
+    <string name="netcheck_home_derp">归属 DERP：%1$s</string>
+    <string name="netcheck_home_derp_latency">归属 DERP：%1$s · %2$d ms</string>
+    <string name="netcheck_no_home_derp">无归属 DERP</string>
+    <string name="netcheck_no_home_derp_help">直连路径失败时，其他设备会通过本设备的归属中继访问它。没有归属中继时只能直连：DERP 服务器无法经 HTTPS 访问，或网络映射尚未到达。</string>
+    <string name="netcheck_report_home_derp">归属 DERP：%1$s\n</string>
+    <string name="netcheck_report_no_home_derp">归属 DERP：❌ 无（仅直连）\n</string>
+    <string name="netcheck_starting_service">正在启动服务…</string>
+    <string name="netcheck_starting_service_desc">连接后即会运行网络检查。</string>
+    <string name="netcheck_service_stopped">服务未能启动而停止，原因见日志。</string>
+</resources>

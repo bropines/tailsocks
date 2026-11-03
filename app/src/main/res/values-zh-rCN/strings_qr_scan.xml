@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The QR scanner (ui/QrScanActivity.kt) -->
+    <string name="qr_scan_action">扫描二维码</string>
+    <string name="qr_scan_title">扫描二维码</string>
+    <string name="qr_scan_hint">将相机对准二维码</string>
+    <string name="qr_scan_hint_more">TailSocks 链接会打开对应界面，TailCat 地址会新建连接。其他内容仅做展示。</string>
+    <string name="qr_scan_gallery">从相册选择</string>
+    <string name="qr_scan_torch_on">打开闪光灯</string>
+    <string name="qr_scan_torch_off">关闭闪光灯</string>
+    <string name="qr_scan_not_found">此图片中未找到二维码</string>
+
+    <!-- Camera access -->
+    <string name="qr_scan_camera_title">相机权限</string>
+    <string name="qr_scan_camera_text">相机仅在此界面打开期间用于读取二维码。不会录制，也不会发送到任何地方。</string>
+    <string name="qr_scan_allow">允许使用相机</string>
+    <string name="qr_scan_denied_title">无法访问相机</string>
+    <string name="qr_scan_denied_text">请允许使用相机以进行扫描，或从相册选择二维码的截图或照片。</string>
+    <string name="qr_scan_blocked_title">相机权限已关闭</string>
+    <string name="qr_scan_blocked_text">Android 不会再询问。请在 TailSocks 的应用设置中允许相机，或从相册选择二维码图片。</string>
+    <string name="qr_scan_open_settings">打开设置</string>
+    <string name="qr_scan_no_camera_title">无相机</string>
+    <string name="qr_scan_no_camera_text">此设备没有相机。请从相册选择二维码的截图或照片。</string>
+    <string name="qr_scan_failed_title">相机未能启动</string>
+    <string name="qr_scan_failed_text">可能被其他应用占用。请重试，或从相册选择二维码图片。</string>
+    <string name="qr_scan_retry">重试</string>
+
+    <!-- What was read -->
+    <string name="qr_scan_result_title">二维码</string>
+    <string name="qr_scan_result_help">不是 TailSocks 链接或 TailCat 地址，因此未打开任何内容。</string>
+    <string name="qr_scan_result_web_help">是网页链接，不是 TailSocks 链接：未打开任何内容。仅在信任其指向时才打开。</string>
+    <string name="qr_scan_open">打开</string>
+    <string name="qr_scan_no_app">没有应用可以打开</string>
+    <string name="qr_scan_no_tailcat">此二维码中没有 TailCat 地址</string>
+</resources>

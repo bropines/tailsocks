@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Browser of the other devices' Taildrive shares (ui/TaildriveBrowser.kt). Kept apart from
+     strings.xml so the page's text can change without touching the shared file; Android merges
+     every file under values/. -->
+<resources>
+    <string name="taildrive_browser_title">Taildrive</string>
+    <!-- The line under the title at the top: what the list below holds. -->
+    <string name="taildrive_browser_level_devices">设备</string>
+    <string name="taildrive_browser_level_tailnets">Tailnet</string>
+    <string name="taildrive_browser_loading">正在加载…</string>
+
+    <!-- Empty lists. -->
+    <string name="taildrive_browser_empty_folder">此文件夹为空</string>
+    <string name="taildrive_browser_empty_shares">此设备未向你共享任何内容</string>
+    <string name="taildrive_browser_empty_devices">尚无设备向你共享文件夹</string>
+    <string name="taildrive_browser_empty_devices_help">当设备通过 Taildrive 共享文件夹，且 tailnet 的访问规则允许本设备访问时，它们会出现在这里。在 Windows 和 macOS 上，Tailscale 应用必须处于打开状态。</string>
+
+    <!-- Errors: a title, and under it what usually causes it. -->
+    <string name="taildrive_browser_error_unreachable">无法连接到此设备</string>
+    <string name="taildrive_browser_error_unreachable_help">它可能已关机或休眠。在 Windows 和 macOS 上由 Tailscale 应用提供文件，因此它必须处于打开状态。</string>
+    <string name="taildrive_browser_error_denied">无权访问此共享</string>
+    <string name="taildrive_browser_error_denied_help">tailnet 的访问规则不允许本设备访问。管理员可以在策略中放行。</string>
+    <string name="taildrive_browser_error_not_found">未找到</string>
+    <string name="taildrive_browser_error_not_found_help">共享或文件夹已不在该设备上。</string>
+    <string name="taildrive_browser_error_timeout">响应超时</string>
+    <string name="taildrive_browser_error_timeout_help">设备响应缓慢，或连接质量差。请重试。</string>
+    <string name="taildrive_browser_error_proxy">Taildrive 代理无响应</string>
+    <string name="taildrive_browser_error_proxy_help">代理已开启，但其地址上尚无服务在监听。它随连接启动；如果端口被其他应用占用，请在 Taildrive 设置中更换。</string>
+    <string name="taildrive_browser_error_failed">出错了</string>
+
+    <!-- The local proxy: what opening a file by link needs, and what other devices on the network use. -->
+    <string name="taildrive_browser_proxy_off">Taildrive 代理已关闭</string>
+    <string name="taildrive_browser_proxy_off_help">文件无需代理即可打开。只有在通过链接打开文件，以及让网络中的其他设备经本机访问共享时，才需要代理。</string>
+    <string name="taildrive_browser_proxy_turn_on">开启</string>
+    <string name="taildrive_browser_proxy_starting">正在启动代理…</string>
+
+    <!-- No installed app takes the file. -->
+    <string name="taildrive_browser_noapp_title">没有应用能打开此文件</string>
+    <string name="taildrive_browser_noapp_body">请安装 VLC、Kodi 或 Just Player 等媒体播放器，或在另一台设备上打开该文件的地址。</string>
+    <!-- For a file that is not media: a player is no use, and none is offered. -->
+    <string name="taildrive_browser_noapp_other_body">本设备上没有应用能打开此类文件。其地址可在另一台设备上使用。</string>
+    <string name="taildrive_browser_noapp_show_address">显示地址</string>
+    <string name="taildrive_browser_address_title">文件地址</string>
+    <string name="taildrive_browser_address_help">tailnet 上任何拥有 Taildrive 访问权限的设备都能打开此地址。可用手机扫描二维码。</string>
+    <string name="taildrive_browser_open_failed_title">无法打开文件</string>
+</resources>
