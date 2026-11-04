@@ -506,4 +506,5 @@
     <string name="cannot_open_browser">無法打開瀏覽器</string>
     <string name="admin_cd_locked">已鎖定</string>
     <string name="admin_tab_webhooks">Webhooks</string>
+    <string name="login_use_key">使用金鑰</string>
 </resources>
