@@ -2,14 +2,12 @@
 <!-- The live state card at the top of Settings → Diagnostics. Kept apart from
      strings.xml so work on it does not collide with edits there; Android merges
      every file in values/. Values are short on purpose: they sit in one
-     monospace row each, next to a label. -->
-<resources>
+     monospace row each, next to a label. --><resources>
     <string name="diag_live_title">实时状态</string>
     <string name="diag_live_help">打开此页面后每 2 秒更新一次，红色部分表示异常，点击 SOCKS5 即可重新检查端口，复制将包含其全部内容与近期的完整报错，可用于报告问题</string>
     <string name="diag_live_copy">复制实时状态</string>
     <string name="diag_live_copied">实时状态已复制</string>
     <string name="diag_live_collecting">收集中…</string>
-
     <string name="diag_live_process">进程</string>
     <string name="diag_live_intent">意图</string>
     <string name="diag_live_backend">后端</string>
@@ -18,7 +16,6 @@
     <string name="diag_live_traffic">流量</string>
     <string name="diag_live_network">网络</string>
     <string name="diag_live_errors">报错</string>
-
     <string name="diag_live_alive">运行中</string>
     <string name="diag_live_alive_up">运行中 · 已运行 %1$s</string>
     <string name="diag_live_alive_attached">运行中 · 已挂接 %1$s</string>
@@ -38,13 +35,12 @@
     <string name="diag_live_listening">监听中</string>
     <string name="diag_live_not_listening">未在监听</string>
     <string name="diag_live_taken">被其他应用占用</string>
-    <string name="diag_live_checked">已检查 %1$s\u00A0前</string>
+    <string name="diag_live_checked">检查于 %1$s 前</string>
     <string name="diag_live_recheck">重新检查</string>
     <string name="diag_live_vpn_up">%1$s · VPN 已连接</string>
     <string name="diag_live_vpn_down">%1$s · VPN 未连接</string>
     <string name="diag_live_root_tun">root · 内核 TUN</string>
     <string name="diag_live_root_no_tun">root · 无 TUN</string>
-
     <!-- The two largest units of a duration, e.g. "2h 14m". -->
     <string name="diag_unit_d">%1$dd</string>
     <string name="diag_unit_h">%1$dh</string>
