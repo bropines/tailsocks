@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings search: the field, the lines above a list of results -->
+    <string name="search_settings_hint">搜索設定</string>
+    <string name="search_recent">近期查找</string>
+    <string name="search_suggested">高頻使用</string>
+    <string name="search_none">未找到「%1$s」相關內容</string>
+</resources>

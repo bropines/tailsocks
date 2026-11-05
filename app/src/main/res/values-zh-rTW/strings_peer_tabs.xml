@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the peers list's filter tabs and its search, which a pull at the
+  top of the list or the top bar's search button brings out. A file of its own
+  so it lands without touching strings.xml.
+--><resources>
+    <!-- Tabs over the list; each is followed by how many devices it holds. -->
+    <string name="peers_tab_all">全部</string>
+    <string name="peers_tab_online">在線</string>
+    <string name="peers_tab_offline">離線</string>
+    <!-- Untagged devices of the user this device belongs to. -->
+    <string name="peers_tab_mine">個人</string>
+    <string name="peers_tab_tagged">已標記</string>
+    <string name="peers_tab_exit_nodes">出口節點</string>
+    <!-- The top bar's search button, as a screen reader names it. -->
+    <string name="peers_search_open">搜尋</string>
+    <string name="peers_search_close">關閉搜尋</string>
+</resources>

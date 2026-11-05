@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The beta channel of the in-app updater: betas are builds of the next version, published before it for testing -->
+    <string name="settings_update_beta_title">接收測試版本</string>
+</resources>
