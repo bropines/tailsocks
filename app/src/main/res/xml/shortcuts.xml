@@ -51,4 +51,10 @@
             android:targetPackage="io.github.bropines.tailscaled"
             android:targetClass="io.github.bropines.tailscaled.ui.ShareActivity" />
     </shortcut>
+    <!-- Direct Share (Android 10+): the tailnet's devices as targets of the system share sheet.
+         The shortcuts themselves are dynamic, published by core/ShareTargets.kt under this category. -->
+    <share-target android:targetClass="io.github.bropines.tailscaled.ui.ShareActivity">
+        <data android:mimeType="*/*" />
+        <category android:name="io.github.bropines.tailscaled.category.TAILDROP_TARGET" />
+    </share-target>
 </shortcuts>

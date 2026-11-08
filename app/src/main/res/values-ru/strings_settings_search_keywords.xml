@@ -105,6 +105,7 @@
 
     <!-- Sharing & access -->
     <string name="search_kw_taildrop_folder">тейлдроп, папка загрузок, полученные файлы, куда сохраняются файлы, загрузки, папка приёма</string>
+    <string name="search_kw_share_targets">поделиться, меню поделиться, отправить на устройство, direct share, taildrop, быстрая отправка, quick share</string>
     <string name="search_kw_taildrive">тейлдрайв, расшарить папку, webdav, сетевой диск, обмен файлами</string>
     <string name="search_kw_serve">фуннел, опубликовать, открыть порт, обратный прокси, https-сертификат, публичный адрес, веб-сервер, ngrok</string>
     <string name="search_kw_web_ui">web ui, веб-морда, управление из браузера, 8080</string>

@@ -111,6 +111,7 @@
 
     <!-- Sharing & access -->
     <string name="search_kw_taildrop_folder">download folder, received files, save location, where files go, downloads, receive folder</string>
+    <string name="search_kw_share_targets">direct share, share sheet, share menu, send to device, taildrop, quick share, nearby share</string>
     <string name="search_kw_taildrive">shared folders, share a folder, webdav, network drive, file sharing</string>
     <string name="search_kw_serve">publish, expose a port, reverse proxy, https certificate, public url, web server, tunnel to localhost, ngrok</string>
     <string name="search_kw_web_ui">web interface, tailscale web, manage from a browser, 8080, web client</string>

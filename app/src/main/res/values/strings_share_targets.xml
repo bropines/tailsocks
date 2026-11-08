@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Sharing & access → Share with your tailnet (core/ShareTargets.kt). -->
+    <string name="settings_share_targets_title">Devices in the share menu</string>
+    <string name="settings_share_targets_desc">Tailnet devices appear in the system share menu; one tap sends the file. Android 10+.</string>
+</resources>

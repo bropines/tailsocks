@@ -502,6 +502,7 @@ fun SettingsScreen(
     val taildropFolderChooser = rememberReceiveFolderChooser { taildropFolder = it }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
     var hideFromRecents by remember { mutableStateOf(GlobalSettings.isHideFromRecents(context)) }
+    var shareTargets by remember { mutableStateOf(GlobalSettings.isShareTargetsEnabled(context)) }
     var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
     var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
     var serviceWatchdog by remember { mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context)) }
@@ -2308,6 +2309,11 @@ fun SettingsScreen(
         SettingsCardGap()
 
         SettingsCard(title = stringResource(R.string.settings_sect_share_links)) {
+            SettingsSwitchItem(stringResource(R.string.settings_share_targets_title), stringResource(R.string.settings_share_targets_desc), Icons.Default.Devices, shareTargets) {
+                GlobalSettings.setShareTargetsEnabled(context, it)
+                shareTargets = it
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsClickableItem(
                 stringResource(R.string.taildrive_title),
                 stringResource(R.string.settings_link_taildrive_desc),

@@ -18,6 +18,7 @@ object GlobalSettings {
     private const val KEY_TAILDROP_FOLDER_HINT_DISMISSED = "taildrop_folder_hint_dismissed"
     private const val KEY_AUTO_START = "auto_start"
     private const val KEY_HIDE_FROM_RECENTS = "hide_from_recents"
+    private const val KEY_SHARE_TARGETS = "share_targets"
     private const val KEY_CP_ENABLED = "cp_enabled"
     private const val KEY_APP_THEME = "app_theme"
     private const val KEY_THEME_PRESET = "theme_preset"
@@ -57,6 +58,13 @@ object GlobalSettings {
     fun setHideFromRecents(context: Context, hidden: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_HIDE_FROM_RECENTS, hidden).apply()
         TaskRecents.apply(context)
+    }
+
+    /** Settings → Sharing & access: the tailnet's devices in the system share sheet (core/ShareTargets.kt). */
+    fun isShareTargetsEnabled(context: Context) = getPrefs(context).getBoolean(KEY_SHARE_TARGETS, true)
+    fun setShareTargetsEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SHARE_TARGETS, enabled).apply()
+        if (enabled) ShareTargets.invalidate() else ShareTargets.clear(context)
     }
 
     // Control Plane Proxy
@@ -607,6 +615,8 @@ object GlobalSettings {
         // behind — see above.
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
         "root_vpn_bypass",
+        // The devices in the system share sheet.
+        KEY_SHARE_TARGETS,
         // Taildrive downloads: how many at once. Where they go stays behind — it names a place on this device.
         KEY_TAILDRIVE_PARALLEL,
         // Taildrive in other apps: seekable or a stream.
@@ -641,6 +651,7 @@ object GlobalSettings {
         // The launcher shows the restored icon now, not at the next start.
         if (AppIcons.PREF in values) AppIcons.reconcile(context)
         if (KEY_HIDE_FROM_RECENTS in values) TaskRecents.apply(context)
+        if (KEY_SHARE_TARGETS in values && !isShareTargetsEnabled(context)) ShareTargets.clear(context)
     }
 }
 

@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.os.BundleCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import appctr.Appctr
 import androidx.compose.ui.res.stringResource
+import androidx.compose.runtime.saveable.rememberSaveable
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.decodeFromString
@@ -82,7 +84,7 @@ class ShareActivity : ComponentActivity() {
             else -> null
         }
         if (fileUris.isNullOrEmpty()) { finish(); return }
-        setContent { TailSocksTheme { ShareOverlay(fileUris = fileUris, onDismiss = { finish() }) } }
+        setContent { TailSocksTheme { ShareOverlay(fileUris = fileUris, directTo = directTo, onDismiss = { finish() }) } }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -120,13 +122,22 @@ class ShareActivity : ComponentActivity() {
     private fun show(uris: ArrayList<Uri>) {
         picked = uris
         browsing = false
-        setContent { TailSocksTheme { ShareOverlay(fileUris = uris, onDismiss = { finish() }) } }
+        setContent { TailSocksTheme { ShareOverlay(fileUris = uris, directTo = directTo, onDismiss = { finish() }) } }
     }
+
+    /** The device the system share sheet's target names (core/ShareTargets.kt), if it was one. */
+    private val directTo: String? get() = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)
 }
 
+/**
+ * [directTo] is a Direct Share target's shortcut id: the files go straight to that device
+ * once the peers are in, when it belongs to the active account and the daemon takes a file
+ * for it now. Otherwise — another account's device, gone, offline, no daemon — the list is
+ * shown as for any share.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
+fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberFullSheetState()
@@ -142,6 +153,24 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
     // The daemon's verdict per peer, in the app's language: the sheet's own window follows
     // the system locale, so the words are resolved out here, once.
     val taildropStrings = remember { TaildropReasonStrings.from(context) }
+    // Saveable: a recreation mid-send must not send the files a second time.
+    var directTried by rememberSaveable { mutableStateOf(directTo == null) }
+
+    fun send(p: PeerData) {
+        isSending = true
+        scope.launch(Dispatchers.IO) {
+            val failures = sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
+            withContext(Dispatchers.Main) {
+                isSending = false
+                // The sheet closes right here, so the progress card
+                // is gone before anyone reads it: a toast outlives it.
+                if (failures.isNotEmpty()) {
+                    Toast.makeText(context, failures.joinToString("\n"), Toast.LENGTH_LONG).show()
+                }
+                onDismiss()
+            }
+        }
+    }
 
     fun loadPeers() {
         isLoadingPeers = true
@@ -153,8 +182,19 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                 // Same list and order as the Files hub picker; a peer the daemon refuses is
                 // listed disabled with the reason, so what is offered is what will be accepted.
                 peers = taildropPickerPeers(status, taildropStrings)
-                withContext(Dispatchers.Main) { isLoadingPeers = false; errorMsg = null }
-            } catch (e: Exception) { withContext(Dispatchers.Main) { errorMsg = e.message; isLoadingPeers = false } }
+                withContext(Dispatchers.Main) {
+                    isLoadingPeers = false; errorMsg = null
+                    if (!directTried) {
+                        directTried = true
+                        val peerId = ShareTargets.peerIdFor(directTo, currentAccount.id)
+                        peers.firstOrNull { it.id == peerId && taildropStatusOf(it, taildropStrings) == TaildropStatus.Available }
+                            ?.let { send(it); ShortcutManagerCompat.reportShortcutUsed(context, directTo!!) }
+                    }
+                }
+            } catch (e: Exception) {
+                // No daemon, no direct send: a retry from the list is the user's own pick.
+                withContext(Dispatchers.Main) { errorMsg = e.message; isLoadingPeers = false; directTried = true }
+            }
         }
     }
 
@@ -267,21 +307,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit) {
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(peers) { p -> 
-                            PeerShareItem(p, !isSending, taildropStatusOf(p, taildropStrings)) {
-                                isSending = true
-                                scope.launch(Dispatchers.IO) {
-                                    val failures = sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
-                                    withContext(Dispatchers.Main) {
-                                        isSending = false
-                                        // The sheet closes right here, so the progress card
-                                        // is gone before anyone reads it: a toast outlives it.
-                                        if (failures.isNotEmpty()) {
-                                            Toast.makeText(context, failures.joinToString("\n"), Toast.LENGTH_LONG).show()
-                                        }
-                                        onDismiss()
-                                    }
-                                }
-                            } 
+                            PeerShareItem(p, !isSending, taildropStatusOf(p, taildropStrings)) { send(p) }
                         }
                     }
                 }

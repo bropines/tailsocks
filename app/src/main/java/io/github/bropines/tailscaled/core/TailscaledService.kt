@@ -439,6 +439,9 @@ class TailscaledService : Service() {
             }
         }
 
+        // The system share sheet's devices follow the netmap, and go once it is not Running.
+        ShareTargets.sync(this@TailscaledService, isRunning && backendState == "Running")
+
         if (checkConnectionHealth(isRunning, backendState)) {
             interval = 5000L
         }
@@ -1144,6 +1147,7 @@ class TailscaledService : Service() {
         }
         updateNotification(CardState.CONNECTION_LOST)
         ServiceWatchdog.noteDaemonCrashed(this)
+        ShareTargets.clear(this)
 
         val gen = lifecycleGeneration.incrementAndGet()
         shutdownInFlight = Thread {
@@ -1801,6 +1805,8 @@ class TailscaledService : Service() {
             teardownStarted = false
             ServiceWatchdog.schedule(this)
             refreshHandler.removeCallbacks(refreshRunnable)
+            // An account switch comes this way: the old account's devices leave the share sheet.
+            ShareTargets.clear(this)
             // Published as the in-flight teardown so a START arriving meanwhile
             // joins it and starts afterwards instead of seeing a daemon that is
             // about to be killed and doing nothing.
@@ -2267,6 +2273,7 @@ class TailscaledService : Service() {
         TailcatService.suspend(this)
         // The user asked for this one, so there is no outage left to report.
         ServiceWatchdog.clearRevivalRefused(this)
+        ShareTargets.clear(this)
         refreshHandler.removeCallbacks(refreshRunnable)
 
         try {
@@ -2652,6 +2659,7 @@ class TailscaledService : Service() {
             // The system destroyed us without stopMe(): the TUN tunnel would
             // otherwise stay up, forwarding into a SOCKS proxy that is gone.
             stopTunMode()
+            ShareTargets.clear(this)
             val rootMode = GlobalSettings.isRootModeEnabled(this)
             Thread {
                 if (rootMode) {
