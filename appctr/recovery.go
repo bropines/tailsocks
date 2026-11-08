@@ -41,16 +41,20 @@ var (
 // complaining, and does nothing twice within [relayKickInterval]. There is no
 // timer and no polling anywhere in this path.
 func NetworkBecameUsable() {
+	if !IsRunning() {
+		return
+	}
 	stateMu.Lock()
 	proc := cmd
 	stateMu.Unlock()
-	if proc == nil || proc.Process == nil {
-		return
-	}
 
 	// Free, and worth doing whether or not the rest applies: the monitor
 	// re-reads the interfaces and notices anything that moved with the link.
-	_ = proc.Process.Signal(syscall.SIGUSR1)
+	// Only our own child can be signalled from here; a root daemon is woken by
+	// the app through su, and the relay kick below reaches it by its LocalAPI.
+	if proc != nil && proc.Process != nil {
+		_ = proc.Process.Signal(syscall.SIGUSR1)
+	}
 
 	if !relaysAreStuck() {
 		return

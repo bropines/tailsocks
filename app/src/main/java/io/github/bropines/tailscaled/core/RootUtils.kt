@@ -430,6 +430,26 @@ object RootUtils {
     }
 
     /**
+     * Tells the root daemon that the network moved: SIGUSR1 makes it re-read
+     * the default route from TS_NETROUTE_FILE and wake its network monitor
+     * (patch 06), as the app's own child daemon is woken from the bridge. The
+     * app cannot signal a root process itself. Matched by its `--socket=`
+     * argument and, like [daemonMarksByEnviron], only a process with a state
+     * directory: the CLI is the same binary.
+     */
+    fun wakeRootDaemon(socketPath: String): Boolean {
+        val pat = shQuote("--socket=$socketPath")
+        val script = buildString {
+            append("for p in \$(pgrep -f -- $pat 2>/dev/null); do\n")
+            append("    tr '\\0' '\\n' < /proc/\$p/cmdline 2>/dev/null | grep -q '^--statedir=' || continue\n")
+            append("    kill -USR1 \$p 2>/dev/null && echo woken\n")
+            append("done\n")
+        }
+        val res = runSu("daemon-wake", script, timeoutMs = 8_000L, quiet = true)
+        return res.ok && res.output.contains("woken")
+    }
+
+    /**
      * Waits for a daemon that exists to answer, within [RootAdoption.BUDGET_MS],
      * and says what the start does with it ([RootAdoption.next]). A daemon that
      * answers at once costs one probe; no daemon process costs one root shell.
@@ -616,6 +636,11 @@ object RootUtils {
         // redirected into MagicDNS before MagicDNS can answer anything.
         val fallbacks = spec.dnsFallbacks.ifEmpty { listOf("1.1.1.1", "8.8.8.8") }
         env.append("export TS_DNS_FALLBACK=${shQuote(fallbacks.joinToString(","))}\n")
+        // The interface that carries the default route, which the daemon cannot
+        // learn on Android: the app keeps this file current and wakes the daemon
+        // ([wakeRootDaemon]). Without it every network change looked minor, so a
+        // daemon that lost mobile data never rebound and stayed on dead relays.
+        env.append("export TS_NETROUTE_FILE=${shQuote(File(context.filesDir, "netroute").absolutePath)}\n")
         // The daemon has no VpnService to protect its sockets, so it sets
         // Android's protect bit itself unless the user wants the opposite:
         // its own traffic riding whatever VPN client holds the tunnel. Quoted:

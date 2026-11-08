@@ -290,6 +290,22 @@ client's own network, which leaves the chain with a `RETURN` at its head matched
 on the other tunnel's netId (section 5). Either way that switch is no longer the
 only way out of the conflict.
 
+While the redirect is armed, the app checks it on every refresh tick and takes
+the two `nat OUTPUT` hooks off after three failed checks in a row, putting them
+back once MagicDNS answers again (the ROOT log says so both times). A check
+fails when the daemon cannot resolve this node's own name, or when it reports
+**DNS unavailable** — its forwarder cannot reach the upstream DNS servers. The
+second case is the one that matters for a DNS server on the tailnet: when the
+tunnel to it is down, the own name still resolves from memory while every other
+lookup on the phone fails, so the phone falls back to its own resolver until
+the tunnel is back.
+
+The daemon is not the app's child in Root Mode, so the app wakes it through su
+on every network change (`SIGUSR1`) and keeps the interface that carries the
+default route in `files/netroute` (`TS_NETROUTE_FILE` in the env file). Without
+both, a daemon that lost mobile data did not rebind and stayed on dead relays
+until restarted.
+
 The hook sits at position 1 of `nat OUTPUT`, which means the destination is
 rewritten *after* the kernel has already chosen a source address. That is why
 another tunnel's queries must leave this chain before the DNAT rather than be

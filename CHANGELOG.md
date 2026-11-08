@@ -12,6 +12,12 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - Network check: a long result no longer squeezes its label into a letter per line.
 
+### Fixed
+
+- Root Mode: after mobile data was turned off and on, the connection did not come back until TailSocks was restarted.
+- Root Mode: device-wide DNS steps aside while the tunnel to a tailnet DNS server is down, instead of cutting the phone's internet.
+- Network check: a long result no longer squeezes its label into a letter per line.
+
 ## [5.6.0] - 2026-10-31
 
 ### Added

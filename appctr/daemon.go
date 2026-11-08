@@ -159,17 +159,11 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 	// view once it runs. The default route, which it cannot see at all, comes
 	// through a file it re-reads whenever the app wakes it.
 	routePath := p.DataDir() + "/netroute"
+	seedDefaultRoute(routePath)
 	stateMu.Lock()
 	netState := latestInterfaceState
-	defaultRoutePath = routePath
-	route := defaultRouteInterface
 	tz := timeZoneID
 	stateMu.Unlock()
-	if route != "" {
-		if err := os.WriteFile(routePath, []byte(route), 0o600); err != nil {
-			slog.Debug("Could not seed the default route interface", "err", err)
-		}
-	}
 
 	c.Env = append(os.Environ(),
 		fmt.Sprintf("TS_LOGS_DIR=%s/logs", p.DataDir()),

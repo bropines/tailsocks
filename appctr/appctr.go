@@ -114,6 +114,22 @@ func SetDefaultRouteInterface(name string) {
 	slog.Info("Default route interface", "name", name)
 }
 
+// seedDefaultRoute makes path the file SetDefaultRouteInterface keeps current
+// and writes the interface known so far into it, for a daemon that reads it on
+// start (TS_NETROUTE_FILE, patch 06).
+func seedDefaultRoute(path string) {
+	stateMu.Lock()
+	defaultRoutePath = path
+	route := defaultRouteInterface
+	stateMu.Unlock()
+	if route == "" {
+		return
+	}
+	if err := os.WriteFile(path, []byte(route), 0o600); err != nil {
+		slog.Debug("Could not seed the default route interface", "err", err)
+	}
+}
+
 // InjectNetworkState takes Kotlin's view of the interfaces and, just as
 // importantly, tells the daemon that something moved.
 //
@@ -875,6 +891,12 @@ func AttachExternal(opt *StartOptions) {
 
 	// The root daemon is already running; only the CLI needs its link renewed.
 	linkBinaries(pc)
+
+	// The root daemon reads the default route from the same file a child
+	// daemon does (TS_NETROUTE_FILE in its env file), so SetDefaultRouteInterface
+	// must keep writing it. It is not our child, though: the app wakes it
+	// through su (RootUtils.wakeRootDaemon), since a signal from here is refused.
+	seedDefaultRoute(pc.DataDir() + "/netroute")
 
 	slog.Info("========================================")
 	slog.Info("=== TAILSOCKS GO CORE ATTACHING (ROOT) ===", "version", coreVersion, "do_reset", opt.DoReset, "has_authkey", opt.AuthKey != "")

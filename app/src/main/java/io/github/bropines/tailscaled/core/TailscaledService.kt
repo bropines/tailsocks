@@ -37,6 +37,9 @@ class TailscaledService : Service() {
         /** The one ongoing card; TunVpnService goes foreground on it too. */
         const val MAIN_NOTIF_ID = 1
 
+        /** The daemon's "DNS unavailable": its forwarder cannot reach the upstream servers. */
+        private const val DNS_FORWARD_FAILING = "dns-forward-failing"
+
         /** How long after a settings change the tick stays close, and how close. */
         private const val SETTLE_WINDOW_MS = 40_000L
         private const val SETTLE_TICK_MS = 1_500L
@@ -424,7 +427,7 @@ class TailscaledService : Service() {
                     interval = 2000L
                 }
             }
-            checkMagicDnsHealth()
+            checkMagicDnsHealth(healthWarnings)
         }
 
         // The VPN follows the netmap: a native start that waited for the node's
@@ -677,8 +680,18 @@ class TailscaledService : Service() {
      * This rides the refresh tick that already runs. A clock of its own would
      * wake the device for nothing, and the whole point is that the redirect is
      * only ever a problem while the device is awake and resolving.
+     *
+     * Answering its own name is not enough: that comes from the daemon's host
+     * map, while every other name is forwarded upstream — over the tailnet when
+     * the DNS server is a peer or behind a subnet router. A tunnel that died
+     * with the network (mobile data off and on) left the own-name check
+     * passing while every lookup on the phone failed. The daemon's own
+     * "DNS unavailable" warning ([DNS_FORWARD_FAILING]) covers that: raised
+     * after 15 s of failed forwards, cleared by the next success, and re-asked
+     * once a minute by the bridge while it stands, so the redirect comes back
+     * once the tunnel does.
      */
-    private fun checkMagicDnsHealth() {
+    private fun checkMagicDnsHealth(healthWarnings: List<HealthWarning>) {
         if (!rootDnsTierInstalled) {
             // Nothing of ours is on port 53. Forget the count, so a later install
             // starts from zero rather than acting on a stale one.
@@ -686,7 +699,8 @@ class TailscaledService : Service() {
             dnsRedirectUnhooked = false
             return
         }
-        if (RootUtils.magicDnsAnswers(this)) {
+        val forwardFailing = healthWarnings.any { it.code == DNS_FORWARD_FAILING }
+        if (!forwardFailing && RootUtils.magicDnsAnswers(this)) {
             magicDnsFailures = 0
             if (dnsRedirectUnhooked && RootUtils.setDnsRedirectHooked(true)) {
                 dnsRedirectUnhooked = false
@@ -703,10 +717,11 @@ class TailscaledService : Service() {
         if (magicDnsFailures < maxMagicDnsFailures) return
         if (RootUtils.setDnsRedirectHooked(false)) {
             dnsRedirectUnhooked = true
-            Log.w(TAG, "MagicDNS has not answered for $magicDnsFailures ticks; unhooking the DNS redirect")
+            val why = if (forwardFailing) "could not reach its DNS servers" else "did not answer"
+            Log.w(TAG, "MagicDNS $why for $magicDnsFailures ticks; unhooking the DNS redirect")
             Appctr.logAndroid(
                 "WARN", "ROOT",
-                "MagicDNS did not answer $magicDnsFailures times in a row — the device-wide DNS redirect " +
+                "MagicDNS $why $magicDnsFailures times in a row — the device-wide DNS redirect " +
                     "was taken off so the phone keeps resolving names. It goes back on by itself as soon " +
                     "as MagicDNS answers again."
             )
@@ -1192,6 +1207,7 @@ class TailscaledService : Service() {
         // (injectIfNeeded), so the dedup check races across concurrent events.
         // @Volatile at least makes each event's write visible to the next.
         @Volatile private var lastStateJson = ""
+        @Volatile private var lastRoute: String? = null
 
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
@@ -1223,7 +1239,13 @@ class TailscaledService : Service() {
                 return
             }
             Log.i(TAG, "The network reaches the internet again")
-            Thread { runCatching { Appctr.networkBecameUsable() } }.start()
+            Thread {
+                // The bridge signals only its own child; Root Mode's daemon is woken here.
+                if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                    runCatching { RootUtils.wakeRootDaemon(java.io.File(filesDir, "tailscaled.sock").absolutePath) }
+                }
+                runCatching { Appctr.networkBecameUsable() }
+            }.start()
         }
 
         override fun onLost(network: Network) {
@@ -1234,10 +1256,10 @@ class TailscaledService : Service() {
             scheduleRootRoutingReapply("the default network went away")
         }
 
-        /** The active network's interface, as the platform names it. */
-        private fun reportDefaultRoute() {
-            runCatching { Appctr.setDefaultRouteInterface(NetworkSnapshot.defaultRouteInterface(connectivityManager)) }
-        }
+        /** The active network's interface, as the platform names it; null if it could not be read. */
+        private fun reportDefaultRoute(): String? = runCatching {
+            NetworkSnapshot.defaultRouteInterface(connectivityManager).also { Appctr.setDefaultRouteInterface(it) }
+        }.getOrNull()
 
         private fun injectIfNeeded() {
             Thread {
@@ -1248,16 +1270,28 @@ class TailscaledService : Service() {
                     // as minor, so it never rebinds its sockets or re-runs a
                     // netcheck. Report it before the interface list: the daemon
                     // is woken by the list and reads the name on the way in.
-                    reportDefaultRoute()
+                    val route = reportDefaultRoute()
                     // The interface list is only worth gathering for a daemon
                     // that exists; the route name above is recorded either way,
                     // and is handed to the next daemon when it starts.
                     if (!Appctr.isRunning()) return@Thread
                     val json = NetworkSnapshot.interfacesJson()
+                    val moved = json != lastStateJson || route != lastRoute
+                    lastRoute = route
                     if (json != lastStateJson) {
                         lastStateJson = json
                         Appctr.injectNetworkState(json)
                         Log.d(TAG, "Network state changed and injected")
+                    }
+                    // The bridge's signal reaches only a daemon it launched.
+                    // Root Mode's runs as root, so it is woken through su — or
+                    // a lost-and-regained mobile network left it on dead relays
+                    // until restarted, with every DNS query of the phone
+                    // redirected into that dead tunnel.
+                    if (moved && GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                        val socket = java.io.File(filesDir, "tailscaled.sock").absolutePath
+                        val woken = RootUtils.wakeRootDaemon(socket)
+                        Log.i(TAG, "Network moved; root daemon ${if (woken) "woken" else "not found to wake"}")
                     }
                 } catch (e: Exception) { Log.e(TAG, "Inject failed: ${e.message}") }
             }.start()
