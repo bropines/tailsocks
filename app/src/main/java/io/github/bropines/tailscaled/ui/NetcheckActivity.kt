@@ -1032,44 +1032,55 @@ fun CapabilityRow(
         warnStyle -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.error
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            if (subText.isNotEmpty()) {
+    // The verdict is measured before the weighted label, so unbounded it could
+    // take the whole width and leave the label a letter per line (issue #24).
+    // Capping it keeps at least 40% for the label; a long verdict wraps instead.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val verdictMaxWidth = maxWidth * 0.6f
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(
-                    text = subText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontFamily = FontFamily.Monospace
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (subText.isNotEmpty()) {
+                    Text(
+                        text = subText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.widthIn(max = verdictMaxWidth),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (success) successText else failText,
+                    modifier = Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = tint,
+                    textAlign = TextAlign.End
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = when {
+                        success -> Icons.Default.CheckCircle
+                        warnStyle -> Icons.Default.Warning
+                        else -> Icons.Default.Cancel
+                    },
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = if (success) successText else failText,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = tint
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = when {
-                    success -> Icons.Default.CheckCircle
-                    warnStyle -> Icons.Default.Warning
-                    else -> Icons.Default.Cancel
-                },
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(20.dp)
-            )
         }
     }
 }
