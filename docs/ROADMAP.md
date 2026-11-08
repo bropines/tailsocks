@@ -166,6 +166,11 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Verify on devices
 
+- [ ] **5.7.0 — Tailscale SSH sessions on the 1.104.5 core.** Sessions and forwards now go
+      through upstream's privileged monitor, built for Android by patch 28. Checked on the Redmi
+      (2026-11-08): the SSH server answers on the new core, but the test tailnet's policy has no
+      ssh rule for it, so no session ran. Still to see: `ssh root@` and `ssh shell@` to a shell
+      and a command, scp, SFTP, and a `-L` forward, on a rooted device a policy lets in.
 - [ ] **5.0.0 — what only real devices can tell.** Built and walked on emulators in a private
       test tailnet and on the author's phone and WSA; not yet seen:
   1. A television with ARM hardware: first start with the remote, the dashboard, a file
