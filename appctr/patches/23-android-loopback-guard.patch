@@ -1,5 +1,5 @@
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/loopback_guard.go	2026-10-15 15:09:58.184957737 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/wgengine/netstack/loopback_guard.go	2026-11-08 22:32:28
 @@ -0,0 +1,99 @@
 +package netstack
 +
@@ -100,8 +100,8 @@
 +	}
 +	return false
 +}
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/loopback_guard_test.go	2026-10-15 15:09:58.185028951 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/wgengine/netstack/loopback_guard_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,566 @@
 +package netstack
 +
@@ -669,8 +669,8 @@
 +	defer c.Close()
 +	return uint16(c.LocalAddr().(*net.UDPAddr).Port)
 +}
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_loopback.go	2026-10-15 15:33:31.913636504 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_loopback.go	2026-11-08 22:32:28
 @@ -0,0 +1,283 @@
 +//go:build !ts_omit_netstack
 +
@@ -955,8 +955,8 @@
 +	rp.port = uint16(n)
 +	return rp, true
 +}
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_loopback_test.go	2026-10-15 15:33:47.373631600 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_loopback_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,292 @@
 +//go:build !ts_omit_netstack
 +
@@ -1250,8 +1250,8 @@
 +		t.Error("another app's port is closed without a socket path")
 +	}
 +}
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/ipn/ipnlocal/fortest_tailsocks.go	2026-10-15 15:09:58.185510516 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/ipn/ipnlocal/fortest_tailsocks.go	2026-11-08 22:32:28
 @@ -0,0 +1,13 @@
 +package ipnlocal
 +

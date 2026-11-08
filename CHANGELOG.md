@@ -9,6 +9,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Simplified Chinese (简体中文) interface: the client screens — main, peers, files, logs, network check, Serve & Funnel, Root Mode, settings — and the admin console, TV and remote screens.
 - Taildrop: your tailnet's devices appear in the system share menu (Android 10+), one tap sends the file — Settings → Sharing & access, on by default.
 
+### Changed
+
+- Tailscale 1.104.5: security fixes for Tailscale SSH in Root Mode and for Serve, and more reliable connections.
+
 ### Fixed
 
 - Root Mode: after mobile data was turned off and on, the connection did not come back until TailSocks was restarted.

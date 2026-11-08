@@ -1,5 +1,5 @@
---- /dev/null	2026-10-23 03:34:25.195189092 +0300
-+++ tailscale_src/wgengine/netstack/taildrive_local.go	2026-10-23 18:49:00.579062346 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/wgengine/netstack/taildrive_local.go	2026-11-08 22:32:28
 @@ -0,0 +1,34 @@
 +package netstack
 +
@@ -35,8 +35,8 @@
 +	}
 +	return handler(c)
 +}
---- /dev/null	2026-10-23 03:34:25.195189092 +0300
-+++ tailscale_src/cmd/tailscaled/android_drive.go	2026-10-23 18:47:02.590521965 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_drive.go	2026-11-08 22:32:28
 @@ -0,0 +1,106 @@
 +//go:build linux && !ts_omit_netstack
 +

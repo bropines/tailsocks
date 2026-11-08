@@ -1,5 +1,5 @@
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-10-22 05:46:00.897927864 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_vpn.go	2026-11-08 22:32:28
 @@ -0,0 +1,97 @@
 +//go:build linux
 +

@@ -1,5 +1,5 @@
---- orig/net/socks5/socks5.go	2026-09-30 21:46:37.000000000 +0300
-+++ tailscale_src/net/socks5/socks5.go	2026-10-01 17:26:00.656584171 +0300
+--- orig/net/socks5/socks5.go	2026-11-03 00:52:02
++++ tailscale_src/net/socks5/socks5.go	2026-11-08 22:32:28
 @@ -22,6 +22,7 @@
  	"io"
  	"log"

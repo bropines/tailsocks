@@ -280,6 +280,15 @@ State as of 2026-10-14, at 5.0.0.
 - [ ] **Stable Material 3.** `1.5.0-alpha27` is in use for components 1.4.0 does not have, and it
       is still the latest — no stable release exists yet. When one appears it is one line in
       `gradle/libs.versions.toml`.
+- [x] **Update Tailscale to 1.104.5 (2026-11-08).** Mostly Tailscale SSH hardening (stricter
+      environment and uid checks, a refusal to run a non-root session as root without the
+      incubator, 0600 host keys), Serve no longer reaching the daemon's own socket, magicsock key
+      checks, and netstack's RACK switched off again; Go 1.27.3 with it. Patches 01-27 apply with
+      `-F0` unchanged. Upstream now runs every SSH session and forward through a privileged
+      monitor (`be-child monitor`) whose files were built for Linux without Android, so patch 28
+      builds them for Android too; its forwarding children take the user's credentials through
+      `SysProcAttr.Credential`, unaffected by bionic's per-thread setuid. The F-Droid recipe's Go
+      srclib has to move to go1.27.3 with it. See *Verify on devices* for SSH.
 - [x] **Update Tailscale to 1.104.1 (2026-10-12).** Upstream's only code change since 1.104.0
       is in app connectors (`appc`, overlapping route removal), which this build omits; all
       twenty-one patches apply with `-F0`, unchanged. The netmap cache that 1.104.1's notes

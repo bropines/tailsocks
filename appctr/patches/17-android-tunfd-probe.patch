@@ -1,5 +1,5 @@
---- /dev/null	2026-09-28 04:11:42.578445164 +0300
-+++ tailscale_src/cmd/tailscaled/android_tunfd_probe.go	2026-10-01 17:23:14.183457860 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_tunfd_probe.go	2026-11-08 22:32:28
 @@ -0,0 +1,89 @@
 +//go:build linux
 +

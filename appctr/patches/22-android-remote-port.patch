@@ -1,5 +1,5 @@
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_remote.go	2026-10-15 13:09:29.255212972 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_remote.go	2026-11-08 22:32:28
 @@ -0,0 +1,150 @@
 +//go:build !ts_omit_netstack
 +
@@ -151,8 +151,8 @@
 +	w.Header().Set("Content-Type", "application/json")
 +	json.NewEncoder(w).Encode(res)
 +}
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/cmd/tailscaled/android_remote_test.go	2026-10-15 13:09:33.631212124 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_remote_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,171 @@
 +//go:build !ts_omit_netstack
 +
@@ -325,8 +325,8 @@
 +	_, body = ask(&localapi.Handler{PermitRead: true})
 +	want(t, body, false)
 +}
---- /dev/null	2026-10-14 07:35:26.525338240 +0300
-+++ tailscale_src/wgengine/netstack/local_tcp_port_test.go	2026-10-15 12:48:01.220831605 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/wgengine/netstack/local_tcp_port_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,160 @@
 +package netstack
 +

@@ -1,5 +1,5 @@
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/swap.go	2026-10-22 05:50:04.938185130 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/net/androidvpn/swap.go	2026-11-08 22:32:28
 @@ -0,0 +1,270 @@
 +// Package androidvpn lets TailSocks's daemon move to a new Android VPN
 +// interface without a restart.
@@ -271,8 +271,8 @@
 +	close(s.events)
 +	return err
 +}
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/swap_test.go	2026-10-22 05:50:04.938282666 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/net/androidvpn/swap_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,330 @@
 +package androidvpn
 +
@@ -604,8 +604,8 @@
 +		t.Fatal("events not closed")
 +	}
 +}
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/handoff.go	2026-10-22 07:23:30.367287349 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/net/androidvpn/handoff.go	2026-11-08 22:32:28
 @@ -0,0 +1,207 @@
 +//go:build linux
 +
@@ -814,8 +814,8 @@
 +	}
 +	return r.Name, nil
 +}
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/handoff_other.go	2026-10-22 07:23:30.367754097 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/net/androidvpn/handoff_other.go	2026-11-08 22:32:28
 @@ -0,0 +1,27 @@
 +//go:build !linux
 +
@@ -844,8 +844,8 @@
 +func Send(string, *os.File, bool, time.Duration) (string, error) {
 +	return "", errNotLinux
 +}
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/handoff_test.go	2026-10-22 07:23:30.368063878 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/net/androidvpn/handoff_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,160 @@
 +//go:build linux
 +
@@ -1007,8 +1007,8 @@
 +		t.Fatal("Send to a closed socket succeeded")
 +	}
 +}
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/net/androidvpn/realtun_test.go	2026-10-22 07:23:30.368419937 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/net/androidvpn/realtun_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,202 @@
 +//go:build linux
 +
@@ -1212,8 +1212,8 @@
 +		t.Logf("links after the swap:\n%s", out)
 +	}
 +}
---- /dev/null	2026-10-21 19:03:52.965751996 +0300
-+++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-10-22 07:23:59.423919569 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-11-08 22:32:28
 @@ -0,0 +1,62 @@
 +//go:build linux
 +

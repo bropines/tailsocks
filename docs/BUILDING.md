@@ -5,7 +5,7 @@ TailSocks employs a highly automated and modular build pipeline that avoids the 
 ## The Dynamic Injection Pipeline
 
 Instead of resolving endless merge conflicts, our build script uses a dynamic code patch pipeline:
-1. **Fetch Fresh Core:** Downloads a lightweight archive of the official Tailscale source code at the version pinned in `appctr/TAILSCALE_VERSION` (currently `v1.104.1`), checked against `appctr/TAILSCALE_SHA256`.
+1. **Fetch Fresh Core:** Downloads a lightweight archive of the official Tailscale source code at the version pinned in `appctr/TAILSCALE_VERSION` (currently `v1.104.5`), checked against `appctr/TAILSCALE_SHA256`.
 2. **Atomic Patch Injection:** Applies a series of modular, atomic `.patch` files (located under `appctr/patches/`) to adapt the Tailscale source code for mobile features (SOCKS5 proxy support, custom file systems for Taildrop, LocalAPI certificate generation, and Android-specific network monitoring).
 3. **Aggressive Trimming:** Uses a massive array of Go build tags (`ts_omit_systray`, `ts_omit_kube`, `ts_omit_aws`, `ts_omit_bird`, `ts_omit_drive`, etc.) to strip out desktop Linux and enterprise features. 
 4. **Result:** One `libtailscale.so` per ABI — the daemon with the CLI linked in (`ts_include_cli`) — that compiles quickly and operates efficiently in the Android sandbox.

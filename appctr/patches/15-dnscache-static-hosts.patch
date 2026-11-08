@@ -1,5 +1,5 @@
---- orig/net/dnscache/dnscache.go	2026-09-30 21:46:37.000000000 +0300
-+++ tailscale_src/net/dnscache/dnscache.go	2026-10-01 17:23:14.174711520 +0300
+--- orig/net/dnscache/dnscache.go	2026-11-03 00:52:02
++++ tailscale_src/net/dnscache/dnscache.go	2026-11-08 22:32:28
 @@ -14,8 +14,10 @@
  	"log"
  	"net"
@@ -11,10 +11,12 @@
  	"sync"
  	"sync/atomic"
  	"time"
-@@ -237,6 +239,43 @@
+@@ -235,6 +237,43 @@
+ // runtime.
+ func SetDebugLoggingEnabled(v bool) {
  	debugLogging.Store(v)
- }
- 
++}
++
 +// staticHosts parses TS_STATIC_HOSTS once: comma- or semicolon-separated
 +// "host=ip" pairs (an IPv6 address may be wrapped in brackets). It lets the
 +// pinned single-host resolver still answer for the proxy host set by the
@@ -50,11 +52,9 @@
 +		ip = v6
 +	}
 +	return ip, v6, ips, nil
-+}
-+
+ }
+ 
  // LookupIP returns the host's primary IP address (either IPv4 or
- // IPv6, but preferring IPv4) and optionally its IPv6 address, if
- // there is both IPv4 and IPv6.
 @@ -246,6 +285,13 @@
  func (r *Resolver) LookupIP(ctx context.Context, host string) (ip, v6 netip.Addr, allIPs []netip.Addr, err error) {
  	if r.SingleHostStaticResult != nil {

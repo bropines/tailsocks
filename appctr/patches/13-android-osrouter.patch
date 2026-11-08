@@ -1,5 +1,5 @@
---- orig/wgengine/router/osrouter/router_linux.go	2026-09-30 21:46:37.000000000 +0300
-+++ tailscale_src/wgengine/router/osrouter/router_linux.go	2026-10-01 17:23:14.157375478 +0300
+--- orig/wgengine/router/osrouter/router_linux.go	2026-11-03 00:52:02
++++ tailscale_src/wgengine/router/osrouter/router_linux.go	2026-11-08 22:32:28
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -47,10 +47,11 @@
  	// ipPolicyPrefBase is the base priority at which ip rules are installed.
  	ipPolicyPrefBase int
  
-@@ -165,6 +182,14 @@
+@@ -164,6 +181,14 @@
+ 			r.logf("[v1] policy routing available; found %d rules", len(rules))
  			r.ipRuleAvailable = true
  		}
- 	}
++	}
 +	if isAndroid && !r.ipRuleAvailable {
 +		// Android kernels always have IP_MULTIPLE_TABLES (netd depends on
 +		// it) and TailSocks owns the ip rule that consults table 52, so a
@@ -58,10 +59,9 @@
 +		// which no Android rule ever looks at.
 +		r.logf("android: policy-routing probe failed; using table %d anyway (TailSocks owns the ip rules)", tailscaleRouteTable.Num)
 +		r.ipRuleAvailable = true
-+	}
+ 	}
  
  	// A common installation of OpenWRT involves use of the 'mwan3' package.
- 	// This package installs ip-tables rules like:
 @@ -343,6 +368,12 @@
  // about the priority number. We could just do this in response to any netlink
  // change. Filtering by known priority ranges cuts back on some logspam.
@@ -121,10 +121,13 @@
  	if r.nfr == nil {
  		return false
  	}
-@@ -933,6 +983,32 @@
- 	}
- }
- 
+@@ -930,6 +980,32 @@
+ 		return false
+ 	default: // memoV6Unset: no snapshot active, read live.
+ 		return r.nfr.HasIPV6() && r.interfaceV6Usable()
++	}
++}
++
 +// androidV6Available is getV6Available for Android, where there is no
 +// netfilter runner to ask. Global IPv6 support is probed once with
 +// linuxfw.CheckIPv6 (the procfs knobs plus a netlink rule listing, the same
@@ -148,11 +151,8 @@
 +		return false
 +	default: // memoV6Unset: no snapshot active, read live.
 +		return r.interfaceV6Usable()
-+	}
-+}
-+
- // memoV6 is the state of a linuxRouter.interfaceV6UsableMemo snapshot.
- type memoV6 int32
+ 	}
+ }
  
 @@ -1506,6 +1582,13 @@
  	if !r.ipRuleAvailable {
@@ -184,10 +184,12 @@
  	if getDistroFunc() == distro.UBNT {
  		return ubntIPRules
  	}
-@@ -1803,6 +1895,70 @@
- 	return rg.ErrAcc
- }
+@@ -1801,6 +1893,70 @@
+ 	}
  
+ 	return rg.ErrAcc
++}
++
 +// purgeDesktopIPRulesAndroid removes the desktop-Linux policy rules that a
 +// previous TailSocks core, which ran this router unmodified, may have left
 +// behind: "5210 lookup main", "5230 lookup default", "5250 unreachable" and
@@ -250,11 +252,9 @@
 +			}
 +		}
 +	}
-+}
-+
+ }
+ 
  // addSNATRule adds a netfilter rule to SNAT traffic destined for
- // local subnets.
- func (r *linuxRouter) addSNATRule() error {
 @@ -1922,6 +2078,10 @@
  // platformCanNetfilter reports whether the current distro/environment supports
  // running iptables/nftables commands.
@@ -266,8 +266,8 @@
  	switch getDistroFunc() {
  	case distro.Synology:
  		// Synology doesn't support iptables or nftables. Attempting to run it
---- orig/net/netmon/netmon_linux.go	2026-09-30 21:46:37.000000000 +0300
-+++ tailscale_src/net/netmon/netmon_linux.go	2026-10-01 17:23:14.157809904 +0300
+--- orig/net/netmon/netmon_linux.go	2026-11-03 00:52:02
++++ tailscale_src/net/netmon/netmon_linux.go	2026-11-08 22:32:28
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -277,8 +277,8 @@
  
  package netmon
  
---- orig/net/netmon/netmon_polling.go	2026-09-30 21:46:37.000000000 +0300
-+++ tailscale_src/net/netmon/netmon_polling.go	2026-10-01 17:23:14.157898263 +0300
+--- orig/net/netmon/netmon_polling.go	2026-11-03 00:52:02
++++ tailscale_src/net/netmon/netmon_polling.go	2026-11-08 22:32:28
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause

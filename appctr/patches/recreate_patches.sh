@@ -260,8 +260,14 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # carries is kept in incubator_android.go. bionic's setuid changes only the
 # calling thread (the daemon links it through cgo), so SFTP is not served
 # inside the incubator: after the drop it execs `be-child sftp`.
+# Since 1.104.5 every session and forward goes through upstream's privileged
+# monitor (be-child monitor); its files carried `linux && !android` and are
+# built for Android too. Its forwarding children take the user's credentials
+# through SysProcAttr.Credential, set by Go's raw syscalls in the forked child,
+# so the bionic thread caveat above does not reach them.
 {
-    for f in tailssh user user_unix session sftp c2n hostkeys listen process_unix incubator; do
+    for f in tailssh user user_unix session sftp c2n hostkeys listen process_unix incubator \
+        connmonitor fwdchild fwdmonitor monitor monitor_client monitor_rpc monitor_linux sessmonitor; do
         diff -u orig/ssh/tailssh/$f.go tailscale_src/ssh/tailssh/$f.go || true
     done
     diff -N -u /dev/null tailscale_src/ssh/tailssh/incubator_android.go || true

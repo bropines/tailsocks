@@ -1,5 +1,5 @@
---- orig/net/dns/resolver/forwarder.go	2026-09-30 21:46:37.000000000 +0300
-+++ tailscale_src/net/dns/resolver/forwarder.go	2026-10-01 17:25:32.013864056 +0300
+--- orig/net/dns/resolver/forwarder.go	2026-11-03 00:52:02
++++ tailscale_src/net/dns/resolver/forwarder.go	2026-11-08 22:32:28
 @@ -37,12 +37,14 @@
  	"tailscale.com/net/netmon"
  	"tailscale.com/net/netx"
@@ -26,7 +26,7 @@
  }
  
  func (f *forwarder) probeLocks() {
-@@ -979,6 +985,7 @@
+@@ -979,12 +985,30 @@
  	if ipp.Addr().Is6() {
  		udpFam = "udp6"
  	}
@@ -34,10 +34,11 @@
  	conn, err := ln.ListenPacket(ctx, udpFam, ":0")
  	if err != nil {
  		f.logf("ListenPacket failed: %v", err)
-@@ -987,6 +994,23 @@
+ 		return nil, err
+ 	}
  	return conn, nil
- }
- 
++}
++
 +// viaNetstack reports whether an upstream resolver at ip is reached through
 +// netstack: only in userspace-networking mode (UseNetstackForIP is set by
 +// cmd/tailscaled there and nil with a kernel TUN), for a peer or an address
@@ -53,11 +54,9 @@
 +		return false
 +	}
 +	return f.dialer.UseNetstackForIP(ip)
-+}
-+
+ }
+ 
  // netstackPacketConn presents a conn already connected to peer as a
- // [nettype.PacketConn].
- type netstackPacketConn struct {
 @@ -1060,7 +1084,14 @@
  	ctx, cancel := context.WithTimeout(ctx, tcpQueryTimeout)
  	defer cancel()
@@ -107,10 +106,12 @@
  }
  
  // GetUpstreamResolvers returns the resolvers that would be used to resolve
-@@ -1269,6 +1313,254 @@
+@@ -1267,8 +1311,256 @@
+ 	// TODO(bradfitz): add race delay state:
+ 	// mu sync.Mutex
  	// ...
- }
- 
++}
++
 +// TailSocks: last-resort DNS rescue.
 +//
 +// While an exit node is selected, tailscaled forwards every query that no
@@ -167,8 +168,8 @@
 +		return false
 +	}
 +	return true
-+}
-+
+ }
+ 
 +// dnsRescueBaseResolvers returns the OS base-config resolvers, parsed once.
 +func dnsRescueBaseResolvers() []*dnstype.Resolver {
 +	dnsRescueResolversOnce.Do(func() {

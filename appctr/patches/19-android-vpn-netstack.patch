@@ -1,5 +1,5 @@
---- orig/cmd/tailscaled/netstack.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/cmd/tailscaled/netstack.go	2026-10-23 18:47:10.966673685 +0300
+--- orig/cmd/tailscaled/netstack.go	2026-11-03 00:52:02
++++ tailscale_src/cmd/tailscaled/netstack.go	2026-11-08 22:32:28
 @@ -40,10 +40,29 @@
  	sys.Set(ns)
  	ns.ProcessLocalIPs = onlyNetstack

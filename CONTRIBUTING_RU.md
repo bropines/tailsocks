@@ -40,7 +40,7 @@ cd appctr && bash build.sh && cd ..
 ```
 
 `appctr/build.sh` скачивает версию Tailscale, зафиксированную в
-`appctr/TAILSCALE_VERSION` (сейчас `v1.104.1`), накладывает все патчи из
+`appctr/TAILSCALE_VERSION` (сейчас `v1.104.5`), накладывает все патчи из
 `appctr/patches/`, кросс-компилирует PIE-бинарник под `arm64-v8a`,
 `armeabi-v7a`, `x86` и `x86_64` в `app/src/main/jniLibs/` и собирает
 `appctr/tmp/appctr.aar`.

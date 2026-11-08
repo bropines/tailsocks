@@ -1,9 +1,11 @@
---- orig/net/tstun/wrap.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/net/tstun/wrap.go	2026-10-22 07:47:07.775083919 +0300
-@@ -465,6 +465,20 @@
- 	return t.tdev.File()
- }
+--- orig/net/tstun/wrap.go	2026-11-03 00:52:02
++++ tailscale_src/net/tstun/wrap.go	2026-11-08 22:32:28
+@@ -463,6 +463,20 @@
  
+ func (t *Wrapper) File() *os.File {
+ 	return t.tdev.File()
++}
++
 +// IsFakeTUN reports whether the underlying TUN device is a fake TUN.
 +func (t *Wrapper) IsFakeTUN() bool {
 +	if t == nil || t.tdev == nil {
@@ -16,14 +18,12 @@
 +		return f.IsFakeTun()
 +	}
 +	return false
-+}
-+
- func (t *Wrapper) MTU() (int, error) {
- 	return t.tdev.MTU()
  }
---- orig/wgengine/netstack/netstack.go	2026-10-07 21:43:28.000000000 +0300
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-10-23 18:14:33.832964817 +0300
-@@ -207,6 +207,17 @@
+ 
+ func (t *Wrapper) MTU() (int, error) {
+--- orig/wgengine/netstack/netstack.go	2026-11-03 00:52:02
++++ tailscale_src/wgengine/netstack/netstack.go	2026-11-08 22:32:28
+@@ -221,6 +221,17 @@
  	// It can only be set before calling Start.
  	ProcessSubnets bool
  
@@ -41,7 +41,7 @@
  	ipstack   *stack.Stack
  	linkEP    *linkEndpoint
  	tundev    *tstun.Wrapper
-@@ -842,6 +853,13 @@
+@@ -868,6 +879,13 @@
  		return filter.DropSilently, gro
  	}
  
@@ -55,7 +55,7 @@
  	// Determine if we care about this local packet.
  	dst := p.Dst.Addr()
  	serviceName, isVIPServiceIP := ns.atomicIPVIPServiceMap.Load()[dst]
-@@ -944,6 +962,21 @@
+@@ -970,6 +988,21 @@
  }
  
  func (ns *Impl) DialContextTCP(ctx context.Context, ipp netip.AddrPort) (*gonet.TCPConn, error) {
@@ -77,7 +77,7 @@
  	remoteAddress := tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -981,6 +1014,21 @@
+@@ -1007,6 +1040,21 @@
  }
  
  func (ns *Impl) DialContextUDP(ctx context.Context, ipp netip.AddrPort) (*gonet.UDPConn, error) {
@@ -99,7 +99,7 @@
  	remoteAddress := &tcpip.FullAddress{
  		NIC:  nicID,
  		Addr: tcpip.AddrFromSlice(ipp.Addr().AsSlice()),
-@@ -1019,11 +1067,23 @@
+@@ -1045,11 +1093,23 @@
  }
  
  // outboundQueueForPacket is the [outboundQueueRouter] used by [linkEndpoint].
@@ -125,7 +125,7 @@
  		// Self-addressed packet: deliver back into gVisor directly
  		// via the link endpoint's dispatcher, but only if the packet is not
  		// earmarked for the host. Neither the inbound path (fakeTUN Write is a
-@@ -1035,6 +1095,76 @@
+@@ -1061,6 +1121,76 @@
  	}
  }
  
@@ -202,7 +202,7 @@
  // injectToWireGuard reads packets from the [outboundToWireGuard] [linkEndpoint]
  // queue and injects them into tstun for eventual delivery to wireguard-go via
  // [tun.Device.Read].
-@@ -1145,6 +1275,12 @@
+@@ -1171,6 +1301,12 @@
  // return true. It will return false if the packet should be sent outbound, for
  // transit via WireGuard to another Tailscale node.
  func (ns *Impl) shouldSendToHost(pkt *stack.PacketBuffer) bool {
@@ -215,7 +215,7 @@
  	// Determine if the packet is from a service IP (100.100.100.100 or the
  	// IPv6 variant), in which case it needs to go back into the machine's
  	// network (inbound) instead of out.
-@@ -1231,6 +1367,12 @@
+@@ -1257,6 +1393,12 @@
  	return ns.atomicIsLocalIPFunc.Load()(ip)
  }
  
@@ -228,7 +228,7 @@
  // isVIPServiceIP reports whether ip is an IP address that's
  // assigned to a VIP service.
  func (ns *Impl) isVIPServiceIP(ip netip.Addr) bool {
-@@ -1329,6 +1471,9 @@
+@@ -1355,6 +1497,9 @@
  	if ns.ProcessSubnets && !isLocal {
  		return true
  	}
@@ -238,8 +238,8 @@
  	if isLocal && ns.CheckLocalTransportEndpoints {
  		// Handle packets to registered listeners and replies to outbound
  		// connections by checking if gVisor has a registered endpoint.
---- /dev/null	2026-10-23 03:34:25.195189092 +0300
-+++ tailscale_src/wgengine/netstack/own_flow_test.go	2026-10-23 18:14:09.075267801 +0300
+--- /dev/null	2026-11-08 22:34:19
++++ tailscale_src/wgengine/netstack/own_flow_test.go	2026-11-08 22:32:28
 @@ -0,0 +1,174 @@
 +package netstack
 +
