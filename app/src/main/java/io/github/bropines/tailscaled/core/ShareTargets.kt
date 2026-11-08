@@ -155,7 +155,7 @@ object ShareTargets {
             .setLongLabel(t.label)
             .setIcon(IconCompat.createWithResource(context, if (t.phone) R.drawable.ic_share_target_phone else R.drawable.ic_share_target_computer))
             // The share sheet sends its own SEND intent with this id; a launcher that shows
-            // the shortcut (Android 10–12, see below) opens the file picker for that device.
+            // the shortcut (see below) opens the file picker for that device.
             .setIntent(
                 Intent(context, ShareActivity::class.java)
                     .setAction(ShareActivity.ACTION_PICK_AND_SEND)
@@ -164,10 +164,10 @@ object ShareTargets {
             .setLongLived(true)
             .setCategories(setOf(CATEGORY))
             .setRank(rank)
-            .apply {
-                // Before Android 13 androidx keeps a shortcut excluded from the launcher out
-                // of the system altogether, the share sheet included.
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setExcludedFromSurfaces(ShortcutInfoCompat.SURFACE_LAUNCHER)
-            }
+            // Not excluded from the launcher: the platform keeps such a shortcut only when
+            // its AppSearch backend is on (ShortcutPackage.pushDynamicShortcut), which it is
+            // not by default, so the share sheet never saw one (measured on Android 16).
+            // androidx drops it before the system on Android 12 and lower. So the devices
+            // also show in the launcher's long-press menu, where a tap picks a file for them.
             .build()
 }
