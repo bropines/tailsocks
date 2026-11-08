@@ -115,7 +115,9 @@ if [ ! -d "tailscale_src" ]; then
             # --batch/--forward keep patch non-interactive (a moved target would
             # otherwise hang waiting for input); -F0 refuses fuzzy placement so a
             # version bump that shifts context fails here rather than landing wrong.
-            patch -p1 --batch --forward -F0 -d tailscale_src < "$p"
+            # -E removes the files a patch deletes: GNU patch does that by itself,
+            # the BSD patch macOS ships leaves them empty and the build fails.
+            patch -p1 -E --batch --forward -F0 -d tailscale_src < "$p"
         fi
     done
 
@@ -182,12 +184,19 @@ abi_goarch()  { case $1 in armeabi-v7a) echo arm;; arm64-v8a) echo arm64;; x86) 
 abi_clang()   { case $1 in armeabi-v7a) echo armv7a-linux-androideabi21;; arm64-v8a) echo aarch64-linux-android21;; x86) echo i686-linux-android21;; x86_64) echo x86_64-linux-android21;; esac; }
 abi_suffix()  { case $1 in armeabi-v7a) echo arm;; arm64-v8a) echo arm64;; x86) echo x86;; x86_64) echo x86_64;; esac; }
 
+# The NDK names its prebuilt toolchain after the build host; on macOS it is
+# darwin-x86_64 on Apple silicon too.
+case "$(uname -s)" in
+    Darwin) NDK_HOST=darwin-x86_64 ;;
+    *) NDK_HOST=linux-x86_64 ;;
+esac
+
 GOMOBILE_TARGETS=""
 for ABI in $TS_ABIS; do
     GOARCH_ABI=$(abi_goarch "$ABI") || { echo "Unknown ABI in TS_ABIS: $ABI" >&2; exit 1; }
     SUFFIX=$(abi_suffix "$ABI")
     GOMOBILE_TARGETS="${GOMOBILE_TARGETS:+$GOMOBILE_TARGETS,}android/$GOARCH_ABI"
-    export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/$(abi_clang "$ABI")-clang"
+    export CC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/${NDK_HOST}/bin/$(abi_clang "$ABI")-clang"
     export CGO_ENABLED=1
     if [ "$GOARCH_ABI" = arm ]; then export GOARM=7; else unset GOARM; fi
     # One binary for both roles: ts_include_cli links the CLI into tailscaled,
