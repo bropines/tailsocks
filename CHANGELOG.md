@@ -7,16 +7,6 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 
 - Simplified Chinese (简体中文) interface: the client screens — main, peers, files, logs, network check, Serve & Funnel, Root Mode, settings — and the admin console, TV and remote screens.
-
-### Fixed
-
-- Network check: a long result no longer squeezes its label into a letter per line.
-
-### Fixed
-
-- Root Mode: after mobile data was turned off and on, the connection did not come back until TailSocks was restarted.
-- Root Mode: device-wide DNS steps aside while the tunnel to a tailnet DNS server is down, instead of cutting the phone's internet.
-- Network check: a long result no longer squeezes its label into a letter per line.
 - Taildrop: your tailnet's devices appear in the system share menu (Android 10+), one tap sends the file — Settings → Sharing & access, on by default.
 
 ### Fixed
