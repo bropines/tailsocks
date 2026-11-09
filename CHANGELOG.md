@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Backup & restore: a backup or profile export from the release app restores into the dev build (and the other way round) instead of being refused as another app's.
+
 ## [5.7.0] - 2026-11-08
 
 ### Added
