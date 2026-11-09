@@ -374,6 +374,7 @@ private fun foldKey(log: LogEntry): Long = log.unix * 31 + log.message.hashCode(
 
 private const val ROOT_LOG_SECTION_HEADER = "\n--- ROOT DAEMON LOGS (tailscaled.log) ---\n"
 private const val LOGCAT_SECTION_HEADER = "\n--- LOGCAT (this process) ---\n"
+private const val NET_TRACE_SECTION_HEADER = "\n--- NETWORK TRACE (dev build: Root Mode snapshots around network changes) ---\n"
 
 /**
  * Upper bound on what Copy hands to the clipboard. A ClipData travels in a
@@ -394,7 +395,8 @@ fun buildFullLogString(context: Context): String {
         try { ROOT_LOG_SECTION_HEADER + logFile.readText() } catch (e: Exception) { "" }
     } else ""
     val logcat = if (GlobalSettings.getBoolean(context, LOGCAT_PREF, false)) LOGCAT_SECTION_HEADER + LogcatSource.rawText() else ""
-    return header + goLogs + rootLogs + logcat
+    val trace = if (NetTrace.enabled) NetTrace.text(context).let { if (it.isEmpty()) "" else NET_TRACE_SECTION_HEADER + it } else ""
+    return header + goLogs + rootLogs + logcat + trace
 }
 
 /** Drops the beginning of [text] so that at most [maxChars] remain, cutting at a line boundary. */

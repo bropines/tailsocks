@@ -260,6 +260,20 @@ class TailscaledService : Service() {
     @Volatile private var dnsRedirectUnhooked = false
     /** Consecutive refresh ticks in which MagicDNS did not answer. */
     @Volatile private var magicDnsFailures = 0
+
+    /** The refresh tick's last reading, for [NetTrace]'s snapshots (dev builds). */
+    @Volatile private var traceBackend = ""
+    @Volatile private var traceHealth = ""
+
+    private fun traceState(): String {
+        val net = runCatching { connectivityManager.activeNetwork }.getOrNull()
+        val caps = net?.let { runCatching { connectivityManager.getNetworkCapabilities(it) }.getOrNull() }
+        val validated = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return "backend=${traceBackend.ifEmpty { "?" }} health=${traceHealth.ifEmpty { "?" }} " +
+            "activeNetwork=${net ?: "none"} validated=${validated ?: "?"} " +
+            "dnsTier=$rootDnsTierInstalled unhooked=$dnsRedirectUnhooked failures=$magicDnsFailures " +
+            "probe=\"${RootUtils.magicDnsReason}\""
+    }
     /** Misses before the redirect comes off, for the same reason the reconnect
      *  check waits three ticks: one unanswered probe is not an outage. */
     private val maxMagicDnsFailures = 3
@@ -348,6 +362,11 @@ class TailscaledService : Service() {
         } else ""
         // An in-memory copy of the bus snapshot, so reading it every tick is free.
         val healthWarnings = readHealthWarnings(isRunning)
+        if (NetTrace.enabled) {
+            traceBackend = backendState
+            traceHealth = healthWarnings.joinToString(",") { it.code }.ifEmpty { "none" }
+            NetTrace.heartbeat(this@TailscaledService)
+        }
 
         checkCoordinatorOsRefusal(isRunning, backendState, healthWarnings)
 
@@ -708,6 +727,7 @@ class TailscaledService : Service() {
             if (dnsRedirectUnhooked && RootUtils.setDnsRedirectHooked(true)) {
                 dnsRedirectUnhooked = false
                 Log.i(TAG, "MagicDNS is answering again; device-wide DNS redirect re-armed")
+                NetTrace.note(this, "gate: DNS redirect re-armed (${RootUtils.magicDnsReason})")
                 Appctr.logAndroid(
                     "INFO", "ROOT",
                     "MagicDNS is answering again — the device-wide DNS redirect is back on"
@@ -722,6 +742,7 @@ class TailscaledService : Service() {
             dnsRedirectUnhooked = true
             val why = if (forwardFailing) "could not reach its DNS servers" else "did not answer"
             Log.w(TAG, "MagicDNS $why for $magicDnsFailures ticks; unhooking the DNS redirect")
+            NetTrace.note(this, "gate: DNS redirect unhooked, MagicDNS $why")
             Appctr.logAndroid(
                 "WARN", "ROOT",
                 "MagicDNS $why $magicDnsFailures times in a row — the device-wide DNS redirect " +
@@ -1215,6 +1236,7 @@ class TailscaledService : Service() {
 
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
+            NetTrace.event(this@TailscaledService, "default network available ($network)")
             waitingForNetwork = false
             injectIfNeeded()
             // Post through refreshHandler (not a throwaway Handler) so onDestroy
@@ -1238,6 +1260,7 @@ class TailscaledService : Service() {
             if (validated == networkValidated) return
             if (network != connectivityManager.activeNetwork) return
             networkValidated = validated
+            NetTrace.event(this@TailscaledService, "default network $network ${if (validated) "validated" else "lost validation"}")
             if (!validated) {
                 Log.i(TAG, "The network stopped reaching the internet")
                 return
@@ -1254,6 +1277,7 @@ class TailscaledService : Service() {
 
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
+            NetTrace.event(this@TailscaledService, "default network lost ($network)")
             injectIfNeeded()
             waitingForNetwork = true
             if (Appctr.isRunning()) postLiveCard(cardFor(LiveStatus(CardState.WAITING_FOR_NETWORK)))
@@ -1296,6 +1320,7 @@ class TailscaledService : Service() {
                         val socket = java.io.File(filesDir, "tailscaled.sock").absolutePath
                         val woken = RootUtils.wakeRootDaemon(socket)
                         Log.i(TAG, "Network moved; root daemon ${if (woken) "woken" else "not found to wake"}")
+                        NetTrace.note(this@TailscaledService, "network moved to ${route ?: "?"}; root daemon ${if (woken) "woken" else "not found to wake"}")
                     }
                 } catch (e: Exception) { Log.e(TAG, "Inject failed: ${e.message}") }
             }.start()
@@ -1613,6 +1638,10 @@ class TailscaledService : Service() {
         super.onCreate()
         try { android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true) } catch (e: Exception) {}
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (NetTrace.enabled) {
+            NetTrace.stateProvider = ::traceState
+            NetTrace.note(this, "service created, ${BuildConfig.VERSION_NAME}")
+        }
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Tailscaled::WakeLock").apply {
             setReferenceCounted(false)

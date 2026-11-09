@@ -286,6 +286,12 @@ object RootUtils {
         val ok: Boolean get() = exitCode == 0
     }
 
+    /** [NetTrace]'s read-only snapshot shell; its output, whatever the exit. */
+    fun netTraceShell(script: String): String = runSu("nettrace", script, timeoutMs = 30_000L, quiet = true).output
+
+    /** Why the last MagicDNS probe passed or failed, for [NetTrace]. */
+    val magicDnsReason: String get() = lastMagicDnsReason
+
     private fun rootLog(level: String, message: String) {
         // Both, deliberately. The in-app ROOT tab is what a user reads; logcat is
         // the only copy reachable while debugging on a device, and the routing
