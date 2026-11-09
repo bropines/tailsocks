@@ -104,13 +104,23 @@ object BackupFormat {
     }
 
     /**
+     * The release build and its dev build (the same id with ".dev") are one app
+     * for backups: moving a setup into a dev build to reproduce a problem, and
+     * back, is what a dev build is for. Any other package is someone else's.
+     */
+    internal fun samePackage(backup: String, installed: String): Boolean =
+        backup.removeSuffix(DEV_SUFFIX) == installed.removeSuffix(DEV_SUFFIX)
+
+    private const val DEV_SUFFIX = ".dev"
+
+    /**
      * Decides whether [manifest] may be restored onto the running build.
      * A backup from an older or equal build is fine; a newer one is refused.
      */
     fun check(context: Context, manifest: Manifest?): Compatibility {
         if (manifest == null) return Compatibility.Legacy
 
-        if (manifest.packageName.isNotEmpty() && manifest.packageName != context.packageName) {
+        if (manifest.packageName.isNotEmpty() && !samePackage(manifest.packageName, context.packageName)) {
             return Compatibility.WrongPackage(manifest.packageName)
         }
         if (manifest.formatVersion > CURRENT_FORMAT_VERSION) {
