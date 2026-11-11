@@ -7,6 +7,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 
 - Backup & restore: a backup or profile export from the release app restores into the dev build (and the other way round) instead of being refused as another app's.
+- Root Mode: with a DNS server on the tailnet, turning mobile data off and on no longer leaves the phone offline — device-wide DNS stays off until Android confirms the network works, and comes back once MagicDNS really answers.
 
 ## [5.7.0] - 2026-11-08
 

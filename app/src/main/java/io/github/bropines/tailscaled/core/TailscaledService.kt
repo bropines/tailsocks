@@ -272,6 +272,7 @@ class TailscaledService : Service() {
         return "backend=${traceBackend.ifEmpty { "?" }} health=${traceHealth.ifEmpty { "?" }} " +
             "activeNetwork=${net ?: "none"} validated=${validated ?: "?"} " +
             "dnsTier=$rootDnsTierInstalled unhooked=$dnsRedirectUnhooked failures=$magicDnsFailures " +
+            "hold=\"${RootUtils.dnsRedirectHold ?: "none"}\" " +
             "probe=\"${RootUtils.magicDnsReason}\""
     }
     /** Misses before the redirect comes off, for the same reason the reconnect
@@ -707,18 +708,78 @@ class TailscaledService : Service() {
      * map, while every other name is forwarded upstream — over the tailnet when
      * the DNS server is a peer or behind a subnet router. A tunnel that died
      * with the network (mobile data off and on) left the own-name check
-     * passing while every lookup on the phone failed. The daemon's own
-     * "DNS unavailable" warning ([DNS_FORWARD_FAILING]) covers that: raised
-     * after 15 s of failed forwards, cleared by the next success, and re-asked
-     * once a minute by the bridge while it stands, so the redirect comes back
-     * once the tunnel does.
+     * passing while every lookup on the phone failed. The probe now forwards a
+     * real name too ([RootUtils.magicDnsAnswers]), because the daemon's own
+     * "DNS unavailable" warning ([DNS_FORWARD_FAILING]) is not enough on its
+     * own: it is still counted, but upstream hides it while the daemon's
+     * network-down warning stands — exactly when the tunnel is gone.
+     *
+     * Ahead of all of it sits [RootUtils.dnsRedirectHold]: while the default
+     * network is not validated the redirect is off regardless, see
+     * [setDnsRedirectHold].
      */
-    private fun checkMagicDnsHealth(healthWarnings: List<HealthWarning>) {
+    private fun checkMagicDnsHealth(healthWarnings: List<HealthWarning>) = synchronized(dnsGateLock) {
+        checkMagicDnsHealthLocked(healthWarnings)
+    }
+
+    /** The tick and the network callbacks both drive the gate; one at a time. */
+    private val dnsGateLock = Any()
+
+    /**
+     * Holds the redirect off while the default network is not VALIDATED, or
+     * releases it — see [RootUtils.dnsRedirectHold] for the loop this breaks.
+     * Called from the network callbacks; the gate is run at once rather than at
+     * the next tick, because a hold that waits 15 s lets Android's first probe
+     * time out into MagicDNS, and a release lets the redirect back as soon as
+     * the gate's own probe passes.
+     *
+     * A network that never validates — a captive portal, an upstream that is
+     * really down — keeps the redirect off for as long: tailnet names stop
+     * resolving device-wide there, while every other name keeps working, which
+     * is the right way round on a network that cannot reach the tunnel anyway.
+     */
+    private fun setDnsRedirectHold(network: Network?, validated: Boolean) {
+        val hold = if (validated) null
+        else if (network == null) "there is no default network"
+        else "the default network $network is not validated yet"
+        if ((hold == null) == (RootUtils.dnsRedirectHold == null)) {
+            RootUtils.dnsRedirectHold = hold
+            return
+        }
+        RootUtils.dnsRedirectHold = hold
+        // Recorded either way, so Root Mode switched on later starts from the
+        // network's real state; acted on only while it is on.
+        if (!GlobalSettings.isRootModeEnabled(this)) return
+        NetTrace.note(this, "hold: ${hold ?: "released, $network validated"}")
+        Thread {
+            runCatching { checkMagicDnsHealth(readHealthWarnings(Appctr.isRunning())) }
+                .onFailure { Log.w(TAG, "DNS gate after a validation change failed: ${it.message}") }
+        }.start()
+    }
+
+    private fun checkMagicDnsHealthLocked(healthWarnings: List<HealthWarning>) {
         if (!rootDnsTierInstalled) {
             // Nothing of ours is on port 53. Forget the count, so a later install
             // starts from zero rather than acting on a stale one.
             magicDnsFailures = 0
             dnsRedirectUnhooked = false
+            return
+        }
+        RootUtils.dnsRedirectHold?.let { hold ->
+            // Not a MagicDNS failure, so nothing is counted: the redirect comes
+            // off at once and stays off until the network validates.
+            magicDnsFailures = 0
+            if (!dnsRedirectUnhooked && RootUtils.setDnsRedirectHooked(false)) {
+                dnsRedirectUnhooked = true
+                Log.i(TAG, "DNS redirect held off: $hold")
+                NetTrace.note(this, "gate: DNS redirect held off ($hold)")
+                Appctr.logAndroid(
+                    "INFO", "ROOT",
+                    "The device-wide DNS redirect is off until Android confirms this network reaches the " +
+                        "internet: its check resolves names, and through MagicDNS it could wait for a tunnel " +
+                        "that needs the check to pass first. It goes back on by itself afterwards."
+                )
+            }
             return
         }
         val forwardFailing = healthWarnings.any { it.code == DNS_FORWARD_FAILING }
@@ -1237,6 +1298,11 @@ class TailscaledService : Service() {
         override fun onAvailable(network: Network) {
             Log.d(TAG, "Network Available")
             NetTrace.event(this@TailscaledService, "default network available ($network)")
+            // A new default network is judged on its own: the flag below is the
+            // previous network's, and a fresh cell arrives unvalidated.
+            val caps = runCatching { connectivityManager.getNetworkCapabilities(network) }.getOrNull()
+            networkValidated = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+            setDnsRedirectHold(network, networkValidated)
             waitingForNetwork = false
             injectIfNeeded()
             // Post through refreshHandler (not a throwaway Handler) so onDestroy
@@ -1261,6 +1327,7 @@ class TailscaledService : Service() {
             if (network != connectivityManager.activeNetwork) return
             networkValidated = validated
             NetTrace.event(this@TailscaledService, "default network $network ${if (validated) "validated" else "lost validation"}")
+            setDnsRedirectHold(network, validated)
             if (!validated) {
                 Log.i(TAG, "The network stopped reaching the internet")
                 return
@@ -1278,6 +1345,8 @@ class TailscaledService : Service() {
         override fun onLost(network: Network) {
             Log.d(TAG, "Network Lost")
             NetTrace.event(this@TailscaledService, "default network lost ($network)")
+            networkValidated = false
+            setDnsRedirectHold(null, false)
             injectIfNeeded()
             waitingForNetwork = true
             if (Appctr.isRunning()) postLiveCard(cardFor(LiveStatus(CardState.WAITING_FOR_NETWORK)))

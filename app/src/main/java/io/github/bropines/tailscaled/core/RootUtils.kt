@@ -292,6 +292,24 @@ object RootUtils {
     /** Why the last MagicDNS probe passed or failed, for [NetTrace]. */
     val magicDnsReason: String get() = lastMagicDnsReason
 
+    /**
+     * Why the device-wide DNS redirect must stay off whatever MagicDNS says, or
+     * null when nothing holds it. Set by the service while the default network
+     * is not VALIDATED.
+     *
+     * Android validates a network by resolving its probe host through the
+     * system resolver, and the redirect hands that query to MagicDNS. MagicDNS
+     * forwards it over the tailnet when the tailnet's DNS server is a peer, and
+     * the tunnel cannot come up yet: on some ROMs netd installs the catch-all
+     * rule the daemon's marked sockets rely on only once the network has
+     * validated. Validation waits for DNS, DNS waits for the tunnel, the tunnel
+     * waits for validation — mobile data toggled off and on stayed offline until
+     * the redirect was switched off by hand. Holding the redirect off until
+     * validation lets the probe reach the carrier's resolver and breaks that
+     * loop; the health gate arms it again once MagicDNS really answers.
+     */
+    @Volatile var dnsRedirectHold: String? = null
+
     private fun rootLog(level: String, message: String) {
         // Both, deliberately. The in-app ROOT tab is what a user reads; logcat is
         // the only copy reachable while debugging on a device, and the routing
@@ -1059,7 +1077,9 @@ object RootUtils {
         // it live only go in while the daemon's resolver is answering. Without a
         // Context there is no socket to ask on — the boot path — and the
         // redirect is armed as every earlier version did.
-        val dnsHealthy = installDns && (context == null || magicDnsAnswers(context))
+        val hold = dnsRedirectHold
+        if (installDns && hold != null) lastMagicDnsReason = hold
+        val dnsHealthy = installDns && hold == null && (context == null || magicDnsAnswers(context))
         if (installDns && !dnsHealthy) {
             rootLog(
                 "WARN",
@@ -1388,6 +1408,7 @@ object RootUtils {
                 else -> "installed"
             }
             val dnsState = when {
+                installDns && !dnsHealthy && hold != null -> "built but not armed, $hold"
                 installDns && !dnsHealthy -> "built but not armed, MagicDNS is not answering"
                 installDns && shared -> "on, minus the other tunnel's own network"
                 installDns -> "on"
@@ -1893,16 +1914,25 @@ object RootUtils {
      * the bus stays quiet, which is why this asks the resolver instead of
      * waiting to be told.
      *
-     * The question is the node's own MagicDNS name: a configured resolver
-     * answers it from its in-memory host map without touching the network, so a
-     * flaky link cannot read as a broken resolver.
+     * Two questions. The node's own MagicDNS name first: a configured resolver
+     * answers it from its in-memory host map without touching the network, so
+     * a failure there is a broken configuration, not a flaky link. Then a name
+     * outside the tailnet, [UPSTREAM_PROBE_NAME], which the resolver has to
+     * forward. That is the query every app on the phone makes, and the own name
+     * alone could not see its path fail: when the tailnet's DNS server is a peer
+     * and the tunnel is down, the own name kept passing while every lookup on
+     * the device timed out — and the daemon's "DNS unavailable" warning is
+     * hidden behind its network-down one, so the health bus said nothing either.
+     * Any answer the resolver got back counts, NXDOMAIN included; only SERVFAIL,
+     * REFUSED and silence mean nothing upstream is reachable.
      *
-     * What this validates is the resolver's *configuration*, not the path to
-     * it. localapi is answered in-process, inside the daemon, and never
+     * What this validates is the resolver and what it forwards to, not the
+     * path to it. localapi is answered in-process, inside the daemon, and never
      * traverses the nat OUTPUT DNAT — this is not an end-to-end test of the
      * redirect, and a device whose iptables rules are wrong will still pass it.
      *
-     * Cheap by construction: two unix-socket reads, no root shell.
+     * No root shell: two unix-socket reads, the second waiting at most
+     * [UPSTREAM_PROBE_TIMEOUT_MS] for the forwarder to give up.
      */
     fun magicDnsAnswers(context: Context): Boolean {
         val name = selfDnsName(context)
@@ -1910,12 +1940,30 @@ object RootUtils {
             lastMagicDnsReason = "the daemon reports no MagicDNS name for this node"
             return false
         }
-        val encoded = java.net.URLEncoder.encode(name, "UTF-8")
-        val body = localApiGet(context, "/localapi/v0/dns-query?name=$encoded&type=A")
-        if (body == null) {
-            lastMagicDnsReason = "the daemon's localapi did not answer a DNS query for $name"
+        val own = dnsQuery(context, name, 3_000)
+        if (own.rcode != 0) {
+            lastMagicDnsReason = own.failure ?: "the daemon's resolver returned ${rcodeName(own.rcode)} for this node's own name $name"
             return false
         }
+        val upstream = dnsQuery(context, UPSTREAM_PROBE_NAME, UPSTREAM_PROBE_TIMEOUT_MS)
+        if (upstream.failure != null || upstream.rcode == 2 || upstream.rcode == 5) {
+            lastMagicDnsReason = upstream.failure?.let { "own name answered, but $it" }
+                ?: "own name answered, but the daemon's resolver returned ${rcodeName(upstream.rcode)} for " +
+                    "$UPSTREAM_PROBE_NAME: it cannot reach its upstream DNS servers"
+            return false
+        }
+        lastMagicDnsReason = "the daemon's resolver answered $name (${own.answers} record(s)) and " +
+            "$UPSTREAM_PROBE_NAME (${rcodeName(upstream.rcode)})"
+        return true
+    }
+
+    private class DnsProbe(val rcode: Int, val answers: Int, val failure: String?)
+
+    /** One query through localapi; [DnsProbe.failure] says why there was no DNS message. */
+    private fun dnsQuery(context: Context, name: String, timeoutMs: Int): DnsProbe {
+        val encoded = java.net.URLEncoder.encode(name, "UTF-8")
+        val body = localApiGet(context, "/localapi/v0/dns-query?name=$encoded&type=A", timeoutMs)
+            ?: return DnsProbe(-1, 0, "the daemon's localapi did not answer a DNS query for $name")
         val packed = runCatching {
             AppJson.decodeFromString(DnsQueryResponse.serializer(), body).bytes
                 ?.let { android.util.Base64.decode(it, android.util.Base64.DEFAULT) }
@@ -1924,18 +1972,17 @@ object RootUtils {
         // text an error status carries, which is quoted here because "the
         // resolver said no" and "localapi said no" call for different fixes.
         if (packed == null || packed.size < 12) {
-            lastMagicDnsReason = "the daemon's localapi returned no DNS message for $name (${body.trim().take(80)})"
-            return false
+            return DnsProbe(-1, 0, "the daemon's localapi returned no DNS message for $name (${body.trim().take(80)})")
         }
         val rcode = packed[3].toInt() and 0x0f
         val answers = ((packed[6].toInt() and 0xff) shl 8) or (packed[7].toInt() and 0xff)
-        if (rcode != 0) {
-            lastMagicDnsReason = "the daemon's resolver returned ${rcodeName(rcode)} for this node's own name $name"
-            return false
-        }
-        lastMagicDnsReason = "the daemon's resolver answered $name ($answers record(s))"
-        return true
+        return DnsProbe(rcode, answers, null)
     }
+
+    /** A name that exists everywhere and is never a tailnet name. */
+    private const val UPSTREAM_PROBE_NAME = "connectivitycheck.gstatic.com"
+    /** Longer than the forwarder's own retries take to end in SERVFAIL. */
+    private const val UPSTREAM_PROBE_TIMEOUT_MS = 6_000
 
     private fun rcodeName(rcode: Int): String = when (rcode) {
         0 -> "NOERROR"

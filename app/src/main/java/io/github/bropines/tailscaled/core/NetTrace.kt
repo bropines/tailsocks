@@ -118,7 +118,7 @@ object NetTrace {
             echo '# links up'; ip -br addr 2>&1 | grep -v ' DOWN '
             echo '# nat OUTPUT'; iptables -t nat -S OUTPUT 2>&1
             echo '# TAILSOCKS_DNS (packet counters)'; iptables -t nat -L TAILSOCKS_DNS -nvx 2>&1
-            echo '# system DNS from root (ping resolves through netd)'; ping -c1 -W2 connectivitycheck.gstatic.com 2>&1 | head -2
+            echo '# system DNS from root (ping resolves through netd, 3 s cap)'; timeout 3 ping -c1 -W1 connectivitycheck.gstatic.com 2>&1 | head -2
             echo '# connectivity'; dumpsys connectivity 2>/dev/null | grep -E 'Active default network|^  NetworkAgentInfo' | sed -E 's/TcpBufferSizes: [^ ]+ //'
             echo '# validation (network_stack)'; dumpsys network_stack 2>/dev/null | grep -E 'PROBE_|alidat|PRIVATE_DNS|NetworkMonitor' | head -60 | cut -c1-240
             echo '# daemon'; pgrep -af tailscaled 2>&1 | cut -c1-300

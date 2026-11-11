@@ -293,12 +293,26 @@ only way out of the conflict.
 While the redirect is armed, the app checks it on every refresh tick and takes
 the two `nat OUTPUT` hooks off after three failed checks in a row, putting them
 back once MagicDNS answers again (the ROOT log says so both times). A check
-fails when the daemon cannot resolve this node's own name, or when it reports
-**DNS unavailable** — its forwarder cannot reach the upstream DNS servers. The
-second case is the one that matters for a DNS server on the tailnet: when the
-tunnel to it is down, the own name still resolves from memory while every other
-lookup on the phone fails, so the phone falls back to its own resolver until
-the tunnel is back.
+fails when the daemon cannot resolve this node's own name, when a name outside
+the tailnet (`connectivitycheck.gstatic.com`) gets SERVFAIL, REFUSED or no
+answer within 6 s, or when the daemon reports **DNS unavailable**. The outside
+name is the one that matters for a DNS server on the tailnet: when the tunnel
+to it is down, the own name still resolves from memory while every other
+lookup on the phone fails — and the daemon's own warning is hidden behind its
+"network down" one exactly then — so the phone falls back to its own resolver
+until the tunnel is back.
+
+The redirect is also held off, at once and without counting, while Android
+has not **validated** the default network. Android validates a network by
+resolving its probe host through the system resolver, so with the redirect on
+that query went to MagicDNS, and on to a tailnet DNS server through a tunnel
+that could not come up yet: on some ROMs netd adds the catch-all rule the
+daemon's marked sockets need only after validation. Mobile data toggled off
+and on stayed offline until the redirect was switched off by hand. With the
+hold, the check reaches the carrier's resolver, the network validates, the
+tunnel comes up, and the gate arms the redirect again. A network that never
+validates (a captive portal) keeps the redirect off; tailnet names then resolve
+through the `/etc/hosts` publication only.
 
 The daemon is not the app's child in Root Mode, so the app wakes it through su
 on every network change (`SIGUSR1`) and keeps the interface that carries the
