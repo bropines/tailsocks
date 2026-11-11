@@ -258,6 +258,15 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Small
 
+- [x] **An exit node that goes offline is said, and can be waited out (2026-11-12).** The
+      tick asks whether the selected exit node is still online; after 20 s of "no" a
+      notification names it and offers "Go direct until it's back" — the node is taken off,
+      remembered as paused, and selected again by itself when the coordination server reports
+      it online — or a plain "Turn off". Nothing happens without the tap unless Settings →
+      Account → "Go direct by itself when the exit node is offline" is on (off by default:
+      going direct shows the device's own address). Any exit-node choice made elsewhere ends
+      the pause. `core/ExitNodeGuard.kt`; the decision is unit-tested, **the whole path has not
+      run on a device yet** — take an exit node offline and watch both buttons and the return.
 - [x] **Beta releases, the groundwork (5.0.0).** One package and one key, two channels told
       apart by the tag: `vX.Y.Z-beta.N` is published as a GitHub pre-release, the in-app update
       check offers betas only with "Receive beta versions" on, F-Droid's tag pattern never

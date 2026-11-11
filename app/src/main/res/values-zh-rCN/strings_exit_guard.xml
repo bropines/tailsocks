@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exit-node guard: the selected exit node went offline (core/ExitNodeGuard.kt). -->
+<resources>
+    <string name="exitguard_channel">出口节点提醒</string>
+    <string name="exitguard_offline_title">出口节点 %1$s 已离线</string>
+    <string name="exitguard_offline_text">在它恢复之前，此设备无法上网。可以先直连，%1$s 恢复后出口节点会自动重新启用。</string>
+    <string name="exitguard_action_direct">恢复前先直连</string>
+    <string name="exitguard_action_off">关闭出口节点</string>
+    <string name="exitguard_paused_title">正在直连：%1$s 已离线</string>
+    <string name="exitguard_paused_text">流量不经出口节点直接发出。%1$s 恢复在线后会立即重新经由它。</string>
+    <string name="exitguard_action_forget">不再恢复</string>
+    <string name="exitguard_restored_title">出口节点 %1$s 已恢复</string>
+    <string name="exitguard_restored_text">流量重新经由它。</string>
+    <string name="main_exit_node_paused_label">出口节点已暂停</string>
+    <string name="settings_exit_guard_auto_title">出口节点离线时自动直连</string>
+    <string name="settings_exit_guard_auto_desc">关闭时会先通过通知询问。开启后，出口节点一掉线流量就直接发出（会暴露此设备自己的地址），节点恢复后自动重新启用。</string>
+</resources>

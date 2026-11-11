@@ -450,6 +450,12 @@ class TailscaledService : Service() {
             checkMagicDnsHealth(healthWarnings)
         }
 
+        // The exit node itself: selected and offline is a phone without internet.
+        if (isRunning && backendState == "Running" && !waitingForNetwork) {
+            runCatching { ExitNodeGuard.onTick(this@TailscaledService) }
+                .onFailure { Log.w(TAG, "Exit-node guard tick failed: ${it.message}") }
+        }
+
         // The VPN follows the netmap: a native start that waited for the node's
         // addresses, new addresses after a re-login, accepted subnet routes.
         if (isRunning && backendState == "Running") {
@@ -2378,6 +2384,7 @@ class TailscaledService : Service() {
         // The user asked for this one, so there is no outage left to report.
         ServiceWatchdog.clearRevivalRefused(this)
         ShareTargets.clear(this)
+        ExitNodeGuard.onStopped(this)
         refreshHandler.removeCallbacks(refreshRunnable)
 
         try {

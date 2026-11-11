@@ -4,6 +4,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- Exit node: when the selected one goes offline, a notification says so and offers "Go direct until it's back" — the exit node comes back on by itself when the node returns.
+
 ### Fixed
 
 - Backup & restore: a backup or profile export from the release app restores into the dev build (and the other way round) instead of being refused as another app's.

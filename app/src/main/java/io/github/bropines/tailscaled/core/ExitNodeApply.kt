@@ -61,6 +61,9 @@ object ExitNodeApply {
             val currentId = prefs.getString("exit_node_id", "").orEmpty()
             putString("exit_node_ip", ip)
             putString("exit_node_id", id)
+            // Any choice ends a pause the guard was holding: the person, a widget
+            // or a remote manager decided, and the node must not come back by itself.
+            with(ExitNodeGuard) { clearPause() }
             // The last node in use, which the widget lists while it knows of no other.
             when {
                 ip.isNotEmpty() -> { putString("last_exit_node_ip", ip); putString("last_exit_node_id", id) }

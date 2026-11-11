@@ -143,4 +143,5 @@
 
     <!-- Advanced -->
     <string name="search_kw_remote_management">управление с другого устройства, сопряжение, управлять телевизором с телефона, пульт, полный доступ, доступ к файлам по сети</string>
+    <string name="search_kw_exit_guard_auto">выходной узел не в сети, отвалился, нет интернета, запасной, автоматически, пауза, failover</string>
 </resources>

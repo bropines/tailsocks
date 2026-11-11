@@ -194,6 +194,7 @@ object SettingsCatalog {
         row("auth_key", SettingsPage.ACCOUNT, R.string.settings_auth_key_title, R.string.search_sum_auth_key, R.string.search_kw_auth_key)
         row("device_name", SettingsPage.ACCOUNT, R.string.settings_device_name_title, R.string.search_sum_device_name, R.string.search_kw_device_name)
         row("exit_node", SettingsPage.ACCOUNT, R.string.settings_exit_node_title, R.string.search_sum_exit_node, R.string.search_kw_exit_node, suggested = true)
+        row("exit_guard_auto", SettingsPage.ACCOUNT, R.string.settings_exit_guard_auto_title, R.string.settings_exit_guard_auto_desc, R.string.search_kw_exit_guard_auto)
         row("exit_node_lan", SettingsPage.ACCOUNT, R.string.client_prefs_lan_title, R.string.client_prefs_lan_desc, R.string.search_kw_exit_node_lan)
         row("accept_routes", SettingsPage.ACCOUNT, R.string.settings_accept_subnet_routes_title, R.string.settings_accept_routes_desc, R.string.search_kw_accept_routes)
         row("advertise_exit_node", SettingsPage.ACCOUNT, R.string.settings_advertise_exit_node_title, R.string.settings_advertise_exit_node_desc, R.string.search_kw_advertise_exit_node)

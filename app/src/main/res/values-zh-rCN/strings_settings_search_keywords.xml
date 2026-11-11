@@ -148,4 +148,5 @@
 
     <!-- Advanced -->
     <string name="search_kw_remote_management">远程控制, 从其他设备管理, 配对, 配对码, 用手机控制电视, 完全控制, 网络访问文件</string>
+    <string name="search_kw_exit_guard_auto">出口节点离线, 掉线, 无法上网, 故障转移, 自动, 暂停</string>
 </resources>

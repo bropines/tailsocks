@@ -149,4 +149,5 @@
 
     <!-- Advanced -->
     <string name="search_kw_remote_management">remote control, manage from another device, pair, pairing, control a tv from a phone, full control, network access to files</string>
+    <string name="search_kw_exit_guard_auto">exit node offline, failover, fallback, no internet, exit node down, pause exit node, automatic</string>
 </resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exit-node guard: the selected exit node went offline (core/ExitNodeGuard.kt). -->
+<resources>
+    <string name="exitguard_channel">Оповещения о выходном узле</string>
+    <string name="exitguard_offline_title">Выходной узел %1$s не в сети</string>
+    <string name="exitguard_offline_text">Пока он не вернётся, на устройстве нет интернета. Можно пока идти напрямую: когда %1$s появится, выходной узел включится сам.</string>
+    <string name="exitguard_action_direct">Напрямую, пока не вернётся</string>
+    <string name="exitguard_action_off">Выключить выходной узел</string>
+    <string name="exitguard_paused_title">Идём напрямую: %1$s не в сети</string>
+    <string name="exitguard_paused_text">Трафик идёт без выходного узла. Как только %1$s вернётся в сеть, он снова пойдёт через него.</string>
+    <string name="exitguard_action_forget">Не возвращать</string>
+    <string name="exitguard_restored_title">Выходной узел %1$s снова в сети</string>
+    <string name="exitguard_restored_text">Трафик опять идёт через него.</string>
+    <string name="main_exit_node_paused_label">Выходной узел на паузе</string>
+    <string name="settings_exit_guard_auto_title">Идти напрямую, если выходной узел не в сети</string>
+    <string name="settings_exit_guard_auto_desc">Без этого уведомление сначала спросит. С этим трафик пойдёт напрямую, как только выходной узел пропадёт (сайты увидят адрес этого устройства), а когда узел вернётся, он включится сам.</string>
+</resources>

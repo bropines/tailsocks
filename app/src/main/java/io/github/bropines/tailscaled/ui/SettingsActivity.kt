@@ -1061,6 +1061,16 @@ fun SettingsScreen(
                 saveProfilePref("exit_node_id", id, triggerService = false)
             }
             ExitNodeLanRow(nodeSwitches, saveNodeSwitch)
+            var exitNodeAutoDirect by remember { mutableStateOf(GlobalSettings.isExitNodeAutoDirect(context)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_exit_guard_auto_title),
+                stringResource(R.string.settings_exit_guard_auto_desc),
+                Icons.Default.AltRoute,
+                exitNodeAutoDirect
+            ) {
+                GlobalSettings.setExitNodeAutoDirect(context, it)
+                exitNodeAutoDirect = it
+            }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsSwitchItem(stringResource(R.string.settings_accept_subnet_routes_title), stringResource(R.string.settings_accept_routes_desc), Icons.Default.Map, acceptRoutes) { acceptRoutes = it; saveGlobalPref("accept_routes", it) }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))

@@ -537,6 +537,9 @@ object GlobalSettings {
     fun isShowChangelogAfterUpdate(context: Context): Boolean = getBoolean(context, "show_changelog_after_update", true)
     fun setShowChangelogAfterUpdate(context: Context, enabled: Boolean) = setBoolean(context, "show_changelog_after_update", enabled)
     /** The row under a connected status card: device, peers online, exit node, relay. */
+    /** Whether an offline exit node is taken off without asking; see ExitNodeGuard. */
+    fun isExitNodeAutoDirect(context: Context): Boolean = getBoolean(context, "exit_node_auto_direct", false)
+    fun setExitNodeAutoDirect(context: Context, on: Boolean) = setBoolean(context, "exit_node_auto_direct", on)
     fun isConnectionSummaryShown(context: Context): Boolean = getBoolean(context, "show_connection_summary", true)
     fun setConnectionSummaryShown(context: Context, shown: Boolean) = setBoolean(context, "show_connection_summary", shown)
 
@@ -621,6 +624,8 @@ object GlobalSettings {
         KEY_TAILDRIVE_PARALLEL,
         // Taildrive in other apps: seekable or a stream.
         KEY_TAILDRIVE_SEEKABLE,
+        // What an offline exit node does to the connection.
+        "exit_node_auto_direct",
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary", "show_managed_on_main",
         "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE

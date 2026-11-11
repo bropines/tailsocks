@@ -620,11 +620,19 @@ fun MainScreen(
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
     val isFullTunnel = exitNodeIp.isNotEmpty()
+    // An exit node the guard took off because it is offline and will select again
+    // by itself (ExitNodeGuard): the row must not read as a plain "no exit node".
+    var exitNodePausedName by remember(activeAccount.id) {
+        mutableStateOf(if (demo != null) "" else prefs.getString(ExitNodeGuard.KEY_PAUSED_NAME, "").orEmpty())
+    }
 
     val profilePrefsListener = remember(activeAccount.id) {
         android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
             if (key == "exit_node_ip") {
                 exitNodeIp = sharedPreferences.getString("exit_node_ip", "") ?: ""
+            }
+            if (key == ExitNodeGuard.KEY_PAUSED_NAME) {
+                exitNodePausedName = sharedPreferences.getString(ExitNodeGuard.KEY_PAUSED_NAME, "").orEmpty()
             }
         }
     }
@@ -1497,6 +1505,7 @@ fun MainScreen(
                 val exitNodeInert = exitNodeIp.isNotEmpty() && yieldedToForeignVpn
                 val exitNodePartial = exitNodeIp.isNotEmpty() && sharedWithForeignVpn
                 val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
+                val exitNodePaused = exitNodeIp.isEmpty() && exitNodePausedName.isNotEmpty()
                 Surface(
                     color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = MaterialTheme.shapes.large,
@@ -1521,6 +1530,7 @@ fun MainScreen(
                                     exitNodeInert -> stringResource(R.string.main_exit_node_inert_label)
                                     exitNodePartial -> stringResource(R.string.main_exit_node_partial_label)
                                     exitNodeActive -> stringResource(R.string.main_traffic_routed)
+                                    exitNodePaused -> stringResource(R.string.main_exit_node_paused_label)
                                     else -> stringResource(R.string.main_exit_node_none_label)
                                 },
                                 fontWeight = FontWeight.Bold,
@@ -1531,6 +1541,7 @@ fun MainScreen(
                                     exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
                                     exitNodePartial -> stringResource(R.string.main_exit_node_partial_desc, exitNodeIp)
                                     exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, connectionSummary?.exitNodeName ?: exitNodeIp)
+                                    exitNodePaused -> stringResource(R.string.exitguard_paused_text, exitNodePausedName)
                                     else -> stringResource(if (touchWording) R.string.main_exit_node_none_desc else R.string.tv_home_exit_node_none)
                                 },
                                 style = MaterialTheme.typography.bodySmall,

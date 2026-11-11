@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exit-node guard: the selected exit node went offline (core/ExitNodeGuard.kt). -->
+<resources>
+    <string name="exitguard_channel">Exit node alerts</string>
+    <string name="exitguard_offline_title">Exit node %1$s is offline</string>
+    <string name="exitguard_offline_text">This device has no internet until it returns. Go direct for now, and the exit node comes back on by itself when %1$s does.</string>
+    <string name="exitguard_action_direct">Go direct until it\'s back</string>
+    <string name="exitguard_action_off">Turn off exit node</string>
+    <string name="exitguard_paused_title">Going direct: %1$s is offline</string>
+    <string name="exitguard_paused_text">Traffic leaves without an exit node. It goes through %1$s again as soon as it is back online.</string>
+    <string name="exitguard_action_forget">Don\'t restore</string>
+    <string name="exitguard_restored_title">Exit node %1$s is back</string>
+    <string name="exitguard_restored_text">Traffic goes through it again.</string>
+    <string name="main_exit_node_paused_label">Exit node paused</string>
+    <string name="settings_exit_guard_auto_title">Go direct by itself when the exit node is offline</string>
+    <string name="settings_exit_guard_auto_desc">Without this, a notification asks first. With it, traffic leaves directly as soon as the exit node drops off, which shows this device\'s own address, and the exit node comes back on when it returns.</string>
+</resources>
