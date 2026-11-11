@@ -661,6 +661,12 @@ class TailscaledService : Service() {
             } finally {
                 rootRoutingInFlight = false
             }
+            // The apply decided on the redirect when it started, and a network
+            // that validated while it ran released the hold too late for it:
+            // the redirect stayed off until the next tick. Ask the gate now.
+            if (rootDnsTierInstalled && dnsRedirectUnhooked && RootUtils.dnsRedirectHold == null) {
+                runCatching { checkMagicDnsHealth(readHealthWarnings(Appctr.isRunning())) }
+            }
         }.start()
     }
 
