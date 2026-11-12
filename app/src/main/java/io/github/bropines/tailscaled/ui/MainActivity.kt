@@ -1662,11 +1662,11 @@ fun MainScreen(
             // The optional pictures (Settings → Appearance → Main screen blocks), under
             // everything the status always had so that turning one on moves nothing above it.
             if (cardState == "ACTIVE" && MainBlock.SPEED_GRAPH in mainBlocks) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 SpeedGraphCard(Modifier.fillMaxWidth()) { context.startActivity(Intent(context, TailnetMapActivity::class.java)) }
             }
             if (MainBlock.CONNECTION_TIMELINE in mainBlocks) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 ConnectionTimelineCard(Modifier.fillMaxWidth())
             }
 

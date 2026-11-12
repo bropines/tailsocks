@@ -174,7 +174,7 @@ internal fun ConnectionTimelineContent(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 12.dp)) {
+        Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp)) {
             // The title beside the windows where both fit; on a narrow screen or at a large font the
             // windows go to a line of their own rather than squeeze the title to its first letters.
             FlowRow(
