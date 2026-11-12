@@ -166,7 +166,13 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Verify on devices
 
-- [ ] **5.8.1 — what a device has not shown yet.** Seen on the Redmi (Root Mode, 2026-11-12):
+- [ ] **5.9.0 — what a device has not shown yet.** Seen on the Redmi (2026-11-12): a 300 MB
+      file sent from the Share sheet in the background — the progress notification, the Live
+      Update chip, the card on the Files page, the result notification, Cancel half-way — and
+      a pick from the sheet's list. Not seen: several files in one send (the queue, "2 of 3"),
+      a send that fails (an offline device), a send from a peer's sheet, the notification on
+      Android 7–15 (a plain bar there), and a share from an app whose grant ends with the sheet.
+ Seen on the Redmi (Root Mode, 2026-11-12):
       a service created on the Serve screen joining `AdvertiseServices`, `serve drain` emptying
       it and the drained service staying out through another rule's edit, its removal, the
       one-time adoption mark written into a root daemon's state directory; Taildrop taking the
