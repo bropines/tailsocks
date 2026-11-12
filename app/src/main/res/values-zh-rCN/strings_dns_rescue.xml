@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → DNS: the daemon resolver's rescue to the fallback servers (TS_DNS_RESCUE, patch 14). -->
+<resources>
+    <string name="settings_dns_rescue_title">tailnet 的 DNS 失效时使用备用 DNS</string>
+    <string name="settings_dns_rescue_desc">当 tailnet 的 DNS 服务器拒绝或无响应时，改向上方的备用服务器查询，故障时手机仍能解析域名。如果你的 tailnet DNS 是不可绕过的过滤器（NextDNS、Pi-hole、AdGuard Home），请关闭。</string>
+</resources>

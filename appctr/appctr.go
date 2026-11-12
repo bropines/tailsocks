@@ -228,6 +228,10 @@ type StartOptions struct {
 	// last time (TS_USE_CACHED_NETMAP=false, see netmapCacheEnv). The zero value
 	// keeps upstream's default, under which the coordination server decides.
 	NetmapCacheOff bool
+	// DnsRescueOff stops the daemon's resolver from retrying a failed query
+	// against the fallback resolvers (TS_DNS_RESCUE=0, see dnsRescueEnv). The
+	// zero value keeps the rescue on.
+	DnsRescueOff bool
 	// ControlPort80 lets the control connection try the plain port 80 upgrade
 	// first, as upstream does. The zero value sends it straight to TLS on port
 	// 443 (TS_FORCE_NOISE_443, see controlPortEnv).
@@ -656,6 +660,7 @@ func ApplySettings(opt *StartOptions) {
 	if old == nil {
 		stateMu.Lock()
 		lastOptions = opt
+		dnsRescueOff.Store(opt != nil && opt.DnsRescueOff)
 		stateMu.Unlock()
 		ReUp()
 		syncSettings(currentDaemonCtx(), opt)
@@ -670,14 +675,27 @@ func ApplySettings(opt *StartOptions) {
 		old.StatePath != opt.StatePath ||
 		old.LoginServer != opt.LoginServer ||
 		old.NetmapCacheOff != opt.NetmapCacheOff ||
+		old.DnsRescueOff != opt.DnsRescueOff ||
 		old.ControlPort80 != opt.ControlPort80 {
-		slog.Info("Critical settings or account changed, performing full restart")
-		Start(opt)
-		return
+		stateMu.Lock()
+		external := externalSocketPath != ""
+		stateMu.Unlock()
+		if !external {
+			slog.Info("Critical settings or account changed, performing full restart")
+			Start(opt)
+			return
+		}
+		// Attached to a daemon this bridge did not launch (Root Mode): Start would
+		// launch a second one beside it, which dies on the listeners the first one
+		// holds and takes the session down. What the daemon reads at start is its
+		// owner's to change, by restarting it (the service does, on a changed
+		// RootDaemonSpec); everything that can be applied live is applied below.
+		slog.Warn("Critical settings changed while attached to an external daemon; applying what can be applied live")
 	}
 
 	stateMu.Lock()
 	lastOptions = opt
+	dnsRescueOff.Store(opt != nil && opt.DnsRescueOff)
 	stateMu.Unlock()
 	GConfig.update(opt.Socks5Server, opt.Socks5User, opt.Socks5Pass, opt.DnsProxy)
 
@@ -810,6 +828,7 @@ func Start(opt *StartOptions) {
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	pc := PC
 	lastOptions = opt
+	dnsRescueOff.Store(opt != nil && opt.DnsRescueOff)
 	daemonStartTime = time.Now()
 	ctx := newDaemonRunLocked()
 	generation := daemonGeneration
@@ -834,7 +853,7 @@ func Start(opt *StartOptions) {
 			osVersion:   opt.OsVersion,
 			deviceModel: opt.DeviceModel,
 			pkg:         opt.InstallSource,
-		}, append(netmapCacheEnv(opt.NetmapCacheOff), controlPortEnv(opt.ControlPort80)...))
+		}, append(append(netmapCacheEnv(opt.NetmapCacheOff), controlPortEnv(opt.ControlPort80)...), dnsRescueEnv(opt.DnsRescueOff)...))
 		if errors.Is(err, errLaunchSuperseded) {
 			// A Stop() or another Start() retired this run before its process
 			// existed; there is nothing to tear down and nothing to report.
@@ -897,6 +916,7 @@ func AttachExternal(opt *StartOptions) {
 	externalSocketPath = opt.SocketPath
 	PC = newPathControl(opt.ExecPath, opt.SocketPath, opt.StatePath)
 	lastOptions = opt
+	dnsRescueOff.Store(opt != nil && opt.DnsRescueOff)
 	daemonStartTime = time.Now()
 	ctx := newDaemonRunLocked()
 	pc := PC

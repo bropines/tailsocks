@@ -2154,6 +2154,21 @@ fun SettingsScreen(
             SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            var dnsRescue by remember { mutableStateOf(GlobalSettings.isDnsRescueEnabled(context)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_dns_rescue_title),
+                stringResource(R.string.settings_dns_rescue_desc),
+                Icons.Default.HealthAndSafety,
+                dnsRescue
+            ) {
+                dnsRescue = it
+                GlobalSettings.setDnsRescueEnabled(context, it)
+                // The daemon reads it at start, hence RESTART rather than APPLY.
+                if (ProxyState.isUserLetRunning(context)) {
+                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
+                }
+            }
         }
 
         if (place(Feature.DNS_SCREEN) == Availability.OFFERED) {

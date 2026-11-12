@@ -279,6 +279,33 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
     diff -N -u /dev/null tailscale_src/util/osuser/android_test.go || true
 } > patches/28-android-ssh.patch
 
+# 29-proxy-loopback-guard.patch (creates cmd/tailscaled/proxy_guard.go)
+# A SOCKS5 or HTTP proxy that is open beyond the device — bound to the Wi-Fi
+# ("LAN access") or let through by the tailnet-reach policy — refuses loopback
+# destinations: a neighbour's CONNECT 127.0.0.1:port used to reach every
+# localhost listener of the phone, past the netstack guard of 23, which a
+# proxy dial never meets. proxy_reach.go carries the policy's answer from
+# android_loopback.go (23) to the proxies; the two calls in proxy.go travel in
+# 02 and the one in android_loopback.go in 23 (whole-file diffs).
+{
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/proxy_guard.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/proxy_guard_test.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/proxy_reach.go || true
+} > patches/29-proxy-loopback-guard.patch
+
+# 30-android-localapi-callers.patch (creates cmd/tailscaled/localapi_guard_android.go)
+# LocalAPI asks who is calling. Upstream trusts every caller on Android and 12
+# makes the socket 0666 for a root daemon, which left the app's data directory
+# mode as the only thing between any process and a root daemon's whole API.
+# Root, the daemon's UID and the owner of the socket's directory (the app) are
+# let in, as on drive.sock (26); everyone else is closed at accept. The one
+# call from startIPNServer travels in 08 (whole-file diff).
+{
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/localapi_guard_android.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/localapi_guard_android_test.go || true
+    diff -N -u /dev/null tailscale_src/cmd/tailscaled/localapi_guard_other.go || true
+} > patches/30-android-localapi-callers.patch
+
 # Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
 # swallowed it — exactly how 08-netstack-cgnat was silently lost during the
 # v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.

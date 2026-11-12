@@ -91,7 +91,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   * [`core/`](app/src/main/java/io/github/bropines/tailscaled/core/) — Background services, VPN tunnel, ByeDPI JNI, account storage, tasker receiver.
   * [`ui/`](app/src/main/java/io/github/bropines/tailscaled/ui/) — Jetpack Compose dashboards, settings, serve UI, and dialogs.
 * [`appctr/`](appctr/) — Go Gomobile bridge and core engine.
-  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `23-*.patch`).
+  * [`patches/`](appctr/patches/) — Atomic Tailscale patch files (`01-*.patch` .. `30-*.patch`).
   * [`tailscale_src/`](appctr/tailscale_src/) — Active patched Tailscale source copy (git-ignored).
   * [`orig/`](appctr/orig/) — Original clean Tailscale sources (git-ignored).
 

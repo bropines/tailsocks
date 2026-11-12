@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → DNS: the daemon resolver's rescue to the fallback servers (TS_DNS_RESCUE, patch 14). -->
+<resources>
+    <string name="settings_dns_rescue_title">Use fallback DNS when the tailnet\'s DNS fails</string>
+    <string name="settings_dns_rescue_desc">When the tailnet\'s DNS servers refuse or do not answer, names are asked of the fallback servers above, so an outage does not leave the phone without DNS. Turn off if your tailnet\'s DNS is a filter (NextDNS, Pi-hole, AdGuard Home) that must not be bypassed.</string>
+</resources>

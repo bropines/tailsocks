@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Tailnet map: this device in the centre, every peer around it, and how each is reached — direct, a relay or a peer relay — with live traffic on the links. A row under the cards opens it.
 - Main screen: a speed graph (the last minute, and who is using it) and a connection timeline (the last hours: connected, recovering, waiting for a network). Both are off until switched on.
 - Main screen blocks: Settings → Appearance chooses what the main screen shows — the exit node, the graph, the timeline, the map row and every card.
+- DNS: "Use fallback DNS when the tailnet's DNS fails" (Settings → DNS, on by default). Turn it off when the tailnet's DNS is a filter such as NextDNS or Pi-hole, so a blocked or unanswered name is never sent to a public server.
 - Exit node picker: a world map of the exit nodes, next to the list. A node of your own is placed near its relay and marked as approximate.
 
 ### Fixed
@@ -21,6 +22,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Security: another app can no longer make TailSocks open its internal screens, read outside a granted Taildrive folder, or send the app's own files through Share; the Taildrive proxy refuses requests from web pages; SOCKS5 and proxy passwords come from the system's secure generator; secrets are kept out of the log.
 - The main screen no longer freezes while a slow daemon starts, and onboarding no longer hangs on the root prompt.
 - Root Mode: a peer naming itself `localhost` or `wpad` is not published device-wide under that name.
+- Security: a SOCKS5 or HTTP proxy opened to the local network or the tailnet no longer connects to the phone's own localhost, and the daemon's control socket answers only root, the daemon and the app.
 - Root Mode: with a DNS server on the tailnet, turning mobile data off and on no longer leaves the phone offline — device-wide DNS stays off until Android confirms the network works, and comes back once MagicDNS really answers.
 
 ## [5.7.0] - 2026-11-08

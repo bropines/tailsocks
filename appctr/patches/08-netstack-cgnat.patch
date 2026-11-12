@@ -1,5 +1,5 @@
 --- orig/cmd/tailscaled/tailscaled.go	2026-11-03 00:52:02
-+++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-11-08 22:32:28
++++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-11-12 04:54:13
 @@ -49,6 +49,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"
@@ -20,7 +20,16 @@
  	}
  
  	var publicLogID logid.PublicID
-@@ -768,8 +774,11 @@
+@@ -610,6 +616,8 @@
+ 	if err != nil {
+ 		return fmt.Errorf("safesocket.Listen: %v", err)
+ 	}
++	// TailSocks: on Android only root, the daemon and the app may call.
++	ln = guardLocalAPIListener(logf, ln, args.socketpath)
+ 
+ 	ctx, cancel := context.WithCancel(ctx)
+ 	defer cancel()
+@@ -768,8 +776,11 @@
  	if err != nil {
  		return nil, fmt.Errorf("ipnlocal.NewLocalBackend: %w", err)
  	}
@@ -33,7 +42,7 @@
  			_, ok := lb.PeerForIP(ip)
  			return ok
  		}
-@@ -877,8 +886,11 @@
+@@ -877,8 +888,11 @@
  	sys.HealthTracker.Get().SetMetricsRegistry(sys.UserMetricsRegistry())
  
  	onlyNetstack = name == "userspace-networking"
@@ -46,7 +55,7 @@
  
  	if buildfeatures.HasBird && args.birdSocketPath != "" {
  		conf.BIRDSocket = args.birdSocketPath
-@@ -897,7 +909,11 @@
+@@ -897,7 +911,11 @@
  			}
  		}
  	} else {
@@ -59,7 +68,7 @@
  		if err != nil {
  			tstun.Diagnose(logf, name, err)
  			return false, fmt.Errorf("tstun.New(%q): %w", name, err)
-@@ -922,10 +938,16 @@
+@@ -922,10 +940,16 @@
  			netmon.SetTailscaleInterfaceProps(devName, 0)
  		}
  

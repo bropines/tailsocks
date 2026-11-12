@@ -100,6 +100,22 @@ func cliCommand(p pathControl, args ...string) *exec.Cmd {
 // the attribute being withdrawn, so the next network map deletes the cache.
 // Upstream's own Android app builds with ts_omit_cachenetmap "until we have
 // UI affordances for debugging it"; this switch is that affordance here.
+// dnsRescueEnv is the daemon's environment for the DNS rescue (patch 14):
+// nothing while it is on, TS_DNS_RESCUE=0 when the user turned it off.
+//
+// When every resolver of the tailnet's global DNS fails, the daemon asks the
+// fallback resolvers instead, so a dead exit node's or a dead tailnet server's
+// DNS does not leave the phone without names. That is the wrong answer for a
+// tailnet whose global resolver is a filter (NextDNS, Pi-hole, AdGuard Home):
+// a refusal from it, or its being down, would send the name to a public
+// resolver and past the filter. The switch is for that tailnet.
+func dnsRescueEnv(off bool) []string {
+	if !off {
+		return nil
+	}
+	return []string{"TS_DNS_RESCUE=0"}
+}
+
 func netmapCacheEnv(off bool) []string {
 	if !off {
 		return nil

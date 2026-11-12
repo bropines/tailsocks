@@ -261,6 +261,9 @@ class TailscaledService : Service() {
     /** Consecutive refresh ticks in which MagicDNS did not answer. */
     @Volatile private var magicDnsFailures = 0
 
+    /** What the root daemon this service started or adopted runs with; null outside Root Mode. */
+    @Volatile private var runningRootSpec: RootUtils.RootDaemonSpec? = null
+
     /** The refresh tick's last reading, for [NetTrace]'s snapshots (dev builds). */
     @Volatile private var traceBackend = ""
     @Volatile private var traceHealth = ""
@@ -1874,6 +1877,20 @@ class TailscaledService : Service() {
                 refreshHandler.postDelayed(refreshRunnable, 1000)
                 return START_STICKY
             }
+            // The root daemon reads its listeners, credentials and switches at start,
+            // from what RootUtils launched it with. The bridge cannot restart a daemon
+            // it did not launch: asked to apply such a change it started a second one
+            // of its own beside the root daemon, which died on the taken SOCKS5 port
+            // and took Root Mode down with it — one switch in Settings, and the
+            // phone was offline until the next manual start.
+            if (GlobalSettings.isRootModeEnabled(this)) {
+                val wanted = rootDaemonSpec(buildStartOptions())
+                val running = runningRootSpec
+                if (running != null && running != wanted) {
+                    Log.i(TAG, "A setting the root daemon reads at start changed; restarting it")
+                    return onStartCommand(Intent(this, TailscaledService::class.java).setAction("RESTART_ACTION"), flags, startId)
+                }
+            }
             Thread {
                 Appctr.applySettings(buildStartOptions())
                 try { Thread.sleep(1500) } catch (e: Exception) {}
@@ -2039,6 +2056,9 @@ class TailscaledService : Service() {
                         // now, so a settings change made while attached is not lost
                         // to the next reboot.
                         RootUtils.writeRootEnvFile(this@TailscaledService, rootDaemonSpec(options))
+                        // What it was really started with is not known; taken to be
+                        // this, so that only a change made from here on restarts it.
+                        runningRootSpec = rootDaemonSpec(options)
                         Appctr.attachExternal(options)
                     } else {
                         // GIVE_UP: a daemon that never answered, socket or not —
@@ -2064,6 +2084,7 @@ class TailscaledService : Service() {
                             shutdownDaemon()
                             return@Thread
                         }
+                        runningRootSpec = rootDaemonSpec(options)
                         Appctr.attachExternal(options)
                     }
                 } else {
@@ -2259,6 +2280,8 @@ class TailscaledService : Service() {
             installSource = installSourceName()
             // Read by the daemon at start (TS_USE_CACHED_NETMAP); see NetmapCache.
             netmapCacheOff = !NetmapCache.isEnabled(this@TailscaledService)
+            // Read by the daemon at start (TS_DNS_RESCUE); see GlobalSettings.isDnsRescueEnabled.
+            dnsRescueOff = !GlobalSettings.isDnsRescueEnabled(this@TailscaledService)
             // Read by the daemon at start (TS_FORCE_NOISE_443); see ControlPort.
             controlPort80 = !ControlPort.isTlsOnly(this@TailscaledService)
             // Remote management, off unless switched on on this device; the bridge gets
@@ -2315,6 +2338,7 @@ class TailscaledService : Service() {
             deviceModel = options.deviceModel,
             installSource = options.installSource,
             netmapCache = !options.netmapCacheOff,
+            dnsRescue = !options.dnsRescueOff,
             controlTlsOnly = !options.controlPort80,
         )
     }

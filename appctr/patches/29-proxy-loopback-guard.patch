@@ -1,0 +1,241 @@
+--- /dev/null	2026-11-12 04:57:02
++++ tailscale_src/cmd/tailscaled/proxy_guard.go	2026-11-12 04:53:51
+@@ -0,0 +1,133 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build !ts_omit_outboundproxy
++
++package main
++
++// TailSocks: a proxy opened beyond this device must not lead back into it.
++//
++// The SOCKS5 and HTTP proxies dial wherever the client asks, and "127.0.0.1"
++// asked of a proxy means the machine the proxy runs on. Bound to loopback that
++// is harmless: whoever can connect is already on the device. Bound to the
++// Wi-Fi or the tailnet interface ("LAN access", "Reachable from the tailnet"),
++// it handed every neighbour the phone's localhost — the web UI, the Taildrive
++// proxy, adb, any other app's local server — past the loopback guard that
++// netstack applies to tailnet peers (patch 23), which a proxy dial never
++// meets.
++//
++// While a listener is open beyond the device, a destination that is loopback
++// or unspecified by its text is refused before any dial, and a connection that
++// turned out to end on loopback (a name that resolves there) is closed. That
++// covers the proxy opened to the tailnet in userspace networking too, where
++// peers arrive through netstack at the loopback listener and look like local
++// apps: the guard asks the loopback guard's own policy about the port. A
++// listener only this device reaches keeps the plain dialer.
++
++import (
++	"context"
++	"errors"
++	"net"
++	"net/netip"
++	"strings"
++)
++
++type proxyDialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
++
++var errProxyLoopback = errors.New("this proxy is open beyond the device and does not connect to the device itself")
++
++// guardProxyDial returns dial behind the loopback guard for ln. The guard
++// stands while ln is open beyond the device: bound to anything but loopback,
++// or bound to loopback on a port the tailnet is let through to (asked on every
++// dial, because that policy changes without a restart). A listener that only
++// this device reaches dials as before.
++func guardProxyDial(ln net.Listener, dial proxyDialFunc) proxyDialFunc {
++	if ln == nil {
++		return dial
++	}
++	onLoopback := listenerOnLoopback(ln.Addr())
++	port := listenerPort(ln.Addr())
++	return func(ctx context.Context, network, addr string) (net.Conn, error) {
++		if onLoopback && !tailnetReaches(port) {
++			return dial(ctx, network, addr)
++		}
++		if proxyTargetIsLocal(addr) {
++			return nil, errProxyLoopback
++		}
++		c, err := dial(ctx, network, addr)
++		if err != nil {
++			return nil, err
++		}
++		if addrIsLoopback(c.RemoteAddr()) {
++			c.Close()
++			return nil, errProxyLoopback
++		}
++		return c, nil
++	}
++}
++
++// listenerOnLoopback reports whether a listener at a accepts only from this
++// device. An address that cannot be read counts as open: the guard is the
++// safe side to err on.
++func listenerOnLoopback(a net.Addr) bool {
++	if a == nil {
++		return false
++	}
++	ap, err := netip.ParseAddrPort(a.String())
++	if err != nil {
++		return false
++	}
++	return ap.Addr().Unmap().IsLoopback()
++}
++
++func listenerPort(a net.Addr) uint16 {
++	if a == nil {
++		return 0
++	}
++	ap, err := netip.ParseAddrPort(a.String())
++	if err != nil {
++		return 0
++	}
++	return ap.Port()
++}
++
++// tailnetReaches reports whether peers are let through to port on loopback.
++func tailnetReaches(port uint16) bool {
++	if port == 0 {
++		return false
++	}
++	reach := proxyTailnetReach.Load()
++	return reach != nil && (*reach)(port)
++}
++
++// proxyTargetIsLocal reports whether the host of hostPort names this device by
++// its text alone: a loopback or unspecified address, or "localhost".
++func proxyTargetIsLocal(hostPort string) bool {
++	host, _, err := net.SplitHostPort(hostPort)
++	if err != nil {
++		host = hostPort
++	}
++	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
++	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
++		return true
++	}
++	if i := strings.IndexByte(host, '%'); i >= 0 {
++		host = host[:i]
++	}
++	ip, err := netip.ParseAddr(host)
++	if err != nil {
++		return false
++	}
++	ip = ip.Unmap()
++	return ip.IsLoopback() || ip.IsUnspecified()
++}
++
++func addrIsLoopback(a net.Addr) bool {
++	if a == nil {
++		return false
++	}
++	if ap, err := netip.ParseAddrPort(a.String()); err == nil {
++		return ap.Addr().Unmap().IsLoopback()
++	}
++	return false
++}
+--- /dev/null	2026-11-12 04:57:02
++++ tailscale_src/cmd/tailscaled/proxy_guard_test.go	2026-11-12 04:53:51
+@@ -0,0 +1,83 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build !ts_omit_outboundproxy
++
++package main
++
++import (
++	"context"
++	"net"
++	"testing"
++)
++
++func TestProxyTargetIsLocal(t *testing.T) {
++	for addr, want := range map[string]bool{
++		"127.0.0.1:80":            true,
++		"127.8.8.8:80":            true,
++		"[::1]:80":                true,
++		"[::ffff:127.0.0.1]:80":   true,
++		"0.0.0.0:80":              true,
++		"[::]:80":                 true,
++		"localhost:80":            true,
++		"LOCALHOST.:80":           true,
++		"app.localhost:80":        true,
++		"100.64.0.1:80":           false,
++		"192.168.1.20:80":         false,
++		"example.com:443":         false,
++		"localhost.example.com:1": false,
++	} {
++		if got := proxyTargetIsLocal(addr); got != want {
++			t.Errorf("proxyTargetIsLocal(%q) = %v, want %v", addr, got, want)
++		}
++	}
++}
++
++func TestGuardProxyDial(t *testing.T) {
++	dialed := 0
++	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
++		dialed++
++		a, b := net.Pipe()
++		b.Close()
++		return a, nil
++	}
++	loop, err := net.Listen("tcp", "127.0.0.1:0")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer loop.Close()
++	// A loopback listener keeps the plain dialer, loopback targets included.
++	if c, err := guardProxyDial(loop, dial)(context.Background(), "tcp", "127.0.0.1:1"); err != nil {
++		t.Fatalf("loopback listener: %v", err)
++	} else {
++		c.Close()
++	}
++
++	// The same listener, once the tailnet is let through to its port, is open
++	// beyond the device: peers reach it through netstack from loopback.
++	reach := func(port uint16) bool { return port == listenerPort(loop.Addr()) }
++	proxyTailnetReach.Store(&reach)
++	if _, err := guardProxyDial(loop, dial)(context.Background(), "tcp", "127.0.0.1:1"); err == nil {
++		t.Fatal("a loopback listener open to the tailnet dialed loopback")
++	}
++	proxyTailnetReach.Store(nil)
++
++	open, err := net.Listen("tcp", "0.0.0.0:0")
++	if err != nil {
++		t.Skipf("no wildcard listener here: %v", err)
++	}
++	defer open.Close()
++	guarded := guardProxyDial(open, dial)
++	before := dialed
++	if _, err := guarded(context.Background(), "tcp", "127.0.0.1:1"); err == nil {
++		t.Fatal("an open listener dialed loopback")
++	}
++	if dialed != before {
++		t.Fatal("a refused target was dialed anyway")
++	}
++	if c, err := guarded(context.Background(), "tcp", "100.64.0.1:80"); err != nil {
++		t.Fatalf("an open listener refused a tailnet address: %v", err)
++	} else {
++		c.Close()
++	}
++}
+--- /dev/null	2026-11-12 04:57:02
++++ tailscale_src/cmd/tailscaled/proxy_reach.go	2026-11-12 04:53:51
+@@ -0,0 +1,16 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++package main
++
++import "sync/atomic"
++
++// TailSocks: proxyTailnetReach answers whether the tailnet may reach a TCP
++// port of this node through netstack's road to localhost — the loopback
++// guard's policy (android_loopback.go), set when that guard is installed and
++// nil without it. The proxies ask it about their own port: a listener on
++// 127.0.0.1 that peers are let through to is open beyond the device all the
++// same, and its clients arrive from loopback like any local app's. Kept in a
++// file without build tags, since the guard and the proxies are each compiled
++// out by a tag of their own.
++var proxyTailnetReach atomic.Pointer[func(port uint16) bool]

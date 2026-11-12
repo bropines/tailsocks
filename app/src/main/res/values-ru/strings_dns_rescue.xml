@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → DNS: the daemon resolver's rescue to the fallback servers (TS_DNS_RESCUE, patch 14). -->
+<resources>
+    <string name="settings_dns_rescue_title">Запасной DNS, когда DNS tailnet не отвечает</string>
+    <string name="settings_dns_rescue_desc">Если DNS-серверы tailnet отказывают или молчат, имена спрашиваются у запасных серверов выше, и сбой не оставляет телефон без DNS. Выключите, если DNS вашего tailnet — фильтр (NextDNS, Pi-hole, AdGuard Home), который нельзя обходить.</string>
+</resources>

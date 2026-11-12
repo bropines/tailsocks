@@ -282,6 +282,15 @@ func dnsAnswersQuestion(resp dnsmessage.Message, q dnsmessage.Question) bool {
 	return len(resp.Questions) > 0 && resp.Questions[0].Type == q.Type
 }
 
+// dnsRescueOff is the user's "do not go around the tailnet's DNS" (Settings →
+// DNS, StartOptions.DnsRescueOff). The daemon's own resolver obeys it through
+// TS_DNS_RESCUE; this proxy has a fallback of its own, to the public servers,
+// for every public name the daemon gave no records for — which sends a name a
+// filtering resolver blocked (NXDOMAIN, REFUSED, an empty answer) straight to
+// a resolver that will answer it. With the switch off the daemon's verdict is
+// the answer, whatever it is, and silence is SERVFAIL.
+var dnsRescueOff atomic.Bool
+
 func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	var msg dnsmessage.Message
 	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
@@ -321,7 +330,8 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	// resolver's own address as the name's A record when that failed.
 	// A public name skips it while the resolver is known not to answer; see
 	// resolverPausedUntil.
-	if !isMagicDNS && time.Now().UnixMilli() < resolverPausedUntil.Load() {
+	strict := dnsRescueOff.Load()
+	if !strict && !isMagicDNS && time.Now().UnixMilli() < resolverPausedUntil.Load() {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 	// The endpoint takes a few record types by name and answers anything else
@@ -331,7 +341,7 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	// name has no such record, and is never sent to a public server.
 	typeStr, known := dnsQueryTypeName(q.Type)
 	if !known {
-		if isMagicDNS {
+		if isMagicDNS || strict {
 			return packNoData(msg)
 		}
 		return tryFallbackDNS(query, fallbacks, dohUrl)
@@ -354,7 +364,7 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 			// For a tailnet name, trust the daemon's verdict — including NODATA
 			// and NXDOMAIN. Falling through would resend the internal name to a
 			// public resolver, leaking it and overriding the correct answer.
-			if isMagicDNS && wellFormed {
+			if (isMagicDNS || strict) && wellFormed {
 				dnsResp.Bytes[0] = query[0]
 				dnsResp.Bytes[1] = query[1]
 				return dnsResp.Bytes
@@ -365,6 +375,9 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	// A tailnet name that reached here has no answer; do not leak it publicly.
 	if isMagicDNS {
 		return packNoData(msg)
+	}
+	if strict {
+		return packServFail(msg)
 	}
 
 	if time.Since(asked) >= resolverSlow {
@@ -419,6 +432,20 @@ func packNoData(msg dnsmessage.Message) []byte {
 	msg.Response = true
 	msg.Authoritative = true
 	msg.RecursionAvailable = true
+	msg.Answers = nil
+	msg.Authorities = nil
+	msg.Additionals = nil
+	if packed, err := msg.Pack(); err == nil {
+		return packed
+	}
+	return nil
+}
+
+// packServFail answers msg's question with SERVFAIL: there was nobody to ask.
+func packServFail(msg dnsmessage.Message) []byte {
+	msg.Response = true
+	msg.RecursionAvailable = true
+	msg.RCode = dnsmessage.RCodeServerFailure
 	msg.Answers = nil
 	msg.Authorities = nil
 	msg.Additionals = nil

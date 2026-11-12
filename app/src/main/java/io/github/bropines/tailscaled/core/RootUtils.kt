@@ -645,6 +645,8 @@ object RootUtils {
         val installSource: String = "",
         /** Start from the saved network map when control grants it ([NetmapCache]). */
         val netmapCache: Boolean = true,
+        /** The resolver may fall back to the public DNS servers ([GlobalSettings.isDnsRescueEnabled]). */
+        val dnsRescue: Boolean = true,
         /** The control connection goes straight to port 443 ([ControlPort]). */
         val controlTlsOnly: Boolean = true,
     )
@@ -701,6 +703,9 @@ object RootUtils {
         // Off only: on is upstream's default, and an unset variable keeps it.
         if (!spec.netmapCache) {
             env.append("export ${NetmapCache.ENV}=${shQuote("false")}\n")
+        }
+        if (!spec.dnsRescue) {
+            env.append("export TS_DNS_RESCUE=${shQuote("0")}\n")
         }
         if (spec.controlTlsOnly) {
             env.append("export ${ControlPort.ENV}=${shQuote("true")}\n")

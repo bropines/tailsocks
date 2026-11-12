@@ -1,0 +1,155 @@
+--- /dev/null	2026-11-12 04:57:03
++++ tailscale_src/cmd/tailscaled/localapi_guard_android.go	2026-11-12 04:54:13
+@@ -0,0 +1,103 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build android
++
++package main
++
++// TailSocks: who may speak LocalAPI on Android.
++//
++// Upstream trusts everyone who reaches the socket on Android (ipnauth gives
++// read and write at once; there is one user and the app's sandbox around it),
++// and patch 12 makes the socket 0666 so that the app can reach a daemon that
++// runs as root. Together that left one thing between any process on a rooted
++// phone and a root daemon it could tell to do anything LocalAPI does — set an
++// exit node, turn on Tailscale SSH, serve files — the 0700 mode of the app's
++// data directory. A boot script has left that directory world-searchable
++// before (docs/ROOT.md, fixed in 4.1.0), and a mode is one chmod from wrong.
++//
++// So the socket asks who is calling, as drive.sock (android_drive.go) and the
++// VPN handoff already do: root, the daemon's own UID, and the owner of the
++// directory the socket is in — the app. Anyone else is closed at accept,
++// before a byte is read.
++
++import (
++	"fmt"
++	"net"
++	"os"
++	"path/filepath"
++	"syscall"
++
++	"golang.org/x/sys/unix"
++	"tailscale.com/types/logger"
++)
++
++// guardLocalAPIListener wraps ln so that it accepts only this device's
++// LocalAPI callers. A listener that is not a unix socket is returned as is.
++func guardLocalAPIListener(logf logger.Logf, ln net.Listener, socketPath string) net.Listener {
++	if _, ok := ln.(*net.UnixListener); !ok || socketPath == "" {
++		return ln
++	}
++	owner := -1
++	if fi, err := os.Stat(filepath.Dir(socketPath)); err == nil {
++		if st, ok := fi.Sys().(*syscall.Stat_t); ok {
++			owner = int(st.Uid)
++		}
++	}
++	return &localAPIGuard{Listener: ln, logf: logf, owner: owner}
++}
++
++type localAPIGuard struct {
++	net.Listener
++	logf  logger.Logf
++	owner int // UID of the socket's directory; -1 when it could not be read
++}
++
++func (g *localAPIGuard) Accept() (net.Conn, error) {
++	for {
++		c, err := g.Listener.Accept()
++		if err != nil {
++			return nil, err
++		}
++		uc, ok := c.(*net.UnixConn)
++		if !ok {
++			return c, nil
++		}
++		uid, err := unixPeerUID(uc)
++		if err == nil && localAPICallerAllowed(uid, os.Getuid(), g.owner) {
++			return c, nil
++		}
++		if err != nil {
++			g.logf("localapi: closed a caller whose identity could not be read: %v", err)
++		} else {
++			g.logf("localapi: closed uid %d: only root, the daemon and the app may use this socket", uid)
++		}
++		c.Close()
++	}
++}
++
++// localAPICallerAllowed is the rule: root, the daemon itself, the app.
++func localAPICallerAllowed(uid, self, owner int) bool {
++	return uid == 0 || uid == self || (owner >= 0 && uid == owner)
++}
++
++func unixPeerUID(c *net.UnixConn) (int, error) {
++	raw, err := c.SyscallConn()
++	if err != nil {
++		return 0, err
++	}
++	var cred *unix.Ucred
++	var credErr error
++	if err := raw.Control(func(fd uintptr) {
++		cred, credErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
++	}); err != nil {
++		return 0, err
++	}
++	if credErr != nil {
++		return 0, credErr
++	}
++	if cred == nil {
++		return 0, fmt.Errorf("no peer credentials")
++	}
++	return int(cred.Uid), nil
++}
+--- /dev/null	2026-11-12 04:57:03
++++ tailscale_src/cmd/tailscaled/localapi_guard_android_test.go	2026-11-12 04:54:13
+@@ -0,0 +1,25 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build android
++
++package main
++
++import "testing"
++
++func TestLocalAPICallerAllowed(t *testing.T) {
++	const self, app = 0, 10365 // Root Mode: the daemon is root, the app owns the directory
++	for uid, want := range map[int]bool{0: true, app: true, 2000: false, 10366: false} {
++		if got := localAPICallerAllowed(uid, self, app); got != want {
++			t.Errorf("root daemon: uid %d allowed = %v, want %v", uid, got, want)
++		}
++	}
++	// The app's own child daemon: daemon and owner are the same UID.
++	if !localAPICallerAllowed(app, app, app) || localAPICallerAllowed(10366, app, app) {
++		t.Error("app daemon: only the app and root may call")
++	}
++	// A directory that could not be read names nobody.
++	if localAPICallerAllowed(-1, 0, -1) {
++		t.Error("an unread owner must not match an unread caller")
++	}
++}
+--- /dev/null	2026-11-12 04:57:03
++++ tailscale_src/cmd/tailscaled/localapi_guard_other.go	2026-11-12 04:54:13
+@@ -0,0 +1,18 @@
++// Copyright (c) Tailscale Inc & contributors
++// SPDX-License-Identifier: BSD-3-Clause
++
++//go:build !android
++
++package main
++
++import (
++	"net"
++
++	"tailscale.com/types/logger"
++)
++
++// guardLocalAPIListener is Android's (localapi_guard_android.go); elsewhere
++// upstream's own peer-credential checks stand.
++func guardLocalAPIListener(logf logger.Logf, ln net.Listener, socketPath string) net.Listener {
++	return ln
++}

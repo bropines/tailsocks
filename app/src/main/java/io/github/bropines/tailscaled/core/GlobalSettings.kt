@@ -537,6 +537,13 @@ object GlobalSettings {
     fun isShowChangelogAfterUpdate(context: Context): Boolean = getBoolean(context, "show_changelog_after_update", true)
     fun setShowChangelogAfterUpdate(context: Context, enabled: Boolean) = setBoolean(context, "show_changelog_after_update", enabled)
     /** The row under a connected status card: device, peers online, exit node, relay. */
+    /**
+     * Whether the daemon's resolver may ask the fallback DNS servers when the tailnet's own
+     * DNS fails (TS_DNS_RESCUE). On keeps the phone resolving through an outage; off is for
+     * a tailnet whose DNS is a filter that must not be bypassed.
+     */
+    fun isDnsRescueEnabled(context: Context): Boolean = getBoolean(context, "dns_rescue", true)
+    fun setDnsRescueEnabled(context: Context, on: Boolean) = setBoolean(context, "dns_rescue", on)
     /** Whether an offline exit node is taken off without asking; see ExitNodeGuard. */
     fun isExitNodeAutoDirect(context: Context): Boolean = getBoolean(context, "exit_node_auto_direct", false)
     fun setExitNodeAutoDirect(context: Context, on: Boolean) = setBoolean(context, "exit_node_auto_direct", on)
@@ -599,7 +606,7 @@ object GlobalSettings {
     val EXPORTED_KEYS: Set<String> = setOf(
         // Local listeners
         "socks5", "socks5_user", "socks5_pass", "httpproxy",
-        "dns_proxy", "dns_fallbacks", "doh_url", "lan_access_enabled",
+        "dns_proxy", "dns_fallbacks", "doh_url", "dns_rescue", "lan_access_enabled",
         // Daemon behaviour
         "accept_routes", "accept_dns", "extra_args_raw", "detailed_logs", "auto_refresh",
         // Control-plane proxy and DPI bypass

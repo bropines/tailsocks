@@ -260,6 +260,7 @@ object SettingsCatalog {
         row("root_dns_redirect", SettingsPage.DNS, R.string.settings_root_dns_redirect_title, R.string.settings_root_dns_redirect_desc, R.string.search_kw_root_dns_redirect, resolver, needs = Need.ROOT_TUN)
         val fallbackDns = R.string.settings_sect_fallback_dns
         row("dns_fallbacks", SettingsPage.DNS, R.string.settings_dns_fallbacks_title, R.string.search_sum_dns_fallbacks, R.string.search_kw_dns_fallbacks, fallbackDns)
+        row("dns_rescue", SettingsPage.DNS, R.string.settings_dns_rescue_title, R.string.settings_dns_rescue_desc, R.string.search_kw_dns_rescue)
         row("doh_fallback", SettingsPage.DNS, R.string.settings_doh_fallback_title, R.string.search_sum_doh_fallback, R.string.search_kw_doh_fallback, fallbackDns)
         val tools = R.string.settings_sect_tools
         row("dns_screen", SettingsPage.DNS, R.string.dns_title, R.string.settings_link_dns_desc, R.string.search_kw_dns_screen, tools, feature = Feature.DNS_SCREEN, aside = SettingsPage.ADVANCED)
