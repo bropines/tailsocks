@@ -50,7 +50,8 @@ import kotlinx.coroutines.flow.stateIn
 /**
  * What the poller last read. [loaded] is false until the first answer; [running] is whether
  * there was a daemon to ask. [peers] are the peers worth showing ([listablePeers]), [self]
- * this device; both keep their last values across a read that failed.
+ * this device, [users] the names of the tailnet's users by id — what the map groups devices
+ * by owner with; all three keep their last values across a read that failed.
  */
 @Immutable
 data class LiveTrafficState(
@@ -59,7 +60,14 @@ data class LiveTrafficState(
     val self: PeerData? = null,
     val peers: List<PeerData> = emptyList(),
     val traffic: TrafficSnapshot = TrafficSnapshot(),
+    val users: Map<Long, String> = emptyMap(),
 )
+
+/** The users a status names, by id: the display name, or the login where there is none. */
+private fun userNames(status: StatusResponse): Map<Long, String> =
+    status.users.orEmpty().values.mapNotNull { u ->
+        (u.displayName?.takeIf { it.isNotBlank() } ?: u.loginName?.takeIf { it.isNotBlank() })?.let { u.id to it }
+    }.toMap()
 
 internal object LiveTraffic {
     private const val TAG = "LiveTraffic"
@@ -117,7 +125,7 @@ internal object LiveTraffic {
         if (status == null) return latest.copy(loaded = true, running = true).also { latest = it }
         // elapsedRealtime, not the wall clock: a time sync must not look like a pause.
         val traffic = sampler.add(SystemClock.elapsedRealtime(), status)
-        LiveTrafficState(true, true, status.self, listablePeers(status), traffic).also { latest = it }
+        LiveTrafficState(true, true, status.self, listablePeers(status), traffic, userNames(status)).also { latest = it }
     }
 }
 
@@ -182,5 +190,5 @@ internal fun demoLiveTraffic(demo: DemoData?): LiveTrafficState {
         TrafficPoint(i * LiveTraffic.POLL_MS, (total.rxBps * shape).toLong(), (total.txBps * up).toLong())
     }
     val now = history.last().atMs
-    return LiveTrafficState(true, true, status.self, peers, TrafficSnapshot(now, true, total, rates, history))
+    return LiveTrafficState(true, true, status.self, peers, TrafficSnapshot(now, true, total, rates, history), userNames(status))
 }

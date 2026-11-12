@@ -174,8 +174,30 @@ internal fun spreadOverRings(capacities: List<Int>, n: Int): List<Int> {
     return shares
 }
 
+/**
+ * Points of an ellipse at [fractions] of the way round it along the curve, clockwise from the
+ * top, relative to its centre. Any fraction: -0.25 is the left end, 1.5 the bottom. For the
+ * schemes that give each group of nodes its own arc (TailnetMapSchemes.kt).
+ */
+internal fun ellipsePointsAt(rx: Float, ry: Float, fractions: FloatArray): List<Pair<Float, Float>> {
+    val arcs = ellipseArcs(rx, ry)
+    return fractions.map { fraction ->
+        val target = (fraction - kotlin.math.floor(fraction)) * arcs[ELLIPSE_STEPS]
+        var lo = 0
+        var hi = ELLIPSE_STEPS
+        while (hi - lo > 1) {
+            val mid = (lo + hi) / 2
+            if (arcs[mid] <= target) lo = mid else hi = mid
+        }
+        val span = arcs[lo + 1] - arcs[lo]
+        val within = if (span > 0f) ((target - arcs[lo]) / span).coerceIn(0f, 1f) else 0f
+        val a = -PI / 2 + 2 * PI * (lo + within) / ELLIPSE_STEPS
+        (rx * cos(a)).toFloat() to (ry * sin(a)).toFloat()
+    }
+}
+
 /** Where a peer stands among its equals: by tier, then by name, then by key so that no two tie. */
-private val PLACE_ORDER = compareBy<MapPeer>({ it.tier }, { it.name.lowercase() }, { it.key })
+internal val PLACE_ORDER = compareBy<MapPeer>({ it.tier }, { it.name.lowercase() }, { it.key })
 
 /**
  * Who gets a node when not everybody can: a peer that is moving traffic right now before any
@@ -183,7 +205,7 @@ private val PLACE_ORDER = compareBy<MapPeer>({ it.tier }, { it.name.lowercase() 
  * they are drawn never depends on a rate, or the nodes would trade places every time one
  * changed.
  */
-private val KEEP_ORDER = compareByDescending<MapPeer> { it.rate.totalBps > 0 }.then(PLACE_ORDER)
+internal val KEEP_ORDER = compareByDescending<MapPeer> { it.rate.totalBps > 0 }.then(PLACE_ORDER)
 
 /**
  * Lays [peers] out in a [width] × [height] box. While everybody fits, a peer's place depends

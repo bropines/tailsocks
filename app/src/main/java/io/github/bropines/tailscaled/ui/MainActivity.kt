@@ -207,6 +207,8 @@ fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) 
 internal const val MAIN_EXTRA_ADD_ACCOUNT = "add_account"
 /** The value the new profile's "Report the real OS" checkbox starts with. */
 internal const val MAIN_EXTRA_ADD_ACCOUNT_HONEST = "add_account_honest"
+/** Settings asks the dashboard to open its editor (ui/MainBlocksSetting.kt). */
+internal const val MAIN_EXTRA_EDIT_LAYOUT = "edit_layout"
 
 class MainActivity : ComponentActivity() {
 
@@ -221,6 +223,19 @@ class MainActivity : ComponentActivity() {
     private val exitNodeRequest = mutableStateOf(false)
     /** Set by tailsocks://scan: the screen opens the QR scanner. */
     private val scanRequest = mutableStateOf(false)
+    /** Set by Settings → Appearance → Main screen layout: the screen opens as its own editor. */
+    private val editLayoutRequest = mutableStateOf(false)
+
+    companion object {
+        /**
+         * The main screen, being arranged. It is the task's root and singleTask, so this
+         * brings it back from under Settings rather than starting a second one.
+         */
+        fun editLayoutIntent(context: Context): Intent =
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MAIN_EXTRA_EDIT_LAYOUT, true)
+    }
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(wrapContextWithLocale(newBase))
@@ -252,7 +267,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TailSocksTheme {
-                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest, exitNodeRequest, scanRequest)
+                MainScreen(showAccountSwitcher, showChangelog, addAccountRequest, exitNodeRequest, scanRequest, editLayoutRequest)
             }
         }
     }
@@ -354,6 +369,12 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT, false)) {
             intent.removeExtra(MAIN_EXTRA_ADD_ACCOUNT)
             addAccountRequest.value = intent.getBooleanExtra(MAIN_EXTRA_ADD_ACCOUNT_HONEST, true)
+        }
+        // Settings sends the user here to arrange the screen. Consumed once, like the one above.
+        // It opens a state of this screen and stores nothing, so it is safe from any sender.
+        if (intent.getBooleanExtra(MAIN_EXTRA_EDIT_LAYOUT, false)) {
+            intent.removeExtra(MAIN_EXTRA_EDIT_LAYOUT)
+            editLayoutRequest.value = true
         }
         // Callback of the PackageInstaller-session fallback in launchApkInstaller().
         // A session cannot install silently: it reports STATUS_PENDING_USER_ACTION
@@ -484,7 +505,12 @@ fun MainScreen(
     showChangelog: MutableState<Boolean> = remember { mutableStateOf(false) },
     addAccountRequest: MutableState<Boolean?> = remember { mutableStateOf(null) },
     exitNodeRequest: MutableState<Boolean> = remember { mutableStateOf(false) },
-    scanRequest: MutableState<Boolean> = remember { mutableStateOf(false) }
+    scanRequest: MutableState<Boolean> = remember { mutableStateOf(false) },
+    editLayoutRequest: MutableState<Boolean> = remember { mutableStateOf(false) },
+    /** For previews: the arrangement to draw instead of the stored one; nothing is stored then. */
+    previewLayout: MainLayout? = null,
+    /** For previews: open as the editor. */
+    previewEditing: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -621,10 +647,23 @@ fun MainScreen(
     // Off for anyone who prefers the screen as it was: on a phone of the
     // right size everything, menu included, fits without scrolling, and the
     // summary's extra rows push the last menu row off it.
-    var showConnectionSummary by remember { mutableStateOf(GlobalSettings.isConnectionSummaryShown(context)) }
     var showManagedOnMain by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
-    // Settings → Appearance → Main screen blocks; re-read when the screen comes back to the front.
-    var mainBlocks by remember { mutableStateOf(MainBlock.shown(context)) }
+    // What is on the screen and where (core/MainLayout.kt). Until the person arranges it, it is
+    // read off the switches the screen had before, so it is the screen they know. Re-read when
+    // the screen comes back to the front: Settings can change it too.
+    val remoteTileOffered = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
+    val itemOffered = rememberMainItemsOffered()
+    var layout by remember { mutableStateOf(previewLayout ?: MainLayoutStore.load(context, remoteTileOffered)) }
+    // The screen as its own editor: a long press on it, or the row in Settings → Appearance.
+    var editing by rememberSaveable { mutableStateOf(previewEditing) }
+    var paletteOpen by remember { mutableStateOf(false) }
+    var confirmLayoutReset by remember { mutableStateOf(false) }
+    // Every change is stored as it is made: there is nothing to confirm, and Done only leaves.
+    fun changeLayout(next: MainLayout) {
+        if (next == layout) return
+        layout = next
+        if (previewLayout == null) MainLayoutStore.save(context, next)
+    }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
@@ -663,11 +702,11 @@ fun MainScreen(
     }
 
     // Remote management has a tile of its own where its page in the settings would be three
-    // levels down: it opens over this screen, and the remote comes back to the tile.
-    val remoteTileOffered = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
+    // levels down — a television — and wherever the person put one: it opens over this screen,
+    // and the remote comes back to the tile.
     var remoteOpen by rememberSaveable { mutableStateOf(false) }
     var remoteLeft by remember { mutableStateOf(false) }
-    val remoteTile = if (remoteTileOffered) rememberRemoteTile(proxyState, remoteOpen) else null
+    val remoteTile = if (MainItem.REMOTE in layout) rememberRemoteTile(proxyState, remoteOpen) else null
     // The row under the cards is nearer to the status card than the cards are, and Right from it
     // would land there: the remote is sent to the first card instead.
     val menuStart = remember { FocusRequester() }
@@ -675,6 +714,13 @@ fun MainScreen(
     // OK on a remote is pressed by accident, and on the start card that stops the service:
     // a television asks first. Starting asks nothing.
     val tv = isTv
+    // A remote has nothing to drag with: a television arranges the screen as a list, in Settings.
+    LaunchedEffect(editLayoutRequest.value) {
+        if (editLayoutRequest.value) {
+            editLayoutRequest.value = false
+            if (!tv) editing = true
+        }
+    }
     var confirmStop by remember { mutableStateOf(false) }
     fun stopNow() {
         isProcessing = true
@@ -736,7 +782,9 @@ fun MainScreen(
     // Where the menu has the tile of the other direction — who manages this device — they stand
     // beside it, in its row, while a tile there is two cards wide. A handheld has no such tile,
     // and they have a place of their own: tiles under a dashboard's cards, pills on a phone.
-    fun managedBeside(columns: Int) = remoteTileOffered && columns >= 4 && managed.devices.isNotEmpty()
+    // "Its row" is the first tile that takes a row, which is where the menu stands them.
+    val remoteLeadsWideTiles = layout.shown(itemOffered).firstOrNull { it.item.isTile && it.wide }?.item == MainItem.REMOTE
+    fun managedBeside(columns: Int) = remoteTileOffered && remoteLeadsWideTiles && columns >= 4 && managed.devices.isNotEmpty()
 
     fun applyExitNode(id: String, ip: String) {
         // A peer listed without its StableID: selecting it would clear the exit node.
@@ -919,9 +967,8 @@ fun MainScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                showConnectionSummary = GlobalSettings.isConnectionSummaryShown(context)
                 showManagedOnMain = GlobalSettings.isManagedOnMainShown(context)
-                mainBlocks = MainBlock.shown(context)
+                if (previewLayout == null && !editing) layout = MainLayoutStore.load(context, remoteTileOffered)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isTunDisplaced = TunVpnService.isDisplaced(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
@@ -1378,12 +1425,20 @@ fun MainScreen(
             onClose = { signInOpen = false; signInLeft = true },
             extraAction = { TvKeySetupButton(onClick = { keySetupOpen = true }) },
         )
-    } else if (remoteOpen && remoteTileOffered) {
+    } else if (remoteOpen) {
         // The page, in place of the dashboard, which comes back with the remote on its tile.
         RemoteManagedScreen(onBack = { remoteOpen = false; remoteLeft = true })
     } else
         Scaffold(
             topBar = {
+            if (editing) {
+                // The screen is its own editor: the bar says so, and its arrow is one of the ways out.
+                AppTopBar(
+                    title = stringResource(R.string.main_layout_edit_title),
+                    subtitle = stringResource(R.string.main_layout_edit_hint),
+                    onBack = { editing = false },
+                )
+            } else
             AppTopBar(
                 title = stringResource(R.string.app_name),
                 subtitle = activeAccount.name,
@@ -1415,183 +1470,215 @@ fun MainScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            if (editing) {
+                MainEditBar(
+                    columns = layout.columns,
+                    onColumns = { changeLayout(layout.withColumns(it)) },
+                    canAdd = layout.addable(itemOffered).isNotEmpty(),
+                    onAdd = { paletteOpen = true },
+                    onReset = { confirmLayoutReset = true },
+                    onDone = { editing = false },
+                )
+            }
         }
     ) { paddingValues ->
         // The screen is two things: what the service is doing, and where to go
-        // next. Stacked on a phone held upright; side by side as soon as there
-        // is width for it, which is landscape and every tablet — before this
-        // the same column simply grew wider, and eight menu cards stretched
-        // into slabs.
-        // fillHeight: beside the menu, the card takes the height the status
-        // column has left, so the pair ends on one line (see the two-pane layout).
-        val statusPane: @Composable ColumnScope.(fillHeight: Boolean) -> Unit = { fillHeight ->
-            // What names a tap on a phone names the remote's OK on a television.
-            val touchWording = Feature.TOUCH_GESTURES_HINTS.offered()
+        // next. Since it can be arranged (core/MainLayout.kt) those are a list:
+        // blocks — the status card, the lines and pictures around it — and tiles.
+        // A phone held upright draws the list as one flow; a window with the
+        // width for it puts the blocks on one side and the tiles on the other,
+        // each in the list's order — before that the one column simply grew
+        // wider, and eight menu cards stretched into slabs.
 
-            // Not where there is no battery to be optimised for.
-            if (!isBatteryOptimizationsIgnored && Feature.BATTERY_OPTIMISATION_PROMPT.offered()) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
-                        if (!context.tryStartActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) {
-                            Toast.makeText(context, context.getString(R.string.main_cannot_open_battery_settings), Toast.LENGTH_SHORT).show()
+        // What names a tap on a phone names the remote's OK on a television.
+        val touchWording = Feature.TOUCH_GESTURES_HINTS.offered()
+
+        // Neither of these is an error: the tunnel is up and the tailnet is
+        // reachable either way. Sharing means the other client bypasses some
+        // apps and we took the default route for exactly those, so it is the
+        // narrower claim of the two and has to be tested first.
+        val sharedWithForeignVpn = isRootEnabled && isRootShared
+        val yieldedToForeignVpn = isRootEnabled && isRootYielded && !sharedWithForeignVpn
+        // A selected exit node carries no traffic while we are yielded,
+        // so the row must not read as "traffic is routed". Shared is the
+        // opposite case: it does carry traffic, for the apps the other
+        // VPN left out, so it stays an active row with a narrower label.
+        val exitNodeInert = exitNodeIp.isNotEmpty() && yieldedToForeignVpn
+        val exitNodePartial = exitNodeIp.isNotEmpty() && sharedWithForeignVpn
+        val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
+        val exitNodePaused = exitNodeIp.isEmpty() && exitNodePausedName.isNotEmpty()
+
+        // The card says what is true: the service may be up while the
+        // tailnet is not — still waiting for its map, signed out, or cut
+        // off from every relay — and each of those reads differently.
+        val serviceUp = proxyState == "ACTIVE" || proxyState == "CONNECTION_ISSUE" ||
+            (proxyState == "LOGGED_OUT" && !inPreview && ProxyState.isActualRunning())
+        val cardState = when {
+            proxyState == "LOGGED_OUT" && serviceUp -> "NEEDS_LOGIN"
+            proxyState == "CONNECTION_ISSUE" -> "DEGRADED"
+            // Signed in, but the tailnet requires an admin to approve new
+            // devices — the notification already said so; the card said "Active".
+            proxyState == "ACTIVE" && daemonBackend == "NeedsMachineAuth" -> "NEEDS_APPROVAL"
+            proxyState == "ACTIVE" && daemonBackend == "Starting" -> "CONNECTING"
+            proxyState == "ACTIVE" && warningsDegradeConnection(shownWarnings, dnsHasFallback) -> "DEGRADED"
+            else -> proxyState
+        }
+
+        // The screen being arranged does nothing: its cells are covered while it is, and this
+        // stops the one tap a cover cannot — the end of the very press that started arranging.
+        fun act(action: () -> Unit) {
+            if (!editing) action()
+        }
+
+        // What the screen says without being asked, above the status card. Not the person's
+        // to move or to take off, so it is not in the layout: it goes where the card goes.
+        val banners: @Composable () -> Unit = {
+            Column {
+                // Not where there is no battery to be optimised for.
+                if (!isBatteryOptimizationsIgnored && Feature.BATTERY_OPTIMISATION_PROMPT.offered()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
+                            if (!context.tryStartActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) {
+                                Toast.makeText(context, context.getString(R.string.main_cannot_open_battery_settings), Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.BatteryAlert, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(stringResource(R.string.main_battery_warn_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Text(stringResource(R.string.main_battery_warn_desc), 
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
                         }
                     }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                }
+
+                if (show410Warning) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
-                        Icon(Icons.Default.BatteryAlert, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(R.string.main_battery_warn_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text(stringResource(R.string.main_battery_warn_desc), 
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(stringResource(R.string.main_network_sync_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Text(stringResource(R.string.main_network_sync_desc), 
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+                    }
+                }
+
+                if (proxyState == "ACTIVE" && (yieldedToForeignVpn || sharedWithForeignVpn)) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = MaterialTheme.shapes.large,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            // The weight keeps the two-line Russian description off the
+                            // icon instead of pushing the row wider than the screen.
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    if (sharedWithForeignVpn) stringResource(R.string.main_root_shared_title)
+                                    else stringResource(R.string.main_root_yielded_title),
+                                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    if (sharedWithForeignVpn) stringResource(R.string.main_root_shared_desc)
+                                    else stringResource(R.string.main_root_yielded_desc),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            }
                         }
                     }
                 }
             }
+        }
 
-            if (show410Warning) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        val exitNodeLine: @Composable (Modifier) -> Unit = { modifier ->
+            Surface(
+                color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.large,
+                modifier = modifier.fillMaxWidth()
+                    .shapedClickable(MaterialTheme.shapes.large) { act { openExitNodeSheet() } }
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(R.string.main_network_sync_title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text(stringResource(R.string.main_network_sync_desc), 
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-                        }
-                    }
-                }
-            }
-
-            // Neither of these is an error: the tunnel is up and the tailnet is
-            // reachable either way. Sharing means the other client bypasses some
-            // apps and we took the default route for exactly those, so it is the
-            // narrower claim of the two and has to be tested first.
-            val sharedWithForeignVpn = isRootEnabled && isRootShared
-            val yieldedToForeignVpn = isRootEnabled && isRootYielded && !sharedWithForeignVpn
-            if (proxyState == "ACTIVE" && (yieldedToForeignVpn || sharedWithForeignVpn)) {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        // The weight keeps the two-line Russian description off the
-                        // icon instead of pushing the row wider than the screen.
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                if (sharedWithForeignVpn) stringResource(R.string.main_root_shared_title)
-                                else stringResource(R.string.main_root_yielded_title),
-                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Text(
-                                if (sharedWithForeignVpn) stringResource(R.string.main_root_shared_desc)
-                                else stringResource(R.string.main_root_yielded_desc),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                        }
-                    }
-                }
-            }
-
-            if (proxyState == "ACTIVE") {
-                // A selected exit node carries no traffic while we are yielded,
-                // so the row must not read as "traffic is routed". Shared is the
-                // opposite case: it does carry traffic, for the apps the other
-                // VPN left out, so it stays an active row with a narrower label.
-                val exitNodeInert = exitNodeIp.isNotEmpty() && yieldedToForeignVpn
-                val exitNodePartial = exitNodeIp.isNotEmpty() && sharedWithForeignVpn
-                val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
-                val exitNodePaused = exitNodeIp.isEmpty() && exitNodePausedName.isNotEmpty()
-                // Hidden in Settings, the row still shows while an exit node carries the
-                // traffic or waits to come back: that is not something to find out later.
-                if (MainBlock.EXIT_NODE in mainBlocks || exitNodeIp.isNotEmpty() || exitNodePaused) Surface(
-                    color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = MaterialTheme.shapes.large,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                        .shapedClickable(MaterialTheme.shapes.large) { openExitNodeSheet() }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            if (exitNodeActive) Icons.Default.Lock else Icons.Default.Public,
-                            contentDescription = null,
-                            tint = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+                    Icon(
+                        if (exitNodeActive) Icons.Default.Lock else Icons.Default.Public,
+                        contentDescription = null,
+                        tint = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    // The weight belongs on the text, not on a trailing spacer:
+                    // the description carries an IP and used to squeeze the chevron out.
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            when {
+                                exitNodeInert -> stringResource(R.string.main_exit_node_inert_label)
+                                exitNodePartial -> stringResource(R.string.main_exit_node_partial_label)
+                                exitNodeActive -> stringResource(R.string.main_traffic_routed)
+                                exitNodePaused -> stringResource(R.string.main_exit_node_paused_label)
+                                else -> stringResource(R.string.main_exit_node_none_label)
+                            },
+                            fontWeight = FontWeight.Bold,
+                            color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        // The weight belongs on the text, not on a trailing spacer:
-                        // the description carries an IP and used to squeeze the chevron out.
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                when {
-                                    exitNodeInert -> stringResource(R.string.main_exit_node_inert_label)
-                                    exitNodePartial -> stringResource(R.string.main_exit_node_partial_label)
-                                    exitNodeActive -> stringResource(R.string.main_traffic_routed)
-                                    exitNodePaused -> stringResource(R.string.main_exit_node_paused_label)
-                                    else -> stringResource(R.string.main_exit_node_none_label)
-                                },
-                                fontWeight = FontWeight.Bold,
-                                color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                when {
-                                    exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
-                                    exitNodePartial -> stringResource(R.string.main_exit_node_partial_desc, exitNodeIp)
-                                    exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, connectionSummary?.exitNodeName ?: exitNodeIp)
-                                    exitNodePaused -> stringResource(R.string.exitguard_paused_text, exitNodePausedName)
-                                    else -> stringResource(if (touchWording) R.string.main_exit_node_none_desc else R.string.tv_home_exit_node_none)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            null,
-                            tint = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        Text(
+                            when {
+                                exitNodeInert -> stringResource(R.string.main_exit_node_inert_desc, exitNodeIp)
+                                exitNodePartial -> stringResource(R.string.main_exit_node_partial_desc, exitNodeIp)
+                                exitNodeActive -> stringResource(R.string.main_exit_node_routed_desc, connectionSummary?.exitNodeName ?: exitNodeIp)
+                                exitNodePaused -> stringResource(R.string.exitguard_paused_text, exitNodePausedName)
+                                else -> stringResource(if (touchWording) R.string.main_exit_node_none_desc else R.string.tv_home_exit_node_none)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        null,
+                        tint = if (exitNodeActive) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
+        }
 
-            // The card says what is true: the service may be up while the
-            // tailnet is not — still waiting for its map, signed out, or cut
-            // off from every relay — and each of those reads differently.
-            val serviceUp = proxyState == "ACTIVE" || proxyState == "CONNECTION_ISSUE" ||
-                (proxyState == "LOGGED_OUT" && !inPreview && ProxyState.isActualRunning())
-            val cardState = when {
-                proxyState == "LOGGED_OUT" && serviceUp -> "NEEDS_LOGIN"
-                proxyState == "CONNECTION_ISSUE" -> "DEGRADED"
-                // Signed in, but the tailnet requires an admin to approve new
-                // devices — the notification already said so; the card said "Active".
-                proxyState == "ACTIVE" && daemonBackend == "NeedsMachineAuth" -> "NEEDS_APPROVAL"
-                proxyState == "ACTIVE" && daemonBackend == "Starting" -> "CONNECTING"
-                proxyState == "ACTIVE" && warningsDegradeConnection(shownWarnings, dnsHasFallback) -> "DEGRADED"
-                else -> proxyState
+        // The card and what belongs to it: it is one item of the layout. [bare] is the card
+        // alone, as the canvas shows it while the screen is being arranged.
+        val statusCell: @Composable ColumnScope.(Modifier, Boolean) -> Unit = { cardModifier, bare ->
+            // Taken off the screen, the line still shows while an exit node carries the
+            // traffic or waits to come back: that is not something to find out later.
+            if (!bare && proxyState == "ACTIVE" && MainItem.EXIT_NODE !in layout && (exitNodeIp.isNotEmpty() || exitNodePaused)) {
+                exitNodeLine(Modifier.padding(bottom = 16.dp))
             }
             StatusCard(
                 state = cardState,
                 // Where the remote starts on this screen.
-                modifier = (if (fillHeight) Modifier.weight(1f) else Modifier).tvInitialFocus()
+                modifier = cardModifier.tvInitialFocus()
                     .then(if (remoteTileOffered) Modifier.focusProperties { right = menuStart } else Modifier),
                 issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
                 isProcessing = isProcessing,
@@ -1603,11 +1690,12 @@ fun MainScreen(
                 isSharedWithForeignVpn = sharedWithForeignVpn,
                 aside = statusAside,
                 onLongPress = {
+                    if (editing) return@StatusCard
                     haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     statusAside = StatusAsides.pick(context, statusAside)
                 }
             ) {
-                if (isProcessing) return@StatusCard
+                if (isProcessing || editing) return@StatusCard
                 StatusAsides.bump(context, StatusAsides.TOGGLES)
 
                 if (proxyState == "ACTIVE" || proxyState == "STARTING" || proxyState == "CONNECTION_ISSUE" || proxyState == "LOGGED_OUT") {
@@ -1627,119 +1715,151 @@ fun MainScreen(
                 }
             }
 
-            if (serviceUp && shownWarnings.isNotEmpty() && cardState != "NEEDS_LOGIN") {
-                Spacer(modifier = Modifier.height(12.dp))
-                HealthBanner(
-                    warnings = shownWarnings,
-                    reconnecting = reconnectingRelays,
-                    dnsHasFallback = dnsHasFallback,
-                    onReconnectRelays = {
-                        reconnectingRelays = true
-                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
-                        scope.launch(Dispatchers.IO) {
-                            val err = runCatching { appctr.Appctr.reconnectRelays() }.getOrElse { it.message ?: "" }
-                            withContext(Dispatchers.Main) {
-                                reconnectingRelays = false
-                                if (!err.isNullOrBlank()) Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    onOpenBypass = {
-                        context.startActivity(
-                            Intent(context, SettingsActivity::class.java).putExtra(SettingsActivity.EXTRA_OPEN_SECTION, "bypass")
-                        )
-                    }
-                )
-            }
-            // The summary stays whatever the card says: it is what the card is about, and
-            // taking it away moved everything under it twice.
-            if (cardState == "ACTIVE" && showConnectionSummary) {
-                connectionSummary?.let { summary ->
+            if (!bare) {
+                if (serviceUp && shownWarnings.isNotEmpty() && cardState != "NEEDS_LOGIN") {
                     Spacer(modifier = Modifier.height(12.dp))
-                    ConnectionSummaryRow(summary)
+                    HealthBanner(
+                        warnings = shownWarnings,
+                        reconnecting = reconnectingRelays,
+                        dnsHasFallback = dnsHasFallback,
+                        onReconnectRelays = {
+                            reconnectingRelays = true
+                            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+                            scope.launch(Dispatchers.IO) {
+                                val err = runCatching { appctr.Appctr.reconnectRelays() }.getOrElse { it.message ?: "" }
+                                withContext(Dispatchers.Main) {
+                                    reconnectingRelays = false
+                                    if (!err.isNullOrBlank()) Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        onOpenBypass = {
+                            context.startActivity(
+                                Intent(context, SettingsActivity::class.java).putExtra(SettingsActivity.EXTRA_OPEN_SECTION, "bypass")
+                            )
+                        }
+                    )
+                }
+
+                if (proxyState == "LOGGED_OUT") {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LoggedOutCard(
+                        loginUrl = loginUrl,
+                        onConfigureProxy = {
+                            context.startActivity(Intent(context, SettingsActivity::class.java))
+                        },
+                        onStop = { requestStop() },
+                        // Where signing in is a code on this screen, the card's button shows it.
+                        onShowCode = if (browserSignIn) null else ({ signInOpen = true }),
+                        codeWasLeft = signInLeft
+                    )
+                }
+
+                if (proxyState == "CONNECTION_ISSUE") {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ConnectionIssueCard(
+                        onConfigureProxy = {
+                            context.startActivity(Intent(context, SettingsActivity::class.java))
+                        },
+                        onStop = { requestStop() }
+                    )
                 }
             }
-            // The optional pictures (Settings → Appearance → Main screen blocks), under
-            // everything the status always had so that turning one on moves nothing above it.
-            if (cardState == "ACTIVE" && MainBlock.SPEED_GRAPH in mainBlocks) {
-                Spacer(modifier = Modifier.height(16.dp))
-                SpeedGraphCard(Modifier.fillMaxWidth()) { context.startActivity(Intent(context, TailnetMapActivity::class.java)) }
-            }
-            if (MainBlock.CONNECTION_TIMELINE in mainBlocks) {
-                Spacer(modifier = Modifier.height(16.dp))
-                ConnectionTimelineCard(Modifier.fillMaxWidth())
-            }
-
-            if (proxyState == "LOGGED_OUT") {
-                Spacer(modifier = Modifier.height(16.dp))
-                LoggedOutCard(
-                    loginUrl = loginUrl,
-                    onConfigureProxy = {
-                        context.startActivity(Intent(context, SettingsActivity::class.java))
-                    },
-                    onStop = { requestStop() },
-                    // Where signing in is a code on this screen, the card's button shows it.
-                    onShowCode = if (browserSignIn) null else ({ signInOpen = true }),
-                    codeWasLeft = signInLeft
-                )
-            }
-
-            if (proxyState == "CONNECTION_ISSUE") {
-                Spacer(modifier = Modifier.height(16.dp))
-                ConnectionIssueCard(
-                    onConfigureProxy = {
-                        context.startActivity(Intent(context, SettingsActivity::class.java))
-                    },
-                    onStop = { requestStop() }
-                )
-            }
-
         }
 
-        // Icons say what is behind them: a terminal, devices, a DNS record,
-        // a network check. They used to be ▶ (reads as "start"), share, and
-        // a refresh arrow, with DNS and Serve both a globe.
+        // A block with nothing to say right now is not drawn, and leaves no gap.
+        fun blockShows(item: MainItem): Boolean = when (item) {
+            MainItem.EXIT_NODE -> proxyState == "ACTIVE"
+            // The summary stays whatever the card's warnings say: it is what the card is about.
+            MainItem.SUMMARY -> cardState == "ACTIVE" && connectionSummary != null
+            MainItem.SPEED_GRAPH -> cardState == "ACTIVE"
+            else -> true
+        }
+        val block: @Composable ColumnScope.(MainItem, Modifier) -> Unit = { item, cardModifier ->
+            when (item) {
+                MainItem.STATUS -> statusCell(cardModifier, editing)
+                MainItem.EXIT_NODE -> exitNodeLine(Modifier)
+                MainItem.SUMMARY -> connectionSummary?.let { ConnectionSummaryRow(it) }
+                MainItem.SPEED_GRAPH -> SpeedGraphCard(Modifier.fillMaxWidth()) {
+                    act { context.startActivity(Intent(context, TailnetMapActivity::class.java)) }
+                }
+                MainItem.TIMELINE -> ConnectionTimelineCard(Modifier.fillMaxWidth())
+                else -> Unit
+            }
+        }
+        // The banners stand above the card, and above the exit-node line when that is the
+        // card's upper neighbour — where they always were.
+        fun bannersBefore(drawn: List<MainItem>): MainItem {
+            val card = drawn.indexOf(MainItem.STATUS)
+            return if (card > 0 && drawn[card - 1] == MainItem.EXIT_NODE) MainItem.EXIT_NODE else MainItem.STATUS
+        }
+
         // Only what the device is offered in its usual place: what a television keeps
         // for its advanced settings, or does not have, is not a tile here.
-        val menuEntries = listOfNotNull(
-            MenuEntry(stringResource(R.string.menu_console), Icons.Default.Terminal) { context.startActivity(Intent(context, ConsoleActivity::class.java)) }
-                .takeIf { Feature.CONSOLE.offered() && MainBlock.CONSOLE in mainBlocks },
-            MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Devices) { context.startActivity(Intent(context, PeersActivity::class.java)) }
-                .takeIf { MainBlock.PEERS in mainBlocks },
-            MenuEntry(stringResource(R.string.menu_logs), Icons.AutoMirrored.Filled.List) { context.startActivity(Intent(context, LogsActivity::class.java)) }
-                .takeIf { Feature.LOGS.offered() && MainBlock.LOGS in mainBlocks },
-            MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) }
-                .takeIf { MainBlock.FILES in mainBlocks },
-            MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Dns) { context.startActivity(Intent(context, DnsActivity::class.java)) }
-                .takeIf { Feature.DNS_SCREEN.offered() && MainBlock.DNS in mainBlocks },
-            MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) }
-                .takeIf { MainBlock.NETCHECK in mainBlocks },
-            MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
-            MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public, Icons.Default.Pets) { context.startActivity(Intent(context, ServeActivity::class.java)) }
-                .takeIf { Feature.SERVE_EDIT.offered() && MainBlock.SERVE in mainBlocks },
-            // Where the page would be three levels down in the settings: its own row under the cards,
-            // saying what state it is in. It opens over this screen, and the remote comes back to it.
-            MenuEntry(
-                stringResource(R.string.tile_remote_title), Icons.Default.SettingsRemote,
-                state = remoteTile?.let { remoteTileText(it) },
-                stateWarns = remoteTile?.blocked == true,
-                wide = true,
-                focusOnShow = remoteLeft,
-                onClick = { remoteLeft = false; remoteOpen = true },
-            ).takeIf { remoteTileOffered },
-            // The live map has a row of its own for the same reason: the cards keep their
-            // two columns, and the row can be taken off in Settings → Main screen blocks.
-            MenuEntry(
-                stringResource(R.string.tailnet_map_title), Icons.Default.Hub,
-                wide = true,
-                onClick = { context.startActivity(Intent(context, TailnetMapActivity::class.java)) },
-            ).takeIf { MainBlock.TAILNET_MAP in mainBlocks }
-        )
-        // How many cards there are: the page's own row takes no column.
+        val placed = layout.shown(itemOffered)
+
+        // fillHeight: beside the menu, the card takes the height the status
+        // column has left, so the pair ends on one line (see the two-pane layout).
+        val statusPane: @Composable ColumnScope.(fillHeight: Boolean) -> Unit = { fillHeight ->
+            val drawn = placed.map { it.item }.filter { !it.isTile && blockShows(it) }
+            val anchor = bannersBefore(drawn)
+            drawn.forEachIndexed { i, item ->
+                if (i > 0) Spacer(modifier = Modifier.height(mainGap(drawn[i - 1], item)))
+                if (item == anchor) banners()
+                block(item, if (fillHeight) Modifier.weight(1f) else Modifier)
+            }
+        }
+
+        fun openTile(item: MainItem) {
+            when (item) {
+                // It opens over this screen, and the remote comes back to it.
+                MainItem.REMOTE -> { remoteLeft = false; remoteOpen = true }
+                MainItem.EXIT_PICKER -> openExitNodeSheet()
+                MainItem.SCAN -> scanQr()
+                MainItem.ACCOUNTS -> accountMenuExpanded = true
+                else -> item.screen(context)?.let { context.startActivity(it) }
+            }
+        }
+        // A tile that takes a row has room for a second line, where there is something to say.
+        @Composable
+        fun tileState(item: MainItem): String? = when (item) {
+            MainItem.REMOTE -> remoteTile?.let { remoteTileText(it) }
+            MainItem.PEERS -> tailnetPeers?.takeIf { it.isNotEmpty() && proxyState == "ACTIVE" }
+                ?.let { peers -> stringResource(R.string.summary_online, peers.count { it.online == true }, peers.size) }
+            MainItem.EXIT_PICKER -> if (proxyState != "ACTIVE") null
+                else connectionSummary?.exitNodeName ?: exitNodeIp.ifEmpty { stringResource(R.string.tile_exit_picker_none) }
+            else -> null
+        }
+        @Composable
+        fun entryOf(tile: MainLayout.Placed): MenuEntry {
+            val item = tile.item
+            val spec = item.spec(tv)
+            return MenuEntry(
+                title = stringResource(spec.title),
+                icon = spec.icon,
+                icon2 = spec.icon2,
+                state = if (tile.wide) tileState(item) else null,
+                stateWarns = item == MainItem.REMOTE && remoteTile?.blocked == true,
+                wide = tile.wide,
+                focusOnShow = item == MainItem.REMOTE && remoteLeft,
+                onClick = { act { openTile(item) } },
+            )
+        }
+        val menuEntries = placed.filter { it.item.isTile }.map { entryOf(it) }
+        // How many cards there are: a tile with a row of its own takes no column.
         val cardCount = menuEntries.count { !it.wide }
-        val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { columns, cardHeight ->
+        // The person's count where they chose one; otherwise what the width holds.
+        fun columnsOr(auto: Int) = if (layout.columns == MainLayout.AUTO) auto else layout.columns
+        val menuPane: @Composable (Int, androidx.compose.ui.unit.Dp) -> Unit = { auto, cardHeight ->
+            val columns = columnsOr(auto)
             MenuGrid(
                 columns = columns, cardHeight = cardHeight, entries = menuEntries, start = menuStart.takeIf { remoteTileOffered },
+                // Beside the status there is no canvas to hold a tile on: a long press on the
+                // menu opens the editor, which is the same list drawn as one flow.
+                modifier = Modifier.onLongPressAnywhere(enabled = !tv) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    editing = true
+                },
                 beside = if (managedBeside(columns)) ({ ManagedTileCells(managed, places = 1) }) else null
             )
         }
@@ -1767,7 +1887,86 @@ fun MainScreen(
             // A short window centres its panes, which then fill it anyway; a
             // tall one starts them under the top bar, where the eye does.
             val paneArrangement = if (maxHeight < 480.dp) Arrangement.Center else Arrangement.Top
-            if (fold is Fold.Horizontal) {
+            // One flow, top to bottom: a phone held upright — and every window while the
+            // screen is being arranged, because the flow is the arrangement itself.
+            val flowWindow = fold !is Fold.Horizontal && (window.isPhone || fold != null) && !wideEnoughForTwoPanes
+            if (editing || flowWindow) {
+                // Held to a readable width on an upright tablet; on a phone that is the
+                // whole width and two menu columns.
+                val columnWidth = minOf(maxWidth, ReadableContentWidth)
+                val scroll = rememberScrollState()
+                // Arranging, everything on the screen is there to be moved, with or without
+                // something to show; in use, only what has something to show.
+                val cells = if (editing) placed else placed.filter { it.item.isTile || blockShows(it.item) }
+                val drawn = cells.map { it.item }
+                // The managed devices take their line out of the gap between the status and
+                // the menu: the first place where a block meets a tile.
+                val seam = (1 until drawn.size).firstOrNull { drawn[it].isTile != drawn[it - 1].isTile }?.let { drawn[it] }
+                val inserts = buildList {
+                    if (seam != null && managed.devices.isNotEmpty()) {
+                        add(MainCanvasInsert(seam, replacesGap = true) { ManagedPills(managed, Modifier.padding(top = 6.dp, bottom = 14.dp)) })
+                    }
+                    add(MainCanvasInsert(bannersBefore(drawn)) { banners() })
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scroll),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Column(
+                        modifier = Modifier.width(columnWidth).padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        if (editing && !flowWindow) {
+                            Text(
+                                stringResource(R.string.main_layout_panes_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
+                        MainCanvas(
+                            cells = cells,
+                            columns = columnsOr(menuColumnsFor(columnWidth - 48.dp, cells.count { !it.full })),
+                            cardHeight = cardHeight,
+                            editing = editing,
+                            scroll = scroll,
+                            gestures = !tv,
+                            inserts = inserts,
+                            title = { stringResource(it.spec(tv).title) },
+                            // The card keeps its own long press — the line it shows for a while.
+                            // Anything else held down opens the editor, and is already being dragged.
+                            onLongPress = { item -> (item != MainItem.STATUS).also { if (it) editing = true } },
+                            onMove = { item, target -> changeLayout(layout.move(item, target)) },
+                            onStep = { item, by -> changeLayout(layout.step(item, by, itemOffered)) },
+                            onRemove = { changeLayout(layout.remove(it)) },
+                            onSetWide = { item, wide -> changeLayout(layout.setWide(item, wide)) },
+                        ) { cell ->
+                            val item = cell.item
+                            when {
+                                item.isTile -> {
+                                    val entry = entryOf(cell)
+                                    // The remote's way into the menu from the card, and back onto the tile whose page it left.
+                                    val focus = Modifier
+                                        .then(if (remoteTileOffered && item == drawn.firstOrNull { it.isTile }) Modifier.focusRequester(menuStart) else Modifier)
+                                        .then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
+                                    if (cell.wide) WideMenuCard(entry, focus)
+                                    else MenuCard(title = entry.title, icon = entry.icon, icon2 = entry.icon2, modifier = focus, onClick = entry.onClick)
+                                }
+                                blockShows(item) -> Column(horizontalAlignment = Alignment.CenterHorizontally) { block(item, Modifier) }
+                                else -> MainBlockPlaceholder(item)
+                            }
+                        }
+                        AnimatedVisibility(visible = editing && layout.addable(itemOffered).isNotEmpty()) {
+                            MainAddCell(onClick = { paletteOpen = true }, modifier = Modifier.padding(top = 16.dp))
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+            } else if (fold is Fold.Horizontal) {
                 val menuColumns = menuColumnsFor(maxWidth - 48.dp, cardCount)
                 Column(modifier = Modifier.fillMaxSize()) {
                     Column(
@@ -1817,7 +2016,7 @@ fun MainScreen(
                         context.startActivity(Intent(context, PeersActivity::class.java).apply { id?.let { putExtra(PeersActivity.EXTRA_PEER_ID, it) } })
                     },
                 )
-            } else if (wideEnoughForTwoPanes) {
+            } else {
                 // The status column is clamped: a share of the width so it
                 // keeps its proportion in landscape, but never the half of a
                 // tablet, where it would be a poster with nothing on it.
@@ -1863,31 +2062,43 @@ fun MainScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                 }
-            } else {
-                // One column, held to a readable width on an upright tablet;
-                // on a phone that is the whole width and two menu columns.
-                val columnWidth = minOf(maxWidth, ReadableContentWidth)
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Column(
-                        modifier = Modifier.width(columnWidth).padding(horizontal = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        statusPane(false)
-                        // The managed devices take their line out of the gap between the two.
-                        if (managed.devices.isEmpty()) Spacer(modifier = Modifier.height(32.dp))
-                        else ManagedPills(managed, Modifier.padding(top = 6.dp, bottom = 14.dp))
-                        menuPane(menuColumnsFor(columnWidth - 48.dp, cardCount), cardHeight)
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                }
             }
         }
+    }
+
+    // Back leaves the editor before it leaves the app.
+    androidx.activity.compose.BackHandler(enabled = editing) { editing = false }
+
+    if (paletteOpen) {
+        MainPaletteSheet(
+            items = layout.addable(itemOffered),
+            onAdd = { changeLayout(layout.add(it)) },
+            onDismiss = { paletteOpen = false },
+        )
+    }
+
+    if (confirmLayoutReset) {
+        // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
+        val dlgTitle = stringResource(R.string.main_layout_reset_title)
+        val dlgText = stringResource(R.string.main_layout_reset_text)
+        val dlgReset = stringResource(R.string.main_layout_reset)
+        val dlgCancel = stringResource(R.string.action_cancel)
+        AppAlertDialog(
+            onDismissRequest = { confirmLayoutReset = false },
+            icon = { Icon(Icons.Default.RestartAlt, null) },
+            title = { Text(dlgTitle) },
+            text = { Text(dlgText) },
+            confirmButton = {
+                Button(onClick = {
+                    confirmLayoutReset = false
+                    if (previewLayout == null) {
+                        MainLayoutStore.reset(context)
+                        layout = MainLayoutStore.load(context, remoteTileOffered)
+                    }
+                }) { Text(dlgReset) }
+            },
+            dismissButton = { TextButton(onClick = { confirmLayoutReset = false }) { Text(dlgCancel) } }
+        )
     }
 
     if (showChangelog.value) {
@@ -2680,9 +2891,9 @@ private fun Context.isSystemInstallerConfirm(confirm: Intent): Boolean {
 /**
  * A destination on the main screen; [icon2], when set, stands beside [icon] for a screen of two parts.
  *
- * A [wide] entry has a row of its own across the grid, under the cards, and a second line: its
- * [state], which [stateWarns] sets apart (what it says is not a state to be happy with). It takes
- * no part in how many columns the cards have. [focusOnShow] puts the remote on it as it appears:
+ * A [wide] entry has a row of its own across the grid — under the cards unless the person put it
+ * elsewhere — and a second line: its [state], which [stateWarns] sets apart (what it says is not
+ * a state to be happy with). It takes no part in how many columns the cards have. [focusOnShow] puts the remote on it as it appears:
  * the page it opened has just been left.
  */
 data class MenuEntry(
@@ -2727,44 +2938,64 @@ fun MenuGrid(
     /** Tiles that share the row of the [MenuEntry.wide] entry, each taking a weight of it; null leaves that entry the row. */
     beside: (@Composable RowScope.() -> Unit)? = null,
 ) {
-    val cards = entries.filter { !it.wide }
-    Column(modifier = modifier.fillMaxWidth()) {
-        cards.chunked(columns).forEachIndexed { rowIndex, row ->
-            if (rowIndex > 0) Spacer(modifier = Modifier.height(16.dp))
-            // A minimum, not a fixed height: at a large system font the label
-            // needs more room, and the row grows to its tallest card so the
-            // cards in it stay the same height.
-            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-                row.forEachIndexed { i, entry ->
-                    if (i > 0) Spacer(modifier = Modifier.width(16.dp))
-                    MenuCard(
-                        title = entry.title,
-                        icon = entry.icon,
-                        icon2 = entry.icon2,
-                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = cardHeight)
-                            .then(if (start != null && rowIndex == 0 && i == 0) Modifier.focusRequester(start) else Modifier),
-                        onClick = entry.onClick
-                    )
-                }
-                repeat(columns - row.size) {
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Spacer(modifier = Modifier.weight(1f))
+    // In the order given: cards side by side until a row is full or an entry that takes the
+    // row comes, which is a row by itself — after the cards, where nobody moved it.
+    val rows = buildList<List<MenuEntry>> {
+        var row = mutableListOf<MenuEntry>()
+        for (entry in entries) {
+            if (entry.wide) {
+                if (row.isNotEmpty()) add(row)
+                add(listOf(entry))
+                row = mutableListOf()
+            } else {
+                row += entry
+                if (row.size == columns.coerceAtLeast(1)) {
+                    add(row)
+                    row = mutableListOf()
                 }
             }
         }
-        // What has a row of its own comes last, across the cards above it.
-        entries.filter { it.wide }.forEachIndexed { i, entry ->
-            if (cards.isNotEmpty() || i > 0) Spacer(modifier = Modifier.height(16.dp))
-            // One row whether it is shared or not, tile for tile and as tall as the taller of them:
-            // the entry is the same tile when what stood beside it goes away, and a remote that
-            // was on it stays on it.
-            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                WideMenuCard(
-                    entry,
-                    Modifier.weight(1f).fillMaxHeight().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
-                )
-                // The shared tiles stand beside the first such row only: a second row is its own.
-                if (i == 0) beside?.invoke(this)
+        if (row.isNotEmpty()) add(row)
+    }
+    val firstWide = entries.firstOrNull { it.wide }
+    Column(modifier = modifier.fillMaxWidth()) {
+        rows.forEachIndexed { rowIndex, row ->
+            if (rowIndex > 0) Spacer(modifier = Modifier.height(16.dp))
+            val startHere = if (start != null && rowIndex == 0) Modifier.focusRequester(start) else Modifier
+            val wide = row.singleOrNull()?.takeIf { it.wide }
+            if (wide != null) {
+                // One row whether it is shared or not, tile for tile and as tall as the taller of them:
+                // the entry is the same tile when what stood beside it goes away, and a remote that
+                // was on it stays on it.
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    WideMenuCard(
+                        wide,
+                        Modifier.weight(1f).fillMaxHeight().then(startHere).then(if (wide.focusOnShow) Modifier.tvInitialFocus() else Modifier)
+                    )
+                    // The shared tiles stand beside the first such row only: a second row is its own.
+                    if (wide === firstWide) beside?.invoke(this)
+                }
+            } else {
+                // A minimum, not a fixed height: at a large system font the label
+                // needs more room, and the row grows to its tallest card so the
+                // cards in it stay the same height.
+                Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    row.forEachIndexed { i, entry ->
+                        if (i > 0) Spacer(modifier = Modifier.width(16.dp))
+                        MenuCard(
+                            title = entry.title,
+                            icon = entry.icon,
+                            icon2 = entry.icon2,
+                            modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = cardHeight)
+                                .then(if (i == 0) startHere else Modifier),
+                            onClick = entry.onClick
+                        )
+                    }
+                    repeat(columns - row.size) {
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
             }
         }
     }

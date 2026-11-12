@@ -27,6 +27,58 @@
     <string name="tailnet_map_self_caption">Traffic with all devices of the tailnet</string>
     <string name="tailnet_map_open_peer">Device details</string>
 
+    <!-- The map's layout schemes: a switch under the header. -->
+    <string name="tailnet_map_scheme_label">Map layout</string>
+    <string name="tailnet_map_scheme_rings">Rings</string>
+    <string name="tailnet_map_scheme_routes">Routes</string>
+    <string name="tailnet_map_scheme_tree">Tree</string>
+    <!-- The tree's chip that says what its branches are; %1$s is one of the four below. -->
+    <string name="tailnet_map_grouping_format">Groups: %1$s</string>
+    <string name="tailnet_map_grouping_route">by route</string>
+    <string name="tailnet_map_grouping_owner">by owner</string>
+    <string name="tailnet_map_grouping_os">by system</string>
+    <string name="tailnet_map_grouping_state">by state</string>
+    <!-- A group's name where the data has none: devices nothing was sent to yet, devices with a path in use. -->
+    <string name="tailnet_map_group_idle">No traffic yet</string>
+    <string name="tailnet_map_group_linked">In use</string>
+    <string name="tailnet_map_os_other">Other</string>
+    <string name="tailnet_map_owner_unknown">Another user</string>
+    <!-- What a hub is, in its sheet and for a screen reader. -->
+    <string name="tailnet_map_kind_derp">DERP relay</string>
+    <string name="tailnet_map_kind_peer_relay">Peer relay</string>
+    <string name="tailnet_map_kind_group">Group</string>
+    <plurals name="tailnet_map_devices">
+        <item quantity="one">%d device</item>
+        <item quantity="other">%d devices</item>
+    </plurals>
+    <!-- A hub's sheet: the list under the figures. -->
+    <string name="tailnet_map_hub_through">Reached through this relay</string>
+    <string name="tailnet_map_hub_members">In this group</string>
+    <!-- The two states of the button over the map's corner. -->
+    <string name="tailnet_map_fit">Show the whole map</string>
+    <string name="tailnet_map_actual_size">Back to normal size</string>
+
+    <!-- Filters: the top bar's button, the sheet, the chips of what is on. -->
+    <string name="tailnet_map_filters">Filters</string>
+    <string name="tailnet_map_filters_on_format">Filters, %1$d on</string>
+    <string name="tailnet_map_filter_reset">Reset</string>
+    <string name="tailnet_map_filter_reset_all">Reset filters</string>
+    <string name="tailnet_map_filter_search">Name, address or system</string>
+    <string name="tailnet_map_filter_query_format" translatable="false">“%1$s”</string>
+    <string name="tailnet_map_filter_section_state">State</string>
+    <string name="tailnet_map_filter_section_path">Path</string>
+    <string name="tailnet_map_filter_section_os">System</string>
+    <string name="tailnet_map_filter_section_owner">Owner</string>
+    <string name="tailnet_map_filter_section_role">Role</string>
+    <string name="tailnet_map_filter_online">Online only</string>
+    <string name="tailnet_map_filter_traffic">With traffic now</string>
+    <string name="tailnet_map_filter_not_yet">No path yet</string>
+    <string name="tailnet_map_filter_subnet_routers">Subnet routers</string>
+    <string name="tailnet_map_filter_shown_format">Shown: %1$d of %2$d</string>
+    <string name="tailnet_map_filter_done">Show</string>
+    <string name="tailnet_map_filter_empty">No device matches the filters</string>
+    <string name="tailnet_map_filter_empty_desc">They hide all %1$d devices of this tailnet.</string>
+
     <!-- The speed graph card on the main screen. -->
     <string name="speed_graph_title">Traffic</string>
     <string name="speed_graph_idle">No traffic right now</string>

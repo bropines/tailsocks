@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailnet_map_scheme_label">地圖版面</string>
+    <string name="tailnet_map_scheme_rings">環形</string>
+    <string name="tailnet_map_scheme_routes">路徑</string>
+    <string name="tailnet_map_scheme_tree">樹狀</string>
+    <string name="tailnet_map_grouping_format">分組：%1$s</string>
+    <string name="tailnet_map_grouping_route">依路徑</string>
+    <string name="tailnet_map_grouping_owner">依擁有者</string>
+    <string name="tailnet_map_grouping_os">依系統</string>
+    <string name="tailnet_map_grouping_state">依狀態</string>
+    <string name="tailnet_map_group_idle">尚無流量</string>
+    <string name="tailnet_map_group_linked">使用中</string>
+    <string name="tailnet_map_os_other">其他</string>
+    <string name="tailnet_map_owner_unknown">其他使用者</string>
+    <string name="tailnet_map_kind_derp">DERP 中繼</string>
+    <string name="tailnet_map_kind_peer_relay">對等中繼</string>
+    <string name="tailnet_map_kind_group">分組</string>
+    <plurals name="tailnet_map_devices">
+        <item quantity="other">%d 部裝置</item>
+    </plurals>
+    <string name="tailnet_map_hub_through">經此中繼連線</string>
+    <string name="tailnet_map_hub_members">此分組中</string>
+    <string name="tailnet_map_fit">顯示整張地圖</string>
+    <string name="tailnet_map_actual_size">恢復正常大小</string>
+
+    <string name="tailnet_map_filters">篩選</string>
+    <string name="tailnet_map_filters_on_format">篩選，已啟用 %1$d 項</string>
+    <string name="tailnet_map_filter_reset">重設</string>
+    <string name="tailnet_map_filter_reset_all">重設篩選</string>
+    <string name="tailnet_map_filter_search">名稱、位址或系統</string>
+    <string name="tailnet_map_filter_section_state">狀態</string>
+    <string name="tailnet_map_filter_section_path">路徑</string>
+    <string name="tailnet_map_filter_section_os">系統</string>
+    <string name="tailnet_map_filter_section_owner">擁有者</string>
+    <string name="tailnet_map_filter_section_role">角色</string>
+    <string name="tailnet_map_filter_online">僅限線上</string>
+    <string name="tailnet_map_filter_traffic">目前有流量</string>
+    <string name="tailnet_map_filter_not_yet">尚未選定路徑</string>
+    <string name="tailnet_map_filter_subnet_routers">子網路路由器</string>
+    <string name="tailnet_map_filter_shown_format">顯示：%1$d / %2$d</string>
+    <string name="tailnet_map_filter_done">顯示</string>
+    <string name="tailnet_map_filter_empty">沒有符合篩選條件的裝置</string>
+    <string name="tailnet_map_filter_empty_desc">此 tailnet 中有 %1$d 部裝置被篩選隱藏。</string>
+</resources>

@@ -13,6 +13,49 @@
     <string name="tailnet_map_self_caption">与 tailnet 中所有设备的流量</string>
     <string name="tailnet_map_open_peer">设备详情</string>
 
+    <string name="tailnet_map_scheme_label">地图布局</string>
+    <string name="tailnet_map_scheme_rings">环形</string>
+    <string name="tailnet_map_scheme_routes">路径</string>
+    <string name="tailnet_map_scheme_tree">树形</string>
+    <string name="tailnet_map_grouping_format">分组：%1$s</string>
+    <string name="tailnet_map_grouping_route">按路径</string>
+    <string name="tailnet_map_grouping_owner">按所有者</string>
+    <string name="tailnet_map_grouping_os">按系统</string>
+    <string name="tailnet_map_grouping_state">按状态</string>
+    <string name="tailnet_map_group_idle">尚无流量</string>
+    <string name="tailnet_map_group_linked">使用中</string>
+    <string name="tailnet_map_os_other">其他</string>
+    <string name="tailnet_map_owner_unknown">其他用户</string>
+    <string name="tailnet_map_kind_derp">DERP 中继</string>
+    <string name="tailnet_map_kind_peer_relay">对等中继</string>
+    <string name="tailnet_map_kind_group">分组</string>
+    <plurals name="tailnet_map_devices">
+        <item quantity="other">%d 台设备</item>
+    </plurals>
+    <string name="tailnet_map_hub_through">经此中继连接</string>
+    <string name="tailnet_map_hub_members">此分组中</string>
+    <string name="tailnet_map_fit">显示整张地图</string>
+    <string name="tailnet_map_actual_size">恢复正常大小</string>
+
+    <string name="tailnet_map_filters">筛选</string>
+    <string name="tailnet_map_filters_on_format">筛选，已启用 %1$d 项</string>
+    <string name="tailnet_map_filter_reset">重置</string>
+    <string name="tailnet_map_filter_reset_all">重置筛选</string>
+    <string name="tailnet_map_filter_search">名称、地址或系统</string>
+    <string name="tailnet_map_filter_section_state">状态</string>
+    <string name="tailnet_map_filter_section_path">路径</string>
+    <string name="tailnet_map_filter_section_os">系统</string>
+    <string name="tailnet_map_filter_section_owner">所有者</string>
+    <string name="tailnet_map_filter_section_role">角色</string>
+    <string name="tailnet_map_filter_online">仅在线</string>
+    <string name="tailnet_map_filter_traffic">当前有流量</string>
+    <string name="tailnet_map_filter_not_yet">尚未选定路径</string>
+    <string name="tailnet_map_filter_subnet_routers">子网路由器</string>
+    <string name="tailnet_map_filter_shown_format">显示：%1$d / %2$d</string>
+    <string name="tailnet_map_filter_done">显示</string>
+    <string name="tailnet_map_filter_empty">没有符合筛选条件的设备</string>
+    <string name="tailnet_map_filter_empty_desc">此 tailnet 中有 %1$d 台设备被筛选隐藏。</string>
+
     <string name="speed_graph_title">流量</string>
     <string name="speed_graph_idle">当前没有流量</string>
     <string name="speed_graph_stopped">连接后显示</string>

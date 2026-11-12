@@ -3,15 +3,15 @@ package io.github.bropines.tailscaled.core
 import android.content.Context
 
 /**
- * A piece of the main screen a person can take off it: Settings → Appearance →
- * "Main screen blocks".
+ * The switches the main screen had before it could be arranged (Settings → Appearance →
+ * "Main screen blocks", 5.8.0): one boolean per block, on or off.
  *
- * The screen grew a part at a time and every part is somebody's favourite and
- * somebody else's clutter. The pictures added last — the speed graph and the
- * connection timeline — start hidden: the screen a person already knows, the
- * status and the two columns of cards, looks the same after an update, and what
- * is new is one switch away. Settings itself is not here: a screen that can
- * hide the way back to this list is a trap.
+ * Nothing writes them any more except a reset. They are still read — a screen nobody has
+ * arranged yet is built from them ([MainLayout.legacy]), so an update changes nothing a person
+ * had set — and still carried by backups, for the builds that know nothing else. The graph and
+ * the timeline started hidden, and that is still what a fresh install shows. Settings was never
+ * here: a screen that can hide the way back to this list is a trap, and [MainItem.removable]
+ * keeps that rule now.
  */
 enum class MainBlock(val id: String, val shownByDefault: Boolean, val isTile: Boolean = false) {
     EXIT_NODE("exit_node", true),

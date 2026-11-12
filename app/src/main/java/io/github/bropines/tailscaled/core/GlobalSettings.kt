@@ -636,7 +636,7 @@ object GlobalSettings {
         // Appearance
         "app_theme", "theme_preset", "dynamic_color", "amoled_mode", "show_changelog_after_update", "update_check_on_launch", "update_beta_channel", "show_connection_summary", "show_managed_on_main",
         "ui_scale", AppIcons.PREF, KEY_QR_SHAPE, KEY_QR_PALETTE
-    ) + MainBlock.prefKeys
+    ) + MainBlock.prefKeys + MainLayoutStore.KEY
 
     /** The exportable subset of the global preferences, as stored. */
     fun exportable(context: Context): Map<String, Any?> =

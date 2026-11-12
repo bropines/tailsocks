@@ -13,6 +13,52 @@
     <string name="tailnet_map_self_caption">Трафик со всеми устройствами tailnet</string>
     <string name="tailnet_map_open_peer">Подробнее об устройстве</string>
 
+    <string name="tailnet_map_scheme_label">Вид карты</string>
+    <string name="tailnet_map_scheme_rings">Кольца</string>
+    <string name="tailnet_map_scheme_routes">Маршруты</string>
+    <string name="tailnet_map_scheme_tree">Дерево</string>
+    <string name="tailnet_map_grouping_format">Группы: %1$s</string>
+    <string name="tailnet_map_grouping_route">по маршруту</string>
+    <string name="tailnet_map_grouping_owner">по владельцу</string>
+    <string name="tailnet_map_grouping_os">по системе</string>
+    <string name="tailnet_map_grouping_state">по состоянию</string>
+    <string name="tailnet_map_group_idle">Без трафика</string>
+    <string name="tailnet_map_group_linked">На связи</string>
+    <string name="tailnet_map_os_other">Другая</string>
+    <string name="tailnet_map_owner_unknown">Другой пользователь</string>
+    <string name="tailnet_map_kind_derp">Реле DERP</string>
+    <string name="tailnet_map_kind_peer_relay">Реле-узел</string>
+    <string name="tailnet_map_kind_group">Группа</string>
+    <plurals name="tailnet_map_devices">
+        <item quantity="one">%d устройство</item>
+        <item quantity="few">%d устройства</item>
+        <item quantity="many">%d устройств</item>
+        <item quantity="other">%d устройства</item>
+    </plurals>
+    <string name="tailnet_map_hub_through">Идут через это реле</string>
+    <string name="tailnet_map_hub_members">В этой группе</string>
+    <string name="tailnet_map_fit">Показать карту целиком</string>
+    <string name="tailnet_map_actual_size">Вернуть обычный размер</string>
+
+    <string name="tailnet_map_filters">Фильтры</string>
+    <string name="tailnet_map_filters_on_format">Фильтры, включено: %1$d</string>
+    <string name="tailnet_map_filter_reset">Сбросить</string>
+    <string name="tailnet_map_filter_reset_all">Сбросить фильтры</string>
+    <string name="tailnet_map_filter_search">Имя, адрес или система</string>
+    <string name="tailnet_map_filter_section_state">Состояние</string>
+    <string name="tailnet_map_filter_section_path">Путь</string>
+    <string name="tailnet_map_filter_section_os">Система</string>
+    <string name="tailnet_map_filter_section_owner">Владелец</string>
+    <string name="tailnet_map_filter_section_role">Роль</string>
+    <string name="tailnet_map_filter_online">Только в сети</string>
+    <string name="tailnet_map_filter_traffic">С трафиком сейчас</string>
+    <string name="tailnet_map_filter_not_yet">Путь ещё не выбран</string>
+    <string name="tailnet_map_filter_subnet_routers">Маршрутизаторы подсетей</string>
+    <string name="tailnet_map_filter_shown_format">Показано: %1$d из %2$d</string>
+    <string name="tailnet_map_filter_done">Показать</string>
+    <string name="tailnet_map_filter_empty">Под фильтры не подходит ни одно устройство</string>
+    <string name="tailnet_map_filter_empty_desc">Они скрывают все устройства этого tailnet: %1$d.</string>
+
     <string name="speed_graph_title">Трафик</string>
     <string name="speed_graph_idle">Сейчас трафика нет</string>
     <string name="speed_graph_stopped">Виден, пока есть подключение</string>

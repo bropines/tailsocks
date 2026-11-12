@@ -2614,14 +2614,17 @@ fun SettingsScreen(
                 GlobalSettings.setShowChangelogAfterUpdate(context, it)
                 showChangelogAfterUpdate = it
             }
-            var connectionSummaryShown by remember { mutableStateOf(GlobalSettings.isConnectionSummaryShown(context)) }
+            // The summary is a block of the main screen's layout now; this switch is its older
+            // handle and stays one, reading and changing the same arrangement the editor does.
+            val remoteOnHome = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
+            var connectionSummaryShown by remember { mutableStateOf(MainItem.SUMMARY in MainLayoutStore.load(context, remoteOnHome)) }
             SettingsSwitchItem(
                 stringResource(R.string.settings_connection_summary_title),
                 stringResource(R.string.settings_connection_summary_desc),
                 Icons.Default.Summarize,
                 connectionSummaryShown
             ) {
-                GlobalSettings.setConnectionSummaryShown(context, it)
+                MainLayoutStore.setSummaryShown(context, remoteOnHome, it)
                 connectionSummaryShown = it
             }
             MainBlocksRow()
