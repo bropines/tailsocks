@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -126,7 +127,13 @@ func newDualHandler() *dualHandler {
 	}
 }
 
-func (h *dualHandler) Enabled(_ context.Context, _ slog.Level) bool { return true }
+// Enabled drops debug lines unless the detailed log is on (SetLogLevel(0)).
+// It used to pass everything, and the DNS proxy's debug line per query filled
+// the 10,000-entry buffer by itself — pushing everything else out of it, and
+// putting every name the device looked up into a log that gets exported.
+func (h *dualHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= slog.LevelInfo || atomic.LoadInt32(&currentLogLevel) <= 0
+}
 
 func (h *dualHandler) Handle(ctx context.Context, r slog.Record) error {
 	var sb strings.Builder

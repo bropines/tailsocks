@@ -2,9 +2,11 @@ package appctr
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -33,7 +35,7 @@ func StartDriveServer() (string, error) {
 	if driveServer != nil {
 		addr := driveServer.Addr()
 		driveServerMu.Unlock()
-		slog.Info("Taildrive: Server already running", "addr", addr)
+		slog.Info("Taildrive: Server already running", "port", driveServerPort(addr))
 		return addr, nil
 	}
 
@@ -53,7 +55,7 @@ func StartDriveServer() (string, error) {
 	}()
 
 	addr := server.Addr()
-	slog.Info("Taildrive: Server started, registering address", "addr", addr)
+	slog.Info("Taildrive: Server started, registering address", "port", driveServerPort(addr))
 
 	// Register the file server address with the local tailscaled daemon. This
 	// is a LocalAPI round-trip of up to the 30s client deadline and runs
@@ -76,6 +78,17 @@ func StartDriveServer() (string, error) {
 
 	slog.Info("Taildrive: Fileserver address registered OK")
 	return addr, nil
+}
+
+// driveServerPort is the port out of a FileServer address, for the log. The
+// address is "<secret token>|127.0.0.1:<port>", and the token is all that
+// keeps another app on the device out of the shared folders: it must not reach
+// a log that is exported and shared.
+func driveServerPort(addr string) string {
+	if i := strings.LastIndex(addr, ":"); i >= 0 {
+		return addr[i+1:]
+	}
+	return ""
 }
 
 // StopDriveServer stops the running WebDAV file server.
@@ -190,23 +203,35 @@ func StartDriveProxy(localAddr, username, password string) error {
 	transport := newDriveTransport()
 	reverseProxy := newDriveReverseProxy(transport)
 
-	// Wrap in Basic Auth handler if credentials are provided
-	var handler http.Handler = reverseProxy
-	if username != "" && password != "" {
-		handler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	// Basic Auth when credentials are provided, and never a browser's request
+	// on behalf of a web page: see driveProxyHostAllowed.
+	auth := username != "" && password != ""
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Origin") != "" || !driveProxyHostAllowed(req.Host, driveProxySelfName()) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if auth {
 			u, p, ok := req.BasicAuth()
-			if !ok || u != username || p != password {
+			// Both compared, in constant time: how long a refusal took must
+			// not say how much of a guess was right.
+			userOK := subtle.ConstantTimeCompare([]byte(u), []byte(username)) == 1
+			passOK := subtle.ConstantTimeCompare([]byte(p), []byte(password)) == 1
+			if !ok || !userOK || !passOK {
 				w.Header().Set("WWW-Authenticate", `Basic realm="Taildrive Proxy"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			reverseProxy.ServeHTTP(w, req)
-		})
-	}
+		}
+		reverseProxy.ServeHTTP(w, req)
+	})
 
 	server := &http.Server{
 		Addr:    localAddr,
 		Handler: handler,
+		// A client that connects and sends nothing must not hold a
+		// connection for ever; bodies — files — take what they take.
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 	driveProxyServer = server
 	driveProxyTransport = transport
@@ -226,6 +251,49 @@ func StartDriveProxy(localAddr, username, password string) error {
 	}()
 
 	return nil
+}
+
+// driveProxyHostAllowed reports whether a request's Host header is one a
+// WebDAV client that was given this proxy's address would send: an IP
+// address, localhost, or this node's own MagicDNS name (selfDNSName, full or
+// short) for a client elsewhere in the tailnet. Any other name is a browser
+// sent here by a web page whose own name was pointed at the device (DNS
+// rebinding) — the proxy rewrites Host on the way to the daemon, so without
+// this check such a page could read and write every Taildrive share. The
+// remote-management endpoint refuses the same way (remoteHostIsAddress).
+func driveProxyHostAllowed(host, selfDNSName string) bool {
+	if remoteHostIsAddress(host) {
+		return true
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if host == "" {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	self := strings.ToLower(strings.TrimSuffix(selfDNSName, "."))
+	if self == "" {
+		return false
+	}
+	short, _, _ := strings.Cut(self, ".")
+	return host == self || host == short
+}
+
+// driveProxySelfName is this node's MagicDNS name as the bus last gave it, ""
+// before it has: read per request, so it must not cost a LocalAPI round trip.
+func driveProxySelfName() string {
+	self := GetBusState().Self
+	if self == nil {
+		return ""
+	}
+	if self.DNSName != "" {
+		return self.DNSName
+	}
+	return self.Name // a tailcfg.Node (SelfChange) names itself here
 }
 
 // shutdownDriveProxyLocked stops the listener and closes the upstream pool.

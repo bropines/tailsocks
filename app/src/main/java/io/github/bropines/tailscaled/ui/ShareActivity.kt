@@ -84,7 +84,13 @@ class ShareActivity : ComponentActivity() {
             else -> null
         }
         if (fileUris.isNullOrEmpty()) { finish(); return }
-        setContent { TailSocksTheme { ShareOverlay(fileUris = fileUris, directTo = directTo, onDismiss = { finish() }) } }
+        // These URIs are another app's choice and are read with this app's rights: one that names
+        // this app's own data is not sent (core/ShareGuard.kt). The files picked above are the user's.
+        val own = ShareGuard.ownPlaces(this)
+        val allowed = fileUris.filter { ShareGuard.allows(it, own) }
+        if (allowed.size < fileUris.size) Toast.makeText(this, R.string.share_guard_refused, Toast.LENGTH_LONG).show()
+        if (allowed.isEmpty()) { finish(); return }
+        setContent { TailSocksTheme { ShareOverlay(fileUris = allowed, directTo = directTo, onDismiss = { finish() }) } }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

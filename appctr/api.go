@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -37,9 +38,13 @@ func GetStatusJSON(includePeers bool) (string, error) {
 	if !IsRunning() {
 		return "", ErrDaemonNotRunning
 	}
-	path := "/localapi/v0/status"
+	// The endpoint includes the peers unless told not to (peers defaults to
+	// true in serveStatus), so "without peers" has to be said: the bare path
+	// had the daemon build and send every peer on each of the polls that only
+	// read the state or this node.
+	path := "/localapi/v0/status?peers=false"
 	if includePeers {
-		path += "?peers=true"
+		path = "/localapi/v0/status?peers=true"
 	}
 	data, err := doLocalRequest("GET", path, nil)
 	if err != nil {
@@ -102,7 +107,11 @@ func PatchPrefsJSON(jsonPayload string) error {
 		return ErrDaemonNotRunning
 	}
 	if GetLoginURL() != "" {
-		slog.Info("syncSettings: AuthURL is active, skipping PATCH /prefs to preserve login flow")
+		// Not an error: the callers treat one as a refusal by the daemon, and a
+		// choice made during a login is stored by the app and applied when the
+		// login is over. The log names what was left out, so a setting that
+		// did not take can be traced to this.
+		slog.Info("PatchPrefsJSON: a login is in progress, prefs change not sent to preserve it", "skipped", prefsPatchFields(jsonPayload))
 		return nil
 	}
 	_, err := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(jsonPayload))
@@ -110,6 +119,26 @@ func PatchPrefsJSON(jsonPayload string) error {
 		return fmt.Errorf("PatchPrefsJSON failed: %w", err)
 	}
 	return nil
+}
+
+// prefsPatchFields names the prefs a MaskedPrefs payload would change — its
+// keys without the "…Set" mask flags, never the values — for the log.
+func prefsPatchFields(jsonPayload string) string {
+	var patch map[string]json.RawMessage
+	if json.Unmarshal([]byte(jsonPayload), &patch) != nil {
+		return "unreadable payload"
+	}
+	fields := make([]string, 0, len(patch))
+	for k := range patch {
+		if base, ok := strings.CutSuffix(k, "Set"); ok {
+			if _, masked := patch[base]; masked {
+				continue
+			}
+		}
+		fields = append(fields, k)
+	}
+	sort.Strings(fields)
+	return strings.Join(fields, ",")
 }
 
 // StartDaemon sends initial engine configuration via /localapi/v0/start.
@@ -333,9 +362,14 @@ func SetServeConfigJSON(configJSON string) error {
 		return ErrDaemonNotRunning
 	}
 	// 1. Mandatory Reset pattern: POST empty object {} to clear stale daemon state
-	_, _ = doLocalRequest("POST", "/localapi/v0/serve-config", strings.NewReader("{}"))
+	_, resetErr := doLocalRequest("POST", "/localapi/v0/serve-config", strings.NewReader("{}"))
 
 	if configJSON == "" || configJSON == "{}" {
+		// The reset is the whole operation here. Its failure used to be
+		// dropped, and "cleared" reported while a Funnel stayed public.
+		if resetErr != nil {
+			return fmt.Errorf("SetServeConfigJSON reset failed: %w", resetErr)
+		}
 		slog.Info("SetServeConfigJSON: reset complete, cleared serve config")
 		return nil
 	}

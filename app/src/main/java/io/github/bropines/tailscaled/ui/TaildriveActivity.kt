@@ -260,8 +260,8 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
     // Generate secure random password on first-time auth enable
     LaunchedEffect(isProxyEnabled, isProxyAuthEnabled) {
         if (isProxyEnabled && isProxyAuthEnabled && proxyPassword.isEmpty()) {
-            val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-            val generated = (1..8).map { chars.random() }.joinToString("")
+            // From SecureRandom: kotlin.random is seeded from the clock and is no source of passwords.
+            val generated = generateSecureToken(8)
             proxyPassword = generated
             prefs.edit().putString("taildrive_proxy_password", generated).apply()
             triggerServiceSettingsUpdate(context)

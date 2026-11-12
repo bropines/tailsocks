@@ -29,7 +29,7 @@ func ForceRefresh() {
 		return
 	}
 	slog.Debug("Manual refresh requested")
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 	if err == nil && len(data) > 0 {
 		var res struct {
 			BackendState string `json:"BackendState"`

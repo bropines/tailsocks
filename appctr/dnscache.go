@@ -46,7 +46,7 @@ var dnsRespCache = struct {
 }{m: map[dnsCacheKey]*dnsCacheEntry{}}
 
 // dnsCacheFlush drops every cached answer. Called with the other DNS caches
-// (profile or daemon change) and when the split-DNS routes change.
+// (profile or daemon change).
 func dnsCacheFlush() {
 	dnsRespCache.Lock()
 	dnsRespCache.m = map[dnsCacheKey]*dnsCacheEntry{}

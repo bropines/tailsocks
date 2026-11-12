@@ -109,9 +109,14 @@ object NetTrace {
     private fun script(logcatSince: Long?): String {
         val logcatWindow = if (logcatSince == null) "-t 1500"
         else "-T '${SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(Date(logcatSince))}'"
+        // The marks the root daemon's own sockets carry, taken from where the routing rules take
+        // them: upstream's Linux mark, 0x80000, is one this daemon never sets, and asking about
+        // it showed the route of an ordinary packet under the bypass's name.
+        val daemonMarks = RootUtils.DAEMON_SOCKET_MARKS
+        val markedRoutes = daemonMarks.joinToString("; ") { "ip route get 1.1.1.1 mark $it 2>&1" }
         return """
             echo '# ip rule'; ip rule 2>&1
-            echo '# ip route get 1.1.1.1 (no mark / tailscale bypass mark)'; ip route get 1.1.1.1 2>&1; ip route get 1.1.1.1 mark 0x80000 2>&1
+            echo '# ip route get 1.1.1.1 (no mark / root daemon socket mark: ${daemonMarks.joinToString(", ")})'; ip route get 1.1.1.1 2>&1; $markedRoutes
             echo '# default routes'; ip route show table all 2>&1 | grep -E '^(default|unreachable default)'
             echo '# table 52'; ip route show table 52 2>&1 | head -20
             echo '# table 53'; ip route show table 53 2>&1 | head -20

@@ -340,13 +340,15 @@ func Login(authKey string) string {
 
 		for i := 0; i < 15; i++ {
 			time.Sleep(300 * time.Millisecond)
-			sData, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+			sData, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 			if err == nil {
 				var st struct {
 					AuthURL string `json:"AuthURL"`
 				}
 				if json.Unmarshal(sData, &st) == nil && st.AuthURL != "" {
-					slog.Info("LocalAPI: AuthURL ready", "url", st.AuthURL)
+					// Not the link itself: whoever opens it becomes the owner
+					// of this node, and the log is exported and shared.
+					slog.Info("LocalAPI: AuthURL ready")
 					break
 				}
 			}
@@ -410,8 +412,14 @@ func GetLoginURL() string {
 	if bs.AuthURL != "" {
 		return bs.AuthURL
 	}
+	// A running node with the bus attached has no login pending — a link
+	// would have arrived as BrowseToURL. The main screen asks every two
+	// seconds, and each ask used to cost a status round trip.
+	if bs.BackendState == "Running" && busConnected.Load() {
+		return ""
+	}
 
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 	if err != nil {
 		return ""
 	}
@@ -525,7 +533,13 @@ func SetServeConfig(configJson string) string {
 		"AdvertiseServicesSet": true,
 	})
 	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (Sync AdvertiseServices)", "services", advertiseServices)
-	doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
+	// A failure does not stop the reset below — clearing rules must not wait
+	// on it — but it is reported once the rest has gone through, instead of
+	// "OK" over services the daemon never advertised.
+	_, prefsErr := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
+	if prefsErr != nil {
+		slog.Error("LocalAPI: AdvertiseServices sync failed", "err", prefsErr)
+	}
 
 	// STEP 2: Full reset of ServeConfig.
 	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
@@ -538,6 +552,7 @@ func SetServeConfig(configJson string) string {
 
 	resetResp, err := client.Do(resetReq)
 	var nextEtag = etag
+	resetFailure := ""
 	if err == nil {
 		data, _ := io.ReadAll(resetResp.Body)
 		if resetResp.StatusCode == http.StatusOK || resetResp.StatusCode == http.StatusNoContent {
@@ -545,17 +560,25 @@ func SetServeConfig(configJson string) string {
 			slog.Info("LocalAPI: Reset successful", "status", resetResp.StatusCode, "new_etag", nextEtag)
 		} else {
 			slog.Warn("LocalAPI: Reset returned non-OK status", "status", resetResp.StatusCode, "body", string(data))
+			resetFailure = fmt.Sprintf("HTTP %d: %s", resetResp.StatusCode, string(data))
 		}
 		resetResp.Body.Close()
 	} else {
 		slog.Error("LocalAPI: Reset request failed", "err", err)
+		resetFailure = "Error (Reset): " + err.Error()
 	}
 
-	// If the config is literally "{}", we might want to stop here to ensure everything is purged.
+	// If the config is literally "{}", the reset is the whole operation.
 	if string(cleanJson) == "{}" {
 		slog.Info("LocalAPI: Full purge requested, stopping after reset")
-		// Force one more attempt if reset didn't seem to return OK?
-		// Actually, we'll trust Step 2 for now, but let's ensure nextEtag is updated.
+		// A reset that failed has cleared nothing: saying "OK" here told the
+		// user the rules were gone while a Funnel stayed public.
+		if resetFailure != "" {
+			return resetFailure
+		}
+		if prefsErr != nil {
+			return "Error (AdvertiseServices): " + prefsErr.Error()
+		}
 		return "OK"
 	}
 
@@ -589,6 +612,9 @@ func SetServeConfig(configJson string) string {
 	finalEtag := applyResp.Header.Get("ETag")
 	slog.Info("LocalAPI: Apply successful", "status", applyResp.StatusCode, "final_etag", finalEtag)
 
+	if prefsErr != nil {
+		return "Error (AdvertiseServices): " + prefsErr.Error()
+	}
 	return "OK"
 }
 

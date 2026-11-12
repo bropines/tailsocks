@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/url"
@@ -269,11 +270,18 @@ func tailscaledCmd(p pathControl, generation uint64, dnsFallbacks string, socksA
 
 	// A daemon log line can exceed bufio.Scanner's default 64 KB token, which
 	// silently kills the scanner and drops all later output; give it room.
-	scan := func(r interface{ Read([]byte) (int, error) }) {
+	scan := func(r io.Reader) {
 		s := bufio.NewScanner(r)
 		s.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for s.Scan() {
 			logWithFilter(s.Text())
+		}
+		// A line longer than the buffer stops the scanner for good, and then
+		// nobody reads the pipe: once it fills, the daemon blocks in its next
+		// write to the log — with whatever lock it holds. Keep draining.
+		if err := s.Err(); err != nil {
+			slog.Warn("Daemon log: reader stopped, the rest of this stream is discarded", "err", err)
+			_, _ = io.Copy(io.Discard, r)
 		}
 	}
 

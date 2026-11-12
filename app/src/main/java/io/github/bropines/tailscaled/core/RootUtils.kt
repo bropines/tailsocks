@@ -98,6 +98,13 @@ object RootUtils {
      * idiom netd uses for its own VPN rules.
      */
     private const val CATCH_ALL_MASK = "0x2020000"
+
+    /**
+     * What the root daemon's sockets may carry (netns_android.go socketMark): [BYPASS_MARK] with
+     * Android's protectedFromVpn bit — the default — or [BYPASS_MARK] alone under TS_VPN_BYPASS=0.
+     * For the dev network trace, which asks the kernel how such a packet is routed.
+     */
+    internal val DAEMON_SOCKET_MARKS = listOf(CATCH_ALL_MASK, BYPASS_MARK)
     private const val CATCH_ALL_PRIO = "200"
 
     /**
@@ -438,7 +445,8 @@ object RootUtils {
         // first probe, is what repairs that, and the status read below fails the
         // same way until it has.
         if (error != null && !isPolicyDenial(error)) return RootAdoption.Probe.ABSENT
-        return RootAdoption.classify(localApiGet(socketPath, "/localapi/v0/status", RootAdoption.PROBE_TIMEOUT_MS))
+        // Only BackendState is read, so the peers are not asked for: the default answer carries the whole netmap.
+        return RootAdoption.classify(localApiGet(socketPath, "/localapi/v0/status?peers=false", RootAdoption.PROBE_TIMEOUT_MS))
     }
 
     /**
@@ -2005,7 +2013,8 @@ object RootUtils {
     private fun selfDnsName(context: Context): String? {
         val fromBridge = runCatching { appctr.Appctr.getSelfDNSName() }.getOrNull()
         if (!fromBridge.isNullOrBlank()) return fromBridge.trimEnd('.')
-        val status = localApiGet(context, "/localapi/v0/status") ?: return null
+        // Only Self is read: without peers=false the daemon serialises every peer of the tailnet for it.
+        val status = localApiGet(context, "/localapi/v0/status?peers=false") ?: return null
         val self = runCatching { AppJson.decodeFromString(StatusResponse.serializer(), status).self }.getOrNull()
         return self?.dnsName?.trimEnd('.')?.ifBlank { null }
     }

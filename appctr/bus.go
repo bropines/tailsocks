@@ -10,10 +10,12 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,10 +33,6 @@ type BusNotify struct {
 
 	// Preferences
 	Prefs *BusPrefs `json:"Prefs,omitempty"`
-
-	// Full network map, from daemons before 1.104, which sent it on connect
-	// (NotifyInitialNetMap). 1.104 removed the field; InitialStatus replaces it.
-	NetMap *BusNetMap `json:"NetMap,omitempty"`
 
 	// The node's status on connect (NotifyInitialStatus), with every peer
 	// because the mask also asks for peer changes: the baseline that
@@ -97,7 +95,8 @@ type BusPrefs struct {
 
 // BusPeer mirrors tailcfg.Node / ipnstate.PeerStatus fields we need.
 type BusPeer struct {
-	ID             json.RawMessage `json:"ID,omitempty"` // tailcfg.NodeID
+	ID             json.RawMessage `json:"ID,omitempty"`     // tailcfg.NodeID in a Node, the StableID in a PeerStatus
+	NodeID         int64           `json:"NodeID,omitempty"` // ipnstate.PeerStatus only
 	StableID       string          `json:"StableID,omitempty"`
 	Name           string          `json:"Name,omitempty"` // FQDN
 	HostName       string          `json:"HostName,omitempty"`
@@ -135,22 +134,6 @@ type BusStatus struct {
 // BusTailnet mirrors ipnstate.TailnetStatus.
 type BusTailnet struct {
 	MagicDNSSuffix string `json:"MagicDNSSuffix,omitempty"`
-}
-
-// BusNetMap mirrors netmap.NetworkMap for DNS population.
-type BusNetMap struct {
-	MagicDNSSuffix string       `json:"MagicDNSSuffix,omitempty"`
-	SelfNode       *BusPeer     `json:"SelfNode,omitempty"`
-	Peers          []*BusPeer   `json:"Peers,omitempty"`
-	DNS            BusNetMapDNS `json:"DNS"`
-}
-
-// BusNetMapDNS mirrors the DNS sub-struct inside NetworkMap.
-type BusNetMapDNS struct {
-	Domains []string `json:"Domains,omitempty"`
-	Routes  map[string][]struct {
-		Addr string `json:"Addr"`
-	} `json:"Routes,omitempty"`
 }
 
 // BusHealth mirrors health.State.
@@ -265,9 +248,70 @@ func resetBusState() {
 
 // ─── Shared DNS state (written here, read in dns.go) ────────────────────────
 
-var splitDNSCache sync.Map   // domain → []string resolverIPs
-var lastSplitRouteSig string // sorted "domain=ips;…" of the routes the answer cache was filled under
-var nodesCache sync.Map      // hostname / FQDN → []string IPs
+var splitDNSCache sync.Map // domain → []string resolverIPs, for the DNS screen only (status.go)
+var nodesCache sync.Map    // hostname / FQDN → []string IPs
+
+// nodeNames records which nodesCache keys each node put there, by its
+// tailcfg.NodeID, so that a node that is removed or renamed takes its old
+// names with it: without this the cache only ever grew, and a name kept
+// resolving to the address of a device that had left the tailnet.
+var (
+	nodeNamesMu sync.Mutex
+	nodeNames   = map[int64][]string{}
+)
+
+// resetNodeCache empties the MagicDNS name cache and its index.
+func resetNodeCache() {
+	nodeNamesMu.Lock()
+	defer nodeNamesMu.Unlock()
+	nodesCache.Range(func(key, _ interface{}) bool {
+		nodesCache.Delete(key)
+		return true
+	})
+	nodeNames = map[int64][]string{}
+}
+
+// setNodeNames makes names the cache keys node id owns and drops the ones it
+// owned before and no longer does, unless another node has the same name (the
+// short name of a node shared in from another tailnet can match a local one).
+// No names removes the node.
+func setNodeNames(id int64, names []string) {
+	nodeNamesMu.Lock()
+	defer nodeNamesMu.Unlock()
+	old := nodeNames[id]
+	if len(names) == 0 {
+		delete(nodeNames, id)
+	} else {
+		nodeNames[id] = names
+	}
+	for _, name := range old {
+		kept := false
+		for _, owned := range nodeNames {
+			if slices.Contains(owned, name) {
+				kept = true
+				break
+			}
+		}
+		if !kept {
+			nodesCache.Delete(name)
+		}
+	}
+}
+
+// peerNodeID is p's tailcfg.NodeID, or 0 when the message does not carry it.
+// A tailcfg.Node (PeersChanged, SelfChange) has it as ID; an
+// ipnstate.PeerStatus (InitialStatus) as NodeID, its ID being the StableID.
+func peerNodeID(p *BusPeer) int64 {
+	if p.NodeID != 0 {
+		return p.NodeID
+	}
+	id, err := strconv.ParseInt(string(p.ID), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return id
+}
+
 var magicDNSSuffix string
 var magicDNSSuffixMu sync.RWMutex
 
@@ -290,6 +334,10 @@ func setMagicDNSSuffix(s string) {
 var lastHealthFingerprint string
 
 var busCancel context.CancelFunc
+
+// busConnected is true while the listener holds an open stream from the
+// daemon: the snapshot is then current, not merely the last thing heard.
+var busConnected atomic.Bool
 
 // busGen is bumped every time a new listener's cancel is installed. A listener
 // goroutine captures the generation it was born with and only clears busCancel
@@ -449,6 +497,10 @@ func listenToBus(ctx context.Context, tr *http.Transport) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		busConnected.Store(true)
+		defer busConnected.Store(false)
+	}
 
 	dec := json.NewDecoder(resp.Body)
 	for {
@@ -496,8 +548,24 @@ func applyNotifyLocked(msg *BusNotify) {
 		}
 		if name != busState.BackendState {
 			slog.Info("Bus: state changed", "from", busState.BackendState, "to", name)
+			// A node that starts or runs has no login left to finish. On the
+			// transition only: a login asked of a running node (a new key, a
+			// switch of user) has a link too, and the state is repeated on
+			// later messages.
+			if name == "Running" || name == "Starting" {
+				busState.AuthURL = ""
+			}
 		}
 		busState.BackendState = name
+	}
+
+	// The login is over, so its link is dead. Nothing else cleared it when
+	// the login finished outside the app's own resume path, and while it stays
+	// PatchPrefsJSON skips every change "to preserve the login flow" — an exit
+	// node picked later was reported as applied and never was. Before
+	// BrowseToURL below: a message that carries a new link keeps it.
+	if msg.LoginFinished != nil {
+		busState.AuthURL = ""
 	}
 
 	// Auth URL (login flow)
@@ -577,6 +645,9 @@ func applyNotifyLocked(msg *BusNotify) {
 		if suffix != "" {
 			setMagicDNSSuffix(strings.ToLower(strings.Trim(suffix, ".")))
 		}
+		// The status names every node there is now, so whatever the cache
+		// holds from before — peers removed while the listener was away — goes.
+		resetNodeCache()
 		nodes := 0
 		if st.Self != nil {
 			busState.Self = st.Self
@@ -593,15 +664,6 @@ func applyNotifyLocked(msg *BusNotify) {
 		slog.Info("Bus: initial status", "nodes", nodes, "suffix", getMagicDNSSuffix())
 	}
 
-	// Full NetMap (daemons before 1.104)
-	if msg.NetMap != nil {
-		applyNetMapToDNSCache(msg.NetMap)
-		if msg.NetMap.SelfNode != nil {
-			busState.Self = msg.NetMap.SelfNode
-			busState.TailscaleIPs = peerIPs(msg.NetMap.SelfNode)
-		}
-	}
-
 	// Incremental peer upserts feed the MagicDNS cache only. The snapshot used
 	// to keep its own StableID → peer map as well, but nothing read it and it
 	// was never pruned, so it grew with every peer of every profile ever seen.
@@ -610,6 +672,14 @@ func applyNotifyLocked(msg *BusNotify) {
 			updateNodeCacheFromPeer(p)
 		}
 		slog.Info("Bus: peers upserted", "count", len(msg.PeersChanged))
+	}
+
+	// A removed peer's names stop resolving here; the daemon's resolver, asked
+	// next, says what they are now.
+	for _, raw := range msg.PeersRemoved {
+		if id, err := strconv.ParseInt(string(raw), 10, 64); err == nil && id != 0 {
+			setNodeNames(id, nil)
+		}
 	}
 
 	// Incoming Taildrop transfers (direct mode). A nil field is "no update".
@@ -627,59 +697,6 @@ func applyNotifyLocked(msg *BusNotify) {
 }
 
 // ─── DNS cache helpers ───────────────────────────────────────────────────────
-
-// applyNetMapToDNSCache updates all DNS caches from a NetMap snapshot.
-func applyNetMapToDNSCache(nm *BusNetMap) {
-	// 1. MagicDNS suffix
-	if nm.MagicDNSSuffix != "" {
-		setMagicDNSSuffix(strings.ToLower(strings.Trim(nm.MagicDNSSuffix, ".")))
-	} else if len(nm.DNS.Domains) > 0 {
-		setMagicDNSSuffix(strings.ToLower(strings.Trim(nm.DNS.Domains[0], ".")))
-	}
-
-	// 2. Peer nodes
-	nodesCount := 0
-	if nm.SelfNode != nil && updateNodeCacheFromPeer(nm.SelfNode) {
-		nodesCount++
-	}
-	for _, p := range nm.Peers {
-		if updateNodeCacheFromPeer(p) {
-			nodesCount++
-		}
-	}
-
-	// 3. Split DNS routes
-	routesCount := 0
-	var routeSig []string
-	for domain, resolvers := range nm.DNS.Routes {
-		var ips []string
-		for _, r := range resolvers {
-			if r.Addr != "" {
-				ips = append(ips, r.Addr)
-			}
-		}
-		if len(ips) == 0 {
-			ips = []string{"100.100.100.100"}
-		}
-		d := strings.ToLower(strings.Trim(domain, "."))
-		splitDNSCache.Store(d, ips)
-		routeSig = append(routeSig, d+"="+strings.Join(ips, ","))
-		routesCount++
-	}
-	// Cached answers came from the previous routes; a changed set makes them stale.
-	sort.Strings(routeSig)
-	if sig := strings.Join(routeSig, ";"); sig != lastSplitRouteSig {
-		if lastSplitRouteSig != "" {
-			dnsCacheFlush()
-		}
-		lastSplitRouteSig = sig
-	}
-
-	suffixNow := getMagicDNSSuffix()
-	if nodesCount > 0 || routesCount > 0 || suffixNow != "" {
-		slog.Info("Bus: DNS caches updated", "nodes", nodesCount, "routes", routesCount, "suffix", suffixNow)
-	}
-}
 
 // updateNodeCacheFromPeer inserts a BusPeer's addresses into nodesCache.
 func updateNodeCacheFromPeer(p *BusPeer) bool {
@@ -718,9 +735,15 @@ func updateNodeCacheFromPeer(p *BusPeer) bool {
 	}
 
 	if len(ips) > 0 {
+		names := []string{fullName}
 		nodesCache.Store(fullName, ips)
-		if parts := strings.Split(fullName, "."); len(parts) > 0 {
-			nodesCache.Store(parts[0], ips)
+		if short, _, _ := strings.Cut(fullName, "."); short != fullName {
+			nodesCache.Store(short, ips)
+			names = append(names, short)
+		}
+		// After the stores: a renamed node's old names go, its new ones stay.
+		if id := peerNodeID(p); id != 0 {
+			setNodeNames(id, names)
 		}
 		return true
 	}

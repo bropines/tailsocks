@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	_ "time/tzdata"
@@ -261,16 +262,16 @@ type StartOptions struct {
 	RemoteFiles bool
 }
 
+// SetLogLevel sets how much is logged: 0 is the detailed log, debug lines and
+// the daemon's chatter included; 1 and above is the normal one. Atomic, not
+// under stateMu: the log handler reads it on every line (dualHandler.Enabled),
+// and lines are written with stateMu held.
 func SetLogLevel(level int32) {
-	stateMu.Lock()
-	defer stateMu.Unlock()
-	currentLogLevel = level
+	atomic.StoreInt32(&currentLogLevel, level)
 }
 
 func logWithFilter(text string) {
-	stateMu.Lock()
-	lvl := currentLogLevel
-	stateMu.Unlock()
+	lvl := atomic.LoadInt32(&currentLogLevel)
 
 	if lvl >= 1 {
 		lower := strings.ToLower(text)
@@ -459,10 +460,7 @@ func FlushDNS() {
 		splitDNSCache.Delete(key)
 		return true
 	})
-	nodesCache.Range(func(key, value interface{}) bool {
-		nodesCache.Delete(key)
-		return true
-	})
+	resetNodeCache()
 	setMagicDNSSuffix("")
 	dnsCacheFlush()
 	slog.Info("DNS caches and metadata reset")
@@ -547,7 +545,12 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 			prefs["OverrideDNSResolversSet"] = true
 		}
 
-		prefs["ExitNodeID"] = opt.ExitNodeID
+		// Under the lock: SetPrefs and the native TUN relaunch write this
+		// field of the same options while a sync is in flight.
+		stateMu.Lock()
+		exitNodeID := opt.ExitNodeID
+		stateMu.Unlock()
+		prefs["ExitNodeID"] = exitNodeID
 		prefs["ExitNodeIDSet"] = true
 		prefs["ExitNodeIP"] = ""
 		prefs["ExitNodeIPSet"] = true
@@ -768,7 +771,17 @@ func ReUp() {
 	}
 }
 
+// startMu makes Start one at a time. It spends seconds between retiring the
+// old daemon and launching the new one, and a second Start in that window (a
+// settings change during a native TUN relaunch) used to run the same steps in
+// between: the first then killed the leftover daemons and removed the socket —
+// those of the daemon the second had just launched.
+var startMu sync.Mutex
+
 func Start(opt *StartOptions) {
+	startMu.Lock()
+	defer startMu.Unlock()
+
 	stateMu.Lock()
 	var old *os.Process
 	if cmd != nil {

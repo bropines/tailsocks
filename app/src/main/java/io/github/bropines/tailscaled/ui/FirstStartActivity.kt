@@ -51,7 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FirstStartActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
@@ -415,6 +417,10 @@ fun SlideHowItWorks() {
     var isTunMode by remember { mutableStateOf(GlobalSettings.isTunModeEnabled(context)) }
     var isRootMode by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
     var showRootWarningDialog by remember { mutableStateOf(false) }
+    // The root check is a `su` call that waits for the root manager's prompt — up to ten seconds
+    // the first time. It runs off the main thread, with the switch held while it does.
+    var isRootBusy by remember { mutableStateOf(false) }
+    val rootScope = rememberCoroutineScope()
 
     if (showRootWarningDialog) {
         // Strings resolved in the parent composition — see wrapContextWithLocale().
@@ -430,12 +436,17 @@ fun SlideHowItWorks() {
                 Button(
                     onClick = {
                         showRootWarningDialog = false
-                        if (io.github.bropines.tailscaled.core.RootUtils.isRootAvailable()) {
-                            isRootMode = true
-                            GlobalSettings.setRootModeEnabled(context, true)
-                            Toast.makeText(context, context.getString(R.string.settings_root_mode_enabled_toast), Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, context.getString(R.string.settings_root_access_unavailable), Toast.LENGTH_LONG).show()
+                        isRootBusy = true
+                        rootScope.launch {
+                            val granted = withContext(Dispatchers.IO) { io.github.bropines.tailscaled.core.RootUtils.isRootAvailable() }
+                            isRootBusy = false
+                            if (granted) {
+                                isRootMode = true
+                                GlobalSettings.setRootModeEnabled(context, true)
+                                Toast.makeText(context, context.getString(R.string.settings_root_mode_enabled_toast), Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, context.getString(R.string.settings_root_access_unavailable), Toast.LENGTH_LONG).show()
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -531,6 +542,7 @@ fun SlideHowItWorks() {
                     }
                     Switch(
                         checked = isRootMode,
+                        enabled = !isRootBusy,
                         onCheckedChange = { checked ->
                             if (checked) {
                                 showRootWarningDialog = true

@@ -53,6 +53,54 @@ class TaildriveDocumentsTest {
         assertEquals(0, DriveDocId("default", "/").depth)
     }
 
+    // --- What an id may not carry ----------------------------------------------------------------
+
+    @Test
+    fun anIdWhosePathClimbsOrIsNotPlainNamesIsNoId() {
+        for (path in listOf(
+            "/home.tailnet/laptop/share/sub/../../../desktop/private/x",
+            "/home.tailnet/laptop/share/..",
+            "../x",
+            "/home.tailnet/./laptop",
+            "/home.tailnet//laptop",
+            "//home.tailnet/laptop",
+            "/home.tailnet/laptop/share/a\\..\\..\\b",
+            "/home.tailnet/laptop/share/a\u0000b",
+        )) {
+            assertNull(path, DriveDocId.parse("drive_path:default:$path"))
+        }
+    }
+
+    @Test
+    fun dotsInsideANameAndOneSlashAtEitherEndArePlain() {
+        for (path in listOf("", "/", "/home.tailnet/laptop/share/", "/home.tailnet/laptop/share/a..b/..hidden/v1.2...txt", "/t/n/s/back\\slash")) {
+            assertNotNull(path, DriveDocId.parse("drive_path:default:$path"))
+        }
+    }
+
+    @Test
+    fun aChildIsBelowItsParentNameByName() {
+        val sub = DriveDocId("default", "/home.tailnet/laptop/share/sub")
+        assertTrue(DriveDocId("default", "/home.tailnet/laptop/share/sub/a.txt").isUnder(sub))
+        assertTrue(DriveDocId("default", "/home.tailnet/laptop/share/sub/deep/a.txt").isUnder(sub))
+        assertTrue(DriveDocId("default", "/home.tailnet/laptop/share/sub/dir/").isUnder(DriveDocId("default", "/home.tailnet/laptop/share/sub/")))
+        // A string prefix said yes to this one.
+        assertFalse(DriveDocId("default", "/home.tailnet/laptop/share/subway/a.txt").isUnder(sub))
+        assertFalse(DriveDocId("default", "/home.tailnet/laptop/share/subway").isUnder(sub))
+        assertFalse("a folder is not its own child", sub.isUnder(sub))
+        assertFalse(DriveDocId("default", "/home.tailnet/laptop/share").isUnder(sub))
+        assertFalse("another profile", DriveDocId("work", "/home.tailnet/laptop/share/sub/a.txt").isUnder(sub))
+        // The top of a profile holds everything of it and nothing of another.
+        assertTrue(sub.isUnder(DriveDocId("default", "")))
+        assertFalse(DriveDocId("default", "/").isUnder(DriveDocId("default", "")))
+    }
+
+    @Test
+    fun aNewNameIsOneNameAndNothingElse() {
+        for (name in listOf("a.txt", "..hidden", "a..b", "New folder", "a:b")) assertTrue(name, DrivePaths.isName(name))
+        for (name in listOf("", ".", "..", "../../x", "a/b", "/a", "a\\b", "..\\x", "a\u0000")) assertFalse(name, DrivePaths.isName(name))
+    }
+
     // --- What the server said ---------------------------------------------------------------------
 
     @Test

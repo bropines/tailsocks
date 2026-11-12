@@ -1,6 +1,6 @@
 package appctr
 
-// dns.go — Pure DNS resolution: MagicDNS cache lookup, split-DNS forwarding,
+// dns.go — Pure DNS resolution: MagicDNS cache lookup, the daemon's resolver,
 // SOCKS5/DoH fallbacks, and the local UDP DNS proxy.
 // IPN Bus state (caches, listener) lives in bus.go.
 
@@ -23,6 +23,9 @@ import (
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/proxy"
 )
+
+// dnsProxyMaxInFlight is how many queries the proxy answers at once.
+const dnsProxyMaxInFlight = 64
 
 func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, dohUrl string) error {
 	// Kotlin hands over an IPv4 address: a loopback alias, or 0.0.0.0 with LAN
@@ -73,6 +76,13 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		pc.Close()
 	}()
 
+	// A flood of queries — a resolver retrying against a dead upstream, a
+	// LAN client gone wrong — must not grow one goroutine, with its sockets
+	// and its 64 KiB of buffers, per datagram without limit. Beyond this many
+	// in flight a query is dropped; the client retries, as it does after any
+	// lost datagram.
+	inFlight := make(chan struct{}, dnsProxyMaxInFlight)
+
 	buf := make([]byte, 65535)
 	for {
 		var (
@@ -95,9 +105,15 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 			}
 			return err
 		}
+		select {
+		case inFlight <- struct{}{}:
+		default:
+			continue
+		}
 		query := make([]byte, n)
 		copy(query, buf[:n])
 		go func(q []byte, cAddr net.Addr, dst net.IP) {
+			defer func() { <-inFlight }()
 			started := time.Now()
 			resp, cached := dnsCacheLookup(q)
 			if !cached {
@@ -138,19 +154,6 @@ func dnsQuestion(msg []byte) (name, qtype string) {
 	return strings.TrimSuffix(q.Name.String(), "."), strings.TrimPrefix(q.Type.String(), "Type")
 }
 
-func getSplitDNSServers(domain string) []string {
-	var match []string
-	splitDNSCache.Range(func(key, value interface{}) bool {
-		route := key.(string)
-		if domain == route || strings.HasSuffix(domain, "."+route) {
-			match = value.([]string)
-			return false
-		}
-		return true
-	})
-	return match
-}
-
 // socksDialContext returns a context-aware dial through the SOCKS5 proxy at
 // socks. x/net's SOCKS5 dialer implements proxy.ContextDialer, which lets an
 // http.Client deadline or a cancelled request abort the SOCKS handshake too;
@@ -173,15 +176,16 @@ func socksDialContext(socks, user, pass string) (func(ctx context.Context, netwo
 }
 
 func forwardDNSviaSOCKS5(query []byte, socksAddr, user, pass, dnsServer string) ([]byte, error) {
-	var auth *proxy.Auth
-	if user != "" && pass != "" { // both or neither; see tailscaledCmd
-		auth = &proxy.Auth{User: user, Password: pass}
-	}
-	dialer, err := proxy.SOCKS5("tcp", socksAddr, auth, proxy.Direct)
+	dial, err := socksDialContext(socksAddr, user, pass)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := dialer.Dial("tcp", dnsServer)
+	// The deadline below starts only once the connection exists; without one
+	// of its own, a dial to a resolver that never answers held the query for
+	// the system's connect timeout, minutes long.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := dial(ctx, "tcp", dnsServer)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +227,61 @@ const (
 
 var resolverPausedUntil atomic.Int64 // Unix milliseconds
 
+// magicDNSQueryName completes the two short spellings of a tailnet name, for
+// convenience in lookup tools: a bare host, and "host.ts.net" with the tailnet
+// part left out. Only that exact shape is rewritten. Any longer name under
+// ts.net is somebody's full name — another tailnet's Funnel host, a node
+// shared in from one — and used to be rewritten into this tailnet's suffix
+// too, so it never resolved.
+func magicDNSQueryName(domain, suffix string) string {
+	if suffix == "" {
+		return domain
+	}
+	if !strings.Contains(domain, ".") {
+		// "personal-pinus-poco" -> "personal-pinus-poco.tail8a412.ts.net"
+		return domain + "." + suffix
+	}
+	if host, ok := strings.CutSuffix(domain, ".ts.net"); ok && host != "" && !strings.Contains(host, ".") &&
+		strings.HasSuffix(suffix, ".ts.net") && domain != suffix {
+		// "personal-pinus-poco.ts.net" -> "personal-pinus-poco.tail8a412.ts.net"
+		return host + "." + suffix
+	}
+	return domain
+}
+
+// dnsQueryTypeName is t as the daemon's dns-query endpoint names it
+// (dnsMessageTypeForString in ipn/localapi), for the record types a client
+// asks a resolver for; false for a type the endpoint does not take.
+func dnsQueryTypeName(t dnsmessage.Type) (string, bool) {
+	switch t {
+	case dnsmessage.TypeA:
+		return "A", true
+	case dnsmessage.TypeAAAA:
+		return "AAAA", true
+	case dnsmessage.TypeCNAME:
+		return "CNAME", true
+	case dnsmessage.TypeMX:
+		return "MX", true
+	case dnsmessage.TypeNS:
+		return "NS", true
+	case dnsmessage.TypePTR:
+		return "PTR", true
+	case dnsmessage.TypeSOA:
+		return "SOA", true
+	case dnsmessage.TypeSRV:
+		return "SRV", true
+	case dnsmessage.TypeTXT:
+		return "TXT", true
+	}
+	return "", false
+}
+
+// dnsAnswersQuestion reports whether resp carries q's record type in its
+// question section — that it is an answer to what was asked.
+func dnsAnswersQuestion(resp dnsmessage.Message, q dnsmessage.Question) bool {
+	return len(resp.Questions) > 0 && resp.Questions[0].Type == q.Type
+}
+
 func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	var msg dnsmessage.Message
 	if err := msg.Unpack(query); err != nil || len(msg.Questions) == 0 {
@@ -233,27 +292,11 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 	domain := strings.ToLower(strings.Trim(q.Name.String(), "."))
 
 	suffix := getMagicDNSSuffix()
-
-	// Auto-append MagicDNS suffix for convenience in lookup tools
-	if suffix != "" {
-		if !strings.Contains(domain, ".") {
-			// Short name, e.g. "personal-pinus-poco" -> "personal-pinus-poco.tail8a412.ts.net"
-			domain = domain + "." + suffix
-		} else if strings.HasSuffix(domain, ".ts.net") && !strings.HasSuffix(domain, "."+suffix) {
-			// Ends with ".ts.net" but missing tailnet ID, e.g. "personal-pinus-poco.ts.net" -> "personal-pinus-poco.tail8a412.ts.net"
-			parts := strings.Split(domain, ".")
-			if len(parts) >= 2 && parts[len(parts)-2] == "ts" && parts[len(parts)-1] == "net" {
-				host := strings.Join(parts[:len(parts)-2], ".")
-				domain = host + "." + suffix
-			}
-		}
-	}
+	domain = magicDNSQueryName(domain, suffix)
 
 	if strings.HasSuffix(domain, ".arpa") {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
-
-	socks, user, pass, _ := GConfig.get()
 
 	// A tailnet name must match the suffix on a label boundary, otherwise
 	// "evil-tail8a412.ts.net" would be treated as MagicDNS.
@@ -270,54 +313,28 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		}
 	}
 
-	// 2. Split DNS (SOCKS5 TCP with direct A-record fallback for host IP mappings).
-	if !isMagicDNS {
-		splitServers := getSplitDNSServers(domain)
-		if len(splitServers) > 0 {
-			if socks != "" {
-				for _, server := range splitServers {
-					// A resolver address may already be host:port, a bare IP, or
-					// a DoH URL. Only append :53 to a bare host; skip URL forms so
-					// they are not mangled into "https://...:53".
-					if strings.Contains(server, "://") {
-						continue
-					}
-					target := server
-					if _, _, err := net.SplitHostPort(server); err != nil {
-						target = net.JoinHostPort(server, "53")
-					}
-					resp, err := forwardDNSviaSOCKS5(query, socks, user, pass, target)
-					if err == nil && len(resp) >= 2 {
-						resp[0] = query[0]
-						resp[1] = query[1]
-						return resp
-					}
-				}
-			}
-			// Fallback: If split servers are IP addresses (e.g. Tailnet peer IP mapped to domain in Admin Console),
-			// and no DNS server responded on port 53, return the IPs directly as A/AAAA records for this domain.
-			var validIPs []string
-			for _, server := range splitServers {
-				if ip := net.ParseIP(server); ip != nil {
-					validIPs = append(validIPs, server)
-				}
-			}
-			if len(validIPs) > 0 {
-				slog.Info("DNS proxy: returning direct split IP A-record", "domain", domain, "ips", validIPs)
-				return packDNSResponse(msg, q, validIPs, query)
-			}
-		}
-	}
-
-	// 3. Local API DNS Query (asks Tailscaled resolver for MagicDNS, Split DNS, Search Domains, and custom records)
+	// 2. The daemon's resolver, over LocalAPI: MagicDNS, split DNS, search
+	// domains and custom records. Split DNS is its job alone — it reaches a
+	// resolver inside the tailnet by itself in every mode. The proxy used to
+	// forward such a query through the SOCKS5 port first, from a route table
+	// that only opening the DNS screen filled, and answered with the
+	// resolver's own address as the name's A record when that failed.
 	// A public name skips it while the resolver is known not to answer; see
 	// resolverPausedUntil.
 	if !isMagicDNS && time.Now().UnixMilli() < resolverPausedUntil.Load() {
 		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
-	typeStr := "A"
-	if q.Type == dnsmessage.TypeAAAA {
-		typeStr = "AAAA"
+	// The endpoint takes a few record types by name and answers anything else
+	// with an error. Every other question (HTTPS, SVCB, …) used to be sent as
+	// an A query, and the A answer went back under the client's ID. A public
+	// name goes to the fallback servers instead, which take any type; a tailnet
+	// name has no such record, and is never sent to a public server.
+	typeStr, known := dnsQueryTypeName(q.Type)
+	if !known {
+		if isMagicDNS {
+			return packNoData(msg)
+		}
+		return tryFallbackDNS(query, fallbacks, dohUrl)
 	}
 	path := fmt.Sprintf("/localapi/v0/dns-query?name=%s&type=%s", url.QueryEscape(domain), typeStr)
 	asked := time.Now()
@@ -327,7 +344,8 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		if json.Unmarshal(data, &dnsResp) == nil && len(dnsResp.Bytes) >= 4 {
 			rcode := dnsResp.Bytes[3] & 0x0F
 			var parsedMsg dnsmessage.Message
-			wellFormed := parsedMsg.Unpack(dnsResp.Bytes) == nil
+			// An answer to another question than the one asked is no answer.
+			wellFormed := parsedMsg.Unpack(dnsResp.Bytes) == nil && dnsAnswersQuestion(parsedMsg, q)
 			if rcode == 0 && wellFormed && len(parsedMsg.Answers) > 0 {
 				dnsResp.Bytes[0] = query[0]
 				dnsResp.Bytes[1] = query[1]
@@ -354,7 +372,7 @@ func processDNSQuery(query []byte, fallbacks []string, dohUrl string) []byte {
 		slog.Info("DNS proxy: the daemon's resolver is not answering; public names go to the fallback servers for a while", "domain", domain, "waited", time.Since(asked).Round(time.Millisecond))
 	}
 
-	// 4. Fallback (public names only)
+	// 3. Fallback (public names only)
 	return tryFallbackDNS(query, fallbacks, dohUrl)
 }
 
@@ -548,5 +566,7 @@ func forwardDNSviaDoH(query []byte, dohUrl string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("doh status: %d", resp.StatusCode)
 	}
-	return io.ReadAll(resp.Body)
+	// A DNS message is at most 64 KiB; a server that sends more is not
+	// answering the query, and must not be read into memory to the end.
+	return io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 }

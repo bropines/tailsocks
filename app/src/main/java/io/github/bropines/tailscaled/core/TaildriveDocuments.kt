@@ -21,19 +21,64 @@ internal data class DriveDocId(val accountId: String, val path: String) {
     /** How many names the path has: a tailnet 1, a device 2, a share 3. */
     val depth: Int get() = path.split('/').count { it.isNotEmpty() }
 
+    /**
+     * Whether this document lies below [parent]: same profile, and the parent's names are the
+     * first names of this path. Names are compared, not characters: `/a/sub` is no parent of
+     * `/a/subway`, which a string prefix would have let through.
+     */
+    fun isUnder(parent: DriveDocId): Boolean {
+        if (accountId != parent.accountId) return false
+        val mine = DrivePaths.names(path)
+        val theirs = DrivePaths.names(parent.path)
+        return mine.size > theirs.size && mine.subList(0, theirs.size) == theirs
+    }
+
     override fun toString(): String = "$PREFIX$accountId:$path"
 
     companion object {
         const val PREFIX = "drive_path:"
 
-        /** Null for anything that is not such an id, or names no profile. */
+        /**
+         * Null for anything that is not such an id, names no profile, or carries a path that is
+         * not plain ([DrivePaths.isPlain]). The id comes from whatever app holds a grant, and the
+         * grant is checked against the id as written: a path with `..` in it would pass as a child
+         * of the granted folder and then be resolved by the file server to somewhere else.
+         */
         fun parse(documentId: String?): DriveDocId? {
             if (documentId == null || !documentId.startsWith(PREFIX)) return null
             val parts = documentId.substring(PREFIX.length).split(":", limit = 2)
             if (parts.size != 2 || parts[0].isEmpty()) return null
+            if (!DrivePaths.isPlain(parts[1])) return null
             return DriveDocId(parts[0], parts[1])
         }
     }
+}
+
+/** The paths and names a document id may carry: the ones that mean the same to us and to the file server. */
+internal object DrivePaths {
+    /** The names of [path], without the empty ones a leading or trailing slash leaves. */
+    fun names(path: String): List<String> = path.split('/').filter { it.isNotEmpty() }
+
+    /**
+     * Whether [path] is a list of names and nothing else: no empty name in the middle, no `.` or
+     * `..`, no NUL. One leading and one trailing slash are allowed, and so is the empty path (the
+     * top of a profile). A backslash is a separator to a Windows file server, so `..` between
+     * backslashes is refused as well.
+     */
+    fun isPlain(path: String): Boolean {
+        if ('\u0000' in path) return false
+        val inner = path.removePrefix("/").removeSuffix("/")
+        if (inner.isEmpty()) return true
+        return inner.split('/').all { name -> name.isNotEmpty() && name.split('\\').none { it == "." || it == ".." } }
+    }
+
+    /**
+     * Whether [name] is one name, as a new document or a rename may be called. The name comes from
+     * the app that asks and is appended to the parent's path, so anything that could make it more
+     * than one step down — a separator, `.`, `..` — is refused.
+     */
+    fun isName(name: String): Boolean =
+        name.isNotEmpty() && name != "." && name != ".." && name.none { it == '/' || it == '\\' || it == '\u0000' }
 }
 
 /** One document as a cursor row; [size] and [modified] are null where they are not known. */

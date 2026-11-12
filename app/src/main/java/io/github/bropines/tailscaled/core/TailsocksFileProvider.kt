@@ -143,7 +143,7 @@ class TailsocksFileProvider : DocumentsProvider() {
         }
         
         if (documentId.startsWith(DriveDocId.PREFIX)) {
-            val id = DriveDocId.parse(documentId) ?: throw FileNotFoundException("Invalid drive document ID")
+            val id = driveId(documentId)
             // On a thread of ours: this one carries the caller's StrictMode policy, and a caller on its
             // main thread — a player asking for the name and size of the file it is about to play — has
             // none of the network (see ProviderWorker).
@@ -275,59 +275,57 @@ class TailsocksFileProvider : DocumentsProvider() {
         }
 
         if (parentDocumentId.startsWith("drive_path:")) {
-            val parts = parentDocumentId.substring("drive_path:".length).split(":", limit = 2)
-            if (parts.size == 2) {
-                val accId = parts[0]
-                val parentPath = parts[1]
-                TaildriveBrowse.listingBlock(context)?.let { block ->
-                    result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, block)) }
-                    return result
+            val parentId = driveId(parentDocumentId)
+            val accId = parentId.accountId
+            val parentPath = parentId.path
+            TaildriveBrowse.listingBlock(context)?.let { block ->
+                result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_ERROR, unavailableReason(context, block)) }
+                return result
+            }
+            val client = TaildriveClient(context, accId)
+            try {
+                val list = client.list(parentPath)
+                val normalizedParent = parentPath.trimEnd('/')
+                val entries = list.filter { file ->
+                    val cleanHref = file.href.trimEnd('/')
+                    cleanHref != normalizedParent && cleanHref.startsWith(normalizedParent)
                 }
-                val client = TaildriveClient(context, accId)
-                try {
-                    val list = client.list(parentPath)
-                    val normalizedParent = parentPath.trimEnd('/')
-                    val entries = list.filter { file ->
-                        val cleanHref = file.href.trimEnd('/')
-                        cleanHref != normalizedParent && cleanHref.startsWith(normalizedParent)
-                    }
-                    // A node's share list comes from the node's daemon; the share's contents
-                    // come from its file server, which on Windows and macOS lives in the
-                    // Tailscale app. With that app closed the share still lists and then
-                    // answers 500 to everything inside, so probe each share here and say so.
-                    val summaries = if (isNodeLevel(normalizedParent)) shareSummaries(context, client, entries) else emptyMap()
-                    // An empty folder says why when it can: nobody shares, or nothing is shared with us.
-                    if (entries.isEmpty()) emptyInfo(context, depthOf(normalizedParent))?.let { info ->
-                        result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_INFO, info) }
+                // A node's share list comes from the node's daemon; the share's contents
+                // come from its file server, which on Windows and macOS lives in the
+                // Tailscale app. With that app closed the share still lists and then
+                // answers 500 to everything inside, so probe each share here and say so.
+                val summaries = if (isNodeLevel(normalizedParent)) shareSummaries(context, client, entries) else emptyMap()
+                // An empty folder says why when it can: nobody shares, or nothing is shared with us.
+                if (entries.isEmpty()) emptyInfo(context, depthOf(normalizedParent))?.let { info ->
+                    result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_INFO, info) }
+                }
+
+                for (file in entries) {
+                    val cleanHref = file.href.trimEnd('/')
+                    val isDir = file.isDirectory
+                    val name = file.getDisplayName()
+                    val childDocId = "drive_path:$accId:$cleanHref"
+
+                    var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
+                    if (isDir) {
+                        flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
                     }
 
-                    for (file in entries) {
-                        val cleanHref = file.href.trimEnd('/')
-                        val isDir = file.isDirectory
-                        val name = file.getDisplayName()
-                        val childDocId = "drive_path:$accId:$cleanHref"
-
-                        var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
-                        if (isDir) {
-                            flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
-                        }
-
-                        result.newRow().apply {
-                            add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, childDocId)
-                            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
-                            add(DocumentsContract.Document.COLUMN_SUMMARY, summaries[cleanHref])
-                            add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
-                            add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
-                            add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
-                            add(DocumentsContract.Document.COLUMN_FLAGS, flags)
-                        }
+                    result.newRow().apply {
+                        add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, childDocId)
+                        add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
+                        add(DocumentsContract.Document.COLUMN_SUMMARY, summaries[cleanHref])
+                        add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
+                        add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
+                        add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
+                        add(DocumentsContract.Document.COLUMN_FLAGS, flags)
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.javaClass.simpleName}")
-                    val name = parentPath.trimEnd('/').substringAfterLast("/")
-                    result.extras = Bundle().apply {
-                        putString(DocumentsContract.EXTRA_ERROR, "$name: ${unavailableReason(context, e, depthOf(parentPath))}")
-                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.javaClass.simpleName}")
+                val name = parentPath.trimEnd('/').substringAfterLast("/")
+                result.extras = Bundle().apply {
+                    putString(DocumentsContract.EXTRA_ERROR, "$name: ${unavailableReason(context, e, depthOf(parentPath))}")
                 }
             }
         }
@@ -395,7 +393,7 @@ class TailsocksFileProvider : DocumentsProvider() {
     override fun openDocument(documentId: String?, mode: String?, signal: CancellationSignal?): ParcelFileDescriptor {
         val docId = documentId ?: throw FileNotFoundException("Document ID is null")
         if (docId.startsWith(DriveDocId.PREFIX)) {
-            val id = DriveDocId.parse(docId) ?: throw FileNotFoundException("Invalid drive document ID")
+            val id = driveId(docId)
             return if (OpenModes.writes(mode)) {
                 openWebDavDocumentWrite(id.accountId, id.path)
             } else {
@@ -494,16 +492,12 @@ class TailsocksFileProvider : DocumentsProvider() {
         }
         
         if (docId.startsWith("drive_path:")) {
-            val parts = docId.substring("drive_path:".length).split(":", limit = 2)
-            if (parts.size == 2) {
-                val accId = parts[0]
-                val path = parts[1]
-                val client = TaildriveClient(context!!, accId)
-                try {
-                    ProviderWorker.run { client.delete(path) }
-                } catch (e: Exception) {
-                    throw FileNotFoundException("Failed to delete WebDAV document (${e.javaClass.simpleName})")
-                }
+            val id = driveId(docId)
+            val client = TaildriveClient(context!!, id.accountId)
+            try {
+                ProviderWorker.run { client.delete(id.path) }
+            } catch (e: Exception) {
+                throw FileNotFoundException("Failed to delete WebDAV document (${e.javaClass.simpleName})")
             }
             return
         }
@@ -523,6 +517,9 @@ class TailsocksFileProvider : DocumentsProvider() {
         val name = displayName ?: throw FileNotFoundException("Display name is null")
         
         if (parentId.startsWith("drive_root") || parentId.startsWith("drive_path:") || parentId.startsWith("drive_account:")) {
+            // The name is the caller's and becomes the last step of a path: one name, or nothing.
+            if (!DrivePaths.isName(name)) throw FileNotFoundException("Invalid display name")
+            val parent = if (parentId.startsWith("drive_path:")) driveId(parentId) else null
             val accId = if (parentId.startsWith("drive_root")) {
                 if (parentId.contains(":")) {
                     parentId.substringAfter(":")
@@ -532,13 +529,9 @@ class TailsocksFileProvider : DocumentsProvider() {
             } else if (parentId.startsWith("drive_account:")) {
                 parentId.substring("drive_account:".length)
             } else {
-                parentId.substring("drive_path:".length).split(":", limit = 2)[0]
+                parent!!.accountId
             }
-            val parentPath = if (parentId.startsWith("drive_root") || parentId.startsWith("drive_account:")) {
-                ""
-            } else {
-                parentId.substring("drive_path:".length).split(":", limit = 2)[1]
-            }
+            val parentPath = parent?.path ?: ""
             
             val cleanParent = parentPath.trimEnd('/')
             val childPath = "$cleanParent/$name"
@@ -565,22 +558,22 @@ class TailsocksFileProvider : DocumentsProvider() {
         val name = displayName ?: throw FileNotFoundException("Display name is null")
         
         if (docId.startsWith("drive_path:")) {
-            val parts = docId.substring("drive_path:".length).split(":", limit = 2)
-            if (parts.size == 2) {
-                val accId = parts[0]
-                val oldPath = parts[1]
-                
-                val idx = oldPath.trimEnd('/').lastIndexOf('/')
-                val parentPath = if (idx >= 0) oldPath.substring(0, idx) else ""
-                val newPath = "$parentPath/$name"
-                
-                val client = TaildriveClient(context!!, accId)
-                try {
-                    ProviderWorker.run { client.move(oldPath, newPath) }
-                    return "drive_path:$accId:$newPath"
-                } catch (e: Exception) {
-                    throw FileNotFoundException("Failed to rename WebDAV document (${e.javaClass.simpleName})")
-                }
+            // The new name is the caller's and replaces the last step of the path: one name, or nothing.
+            if (!DrivePaths.isName(name)) throw FileNotFoundException("Invalid display name")
+            val id = driveId(docId)
+            val accId = id.accountId
+            val oldPath = id.path
+            
+            val idx = oldPath.trimEnd('/').lastIndexOf('/')
+            val parentPath = if (idx >= 0) oldPath.substring(0, idx) else ""
+            val newPath = "$parentPath/$name"
+            
+            val client = TaildriveClient(context!!, accId)
+            try {
+                ProviderWorker.run { client.move(oldPath, newPath) }
+                return "drive_path:$accId:$newPath"
+            } catch (e: Exception) {
+                throw FileNotFoundException("Failed to rename WebDAV document (${e.javaClass.simpleName})")
             }
         }
         throw FileNotFoundException("Rename not supported for Taildrop")
@@ -595,23 +588,20 @@ class TailsocksFileProvider : DocumentsProvider() {
         val targetParentId = targetParentDocumentId ?: throw FileNotFoundException("Target Parent ID is null")
         
         if (docId.startsWith("drive_path:") && targetParentId.startsWith("drive_path:")) {
-            val parts = docId.substring("drive_path:".length).split(":", limit = 2)
-            val targetParts = targetParentId.substring("drive_path:".length).split(":", limit = 2)
-            if (parts.size == 2 && targetParts.size == 2) {
-                val accId = parts[0]
-                val oldPath = parts[1]
-                val targetParentPath = targetParts[1]
-                
-                val name = oldPath.substringAfterLast("/")
-                val newPath = "${targetParentPath.trimEnd('/')}/$name"
-                
-                val client = TaildriveClient(context!!, accId)
-                try {
-                    ProviderWorker.run { client.move(oldPath, newPath) }
-                    return "drive_path:$accId:$newPath"
-                } catch (e: Exception) {
-                    throw FileNotFoundException("Failed to move WebDAV document (${e.javaClass.simpleName})")
-                }
+            val source = driveId(docId)
+            val accId = source.accountId
+            val oldPath = source.path
+            val targetParentPath = driveId(targetParentId).path
+            
+            val name = source.name
+            val newPath = "${targetParentPath.trimEnd('/')}/$name"
+            
+            val client = TaildriveClient(context!!, accId)
+            try {
+                ProviderWorker.run { client.move(oldPath, newPath) }
+                return "drive_path:$accId:$newPath"
+            } catch (e: Exception) {
+                throw FileNotFoundException("Failed to move WebDAV document (${e.javaClass.simpleName})")
             }
         }
         throw FileNotFoundException("Move only supported within Taildrive")
@@ -686,33 +676,34 @@ class TailsocksFileProvider : DocumentsProvider() {
             val parentParts = parentDocumentId.split(":", limit = 2)
             val parentAccId = if (parentParts.size > 1) parentParts[1] else ""
             
-            val childParts = documentId.split(":", limit = 3)
-            if (childParts[0] == "drive_path" && childParts.size >= 2) {
-                val childAccId = childParts[1]
-                if (parentAccId.isNotEmpty() && parentAccId != childAccId) return false
-                return true
-            }
-            return false
+            // Parsed, so that an id with `..` in its path is nobody's child.
+            val child = DriveDocId.parse(documentId) ?: return false
+            return parentAccId.isEmpty() || parentAccId == child.accountId
         }
         
         if (parentDocumentId.startsWith("drive_path:")) {
-            val parentParts = parentDocumentId.substring("drive_path:".length).split(":", limit = 2)
-            if (parentParts.size == 2) {
-                val parentAccId = parentParts[0]
-                val parentPath = parentParts[1].trimEnd('/')
-                
-                if (documentId.startsWith("drive_path:$parentAccId:")) {
-                    val childPath = documentId.substring("drive_path:$parentAccId:".length).trimEnd('/')
-                    if (parentPath.isEmpty()) {
-                        return childPath.isNotEmpty()
-                    }
-                    val parentWithSlash = if (parentPath.endsWith("/")) parentPath else "$parentPath/"
-                    return childPath.startsWith(parentWithSlash)
-                }
-            }
+            // A grant on a folder covers what this answers true for, so both ids are parsed (no
+            // `..` to climb out with) and compared name by name (see DriveDocId.isUnder).
+            val parent = DriveDocId.parse(parentDocumentId) ?: return false
+            val child = DriveDocId.parse(documentId) ?: return false
+            return child.isUnder(parent)
         }
         
         return false
+    }
+
+    /**
+     * The file or folder of a share that [documentId] names, for every operation on one. Refuses
+     * an id that does not parse — a path that is not plain names, see [DriveDocId.parse] — and an
+     * id of a profile that is not the running one: the daemon serves only the profile it runs
+     * (TaildriveClient takes no account), so a grant saved under another profile would otherwise
+     * open the same path in this one's tailnet.
+     */
+    private fun driveId(documentId: String): DriveDocId {
+        val id = DriveDocId.parse(documentId) ?: throw FileNotFoundException("Invalid drive document ID")
+        val active = context?.let { runCatching { AccountManager.getActiveAccount(it).id }.getOrNull() }
+        if (id.accountId != active) throw FileNotFoundException("Document of another profile")
+        return id
     }
 
     private fun getTypeForFile(file: File): String {

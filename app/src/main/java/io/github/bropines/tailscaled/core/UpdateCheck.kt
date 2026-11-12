@@ -23,6 +23,9 @@ object UpdateCheck {
     private const val RELEASES = "https://github.com/bropines/tailsocks/releases"
     private const val API = "https://api.github.com/repos/bropines/tailsocks/releases"
 
+    /** How long the connection, and then each read of the answer, may take. */
+    private const val TIMEOUT_MS = 15_000
+
     /** A file of a release, as published. */
     data class Asset(val name: String, val url: String)
 
@@ -95,6 +98,10 @@ object UpdateCheck {
      */
     fun fetch(betas: Boolean): List<Release> {
         val connection = URL(if (betas) "$API?per_page=10" else "$API/latest").openConnection() as HttpURLConnection
+        // The platform's default is no timeout at all: a network that takes the connection and
+        // then says nothing would hold the check, and the thread it runs on, for good.
+        connection.connectTimeout = TIMEOUT_MS
+        connection.readTimeout = TIMEOUT_MS
         connection.requestMethod = "GET"
         connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
         if (connection.responseCode != 200) throw Exception("HTTP ${connection.responseCode}")

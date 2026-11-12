@@ -99,7 +99,7 @@ func GetDnsStatusJSON() string {
 			} `json:"Self"`
 		}
 
-		rawStatus, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+		rawStatus, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 		if err == nil && json.Unmarshal(rawStatus, &statusAPI) == nil {
 			if effectiveSuffix == "" {
 				if statusAPI.MagicDNSSuffix != "" {
@@ -166,7 +166,7 @@ func GetBackendState() string {
 		return bs.BackendState
 	}
 
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 	if err != nil {
 		if bs.BackendState != "" {
 			return bs.BackendState
@@ -198,7 +198,7 @@ func GetSelfDNSName() string {
 		return strings.TrimSuffix(bs.Self.DNSName, ".")
 	}
 
-	data, err := doLocalRequest("GET", "/localapi/v0/status", nil)
+	data, err := doLocalRequest("GET", "/localapi/v0/status?peers=false", nil)
 	if err != nil {
 		return ""
 	}

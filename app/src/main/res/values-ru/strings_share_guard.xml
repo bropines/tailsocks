@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The share target refusing a file of the app itself that another app asked it to send
+  (core/ShareGuard.kt). A file of its own so it lands without touching strings.xml.
+-->
+<resources>
+    <string name="share_guard_refused">Не отправлено: файл самого TailSocks нельзя передать из другого приложения.</string>
+</resources>

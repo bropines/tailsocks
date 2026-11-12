@@ -63,3 +63,45 @@ func TestDriveDialWithoutTheSocket(t *testing.T) {
 		t.Fatal("dialled a daemon that is not there")
 	}
 }
+
+// TestDriveProxyHostAllowed: the proxy answers a client that was given its
+// address, and not a browser a web page pointed at it under the page's name.
+func TestDriveProxyHostAllowed(t *testing.T) {
+	const self = "phone.tail8a412.ts.net."
+	cases := []struct {
+		host, self string
+		want       bool
+	}{
+		{"127.0.0.1:33445", self, true},
+		{"192.168.1.20:33445", self, true},
+		{"100.64.0.1", self, true},
+		{"[::1]:33445", self, true},
+		{"[fd7a:115c:a1e0::1]:33445", self, true},
+		{"localhost:33445", self, true},
+		{"LocalHost", self, true},
+		{"phone.tail8a412.ts.net:33445", self, true},
+		{"Phone.Tail8a412.ts.net.:33445", self, true},
+		{"phone:33445", self, true},
+		{"rebind.attacker.example:33445", self, false},
+		{"attacker.example", self, false},
+		{"phone.attacker.example:33445", self, false},
+		{"localhost.attacker.example:33445", self, false},
+		{"phone.tail8a412.ts.net:33445", "", false},
+		{"", self, false},
+		{":33445", self, false},
+	}
+	for _, c := range cases {
+		if got := driveProxyHostAllowed(c.host, c.self); got != c.want {
+			t.Errorf("driveProxyHostAllowed(%q, %q) = %v, want %v", c.host, c.self, got, c.want)
+		}
+	}
+}
+
+func TestDriveServerPort(t *testing.T) {
+	if got := driveServerPort("0123abcd|127.0.0.1:41234"); got != "41234" {
+		t.Errorf("port = %q", got)
+	}
+	if got := driveServerPort("no port here"); got != "" {
+		t.Errorf("port of an address without one = %q", got)
+	}
+}
