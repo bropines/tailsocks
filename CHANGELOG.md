@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- F-Droid builds again: the world outline behind the exit-node map is an SVG path in the source code, baked by `scripts/bake_world_land.py`, instead of a binary file the F-Droid scanner rejected ([#25](https://github.com/bropines/tailsocks/issues/25)).
+
 ## [6.0.1] - 2026-11-12
 
 ### Fixed

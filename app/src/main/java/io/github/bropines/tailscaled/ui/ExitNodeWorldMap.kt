@@ -61,7 +61,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -417,9 +416,8 @@ private class LandRing(val xy: FloatArray) {
 /** The outline under the dots. [view] is read while drawing, so a pan repaints and nothing more. */
 @Composable
 private fun WorldLandCanvas(frame: MapFrame, view: () -> MapView, color: Color) {
-    val context = LocalContext.current
-    val land = remember(context) {
-        WorldLand.rings(context).map { ring ->
+    val land = remember {
+        WorldLand.rings.map { ring ->
             LandRing(FloatArray(ring.size) { i ->
                 if (i % 2 == 0) MapProjection.x(ring[i].toDouble()) else MapProjection.y(ring[i].toDouble())
             })
