@@ -152,34 +152,26 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
     val accounts = remember { AccountManager.getAccounts(context) }
     var peers by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var isLoadingPeers by remember { mutableStateOf(true) }
-    var isSending by remember { mutableStateOf(false) }
-    var sendProgressText by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
     var accountMenuExpanded by remember { mutableStateOf(false) }
     // The daemon's verdict per peer, in the app's language: the sheet's own window follows
     // the system locale, so the words are resolved out here, once.
     val taildropStrings = remember { TaildropReasonStrings.from(context) }
-    // Saveable: a recreation mid-send must not send the files a second time.
+    // Saveable: a recreation must not send the files a second time.
     var directTried by rememberSaveable { mutableStateOf(directTo == null) }
-    // A Direct Share target was already a pick: the list stays away while its device is
-    // looked up and the files go, and opens only when that device cannot take them.
-    var directSending by remember { mutableStateOf(false) }
-    val showList = directTried && !directSending
+    var handedOver by rememberSaveable { mutableStateOf(false) }
+    // A Direct Share target was already a pick: nothing is drawn while its device is looked
+    // up, and the list opens only when that device cannot take the files.
+    val showList = directTried && !handedOver
 
+    // The files go in the background (TaildropOutbox) — a notification and the Files page
+    // carry the progress — and this window gives the screen back to the app that shared them.
     fun send(p: PeerData) {
-        isSending = true
-        scope.launch(Dispatchers.IO) {
-            val failures = sendFilesWithProgress(context, fileUris, p) { sendProgressText = it }
-            withContext(Dispatchers.Main) {
-                isSending = false
-                // The sheet closes right here, so the progress card
-                // is gone before anyone reads it: a toast outlives it.
-                if (failures.isNotEmpty()) {
-                    Toast.makeText(context, failures.joinToString("\n"), Toast.LENGTH_LONG).show()
-                }
-                onDismiss()
-            }
-        }
+        if (handedOver) return
+        handedOver = true
+        TaildropOutbox.send(context, fileUris, p, TaildropSource.SHARE)
+        Toast.makeText(context, context.getString(R.string.taildrop_out_started_format, p.getDisplayName()), Toast.LENGTH_SHORT).show()
+        onDismiss()
     }
 
     fun loadPeers() {
@@ -198,7 +190,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
                         directTried = true
                         val peerId = ShareTargets.peerIdFor(directTo, currentAccount.id)
                         peers.firstOrNull { it.id == peerId && taildropStatusOf(it, taildropStrings) == TaildropStatus.Available }
-                            ?.let { directSending = true; send(it); ShortcutManagerCompat.reportShortcutUsed(context, directTo!!) }
+                            ?.let { send(it); ShortcutManagerCompat.reportShortcutUsed(context, directTo!!) }
                     }
                 }
             } catch (e: Exception) {
@@ -317,30 +309,11 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
                         items(peers) { p -> 
-                            PeerShareItem(p, !isSending, taildropStatusOf(p, taildropStrings)) { send(p) }
+                            PeerShareItem(p, true, taildropStatusOf(p, taildropStrings)) { send(p) }
                         }
                     }
                 }
             }
         }
     }
-
-    if (isSending || !showList) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
-        Card(shape = MaterialTheme.shapes.large) {
-            Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                LoadingIndicator(); Spacer(Modifier.height(20.dp))
-                Text(stringResource(R.string.share_sending), fontWeight = FontWeight.Bold)
-                Text(sendProgressText, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
-            }
-        }
-    }
 }
-
-/**
- * Sends every file in turn and returns one line per file that did not arrive, already in
- * the user's words, for the caller to show once the sheet is gone. Each attempt lands in
- * the Taildrop history (sendTaildropFile).
- */
-private fun sendFilesWithProgress(context: Context, uris: List<Uri>, peer: PeerData, onProgress: (String) -> Unit): List<String> =
-    sendTaildropFiles(context, uris, peer, TaildropSource.SHARE, onProgress)
-        .mapNotNull { o -> o.error?.let { context.getString(R.string.share_failed_format, o.name, it) } }

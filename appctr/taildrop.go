@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // getLastOptions safely retrieves the last StartOptions under stateMu.
@@ -172,6 +173,12 @@ func DeleteTaildropFileFromAPI(name string) bool {
 //
 // Every failure starts with "Error", so callers may test that prefix alone.
 func SendFileFromAPI(peerID, filePath string) string {
+	return sendFile(context.Background(), peerID, filePath, nil)
+}
+
+// sendFile PUTs filePath to peerID; sent, when given, counts the bytes the
+// daemon has taken.
+func sendFile(ctx context.Context, peerID, filePath string, sent *atomic.Int64) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()
 	}
@@ -190,21 +197,28 @@ func SendFileFromAPI(peerID, filePath string) string {
 	if err != nil {
 		return "Error: " + err.Error()
 	}
+	var body io.Reader = f
+	if sent != nil {
+		body = &sentCounter{r: f, n: sent}
+	}
 
 	// PUT on the deadline-free client: the upload takes as long as the tailnet
 	// path allows (a few hundred MB over DERP is well past 30s), and the 30s
 	// client aborted it half-way with an error to the user. The Content-Length
 	// lets the daemon announce the size to the peer, the way the CLI does.
-	resp, err := doLocalStreamRaw(context.Background(), "PUT", apiPath, f, fi.Size())
+	resp, err := doLocalStreamRaw(ctx, "PUT", apiPath, body, fi.Size())
 	if err != nil {
+		if ctx.Err() != nil {
+			return "Error: " + sendCancelled
+		}
 		return "Error: " + err.Error()
 	}
 	defer resp.Body.Close()
 	// The body is either "{}\n" or a one-line error; cap it so a misbehaving
 	// peer cannot make us buffer more.
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "Error: HTTP " + strconv.Itoa(resp.StatusCode) + ": " + strings.TrimSpace(string(body))
+		return "Error: HTTP " + strconv.Itoa(resp.StatusCode) + ": " + strings.TrimSpace(string(respBody))
 	}
 	return "OK"
 }

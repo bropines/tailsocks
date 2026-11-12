@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Files being sent over Taildrop (core/TaildropOutbox.kt): the cards on the Files page, the
+  progress notification and the one that says how it ended.
+-->
+<resources>
+    <!-- Under a file's name: the device it goes to. -->
+    <string name="taildrop_out_to_format">To %1$s</string>
+    <!-- Toast when a send starts and the screen that asked closes. -->
+    <string name="taildrop_out_started_format">Sending to %1$s…</string>
+    <!-- Title of the progress notification while more than one file is on its way. -->
+    <plurals name="taildrop_out_sending_files">
+        <item quantity="one">Sending %d file</item>
+        <item quantity="other">Sending %d files</item>
+    </plurals>
+    <!-- The file is being read before it goes. -->
+    <string name="taildrop_out_preparing">Preparing…</string>
+    <!-- Behind another file. -->
+    <string name="taildrop_out_queued">Waiting its turn</string>
+    <string name="taildrop_out_cancelled">Cancelled</string>
+    <string name="taildrop_out_cancel_one">Cancel sending</string>
+    <!-- Titles of the result notification. -->
+    <plurals name="taildrop_out_sent_files">
+        <item quantity="one">File sent</item>
+        <item quantity="other">%d files sent</item>
+    </plurals>
+    <string name="taildrop_out_failed_title">Not sent</string>
+    <string name="taildrop_out_partly_title">Sent %1$d of %2$d</string>
+</resources>

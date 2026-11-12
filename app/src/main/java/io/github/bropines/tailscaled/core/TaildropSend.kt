@@ -57,7 +57,14 @@ fun sendTaildropFile(
     uri: Uri,
     peer: PeerData,
     source: TaildropSource,
-    name: String = displayNameOf(context, uri)
+    name: String = displayNameOf(context, uri),
+    /** The file, already open: a caller whose grant to [uri] may be gone by now (TaildropOutbox). Closed here. */
+    opened: InputStream? = null,
+    mime: String? = null,
+    /** The bridge's name for this send, to watch and stop it by (Appctr.sendFileProgress, cancelSendFile). */
+    sendId: String? = null,
+    /** The size, once the file has been read through and before it goes. */
+    onSize: (Long) -> Unit = {}
 ): TaildropSendOutcome {
     var size: Long? = null
     var sha256: String? = null
@@ -68,18 +75,26 @@ fun sendTaildropFile(
     val inPlace = uri.takeIf { it.scheme == ContentResolver.SCHEME_FILE }?.path?.let(::File)?.takeIf { it.name == name }
     try {
         val target = taildropTargetId(context, peer)
-        val (copied, hash) = if (inPlace != null) inPlace.inputStream().use { hashing(it, null) } else copyHashing(context, uri, tmp)
+        val (copied, hash) = when {
+            inPlace != null -> inPlace.inputStream().use { hashing(it, null) }
+            opened != null -> opened.use { i -> tmp.outputStream().use { o -> hashing(i, o) } }
+            else -> copyHashing(context, uri, tmp)
+        }
         size = copied
         sha256 = hash
+        onSize(copied)
         val started = SystemClock.elapsedRealtime()
         // "OK" is the bridge's word for a 2xx from the peer itself; anything else starts with
         // "Error" and carries the peer's HTTP status and body, or the local failure.
-        val res = Appctr.sendFileFromAPI(target, (inPlace ?: tmp).absolutePath)
+        val path = (inPlace ?: tmp).absolutePath
+        val res = if (sendId != null) Appctr.sendFileTracked(sendId, target, path) else Appctr.sendFileFromAPI(target, path)
         durationMs = SystemClock.elapsedRealtime() - started
         if (res != "OK") error = res.removePrefix("Error: ").ifBlank { res }
+            .let { if (it == SEND_CANCELLED) context.getString(R.string.taildrop_out_cancelled) else it }
     } catch (e: Exception) {
         error = e.message ?: e.javaClass.simpleName
     } finally {
+        runCatching { opened?.close() }
         tmp.delete()
     }
 
@@ -97,7 +112,7 @@ fun sendTaildropFile(
             direction = TaildropDirection.SENT,
             ok = ok,
             size = size,
-            mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: mimeTypeOf(name),
+            mime = mime ?: runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: mimeTypeOf(name),
             sha256 = sha256,
             peerId = now.id?.takeIf { it.isNotEmpty() },
             peerIp = now.tailscaleIPs?.firstOrNull(),
@@ -151,7 +166,10 @@ internal fun currentPeer(peer: PeerData): PeerData? {
     }.getOrNull()
 }
 
-private fun displayNameOf(context: Context, uri: Uri): String =
+/** The bridge's word for a send stopped by cancelSendFile (appctr/taildrop_send.go). */
+private const val SEND_CANCELLED = "cancelled"
+
+internal fun displayNameOf(context: Context, uri: Uri): String =
     getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
 
 /** Copies [uri] into [dest] and hashes it on the way: one read of the source. */

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrop_out_to_format">Кому: %1$s</string>
+    <string name="taildrop_out_started_format">Отправка на %1$s…</string>
+    <plurals name="taildrop_out_sending_files">
+        <item quantity="one">Отправка %d файла</item>
+        <item quantity="few">Отправка %d файлов</item>
+        <item quantity="many">Отправка %d файлов</item>
+        <item quantity="other">Отправка %d файла</item>
+    </plurals>
+    <string name="taildrop_out_preparing">Подготовка…</string>
+    <string name="taildrop_out_queued">Ждёт очереди</string>
+    <string name="taildrop_out_cancelled">Отменено</string>
+    <string name="taildrop_out_cancel_one">Отменить отправку</string>
+    <plurals name="taildrop_out_sent_files">
+        <item quantity="one">Файл отправлен</item>
+        <item quantity="few">Отправлено %d файла</item>
+        <item quantity="many">Отправлено %d файлов</item>
+        <item quantity="other">Отправлено %d файла</item>
+    </plurals>
+    <string name="taildrop_out_failed_title">Не отправлено</string>
+    <string name="taildrop_out_partly_title">Отправлено %1$d из %2$d</string>
+</resources>

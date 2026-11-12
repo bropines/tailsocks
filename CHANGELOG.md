@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Taildrop: sending works the way receiving does. A file shared from another app goes in the background — the "Sending…" window that covered the app is gone; a notification shows the progress, the speed and the time left, with Cancel (a Live Update on Android 16), and another says how it ended. The Files page lists a file while it is on its way, not only once it has arrived, and stays usable meanwhile. Sending from a peer's sheet and from the Files page goes the same way.
+- Taildrop notifications follow the app's language rather than the system's.
+
 ## [5.8.2] - 2026-11-12
 
 ### Fixed

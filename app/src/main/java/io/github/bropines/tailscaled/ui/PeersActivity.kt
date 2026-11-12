@@ -1,4 +1,5 @@
 package io.github.bropines.tailscaled.ui
+import io.github.bropines.tailscaled.core.TaildropOutbox
 import io.github.bropines.tailscaled.R
 
 import io.github.bropines.tailscaled.admin.*
@@ -197,7 +198,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     // The system's picker, or the app's own browser on a device without one (TaildropPickers).
     val filePicker = rememberSendFilePicker(multiple = false) { uris ->
         val uri: Uri? = uris.firstOrNull()
-        if (uri != null && peerForFileDrop != null) { sendFileToPeer(context, uri, peerForFileDrop!!, coroutineScope) }
+        if (uri != null && peerForFileDrop != null) { sendFileToPeer(context, uri, peerForFileDrop!!) }
         peerForFileDrop = null
     }
 
@@ -646,16 +647,10 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     }
 }
 
-private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData, scope: CoroutineScope) {
-    Toast.makeText(context, context.getString(R.string.peers_sending), Toast.LENGTH_SHORT).show()
-    scope.launch(Dispatchers.IO) {
-        // The shared routine: StableNodeID addressing, and the attempt in the Taildrop history.
-        val outcome = sendTaildropFile(context, uri, peer, TaildropSource.PEERS)
-        withContext(Dispatchers.Main) {
-            if (outcome.error == null) Toast.makeText(context, context.getString(R.string.peers_sent), Toast.LENGTH_SHORT).show()
-            else Toast.makeText(context, context.getString(R.string.peers_failed_format, outcome.error), Toast.LENGTH_LONG).show()
-        }
-    }
+// In the background, with its progress in a notification and on the Files page (TaildropOutbox).
+private fun sendFileToPeer(context: Context, uri: Uri, peer: PeerData) {
+    Toast.makeText(context, context.getString(R.string.taildrop_out_started_format, peer.getDisplayName()), Toast.LENGTH_SHORT).show()
+    TaildropOutbox.send(context, listOf(uri), peer, TaildropSource.PEERS)
 }
 
 /**

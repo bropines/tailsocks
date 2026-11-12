@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="taildrop_out_to_format">傳送到 %1$s</string>
+    <string name="taildrop_out_started_format">正在傳送到 %1$s…</string>
+    <plurals name="taildrop_out_sending_files">
+        <item quantity="other">正在傳送 %d 個檔案</item>
+    </plurals>
+    <string name="taildrop_out_preparing">正在準備…</string>
+    <string name="taildrop_out_queued">排隊中</string>
+    <string name="taildrop_out_cancelled">已取消</string>
+    <string name="taildrop_out_cancel_one">取消傳送</string>
+    <plurals name="taildrop_out_sent_files">
+        <item quantity="other">已傳送 %d 個檔案</item>
+    </plurals>
+    <string name="taildrop_out_failed_title">未傳送</string>
+    <string name="taildrop_out_partly_title">已傳送 %1$d / %2$d</string>
+</resources>

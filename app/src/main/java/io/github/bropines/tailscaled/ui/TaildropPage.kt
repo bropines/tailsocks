@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.runtime.key
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
@@ -112,6 +113,9 @@ import io.github.bropines.tailscaled.core.CompactSearchBar
 import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.IncomingPhase
 import io.github.bropines.tailscaled.core.IncomingTransfer
+import io.github.bropines.tailscaled.core.OutgoingPhase
+import io.github.bropines.tailscaled.core.OutgoingTransfer
+import io.github.bropines.tailscaled.core.outgoingDetail
 import io.github.bropines.tailscaled.core.TaildropFolder
 import io.github.bropines.tailscaled.core.TaildropInbox
 import io.github.bropines.tailscaled.core.formatFileSize
@@ -251,7 +255,10 @@ internal fun TaildropPage(
      * say one came: what arrived after this moment is listed first under "New", and the
      * whole inbox by arrival, newest first. Null leaves the inbox as it always was.
      */
-    newSince: Long? = null
+    newSince: Long? = null,
+    /** The files on their way out (TaildropOutbox): on top while they go, each with its Cancel. */
+    outgoing: List<OutgoingTransfer> = emptyList(),
+    onCancelOutgoing: (OutgoingTransfer) -> Unit = {}
 ) {
     val saved = remember(files, history) { TaildropInbox.savedEntries(files, history) }
     var inboxOpen by rememberSaveable { mutableStateOf(inboxOpenAtStart) }
@@ -300,10 +307,13 @@ internal fun TaildropPage(
                             // The bottom leaves the last row clear of the send button.
                             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp)
                     ) {
-                        TaildropSendAndHistory(
-                            targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry,
-                            returnFocusTo = lastOpened, onFocusReturned = { lastOpened = null }
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            outgoing.forEach { t -> key(t.key) { TaildropOutgoingCard(t) { onCancelOutgoing(t) } } }
+                            TaildropSendAndHistory(
+                                targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry,
+                                returnFocusTo = lastOpened, onFocusReturned = { lastOpened = null }
+                            )
+                        }
                     }
                 }
             }
@@ -317,6 +327,7 @@ internal fun TaildropPage(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalItemSpacing = 8.dp
         ) {
+            items(outgoing, key = { "outgoing:" + it.key }) { t -> TaildropOutgoingCard(t) { onCancelOutgoing(t) } }
             items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
             item(key = "send-history", span = StaggeredGridItemSpan.FullLine) {
                 TaildropSendAndHistory(targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry)
@@ -329,7 +340,8 @@ internal fun TaildropPage(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Arriving now: on top while it arrives. Each makes way for its file once it is in.
+            // Leaving and arriving now: on top meanwhile. Each makes way for its history row or its file.
+            items(outgoing, key = { "outgoing:" + it.key }) { t -> TaildropOutgoingCard(t) { onCancelOutgoing(t) } }
             items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
 
             item(key = "send-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) }
@@ -837,6 +849,53 @@ internal fun TaildropIncomingCard(transfer: IncomingTransfer) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 6.dp)
                 )
+            }
+        }
+    }
+}
+
+/**
+ * A file being sent: its name, the device it goes to, a bar and the numbers (outgoingDetail),
+ * and Cancel while there is something to cancel. One that failed keeps how far it got, in the
+ * error colour, with the reason, until the outbox drops it; its history row has the rest.
+ */
+@Composable
+internal fun TaildropOutgoingCard(transfer: OutgoingTransfer, onCancel: () -> Unit) {
+    val failed = transfer.phase == OutgoingPhase.FAILED
+    val accent = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val detail = outgoingDetail(LocalResources.current, transfer)
+    val fraction = transfer.fraction
+    ElevatedCard(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large) {
+        Row(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 16.dp, end = if (failed) 16.dp else 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            FileIcon(transfer.name.substringAfterLast('.', "").lowercase())
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(transfer.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    stringResource(R.string.taildrop_out_to_format, transfer.peer),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val bar = Modifier.fillMaxWidth().padding(top = 10.dp)
+                if (fraction != null) {
+                    val shown by animateFloatAsState(fraction, label = "outgoing")
+                    LinearProgressIndicator(progress = { shown }, modifier = bar, color = accent)
+                } else {
+                    LinearProgressIndicator(modifier = bar, color = accent)
+                }
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+            if (!failed) IconButton(onClick = onCancel) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.taildrop_out_cancel_one))
             }
         }
     }

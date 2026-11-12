@@ -28,6 +28,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.exp
 
+/** The one channel of both progress notifications: a file coming in, a file going out (TaildropOutbox). */
+internal const val TAILDROP_PROGRESS_CHANNEL = "tailsocks_taildrop_progress"
+
 /** Where a file being received stands, in the order a notification for several picks from. */
 enum class IncomingPhase {
     /** Bytes are arriving. */
@@ -87,7 +90,7 @@ fun incomingDetail(res: Resources, t: IncomingTransfer): String = when (t.phase)
     IncomingPhase.RECEIVING -> listOfNotNull(
         incomingSizes(res, t),
         t.bytesPerSecond?.let { res.getString(R.string.taildrop_speed_format, formatFileSize(it)) },
-        t.secondsLeft?.let { timeLeft(res, it) }
+        t.secondsLeft?.let { taildropTimeLeft(res, it) }
     )
     IncomingPhase.STALLED -> listOf(res.getString(R.string.taildrop_progress_stalled), incomingSizes(res, t))
     IncomingPhase.FINISHING -> listOf(res.getString(R.string.taildrop_progress_finishing), formatFileSize(maxOf(t.size, t.received)))
@@ -95,7 +98,7 @@ fun incomingDetail(res: Resources, t: IncomingTransfer): String = when (t.phase)
     IncomingPhase.INTERRUPTED -> listOf(res.getString(R.string.taildrop_progress_interrupted), incomingSizes(res, t))
 }.joinToString(" · ")
 
-private fun timeLeft(res: Resources, seconds: Long): String = when {
+internal fun taildropTimeLeft(res: Resources, seconds: Long): String = when {
     seconds < 60 -> res.getString(R.string.taildrop_progress_left_seconds, seconds.toInt().coerceAtLeast(1))
     seconds < 3600 -> res.getString(R.string.taildrop_progress_left_minutes, ((seconds + 59) / 60).toInt())
     else -> res.getString(R.string.taildrop_progress_left_hours, (seconds / 3600).toInt(), ((seconds % 3600) / 60).toInt())
@@ -141,7 +144,7 @@ internal fun aggregateIncoming(list: List<IncomingTransfer>): IncomingTransfer {
  */
 object TaildropProgress {
     private const val TAG = "TaildropProgress"
-    private const val CHANNEL_ID = "tailsocks_taildrop_progress"
+    private const val CHANNEL_ID = TAILDROP_PROGRESS_CHANNEL
     /** Just below the "File received" ids (TaildropEvents: 0x7D00 + 0..0xFF). */
     private const val NOTIF_ID = 0x7CFF
 
@@ -228,7 +231,8 @@ object TaildropProgress {
     }
 
     private fun apply(context: Context, files: List<TaildropEvents.IncomingFile>, now: Long, wall: Long) {
-        appContext = context
+        // The app's own language, which the application context does not carry.
+        if (appContext == null) appContext = wrapContextWithLocale(context)
         val seen = HashSet<String>()
         for (f in files) {
             val key = keyOf(f)

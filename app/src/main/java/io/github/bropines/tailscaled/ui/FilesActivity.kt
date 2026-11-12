@@ -1,4 +1,6 @@
 package io.github.bropines.tailscaled.ui
+import io.github.bropines.tailscaled.core.OutgoingPhase
+import io.github.bropines.tailscaled.core.TaildropOutbox
 import io.github.bropines.tailscaled.R
 import androidx.compose.ui.res.stringResource
 
@@ -141,8 +143,9 @@ fun FilesScreen(
     var isLoading by remember { mutableStateOf(false) }
     val targets = remember(pickerPeers, history) { taildropTargets(pickerPeers, taildropStrings, history) }
 
-    var isSendingFile by remember { mutableStateOf(false) }
-    var sendProgressText by remember { mutableStateOf("") }
+    // What is on its way out, whoever queued it; a send that ends leaves a history row.
+    val liveOutgoing by TaildropOutbox.outgoing.collectAsState()
+    val outgoing = if (demo != null) emptyList() else liveOutgoing
     var showAllDevices by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var openEntry by remember { mutableStateOf(openEntryAt?.let { at -> history.firstOrNull { it.timestamp == at } }) }
@@ -252,19 +255,9 @@ fun FilesScreen(
         }
     }
 
-    fun sendTo(peer: PeerData, uris: List<Uri>) {
-        isSendingFile = true
-        scope.launch(Dispatchers.IO) {
-            val failures = sendTaildropFiles(context, uris, peer, TaildropSource.FILES) { sendProgressText = it }
-                .mapNotNull { o -> o.error?.let { context.getString(R.string.share_failed_format, o.name, it) } }
-            withContext(Dispatchers.Main) {
-                isSendingFile = false
-                if (failures.isEmpty()) Toast.makeText(context, context.getString(R.string.files_sent), Toast.LENGTH_SHORT).show()
-                else Toast.makeText(context, failures.joinToString("\n"), Toast.LENGTH_LONG).show()
-                refreshData()
-            }
-        }
-    }
+    // In the background (TaildropOutbox): the page shows the files going, and stays usable.
+    fun sendTo(peer: PeerData, uris: List<Uri>) = TaildropOutbox.send(context, uris, peer, TaildropSource.FILES)
+    LaunchedEffect(outgoing.size, outgoing.count { it.phase == OutgoingPhase.FAILED }) { if (demo == null) reloadHistory() }
 
     // The files for a send. Picked for a device (a row of the Send section) they go straight
     // to it; picked from the send button, the device sheet opens with them. The device is
@@ -503,18 +496,13 @@ fun FilesScreen(
                                 onDeleteEntry = { deleteEntry(it) },
                                 inboxOpenAtStart = inboxOpen,
                                 folderLine = folderLine,
-                                newSince = inboxSeen.takeIf { tv }
+                                newSince = inboxSeen.takeIf { tv },
+                                outgoing = outgoing,
+                                onCancelOutgoing = { TaildropOutbox.cancel(it.key) }
                             )
                         }
                     }
                     if (isSavingFile) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (isSendingFile) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.3f)), contentAlignment = Alignment.Center) {
-                        Card(shape = MaterialTheme.shapes.large) {
-                            Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                LoadingIndicator(); Spacer(Modifier.height(16.dp)); Text(stringResource(R.string.files_sending)); Text(sendProgressText, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
                 }
             }
             // A phone's pages are held to a readable width on its side; see ReadableWidth. A
