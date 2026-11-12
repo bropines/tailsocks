@@ -2,7 +2,7 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
-## [Unreleased]
+## [5.8.0] - 2026-11-12
 
 ### Added
 
@@ -22,6 +22,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Security: another app can no longer make TailSocks open its internal screens, read outside a granted Taildrive folder, or send the app's own files through Share; the Taildrive proxy refuses requests from web pages; SOCKS5 and proxy passwords come from the system's secure generator; secrets are kept out of the log.
 - The main screen no longer freezes while a slow daemon starts, and onboarding no longer hangs on the root prompt.
 - Root Mode: a peer naming itself `localhost` or `wpad` is not published device-wide under that name.
+- Root Mode: changing a setting the daemon reads at start (SOCKS5 login, control proxy and the like) restarts the daemon instead of dropping the connection.
 - Security: a SOCKS5 or HTTP proxy opened to the local network or the tailnet no longer connects to the phone's own localhost, and the daemon's control socket answers only root, the daemon and the app.
 - Root Mode: with a DNS server on the tailnet, turning mobile data off and on no longer leaves the phone offline — device-wide DNS stays off until Android confirms the network works, and comes back once MagicDNS really answers.
 
