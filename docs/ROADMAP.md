@@ -166,6 +166,25 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Verify on devices
 
+- [ ] **5.8.0 — what a device has not shown yet.** Seen on the Redmi (Root Mode, 2026-11-12):
+      the DNS hold across a Wi-Fi drop, the DNS proxy's record types, the tailnet map, the speed
+      graph, the timeline and the exit-node world map on live data, patch 29's refusal of
+      loopback from the Wi-Fi, the DNS-rescue switch restarting the root daemon. Not seen:
+  1. The exit-node guard end to end: take the selected exit node offline — the notification
+     within a minute, "Go direct until it's back", the node coming back by itself, "Turn off",
+     "Don't restore", and the automatic mode from Settings → Account.
+  2. Patch 30 refusing a caller: LocalAPI from a UID that is neither root, the daemon nor the
+     app (needs a way to the socket past the app's 0700 data directory; unit-tested only).
+  3. The DNS-rescue switch off on a tailnet whose DNS is a filter: a blocked name stays blocked
+     through the daemon (Root, TUN) and through the DNS proxy on port 1053.
+  4. The world map with Mullvad exit nodes (real coordinates, dozens of cities), pinch and pan
+     against the sheet's own drag, and the map on Android 7–8.
+  5. The tailnet map's node sheet and "+N more" list, D-pad travel on a television, and a
+     300-peer tailnet at the 2 s poll on a slow phone.
+  6. Settings changed right after a login that finished on another device (QR on a TV): the
+     exit node must apply at once.
+  7. #22 on the reporter's ROM (VoltageOS, Android 16): confirmed by the reporter on the dev
+     build of 2026-11-11; the release build is his to confirm.
 - [ ] **5.7.0 — Tailscale SSH sessions on the 1.104.5 core.** Sessions and forwards now go
       through upstream's privileged monitor, built for Android by patch 28. Checked on the Redmi
       (2026-11-08): the SSH server answers on the new core, but the test tailnet's policy has no
