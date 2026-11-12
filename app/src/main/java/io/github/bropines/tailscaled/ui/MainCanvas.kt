@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -160,6 +161,23 @@ private class MainCanvasState {
     }
 
     /**
+     * Whether [point] is on one of [item]'s corner buttons, [target] pixels square: a tile's
+     * two top corners (remove at its start, if it can be removed, and size at its end), a
+     * block's top end (remove). A press there is the button's — taken for the start of a
+     * drag, the moves it consumed cancelled the button's tap.
+     */
+    fun onBadge(item: MainItem, point: Offset, target: Int, rtl: Boolean): Boolean {
+        val slot = slots[item] ?: return false
+        val p = point.round()
+        if (p.y - slot.top > target) return false
+        val fromLeft = p.x - slot.left <= target
+        val fromRight = slot.right - p.x <= target
+        val atStart = if (rtl) fromRight else fromLeft
+        val atEnd = if (rtl) fromLeft else fromRight
+        return if (item.isTile) atEnd || (atStart && item.removable) else atEnd && item.removable
+    }
+
+    /**
      * The cell the dragged one has crossed, if any. Two cells of one size swap as soon as the
      * centre of one is over the other. Cells of different sizes would swap back at once — the
      * small one is still inside the large one after the move — so there the centre has to pass
@@ -210,6 +228,7 @@ internal fun MainCanvas(
     val state = remember { MainCanvasState() }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val layoutRtl by rememberUpdatedState(androidx.compose.ui.platform.LocalLayoutDirection.current == LayoutDirection.Rtl)
     val density = LocalDensity.current
     val order = cells.map { it.item }
     val currentOrder by rememberUpdatedState(order)
@@ -296,6 +315,7 @@ internal fun MainCanvas(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val item = state.itemAt(down.position) ?: return@awaitEachGesture
+                        if (currentEditing && state.onBadge(item, down.position, EditBadgeTarget.roundToPx(), layoutRtl)) return@awaitEachGesture
                         // Arranging, a short rest is enough — a swipe that scrolls the page has
                         // moved by then; before that it is the system's long press.
                         val hold = if (currentEditing) EDIT_HOLD_MS else viewConfiguration.longPressTimeoutMillis
@@ -529,7 +549,10 @@ private fun BoxScope.EditBadge(
         visible = visible,
         enter = scaleIn() + fadeIn(),
         exit = scaleOut() + fadeOut(),
-        modifier = Modifier.align(alignment),
+        // Its own size, in its corner: a tile's cell hands its children the tile's size as
+        // their least, and a button stretched over the whole tile lay over the other one —
+        // every press on a tile's corner went to the size button, never to Remove.
+        modifier = Modifier.align(alignment).wrapContentSize(alignment),
     ) {
         Box(
             Modifier

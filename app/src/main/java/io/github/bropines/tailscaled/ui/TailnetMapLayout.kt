@@ -35,7 +35,18 @@ internal enum class MapTier {
 }
 
 /** A peer as the map draws it: its [path] ([PeerPathNames.pathOf]) and its traffic right now. */
-internal class MapPeer(val key: String, val peer: PeerData, val path: PeerPath, val rate: TrafficRate) {
+internal class MapPeer(
+    val key: String,
+    val peer: PeerData,
+    val path: PeerPath,
+    val rate: TrafficRate,
+    /**
+     * Counts as moving traffic when places are short ([KEEP_ORDER]). The screen holds it for a
+     * while after the last byte: a rate that flickers between a little and nothing every
+     * reading would otherwise trade the peer's node with another's each time.
+     */
+    val busy: Boolean = rate.totalBps > 0,
+) {
     val tier: MapTier = when (path) {
         is PeerPath.Direct, is PeerPath.PeerRelay, is PeerPath.Derp -> MapTier.LINKED
         is PeerPath.NotYet, is PeerPath.Self -> MapTier.IDLE
@@ -45,8 +56,17 @@ internal class MapPeer(val key: String, val peer: PeerData, val path: PeerPath, 
 }
 
 /** [peers] as the map draws them: each with its path, read the one way the app reads paths, and its rate. */
-internal fun mapPeers(peers: List<PeerData>, traffic: TrafficSnapshot, names: PeerPathNames): List<MapPeer> =
-    peers.map { p -> MapPeer(p.trafficKey() ?: p.getPrimaryIp(), p, names.pathOf(p, isSelf = false), traffic.rateOf(p)) }
+internal fun mapPeers(
+    peers: List<PeerData>,
+    traffic: TrafficSnapshot,
+    names: PeerPathNames,
+    /** Peers to count as busy whatever their rate is right now; see [MapPeer.busy]. */
+    held: Set<String> = emptySet(),
+): List<MapPeer> = peers.map { p ->
+    val key = p.trafficKey() ?: p.getPrimaryIp()
+    val rate = traffic.rateOf(p)
+    MapPeer(key, p, names.pathOf(p, isSelf = false), rate, busy = rate.totalBps > 0 || key in held)
+}
 
 /** The measures the layout keeps between nodes. */
 internal data class MapMetrics(
@@ -205,7 +225,7 @@ internal val PLACE_ORDER = compareBy<MapPeer>({ it.tier }, { it.name.lowercase()
  * they are drawn never depends on a rate, or the nodes would trade places every time one
  * changed.
  */
-internal val KEEP_ORDER = compareByDescending<MapPeer> { it.rate.totalBps > 0 }.then(PLACE_ORDER)
+internal val KEEP_ORDER = compareByDescending<MapPeer> { it.busy }.then(PLACE_ORDER)
 
 /**
  * Lays [peers] out in a [width] × [height] box. While everybody fits, a peer's place depends

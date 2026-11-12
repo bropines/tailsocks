@@ -3,7 +3,6 @@
 <resources>
     <string name="settings_main_blocks_title">Раскладка главного экрана</string>
     <string name="settings_main_blocks_desc">Переставьте карточку статуса и плитки, добавьте или уберите блоки, выберите число колонок. Тот же редактор открывается долгим нажатием на любую плитку главного экрана.</string>
-    <string name="tv_main_layout_desc">Что показывает главный экран и в каком порядке. Настройки и карточка статуса остаются всегда.</string>
     <string name="main_layout_edit_title">Настройка экрана</string>
     <string name="main_layout_edit_hint">Зажмите и перетащите</string>
     <string name="main_layout_panes_note">В широком окне блоки стоят с одной стороны, плитки — с другой, те и другие в этом порядке.</string>

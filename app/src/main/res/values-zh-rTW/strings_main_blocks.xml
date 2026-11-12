@@ -3,7 +3,6 @@
 <resources>
     <string name="settings_main_blocks_title">主畫面配置</string>
     <string name="settings_main_blocks_desc">移動狀態卡片和方塊，新增或移除區塊，選擇欄數。長按主畫面上的任一方塊也能開啟同一個編輯器。</string>
-    <string name="tv_main_layout_desc">主畫面顯示哪些內容以及它們的順序。設定和狀態卡片一律保留。</string>
     <string name="main_layout_edit_title">編輯主畫面</string>
     <string name="main_layout_edit_hint">按住並拖曳即可移動</string>
     <string name="main_layout_panes_note">在寬視窗中，區塊在一側，方塊在另一側，各自依此順序排列。</string>

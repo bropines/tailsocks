@@ -3,7 +3,6 @@
 <resources>
     <string name="settings_main_blocks_title">Main screen layout</string>
     <string name="settings_main_blocks_desc">Move the status card and the tiles, add or remove blocks, choose the columns. A long press on any tile of the main screen opens the same editor.</string>
-    <string name="tv_main_layout_desc">What the main screen shows and in what order. Settings and the status card always stay.</string>
     <string name="main_layout_edit_title">Edit main screen</string>
     <string name="main_layout_edit_hint">Hold and drag to move</string>
     <string name="main_layout_panes_note">In a wide window the blocks stand on one side and the tiles on the other, each in this order.</string>

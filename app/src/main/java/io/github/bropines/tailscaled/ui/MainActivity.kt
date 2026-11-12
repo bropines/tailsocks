@@ -653,9 +653,14 @@ fun MainScreen(
     // the screen comes back to the front: Settings can change it too.
     val remoteTileOffered = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
     val itemOffered = rememberMainItemsOffered()
-    var layout by remember { mutableStateOf(previewLayout ?: MainLayoutStore.load(context, remoteTileOffered)) }
+    val arrangeable = !isTv
+    var layout by remember { mutableStateOf(previewLayout ?: MainLayoutStore.load(context, remoteTileOffered, arrangeable)) }
     // The screen as its own editor: a long press on it, or the row in Settings → Appearance.
     var editing by rememberSaveable { mutableStateOf(previewEditing) }
+    // Too short a window for the editor's bar under the canvas: a phone on its side.
+    val editRail = editing && androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenHeightDp < 500 && it.screenWidthDp > it.screenHeightDp
+    }
     var paletteOpen by remember { mutableStateOf(false) }
     var confirmLayoutReset by remember { mutableStateOf(false) }
     // Every change is stored as it is made: there is nothing to confirm, and Done only leaves.
@@ -714,7 +719,7 @@ fun MainScreen(
     // OK on a remote is pressed by accident, and on the start card that stops the service:
     // a television asks first. Starting asks nothing.
     val tv = isTv
-    // A remote has nothing to drag with: a television arranges the screen as a list, in Settings.
+    // A remote has nothing to drag with: a television keeps the arrangement made for it.
     LaunchedEffect(editLayoutRequest.value) {
         if (editLayoutRequest.value) {
             editLayoutRequest.value = false
@@ -968,7 +973,7 @@ fun MainScreen(
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 showManagedOnMain = GlobalSettings.isManagedOnMainShown(context)
-                if (previewLayout == null && !editing) layout = MainLayoutStore.load(context, remoteTileOffered)
+                if (previewLayout == null && !editing) layout = MainLayoutStore.load(context, remoteTileOffered, arrangeable)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isTunDisplaced = TunVpnService.isDisplaced(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
@@ -1429,7 +1434,13 @@ fun MainScreen(
         // The page, in place of the dashboard, which comes back with the remote on its tile.
         RemoteManagedScreen(onBack = { remoteOpen = false; remoteLeft = true })
     } else
+    // A window lying on its side has no height to give a bar under the canvas: there the
+    // editor's controls stand beside it (MainEditRail), and the window's edge is theirs.
+    Row(Modifier.fillMaxSize()) {
         Scaffold(
+            modifier = Modifier.weight(1f).then(
+                if (editRail) Modifier.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.End)) else Modifier
+            ),
             topBar = {
             if (editing) {
                 // The screen is its own editor: the bar says so, and its arrow is one of the ways out.
@@ -1472,7 +1483,7 @@ fun MainScreen(
             )
         },
         bottomBar = {
-            if (editing) {
+            if (editing && !editRail) {
                 MainEditBar(
                     columns = layout.columns,
                     onColumns = { changeLayout(layout.withColumns(it)) },
@@ -2065,6 +2076,17 @@ fun MainScreen(
             }
         }
     }
+        if (editRail) {
+            MainEditRail(
+                columns = layout.columns,
+                onColumns = { changeLayout(layout.withColumns(it)) },
+                canAdd = layout.addable(itemOffered).isNotEmpty(),
+                onAdd = { paletteOpen = true },
+                onReset = { confirmLayoutReset = true },
+                onDone = { editing = false },
+            )
+        }
+    }
 
     // Back leaves the editor before it leaves the app.
     androidx.activity.compose.BackHandler(enabled = editing) { editing = false }
@@ -2093,7 +2115,7 @@ fun MainScreen(
                     confirmLayoutReset = false
                     if (previewLayout == null) {
                         MainLayoutStore.reset(context)
-                        layout = MainLayoutStore.load(context, remoteTileOffered)
+                        layout = MainLayoutStore.load(context, remoteTileOffered, arrangeable)
                     }
                 }) { Text(dlgReset) }
             },

@@ -3,7 +3,6 @@
 <resources>
     <string name="settings_main_blocks_title">主界面布局</string>
     <string name="settings_main_blocks_desc">移动状态卡片和磁贴，添加或移除区块，选择列数。长按主界面上的任意磁贴也能打开同一个编辑器。</string>
-    <string name="tv_main_layout_desc">主界面显示哪些内容以及它们的顺序。设置和状态卡片始终保留。</string>
     <string name="main_layout_edit_title">编辑主界面</string>
     <string name="main_layout_edit_hint">按住并拖动即可移动</string>
     <string name="main_layout_panes_note">在宽窗口中，区块在一侧，磁贴在另一侧，各自按此顺序排列。</string>

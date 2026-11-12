@@ -188,6 +188,8 @@ private val NODE_PAD = 4.dp
 private const val MORE_ROOM_DP = 52f
 
 /** The scheme and the tree's grouping last picked by hand, for the next visit: per device, like the theme. */
+/** How long after its last byte a peer still counts as busy for a place on a crowded map. */
+private const val BUSY_HOLD_MS = 60_000L
 private const val SCHEME_PREF = "tailnet_map_scheme"
 private const val GROUPING_PREF = "tailnet_map_tree_grouping"
 
@@ -222,7 +224,16 @@ internal fun TailnetMapScreen(
     val state = rememberLiveTraffic()
     val pathNames = rememberPeerPathNames(state.peers)
     val words = mapWords()
-    val peers = remember(state.peers, state.traffic, pathNames) { mapPeers(state.peers, state.traffic, pathNames) }
+    // Who moved traffic lately, and when last: a peer keeps its place on a crowded map for
+    // BUSY_HOLD_MS after its last byte, instead of trading it away at every quiet reading.
+    val lastBusy = remember { HashMap<String, Long>() }
+    val peers = remember(state.peers, state.traffic, pathNames) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val fresh = mapPeers(state.peers, state.traffic, pathNames)
+        fresh.forEach { if (it.rate.totalBps > 0) lastBusy[it.key] = now }
+        lastBusy.values.removeAll { now - it > BUSY_HOLD_MS }
+        if (lastBusy.isEmpty()) fresh else mapPeers(state.peers, state.traffic, pathNames, held = lastBusy.keys.toSet())
+    }
 
     var scheme by remember {
         mutableStateOf(
@@ -624,18 +635,21 @@ private fun MapHeader(total: TrafficRate, words: PeerPathWords) {
     val colors = MaterialTheme.colorScheme
     val formatRate = rememberRateFormatter()
     val spoken = stringResource(R.string.speed_graph_spoken_format, formatRate(total.rxBps), formatRate(total.txBps))
+    // The rate has a line to itself: sharing one with the legend, a number that grew by a
+    // digit wrapped the legend, and the map under it changed height at every reading.
+    Text(
+        stringResource(R.string.tailnet_map_rate_format, formatRate(total.rxBps), formatRate(total.txBps)),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = colors.onSurface,
+        maxLines = 1,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp).semantics { contentDescription = spoken }
+    )
     FlowRow(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            stringResource(R.string.tailnet_map_rate_format, formatRate(total.rxBps), formatRate(total.txBps)),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = colors.onSurface,
-            modifier = Modifier.semantics { contentDescription = spoken }
-        )
         val effects = rememberLinkEffects()
         for (kind in LEGEND) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -813,7 +827,9 @@ private fun TailnetMap(
         val motion = rememberMapMotion(scene, animate)
 
         // A new scheme is a new picture: it opens in its own view, not in the last one's zoom.
-        val viewport = remember(scheme, grouping, width, height) { MapViewport() }
+        // Not a new window size: the box changes by a line whenever the header's text wraps,
+        // and that must not throw away where the reader has zoomed to.
+        val viewport = remember(scheme, grouping) { MapViewport() }
         val sceneNow by rememberUpdatedState(scene)
         val viewNow: () -> SceneView = remember(viewport, width, height) {
             { viewport.user?.let { clampView(it, sceneNow, width, height) } ?: startView(sceneNow, width, height) }

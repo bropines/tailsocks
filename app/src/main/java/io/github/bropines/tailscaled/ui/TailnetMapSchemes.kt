@@ -329,7 +329,7 @@ internal fun ringsScene(peers: List<MapPeer>, width: Float, height: Float, m: Ma
 }
 
 /** Which hubs get a place when the inner ring cannot hold them all: the ones carrying traffic, then the fullest. */
-private val HUB_KEEP_ORDER = compareByDescending<MapGroup> { it.rate.totalBps > 0 }.thenByDescending { it.members.size }.thenBy { it.key }
+private val HUB_KEEP_ORDER = compareByDescending<MapGroup> { g -> g.members.any { it.busy } }.thenByDescending { it.members.size }.thenBy { it.key }
 
 /**
  * The relays as points on the way. The window's inner ring ([mapRings]) is the hubs', the

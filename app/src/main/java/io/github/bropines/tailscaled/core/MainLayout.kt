@@ -234,8 +234,13 @@ object MainLayoutStore {
     /** Whether the person has arranged the screen; until then it follows the old switches. */
     fun isCustom(context: Context): Boolean = MainLayout.decode(GlobalSettings.getString(context, KEY, "")) != null
 
-    fun load(context: Context, remoteTile: Boolean): MainLayout =
-        MainLayout.decode(GlobalSettings.getString(context, KEY, ""))
+    /**
+     * The layout to draw. [arranged] is false where the screen is not the person's to
+     * arrange — a television, which has no editor: an arrangement that came with a phone's
+     * backup is left in the preference and not followed.
+     */
+    fun load(context: Context, remoteTile: Boolean, arranged: Boolean = true): MainLayout =
+        (if (arranged) MainLayout.decode(GlobalSettings.getString(context, KEY, "")) else null)
             ?: MainLayout.legacy({ it.isShown(context) }, GlobalSettings.isConnectionSummaryShown(context), remoteTile)
 
     fun save(context: Context, layout: MainLayout) = GlobalSettings.setString(context, KEY, layout.encode())

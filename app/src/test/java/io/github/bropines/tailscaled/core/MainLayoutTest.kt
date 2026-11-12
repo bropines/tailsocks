@@ -268,4 +268,16 @@ class MainLayoutTest {
         assertEquals(listOf(listOf(CONSOLE), listOf(PEERS), listOf(LOGS)), rows(1, Placed(CONSOLE), Placed(PEERS), Placed(LOGS)))
         assertEquals(listOf(listOf(CONSOLE), listOf(PEERS)), rows(0, Placed(CONSOLE), Placed(PEERS)))
     }
+
+    // A backup carries the global preferences on its allow-list, as the strings they are
+    // stored as: the layout has to be on that list, and has to survive being a string.
+    @Test
+    fun `a backup carries the layout`() {
+        assertTrue(MainLayoutStore.KEY in GlobalSettings.EXPORTED_KEYS)
+        MainBlock.prefKeys.forEach { assertTrue(it, it in GlobalSettings.EXPORTED_KEYS) }
+        val arranged = MainLayout.default(remoteTile = false).withColumns(3)
+        val restored = MainLayout.decode(arranged.encode())
+        assertEquals(arranged.encode(), restored?.encode())
+        assertEquals(3, restored?.columns)
+    }
 }

@@ -2,6 +2,15 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [6.0.1] - 2026-11-12
+
+### Fixed
+
+- Main screen editor: the remove button on a tile works — every press on a tile's corner went to the size button instead.
+- Main screen editor: with the phone on its side the controls stand beside the canvas instead of taking half the height under it.
+- Tailnet map: the view no longer jumps or loses its zoom every couple of seconds. The header changed height whenever the speed grew by a digit, and on a crowded map devices traded places each time one's traffic paused.
+- Television: the main screen is not arrangeable there, and a layout that came with a phone's backup is not followed.
+
 ## [6.0.0] - 2026-11-12
 
 ### Added
@@ -14,7 +23,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
-- Settings → Appearance: "Main screen blocks", a list of switches, gave way to the editor on the main screen itself. A television keeps a list, now with the order too.
+- Settings → Appearance: "Main screen blocks", a list of switches, gave way to the editor on the main screen itself.
 
 ## [5.9.0] - 2026-11-12
 

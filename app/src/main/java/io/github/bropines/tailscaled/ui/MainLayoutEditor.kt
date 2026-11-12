@@ -3,6 +3,14 @@ package io.github.bropines.tailscaled.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -127,6 +135,63 @@ internal fun MainEditBar(
                 }
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = onDone) { Text(stringResource(R.string.main_blocks_done), maxLines = 1) }
+            }
+        }
+    }
+}
+
+/**
+ * The same controls as [MainEditBar] for a window lying on its side, where a bar under the
+ * canvas would take most of the height: a column at the window's end edge.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun MainEditRail(
+    columns: Int,
+    onColumns: (Int) -> Unit,
+    canAdd: Boolean,
+    onAdd: () -> Unit,
+    onReset: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxHeight()) {
+        Column(
+            Modifier
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End + WindowInsetsSides.Vertical))
+                .width(176.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.main_blocks_done), maxLines = 1) }
+            FilledTonalButton(onClick = onAdd, enabled = canAdd, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.main_layout_add), maxLines = 1)
+            }
+            Text(
+                stringResource(R.string.main_layout_columns),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (choice in 0..MainLayout.MAX_COLUMNS) {
+                    val spoken = if (choice == MainLayout.AUTO) stringResource(R.string.main_layout_columns_auto)
+                                 else stringResource(R.string.main_layout_columns_cd, choice)
+                    FilterChip(
+                        selected = columns == choice,
+                        onClick = { onColumns(choice) },
+                        label = { Text(if (choice == MainLayout.AUTO) stringResource(R.string.main_layout_columns_auto) else choice.toString()) },
+                        modifier = Modifier.semantics { contentDescription = spoken },
+                    )
+                }
+            }
+            TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.main_layout_reset), maxLines = 1)
             }
         }
     }
@@ -285,122 +350,5 @@ internal fun MainPaletteContent(
                 }
             }
         }
-    }
-}
-
-// ─── A television: the editor as a list ──────────────────────────────────────────────────────
-
-/**
- * The main screen's arrangement for a remote: what is on it, in its order, each row a switch
- * with two buttons that move it; under those, what could be added. Dragging is a finger's way
- * and this is the same model reached with four arrows. It reads and stores the layout itself —
- * it opens from Settings, and the main screen reads the layout again when it comes back.
- */
-@Composable
-internal fun MainLayoutListDialog(onDismiss: () -> Unit) {
-    // The parent's context: the dialog is a window of its own and would answer in the system's language.
-    val context = LocalContext.current
-    val tv = isTv
-    val remoteTile = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
-    val offered = rememberMainItemsOffered()
-    var layout by remember { mutableStateOf(MainLayoutStore.load(context, remoteTile)) }
-    fun change(next: MainLayout) {
-        if (next == layout) return
-        layout = next
-        MainLayoutStore.save(context, next)
-    }
-    val titleText = stringResource(R.string.settings_main_blocks_title)
-    val done = stringResource(R.string.main_blocks_done)
-    val reset = stringResource(R.string.main_layout_reset)
-    val always = stringResource(R.string.main_layout_always)
-    val earlier = stringResource(R.string.main_layout_move_earlier)
-    val later = stringResource(R.string.main_layout_move_later)
-    AppAlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(done) } },
-        dismissButton = {
-            TextButton(onClick = {
-                MainLayoutStore.reset(context)
-                layout = MainLayoutStore.load(context, remoteTile)
-            }) { Text(reset) }
-        },
-        title = { Text(titleText) },
-        text = {
-            val shown = layout.shown(offered)
-            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                shown.forEachIndexed { i, placed ->
-                    val item = placed.item
-                    val spec = item.spec(tv)
-                    LayoutListRow(
-                        title = context.getString(spec.title),
-                        note = if (item.removable) null else always,
-                        checked = true,
-                        onToggle = if (item.removable) ({ change(layout.remove(item)) }) else null,
-                        earlier = earlier.takeIf { i > 0 },
-                        later = later.takeIf { i < shown.lastIndex },
-                        onStep = { change(layout.step(item, it, offered)) },
-                    )
-                }
-                val addable = layout.addable(offered)
-                if (addable.isNotEmpty()) HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                for (item in addable) {
-                    val spec = item.spec(tv)
-                    LayoutListRow(
-                        title = context.getString(spec.title),
-                        note = context.getString(spec.desc),
-                        checked = false,
-                        onToggle = { change(layout.add(item)) },
-                        earlier = null,
-                        later = null,
-                        onStep = {},
-                    )
-                }
-            }
-        },
-    )
-}
-
-/**
- * One item of the list. The words and the switch are one target — one stop for a remote —
- * and the two arrows beside it are the other two; an arrow that has nowhere to move the row
- * keeps its place, empty, so the rows stay in line.
- */
-@Composable
-private fun LayoutListRow(
-    title: String,
-    note: String?,
-    checked: Boolean,
-    onToggle: (() -> Unit)?,
-    earlier: String?,
-    later: String?,
-    onStep: (Int) -> Unit,
-) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            Modifier
-                .weight(1f)
-                .clip(MaterialTheme.shapes.medium)
-                .then(
-                    if (onToggle == null) Modifier
-                    else Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = { onToggle() })
-                )
-                .padding(vertical = 8.dp, horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge)
-                if (note != null) {
-                    Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (onToggle != null) {
-                Spacer(Modifier.width(12.dp))
-                Switch(checked = checked, onCheckedChange = null)
-            }
-        }
-        if (earlier != null) IconButton(onClick = { onStep(-1) }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = earlier) }
-        else if (checked) Spacer(Modifier.size(48.dp))
-        if (later != null) IconButton(onClick = { onStep(+1) }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = later) }
-        else if (checked) Spacer(Modifier.size(48.dp))
     }
 }

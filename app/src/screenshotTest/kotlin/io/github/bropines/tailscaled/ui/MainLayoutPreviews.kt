@@ -140,9 +140,3 @@ fun MainLayoutPaletteEmpty() = AdaptiveShowcase {
         }
     }
 }
-
-// ─── A television ────────────────────────────────────────────────────────────────────────────
-
-/** The same arrangement as a list a remote can walk: Settings → Appearance. */
-@PreviewTest @TvBothLanguages @Composable
-fun MainLayoutTvList() = AdaptiveShowcase(device = DeviceClass.TV) { MainLayoutListDialog(onDismiss = {}) }
