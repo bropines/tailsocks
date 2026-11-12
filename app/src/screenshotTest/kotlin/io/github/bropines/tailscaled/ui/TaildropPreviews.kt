@@ -19,6 +19,8 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
 import io.github.bropines.tailscaled.core.IncomingPhase
 import io.github.bropines.tailscaled.core.IncomingTransfer
+import io.github.bropines.tailscaled.core.OutgoingPhase
+import io.github.bropines.tailscaled.core.OutgoingTransfer
 import io.github.bropines.tailscaled.core.TaildropHistory
 import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropDirection
@@ -261,6 +263,26 @@ fun TaildropIncomingStatesShowcase() = TaildropShowcase(TaildropDemo.data) {
 }
 
 // Nothing received, nothing sent yet: each section says so in one line; the folder hint stays.
+/** Files on their way out, one card per state: going, waiting its turn, refused. */
+@PreviewTest @StatesPhoneBothLanguages @Composable
+fun TaildropOutgoingStatesShowcase() = TaildropShowcase(TaildropDemo.data) {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                OutgoingTransfer(
+                    key = "a", name = "holiday-video.mp4", peer = "macbook-air",
+                    size = 314_572_800, sent = 154_770_000, bytesPerSecond = 4_194_304, phase = OutgoingPhase.SENDING
+                ),
+                OutgoingTransfer(key = "b", name = "IMG_20261112_101500.jpg", peer = "macbook-air", phase = OutgoingPhase.QUEUED),
+                OutgoingTransfer(
+                    key = "c", name = "backup-2026-11.tar.zst", peer = "raspberry-pi",
+                    size = 2_147_483_648, sent = 805_306_368, phase = OutgoingPhase.FAILED, error = "HTTP 507: no space left on device"
+                )
+            ).forEach { TaildropOutgoingCard(it) {} }
+        }
+    }
+}
+
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropPageEmptyShowcase() = TaildropShowcase(TaildropDemo.empty) { FilesScreen(onBack = {}, openTaildrop = true) }
 
