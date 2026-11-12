@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [5.8.2] - 2026-11-12
+
+### Fixed
+
+- Tailscale SSH switched on in Root Mode no longer blocks settings after Root Mode is turned off: the exit node, routes, tags and the device name were all refused until the app was back in Root Mode.
+- Sharing straight to a device from the system share menu sends the file without flashing the list of devices first; the list opens only when that device cannot take the file.
+
 ## [5.8.1] - 2026-11-12
 
 ### Fixed

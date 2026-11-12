@@ -161,6 +161,10 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
     val taildropStrings = remember { TaildropReasonStrings.from(context) }
     // Saveable: a recreation mid-send must not send the files a second time.
     var directTried by rememberSaveable { mutableStateOf(directTo == null) }
+    // A Direct Share target was already a pick: the list stays away while its device is
+    // looked up and the files go, and opens only when that device cannot take them.
+    var directSending by remember { mutableStateOf(false) }
+    val showList = directTried && !directSending
 
     fun send(p: PeerData) {
         isSending = true
@@ -194,7 +198,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
                         directTried = true
                         val peerId = ShareTargets.peerIdFor(directTo, currentAccount.id)
                         peers.firstOrNull { it.id == peerId && taildropStatusOf(it, taildropStrings) == TaildropStatus.Available }
-                            ?.let { send(it); ShortcutManagerCompat.reportShortcutUsed(context, directTo!!) }
+                            ?.let { directSending = true; send(it); ShortcutManagerCompat.reportShortcutUsed(context, directTo!!) }
                     }
                 }
             } catch (e: Exception) {
@@ -210,7 +214,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
     val maxHeight = (configuration.screenHeightDp * 0.85f).dp
 
     // Strings come from the parent context, not stringResource() — see wrapContextWithLocale().
-    AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    if (showList) AppModalSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -321,7 +325,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
         }
     }
 
-    if (isSending) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
+    if (isSending || !showList) Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(0.5f)), contentAlignment = Alignment.Center) {
         Card(shape = MaterialTheme.shapes.large) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 LoadingIndicator(); Spacer(Modifier.height(20.dp))

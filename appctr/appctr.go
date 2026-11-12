@@ -562,6 +562,7 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 		prefs["RunWebClientSet"] = true
 		prefs["WantRunning"] = true
 		prefs["WantRunningSet"] = true
+		clearStaleSSH(prefs)
 
 		// Settings' own node switches, then the user's "Extra Arguments",
 		// parsed as `tailscale up` flags and folded in last, on top of
@@ -615,6 +616,22 @@ func syncSettings(ctx context.Context, opt *StartOptions) {
 // mergeClientPrefs copies the node switches in raw (StartOptions.ClientPrefs)
 // into prefs and returns them, or nil when there are none or raw is not a JSON
 // object — a broken value costs the switches, never the rest of the sync.
+// clearStaleSSH turns the SSH server off in the prefs of a daemon that is not
+// Root Mode's. Such a daemon refuses RunSSH, and it checks the prefs an edit
+// would leave, not the edit: with RunSSH kept on in the state from a Root Mode
+// run it refuses every later change — exit node, routes, tags, the hostname.
+// Root Mode sends the profile's switch again at its next start.
+func clearStaleSSH(prefs map[string]any) {
+	stateMu.Lock()
+	external := externalSocketPath != ""
+	stateMu.Unlock()
+	if external {
+		return
+	}
+	prefs["RunSSH"] = false
+	prefs["RunSSHSet"] = true
+}
+
 func mergeClientPrefs(prefs map[string]any, raw string) map[string]any {
 	if strings.TrimSpace(raw) == "" {
 		return nil
