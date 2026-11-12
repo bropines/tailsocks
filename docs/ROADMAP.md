@@ -166,6 +166,15 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Verify on devices
 
+- [ ] **6.0.0 — what a device has not shown yet.** Seen on the Redmi (2026-11-12): the main
+      screen unchanged after the update; a long press opening the editor with the tile under the
+      finger and a drag moving it; the palette and two tiles added; three columns; the layout
+      kept across a restart; the map's Routes and Tree on a tailnet of 30, a DERP hub's sheet, a
+      pan and the fit button. Not seen: pinch on the map; drags across the status card and
+      wide tiles, auto-scroll at the edges, the remove and size badges under a long press; the
+      editor in landscape, on a tablet, a foldable and with TalkBack; the list editor and the
+      map's focus travel on a television; a peer-relay hub; the tree with hundreds of devices;
+      a backup carrying the layout. The Chinese strings of both want a native reader.
 - [ ] **5.9.0 — what a device has not shown yet.** Seen on the Redmi (2026-11-12): a 300 MB
       file sent from the Share sheet in the background — the progress notification, the Live
       Update chip, the card on the Files page, the result notification, Cancel half-way — and

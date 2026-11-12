@@ -2,6 +2,20 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [6.0.0] - 2026-11-12
+
+### Added
+
+- Main screen: it is yours to arrange. Hold any tile or block and the screen becomes its own editor — drag things into any order, the big status card included; take off what you do not use; make a tile one cell or a full row; choose one, two, three or four columns, or leave it automatic. Settings → Appearance → "Main screen layout" opens the same editor. The screen you have now stays exactly as it is until you change it, and Reset brings it back.
+- Main screen: new tiles to add from the editor's "+" — the admin console, TailCat, Taildrive, the exit-node picker, the QR scanner, accounts, remote management, and the settings pages for excluded apps, DNS, Root Mode, permissions and Tailnet Lock.
+- Tailnet map: three ways to draw it. *Rings* is the map as it was. *Routes* puts the relays on the map as points of their own: each DERP region and each peer relay in use stands between this device and the devices reached through it, with the traffic passing through. *Tree* lists the tailnet in groups — by route, by owner or tag, by system or by state.
+- Tailnet map: filters — a search by name, online only, with traffic now, by how a device is reached, by system, by owner or tag, exit nodes and subnet routers — and a tap on a relay shows what goes through it.
+- Tailnet map: pinch to zoom and drag to pan, with a button that fits the whole map; devices glide to their new places when the view changes.
+
+### Changed
+
+- Settings → Appearance: "Main screen blocks", a list of switches, gave way to the editor on the main screen itself. A television keeps a list, now with the order too.
+
 ## [5.9.0] - 2026-11-12
 
 ### Changed
