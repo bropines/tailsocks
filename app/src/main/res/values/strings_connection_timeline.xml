@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The connection timeline on the main screen (ui/ConnectionTimeline.kt, core/ConnectionHistory.kt). -->
+<resources>
+    <string name="connection_timeline_title">Connection history</string>
+    <!-- A window chip, and a whole number of hours in a duration. -->
+    <string name="connection_timeline_hours">%d h</string>
+    <string name="connection_timeline_now">now</string>
+
+    <!-- What a stretch of the bar was. "Connected", "Connection problem" and "Stopped" are the app's existing words. -->
+    <string name="connection_timeline_kind_recovering">Connecting or reconnecting</string>
+    <string name="connection_timeline_kind_waiting_network">Waiting for network</string>
+    <string name="connection_timeline_kind_needs_you">Action needed</string>
+    <string name="connection_timeline_kind_no_data">No data</string>
+
+    <!-- When a stretch was: from–to and how long; still going on; began before the bar does; fills the bar. -->
+    <string name="connection_timeline_span_closed">%1$s–%2$s · %3$s</string>
+    <string name="connection_timeline_span_since">since %1$s · %2$s</string>
+    <string name="connection_timeline_span_until">until %1$s</string>
+    <string name="connection_timeline_span_whole">the whole period</string>
+    <string name="connection_timeline_duration_under_minute">under a minute</string>
+    <string name="connection_timeline_duration_minutes">%d min</string>
+    <string name="connection_timeline_duration_hours_minutes">%1$d h %2$d min</string>
+
+    <!-- %2$s is one of the two below. -->
+    <string name="connection_timeline_summary">Connected %1$d%% of the time it was on · %2$s</string>
+    <string name="connection_timeline_no_interruptions">no interruptions</string>
+    <plurals name="connection_timeline_interruptions">
+        <item quantity="one">%d interruption</item>
+        <item quantity="other">%d interruptions</item>
+    </plurals>
+    <string name="connection_timeline_summary_off">Not running in this period</string>
+    <string name="connection_timeline_summary_empty">No history yet. It fills in while the service runs.</string>
+    <string name="connection_timeline_hint">Select a stretch of the bar for details</string>
+
+    <string name="settings_connection_timeline_title">Connection history</string>
+    <string name="settings_connection_timeline_desc">Show the connection timeline on the main screen</string>
+</resources>

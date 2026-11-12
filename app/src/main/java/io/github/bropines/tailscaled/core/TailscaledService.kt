@@ -450,6 +450,9 @@ class TailscaledService : Service() {
             checkMagicDnsHealth(healthWarnings)
         }
 
+        // Lets the timeline tell a process that died from a connection that held.
+        ConnectionHistory.heartbeat(this@TailscaledService)
+
         // The exit node itself: selected and offline is a phone without internet.
         if (isRunning && backendState == "Running" && !waitingForNetwork) {
             runCatching { ExitNodeGuard.onTick(this@TailscaledService) }
@@ -1004,6 +1007,8 @@ class TailscaledService : Service() {
             if (card == shownCard) return
             val stateChanged = card.state != shownCard?.state
             shownCard = card
+            // The main screen's timeline is the history of what this card said.
+            card.state?.let { ConnectionHistory.record(this, it) }
             notificationManager.notify(MAIN_NOTIF_ID, renderCard(this, card))
             // The widgets' status line is the card's state.
             if (stateChanged) WidgetUpdates.request(this)
@@ -1811,6 +1816,8 @@ class TailscaledService : Service() {
             }
             val stateChanged = card.state != shownCard?.state
             shownCard = card
+            // The main screen's timeline is the history of what this card said.
+            card.state?.let { ConnectionHistory.record(this, it) }
             if (stateChanged) WidgetUpdates.request(this)
         }
     }
@@ -2572,7 +2579,8 @@ class TailscaledService : Service() {
             try {
                 Log.d(TAG, "Taildrive: Enabling server...")
                 val addr = Appctr.startDriveServer()
-                Log.d(TAG, "Taildrive: Server started on $addr")
+                // The address carries the file server's secret token: it is not logged.
+                Log.d(TAG, "Taildrive: Server started")
                 val sharesJson = profilePrefs.getString("taildrive_shares", "[]") ?: "[]"
                 Log.d(TAG, "Taildrive: Updating shares: $sharesJson")
                 Appctr.updateDriveShares(sharesJson)
@@ -2701,6 +2709,12 @@ class TailscaledService : Service() {
                     return@Thread
                 }
                 val bareLabel = Regex("^[A-Za-z0-9-]{1,63}$")
+                // Names a peer may call itself but must not be given device-wide: a node
+                // named "localhost" or "wpad" would answer for every app on the phone.
+                val reservedLabels = setOf(
+                    "localhost", "localdomain", "ip6-localhost", "ip6-loopback", "broadcasthost",
+                    "wpad", "isatap", "gateway", "router"
+                )
                 val claimed = mutableSetOf<String>()
                 val hostsMap = mutableMapOf<String, String>()
 
@@ -2709,10 +2723,10 @@ class TailscaledService : Service() {
                     if (ips == null || dnsName.isEmpty() || !dnsName.endsWith(".$zone")) return
                     val shortName = dnsName.substringBefore('.')
                     val hostName = hostRaw?.trim()?.lowercase()
-                        ?.takeIf { bareLabel.matches(it) && it != dnsName && it != shortName }
+                        ?.takeIf { bareLabel.matches(it) && it !in reservedLabels && it != dnsName && it != shortName }
                     // First claim wins (self is added first), so no peer can shadow
                     // another node's name or this device's own.
-                    val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName }, hostName)
+                    val aliases = listOfNotNull(dnsName, shortName.takeIf { it != dnsName && it !in reservedLabels }, hostName)
                         .filter { claimed.add(it) }
                     if (aliases.isEmpty()) return
                     for (ip in ips) {
@@ -2803,6 +2817,7 @@ class TailscaledService : Service() {
         // first post through, and keeps a TUN service that comes up on its own
         // from re-posting a card of a session that is over.
         synchronized(cardLock) { shownCard = null }
+        ConnectionHistory.recordStopped(this)
         // A card that said "Stopping…" is gone with it; the widgets must not keep saying so.
         WidgetUpdates.request(this)
         super.onDestroy()

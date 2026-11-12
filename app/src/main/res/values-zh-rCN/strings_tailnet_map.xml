@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailnet_map_title">Tailnet 地图</string>
+    <string name="tailnet_map_online_format">在线：%1$d / %2$d</string>
+    <string name="tailnet_map_more_format">还有 %1$d 台</string>
+    <string name="tailnet_map_more_title">未在地图上</string>
+    <string name="tailnet_map_more_desc">地图优先绘制正在使用的设备。以下设备屏幕上放不下。</string>
+    <string name="tailnet_map_empty">此 tailnet 中暂无其他设备</string>
+    <string name="tailnet_map_rate_spoken_format">接收 %1$s，发送 %2$s</string>
+    <string name="tailnet_map_received">已接收</string>
+    <string name="tailnet_map_sent">已发送</string>
+    <string name="tailnet_map_total_format">共 %1$s</string>
+    <string name="tailnet_map_self_caption">与 tailnet 中所有设备的流量</string>
+    <string name="tailnet_map_open_peer">设备详情</string>
+
+    <string name="speed_graph_title">流量</string>
+    <string name="speed_graph_idle">当前没有流量</string>
+    <string name="speed_graph_stopped">连接后显示</string>
+    <string name="speed_graph_spoken_format">Tailnet 流量：接收 %1$s，发送 %2$s</string>
+
+    <string name="settings_speed_graph_title">主屏幕上的速度图</string>
+    <string name="settings_speed_graph_desc">位于状态卡片下方：最近一分钟的下载和上传速率，以及当前占用最多的三台设备。仅在屏幕打开时向守护进程读取。</string>
+    <string name="settings_tailnet_map_title">Tailnet 地图按钮</string>
+    <string name="settings_tailnet_map_desc">主屏幕上用于打开地图的按钮：本机、它的对等设备，以及到每台设备的路径——直连、经中继或经对等中继。</string>
+</resources>

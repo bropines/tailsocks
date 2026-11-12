@@ -291,6 +291,7 @@
 
         <receiver android:name=".ui.TailDropReceiver" android:exported="false" />
         <receiver android:name=".core.ExitNodeGuardReceiver" android:exported="false" />
+        <activity android:name=".ui.TailnetMapActivity" android:exported="false" />
 
         <provider
             android:name=".core.TailsocksFileProvider"

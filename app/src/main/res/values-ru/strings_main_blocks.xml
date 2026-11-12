@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → Appearance → Main screen blocks (core/MainBlocks.kt, ui/MainBlocksSetting.kt). -->
+<resources>
+    <string name="settings_main_blocks_title">Блоки главного экрана</string>
+    <string name="settings_main_blocks_desc">Что показывает главный экран: выходной узел, график скорости, ленту соединения, карту tailnet и каждую карточку. Настройки остаются всегда.</string>
+    <string name="main_blocks_group_pictures">Картинки</string>
+    <string name="main_blocks_group_cards">Карточки</string>
+    <string name="main_block_exit_node">Выходной узел</string>
+    <string name="main_block_speed_graph">График скорости</string>
+    <string name="main_block_speed_graph_desc">Приём и передача за последнюю минуту и кто ими пользуется</string>
+    <string name="main_block_timeline">Лента соединения</string>
+    <string name="main_block_timeline_desc">Когда связь была, восстанавливалась или ждала сеть за последние часы</string>
+    <string name="main_block_tailnet_map">Карта tailnet</string>
+    <string name="main_block_tailnet_map_desc">Строка под карточками, открывает живую карту</string>
+    <string name="main_blocks_done">Готово</string>
+</resources>

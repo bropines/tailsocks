@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The tailnet map (this device in the centre, its peers around it, each link drawn as the
+  path in use and as thick as its traffic) and the speed graph on the main screen. Both read
+  the same live traffic. The words for a path itself — direct, relay, peer relay — are the
+  ones the Peers list uses (strings_peer_path.xml, strings_states.xml).
+-->
+<resources>
+    <!-- The map's title, and the label of the main screen's button that opens it. -->
+    <string name="tailnet_map_title">Tailnet map</string>
+    <!-- Under the title: how many peers are online, of how many. -->
+    <string name="tailnet_map_online_format">Online: %1$d of %2$d</string>
+    <!-- The button for the peers a window had no room to draw. -->
+    <string name="tailnet_map_more_format">+%1$d more</string>
+    <string name="tailnet_map_more_title">Not on the map</string>
+    <string name="tailnet_map_more_desc">The map draws the devices in use first. These did not fit on the screen.</string>
+    <string name="tailnet_map_empty">No other devices in this tailnet yet</string>
+    <!-- A rate pair wherever there is no room for words: down, then up. -->
+    <string name="tailnet_map_rate_format" translatable="false">↓ %1$s   ↑ %2$s</string>
+    <!-- The same for a screen reader, after a device's name and path. -->
+    <string name="tailnet_map_rate_spoken_format">receiving %1$s, sending %2$s</string>
+    <!-- A device's sheet: the two directions, each with its rate now and its total. -->
+    <string name="tailnet_map_received">Received</string>
+    <string name="tailnet_map_sent">Sent</string>
+    <string name="tailnet_map_total_format">%1$s in total</string>
+    <!-- This device's sheet: its figures are the sum over every peer. -->
+    <string name="tailnet_map_self_caption">Traffic with all devices of the tailnet</string>
+    <string name="tailnet_map_open_peer">Device details</string>
+
+    <!-- The speed graph card on the main screen. -->
+    <string name="speed_graph_title">Traffic</string>
+    <string name="speed_graph_idle">No traffic right now</string>
+    <string name="speed_graph_stopped">Shown while connected</string>
+    <!-- What a screen reader says for the whole card. -->
+    <string name="speed_graph_spoken_format">Tailnet traffic: receiving %1$s, sending %2$s</string>
+
+    <!-- Settings: the two switches. -->
+    <string name="settings_speed_graph_title">Speed graph on the main screen</string>
+    <string name="settings_speed_graph_desc">Under the status card: the download and upload rate over the last minute, and the three devices using the most right now. Read from the daemon only while the screen is open.</string>
+    <string name="settings_tailnet_map_title">Tailnet map button</string>
+    <string name="settings_tailnet_map_desc">A button on the main screen that opens the map: this device, its peers, and how each one is reached — directly, through a relay or through a peer relay.</string>
+</resources>

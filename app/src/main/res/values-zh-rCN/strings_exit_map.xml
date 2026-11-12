@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The map view of the exit-node picker (ui/ExitNodeWorldMap.kt): the same choice as the
+  list, drawn on a world outline. A file of its own so it lands without touching strings.xml.
+-->
+<resources>
+    <string name="exit_map_show_map">在地图上显示</string>
+    <string name="exit_map_show_list">以列表显示</string>
+    <string name="exit_map_reset">显示所有出口节点</string>
+    <string name="exit_map_hint">点按圆点查看该处的出口节点。</string>
+    <string name="exit_map_near_relay">靠近 %1$s 中继（大致位置）</string>
+    <string name="exit_map_approximate_note">空心圆点是推测：该节点未报告位置，画在它的中继处。</string>
+    <string name="exit_map_unplaced">位置未知的出口节点：%1$d</string>
+    <string name="exit_map_marker_cd">%1$s，出口节点：%2$d</string>
+    <string name="exit_map_area_cd">此区域的出口节点：%1$d</string>
+</resources>

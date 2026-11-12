@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The connection timeline on the main screen (ui/ConnectionTimeline.kt, core/ConnectionHistory.kt). -->
+<resources>
+    <string name="connection_timeline_title">连接历史</string>
+    <string name="connection_timeline_hours">%d 小时</string>
+    <string name="connection_timeline_now">现在</string>
+
+    <string name="connection_timeline_kind_recovering">正在连接或恢复</string>
+    <string name="connection_timeline_kind_waiting_network">等待网络</string>
+    <string name="connection_timeline_kind_needs_you">需要操作</string>
+    <string name="connection_timeline_kind_no_data">无数据</string>
+
+    <string name="connection_timeline_span_closed">%1$s–%2$s · %3$s</string>
+    <string name="connection_timeline_span_since">自 %1$s 起 · %2$s</string>
+    <string name="connection_timeline_span_until">至 %1$s</string>
+    <string name="connection_timeline_span_whole">整个时段</string>
+    <string name="connection_timeline_duration_under_minute">不到 1 分钟</string>
+    <string name="connection_timeline_duration_minutes">%d 分钟</string>
+    <string name="connection_timeline_duration_hours_minutes">%1$d 小时 %2$d 分钟</string>
+
+    <string name="connection_timeline_summary">运行期间 %1$d%% 的时间已连接 · %2$s</string>
+    <string name="connection_timeline_no_interruptions">无中断</string>
+    <plurals name="connection_timeline_interruptions">
+        <item quantity="other">%d 次中断</item>
+    </plurals>
+    <string name="connection_timeline_summary_off">此时段内未运行</string>
+    <string name="connection_timeline_summary_empty">暂无历史记录，服务运行期间会逐步记录。</string>
+    <string name="connection_timeline_hint">选择时间条上的一段以查看详情</string>
+
+    <string name="settings_connection_timeline_title">连接历史</string>
+    <string name="settings_connection_timeline_desc">在主屏幕显示连接时间线</string>
+</resources>

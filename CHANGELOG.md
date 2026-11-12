@@ -7,10 +7,20 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Added
 
 - Exit node: when the selected one goes offline, a notification says so and offers "Go direct until it's back" — the exit node comes back on by itself when the node returns.
+- Tailnet map: this device in the centre, every peer around it, and how each is reached — direct, a relay or a peer relay — with live traffic on the links. A row under the cards opens it.
+- Main screen: a speed graph (the last minute, and who is using it) and a connection timeline (the last hours: connected, recovering, waiting for a network). Both are off until switched on.
+- Main screen blocks: Settings → Appearance chooses what the main screen shows — the exit node, the graph, the timeline, the map row and every card.
+- Exit node picker: a world map of the exit nodes, next to the list. A node of your own is placed near its relay and marked as approximate.
 
 ### Fixed
 
 - Backup & restore: a backup or profile export from the release app restores into the dev build (and the other way round) instead of being refused as another app's.
+- Settings changed right after signing in on another device or by QR code are applied, instead of being silently dropped.
+- DNS proxy: TXT, SRV, MX and HTTPS lookups get their own answers, and names of other tailnets (`*.ts.net`) resolve.
+- Split DNS no longer detours through the SOCKS5 port; the daemon's resolver handles it.
+- Security: another app can no longer make TailSocks open its internal screens, read outside a granted Taildrive folder, or send the app's own files through Share; the Taildrive proxy refuses requests from web pages; SOCKS5 and proxy passwords come from the system's secure generator; secrets are kept out of the log.
+- The main screen no longer freezes while a slow daemon starts, and onboarding no longer hangs on the root prompt.
+- Root Mode: a peer naming itself `localhost` or `wpad` is not published device-wide under that name.
 - Root Mode: with a DNS server on the tailnet, turning mobile data off and on no longer leaves the phone offline — device-wide DNS stays off until Android confirms the network works, and comes back once MagicDNS really answers.
 
 ## [5.7.0] - 2026-11-08

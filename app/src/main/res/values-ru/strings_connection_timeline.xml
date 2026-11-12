@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The connection timeline on the main screen (ui/ConnectionTimeline.kt, core/ConnectionHistory.kt). -->
+<resources>
+    <string name="connection_timeline_title">История соединения</string>
+    <string name="connection_timeline_hours">%d ч</string>
+    <string name="connection_timeline_now">сейчас</string>
+
+    <string name="connection_timeline_kind_recovering">Подключение или восстановление</string>
+    <string name="connection_timeline_kind_waiting_network">Ожидание сети</string>
+    <string name="connection_timeline_kind_needs_you">Нужно действие</string>
+    <string name="connection_timeline_kind_no_data">Нет данных</string>
+
+    <string name="connection_timeline_span_closed">%1$s–%2$s · %3$s</string>
+    <string name="connection_timeline_span_since">с %1$s · %2$s</string>
+    <string name="connection_timeline_span_until">до %1$s</string>
+    <string name="connection_timeline_span_whole">весь период</string>
+    <string name="connection_timeline_duration_under_minute">меньше минуты</string>
+    <string name="connection_timeline_duration_minutes">%d мин</string>
+    <string name="connection_timeline_duration_hours_minutes">%1$d ч %2$d мин</string>
+
+    <string name="connection_timeline_summary">Подключено %1$d%% времени работы · %2$s</string>
+    <string name="connection_timeline_no_interruptions">без обрывов</string>
+    <plurals name="connection_timeline_interruptions">
+        <item quantity="one">%d обрыв</item>
+        <item quantity="few">%d обрыва</item>
+        <item quantity="many">%d обрывов</item>
+        <item quantity="other">%d обрыва</item>
+    </plurals>
+    <string name="connection_timeline_summary_off">В этот период не работало</string>
+    <string name="connection_timeline_summary_empty">Истории пока нет. Она копится, пока сервис работает.</string>
+    <string name="connection_timeline_hint">Выберите участок полосы, чтобы узнать подробности</string>
+
+    <string name="settings_connection_timeline_title">История соединения</string>
+    <string name="settings_connection_timeline_desc">Показывать шкалу соединения на главном экране</string>
+</resources>

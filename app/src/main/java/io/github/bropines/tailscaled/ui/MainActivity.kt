@@ -365,8 +365,15 @@ class MainActivity : ComponentActivity() {
             when (status) {
                 PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                     val confirm = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_INTENT, Intent::class.java)
-                    if (confirm != null) {
+                    // This activity is exported, so any app can send this action with an
+                    // intent of its own inside, to be started with TailSocks' identity: one
+                    // of our unexported screens, or its own activity with a grant on our
+                    // file provider. Only the system's installer dialog is let through, and
+                    // nothing rides along that could hand out access to a file.
+                    if (confirm != null && isSystemInstallerConfirm(confirm)) {
                         try {
+                            confirm.flags = confirm.flags and GRANT_FLAGS.inv()
+                            confirm.clipData = null
                             startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         } catch (e: Exception) {
                             Toast.makeText(this, getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_LONG).show()
@@ -616,6 +623,8 @@ fun MainScreen(
     // summary's extra rows push the last menu row off it.
     var showConnectionSummary by remember { mutableStateOf(GlobalSettings.isConnectionSummaryShown(context)) }
     var showManagedOnMain by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
+    // Settings → Appearance → Main screen blocks; re-read when the screen comes back to the front.
+    var mainBlocks by remember { mutableStateOf(MainBlock.shown(context)) }
     // TunVpnService establishes a *full* tunnel exactly when an exit node is configured.
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
@@ -751,14 +760,17 @@ fun MainScreen(
         var lastSummaryAt = 0L
         var loggedOutSeconds = 0
         while (true) {
-            val isProcessAlive = try { appctr.Appctr.isRunning() } catch (e: Exception) { false }
+            // Each of these can be a LocalAPI round trip, and LocalAPI holds a request
+            // while the daemon has no backend yet: read on this thread every 2 s, a
+            // daemon that was slow to start froze the screen it was starting under.
+            val isProcessAlive = withContext(Dispatchers.IO) { try { appctr.Appctr.isRunning() } catch (e: Exception) { false } }
             val backendState = if (isProcessAlive) {
-                try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" }
+                withContext(Dispatchers.IO) { try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" } }
             } else "Stopped"
             daemonBackend = backendState
             shownWarnings = if (isProcessAlive) {
                 visibleWarnings(
-                    parseHealthWarnings(runCatching { appctr.Appctr.getHealthWarningsJSON() }.getOrNull()),
+                    parseHealthWarnings(withContext(Dispatchers.IO) { runCatching { appctr.Appctr.getHealthWarningsJSON() }.getOrNull() }),
                     System.currentTimeMillis()
                 )
             } else emptyList()
@@ -804,7 +816,7 @@ fun MainScreen(
             }
 
             if (isProcessAlive) {
-                val url = try { appctr.Appctr.getLoginURL() } catch (e: Exception) { "" }
+                val url = withContext(Dispatchers.IO) { try { appctr.Appctr.getLoginURL() } catch (e: Exception) { "" } }
                 loginUrl = if (url.isNullOrBlank()) null else url
                 
                 if (loginUrl != null) urlDetected = true
@@ -813,7 +825,7 @@ fun MainScreen(
                     urlDetected = false
                 }
 
-                val lastErr = try { appctr.Appctr.getLastError() } catch (e: Exception) { "" }
+                val lastErr = withContext(Dispatchers.IO) { try { appctr.Appctr.getLastError() } catch (e: Exception) { "" } }
                 if (lastErr == "410_GONE") show410Warning = true
 
                 // The summary under the card: a status read every 10 s, off the
@@ -909,6 +921,7 @@ fun MainScreen(
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 showConnectionSummary = GlobalSettings.isConnectionSummaryShown(context)
                 showManagedOnMain = GlobalSettings.isManagedOnMainShown(context)
+                mainBlocks = MainBlock.shown(context)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isTunDisplaced = TunVpnService.isDisplaced(context)
                 isRootEnabled = GlobalSettings.isRootModeEnabled(context)
@@ -1506,7 +1519,9 @@ fun MainScreen(
                 val exitNodePartial = exitNodeIp.isNotEmpty() && sharedWithForeignVpn
                 val exitNodeActive = exitNodeIp.isNotEmpty() && !exitNodeInert
                 val exitNodePaused = exitNodeIp.isEmpty() && exitNodePausedName.isNotEmpty()
-                Surface(
+                // Hidden in Settings, the row still shows while an exit node carries the
+                // traffic or waits to come back: that is not something to find out later.
+                if (MainBlock.EXIT_NODE in mainBlocks || exitNodeIp.isNotEmpty() || exitNodePaused) Surface(
                     color = if (exitNodeActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = MaterialTheme.shapes.large,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
@@ -1644,6 +1659,16 @@ fun MainScreen(
                     ConnectionSummaryRow(summary)
                 }
             }
+            // The optional pictures (Settings → Appearance → Main screen blocks), under
+            // everything the status always had so that turning one on moves nothing above it.
+            if (cardState == "ACTIVE" && MainBlock.SPEED_GRAPH in mainBlocks) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SpeedGraphCard(Modifier.fillMaxWidth()) { context.startActivity(Intent(context, TailnetMapActivity::class.java)) }
+            }
+            if (MainBlock.CONNECTION_TIMELINE in mainBlocks) {
+                Spacer(modifier = Modifier.height(12.dp))
+                ConnectionTimelineCard(Modifier.fillMaxWidth())
+            }
 
             if (proxyState == "LOGGED_OUT") {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1678,17 +1703,20 @@ fun MainScreen(
         // for its advanced settings, or does not have, is not a tile here.
         val menuEntries = listOfNotNull(
             MenuEntry(stringResource(R.string.menu_console), Icons.Default.Terminal) { context.startActivity(Intent(context, ConsoleActivity::class.java)) }
-                .takeIf { Feature.CONSOLE.offered() },
-            MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Devices) { context.startActivity(Intent(context, PeersActivity::class.java)) },
+                .takeIf { Feature.CONSOLE.offered() && MainBlock.CONSOLE in mainBlocks },
+            MenuEntry(stringResource(R.string.menu_peers), Icons.Default.Devices) { context.startActivity(Intent(context, PeersActivity::class.java)) }
+                .takeIf { MainBlock.PEERS in mainBlocks },
             MenuEntry(stringResource(R.string.menu_logs), Icons.AutoMirrored.Filled.List) { context.startActivity(Intent(context, LogsActivity::class.java)) }
-                .takeIf { Feature.LOGS.offered() },
-            MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) },
+                .takeIf { Feature.LOGS.offered() && MainBlock.LOGS in mainBlocks },
+            MenuEntry(stringResource(R.string.menu_files), Icons.Default.Folder) { context.startActivity(Intent(context, FilesActivity::class.java)) }
+                .takeIf { MainBlock.FILES in mainBlocks },
             MenuEntry(stringResource(R.string.menu_dns), Icons.Default.Dns) { context.startActivity(Intent(context, DnsActivity::class.java)) }
-                .takeIf { Feature.DNS_SCREEN.offered() },
-            MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) },
+                .takeIf { Feature.DNS_SCREEN.offered() && MainBlock.DNS in mainBlocks },
+            MenuEntry(stringResource(R.string.menu_netcheck), Icons.Default.NetworkCheck) { context.startActivity(Intent(context, NetcheckActivity::class.java)) }
+                .takeIf { MainBlock.NETCHECK in mainBlocks },
             MenuEntry(stringResource(R.string.menu_settings), Icons.Default.Settings) { context.startActivity(Intent(context, SettingsActivity::class.java)) },
             MenuEntry(stringResource(R.string.menu_serve), Icons.Default.Public, Icons.Default.Pets) { context.startActivity(Intent(context, ServeActivity::class.java)) }
-                .takeIf { Feature.SERVE_EDIT.offered() },
+                .takeIf { Feature.SERVE_EDIT.offered() && MainBlock.SERVE in mainBlocks },
             // Where the page would be three levels down in the settings: its own row under the cards,
             // saying what state it is in. It opens over this screen, and the remote comes back to it.
             MenuEntry(
@@ -1698,7 +1726,14 @@ fun MainScreen(
                 wide = true,
                 focusOnShow = remoteLeft,
                 onClick = { remoteLeft = false; remoteOpen = true },
-            ).takeIf { remoteTileOffered }
+            ).takeIf { remoteTileOffered },
+            // The live map has a row of its own for the same reason: the cards keep their
+            // two columns, and the row can be taken off in Settings → Main screen blocks.
+            MenuEntry(
+                stringResource(R.string.tailnet_map_title), Icons.Default.Hub,
+                wide = true,
+                onClick = { context.startActivity(Intent(context, TailnetMapActivity::class.java)) },
+            ).takeIf { MainBlock.TAILNET_MAP in mainBlocks }
         )
         // How many cards there are: the page's own row takes no column.
         val cardCount = menuEntries.count { !it.wide }
@@ -2078,6 +2113,9 @@ fun MainScreen(
                                                         val url = java.net.URL(targetUrl)
                                                         val conn = url.openConnection() as java.net.HttpURLConnection
                                                         conn.instanceFollowRedirects = true
+                                                        // A server that stops answering must end the download, not leave its progress bar up for ever.
+                                                        conn.connectTimeout = 15_000
+                                                        conn.readTimeout = 30_000
                                                         conn.connect()
                                                         val totalLength = conn.contentLength
 
@@ -2626,6 +2664,19 @@ private class StatusLineFit(private val measurer: TextMeasurer, private val text
 }
 
 /** One destination on the main screen. */
+private const val GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+
+/**
+ * Whether [confirm] opens a system app's screen — the package installer's dialog a
+ * PackageInstaller session asks for — and not this app's own or a third party's.
+ */
+private fun Context.isSystemInstallerConfirm(confirm: Intent): Boolean {
+    val target = runCatching { confirm.resolveActivityInfo(packageManager, 0) }.getOrNull() ?: return false
+    if (target.packageName == packageName) return false
+    return target.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM != 0
+}
+
 /**
  * A destination on the main screen; [icon2], when set, stands beside [icon] for a screen of two parts.
  *
@@ -2712,7 +2763,8 @@ fun MenuGrid(
                     entry,
                     Modifier.weight(1f).fillMaxHeight().then(if (entry.focusOnShow) Modifier.tvInitialFocus() else Modifier)
                 )
-                beside?.invoke(this)
+                // The shared tiles stand beside the first such row only: a second row is its own.
+                if (i == 0) beside?.invoke(this)
             }
         }
     }

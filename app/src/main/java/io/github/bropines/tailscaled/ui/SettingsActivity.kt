@@ -268,10 +268,8 @@ class SettingsActivity : ComponentActivity() {
     }
 }
 
-fun generateRandomString(length: Int = 12): String {
-    val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
-    return (1..length).map { allowedChars.random() }.joinToString("")
-}
+/** The SOCKS5 login and password it makes are credentials: from the system's secure source, not kotlin.random. */
+fun generateRandomString(length: Int = 12): String = generateSecureToken(length)
 
 /** Flattens a SharedPreferences snapshot into the JSON object an export carries. */
 private fun prefsToJson(values: Map<String, *>): JsonObject = buildJsonObject {
@@ -2611,6 +2609,7 @@ fun SettingsScreen(
                 GlobalSettings.setConnectionSummaryShown(context, it)
                 connectionSummaryShown = it
             }
+            MainBlocksRow()
             var managedOnMainShown by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
             SettingsSwitchItem(
                 stringResource(R.string.settings_managed_on_main_title),

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → Appearance → Main screen blocks (core/MainBlocks.kt, ui/MainBlocksSetting.kt). -->
+<resources>
+    <string name="settings_main_blocks_title">Main screen blocks</string>
+    <string name="settings_main_blocks_desc">What the main screen shows: the exit node, the speed graph, the connection timeline, the tailnet map and each card. Settings always stays.</string>
+    <string name="main_blocks_group_pictures">Pictures</string>
+    <string name="main_blocks_group_cards">Cards</string>
+    <string name="main_block_exit_node">Exit node</string>
+    <string name="main_block_speed_graph">Speed graph</string>
+    <string name="main_block_speed_graph_desc">Download and upload over the last minute, and who is using it</string>
+    <string name="main_block_timeline">Connection timeline</string>
+    <string name="main_block_timeline_desc">When the connection was up, recovering or waiting, over the last hours</string>
+    <string name="main_block_tailnet_map">Tailnet map</string>
+    <string name="main_block_tailnet_map_desc">A row under the cards that opens the live map</string>
+    <string name="main_blocks_done">Done</string>
+</resources>

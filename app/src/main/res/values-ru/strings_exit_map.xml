@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The map view of the exit-node picker (ui/ExitNodeWorldMap.kt): the same choice as the
+  list, drawn on a world outline. A file of its own so it lands without touching strings.xml.
+-->
+<resources>
+    <string name="exit_map_show_map">Показать на карте</string>
+    <string name="exit_map_show_list">Показать списком</string>
+    <string name="exit_map_reset">Показать все выходные узлы</string>
+    <string name="exit_map_hint">Нажмите на точку, чтобы увидеть её выходные узлы.</string>
+    <string name="exit_map_near_relay">Рядом с реле %1$s (примерно)</string>
+    <string name="exit_map_approximate_note">Полая точка — догадка: узел не сообщает, где он, и нарисован у своего реле.</string>
+    <string name="exit_map_unplaced">Выходные узлы без известного места: %1$d</string>
+    <string name="exit_map_marker_cd">%1$s, выходных узлов: %2$d</string>
+    <string name="exit_map_area_cd">Выходных узлов в этой области: %1$d</string>
+</resources>

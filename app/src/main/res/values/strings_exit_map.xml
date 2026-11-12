@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The map view of the exit-node picker (ui/ExitNodeWorldMap.kt): the same choice as the
+  list, drawn on a world outline. A file of its own so it lands without touching strings.xml.
+-->
+<resources>
+    <!-- The switch in the picker's header; each names the view it leads to. -->
+    <string name="exit_map_show_map">Show on a map</string>
+    <string name="exit_map_show_list">Show as a list</string>
+    <!-- The button that returns the map to the view it opened with. -->
+    <string name="exit_map_reset">Show all exit nodes</string>
+    <!-- Under the map while no dot has been tapped. -->
+    <string name="exit_map_hint">Tap a dot to see its exit nodes.</string>
+    <!-- Heading over nodes that carry no location and are drawn at their DERP relay. %1$s: the relay's city. -->
+    <string name="exit_map_near_relay">Near the %1$s relay (approximate)</string>
+    <!-- Under the map when it has such nodes: what a hollow dot means. -->
+    <string name="exit_map_approximate_note">A hollow dot is a guess: that node reports no location and is drawn at its relay.</string>
+    <!-- The way back to the list for nodes the map cannot place. %1$d: how many. -->
+    <string name="exit_map_unplaced">Exit nodes without a known place: %1$d</string>
+    <!-- Spoken for a dot. %1$s: the place, %2$d: how many exit nodes are there. -->
+    <string name="exit_map_marker_cd">%1$s, exit nodes: %2$d</string>
+    <!-- Spoken for a numbered circle that stands for several places. %1$d: how many exit nodes. -->
+    <string name="exit_map_area_cd">Exit nodes in this area: %1$d</string>
+</resources>

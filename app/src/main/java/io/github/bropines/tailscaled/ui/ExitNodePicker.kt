@@ -20,16 +20,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.NetworkPing
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -37,10 +40,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -51,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.ExitNodeSuggestion
+import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.models.PeerData
 
 /*
@@ -61,6 +70,10 @@ import io.github.bropines.tailscaled.models.PeerData
  *
  * With a remote: the list opens on the current choice, a row is one stop (the latency chip
  * is left to "Ping all", which measures every node), and OK chooses.
+ *
+ * The same nodes can be shown on a world map instead (ui/ExitNodeWorldMap.kt); a button in
+ * the header switches and the last view is remembered. It is offered only when at least one
+ * node can be placed, and never on a television — see there.
  */
 
 /** The picker's words, resolved by the screen: the sheet is a window of its own — see wrapContextWithLocale(). */
@@ -74,6 +87,7 @@ internal data class ExitNodePickerStrings(
     val close: String,
     val ping: ExitNodePingStrings,
     val best: BestExitNodeStrings,
+    val map: ExitNodeMapStrings,
 )
 
 @Composable
@@ -92,6 +106,7 @@ internal fun exitNodePickerStrings() = ExitNodePickerStrings(
         failed = stringResource(R.string.peer_conn_ping_failed)
     ),
     best = bestExitNodeStrings(),
+    map = exitNodeMapStrings(),
 )
 
 /**
@@ -100,6 +115,9 @@ internal fun exitNodePickerStrings() = ExitNodePickerStrings(
  * daemon's raw answer per address, [best] the suggestion (null while it is asked).
  * [onChoose] with two empty strings clears the exit node. [onClose] is for the one state
  * that has nothing else to press with a remote: no nodes, and none in use.
+ *
+ * [derpPlaces] and [initialView] are for a preview, which has neither a daemon to ask where
+ * the relays are nor preferences to remember the view in; the app leaves both null.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -117,8 +135,29 @@ internal fun ExitNodePicker(
     onChoose: (id: String, ip: String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    derpPlaces: Map<String, DerpPlace>? = null,
+    initialView: String? = null,
 ) {
     val tv = isTv
+    val context = LocalContext.current
+    val inspection = LocalInspectionMode.current
+    val derp = derpPlaces ?: rememberDerpPlaces(enabled = !tv)
+    val placement = remember(nodes, derp) { placeExitNodes(nodes, derp) }
+    // A map with nothing on it is not a choice worth offering; a remote cannot walk one.
+    val mapOffered = !tv && !loading && placement.places.isNotEmpty()
+    var wantMap by remember {
+        val stored = initialView
+            ?: if (inspection) ExitNodePickerView.LIST
+            else GlobalSettings.getString(context, ExitNodePickerView.KEY, ExitNodePickerView.LIST)
+        mutableStateOf(stored == ExitNodePickerView.MAP)
+    }
+    val showMap = mapOffered && wantMap
+    fun setView(map: Boolean) {
+        wantMap = map
+        if (!inspection) {
+            GlobalSettings.setString(context, ExitNodePickerView.KEY, if (map) ExitNodePickerView.MAP else ExitNodePickerView.LIST)
+        }
+    }
     // The quickest of the measured ones. Only once two have answered: "fastest" out of
     // one is not a comparison.
     val fastestIp = remember(pings.toMap()) {
@@ -143,6 +182,14 @@ internal fun ExitNodePicker(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
+            if (mapOffered) {
+                IconButton(onClick = { setView(!showMap) }) {
+                    Icon(
+                        if (showMap) Icons.AutoMirrored.Filled.ViewList else Icons.Default.Public,
+                        contentDescription = if (showMap) strings.map.showList else strings.map.showMap
+                    )
+                }
+            }
             if (nodes.isNotEmpty()) {
                 TextButton(
                     onClick = { if (!pingingAll) onPingAll() },
@@ -188,6 +235,16 @@ internal fun ExitNodePicker(
                         Text(strings.close)
                     }
                 }
+            }
+        } else if (showMap) {
+            ExitNodeWorldMap(
+                placement = placement,
+                selectedIp = selectedIp,
+                strings = strings.map,
+                onShowList = { setView(false) },
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = false)
+            ) { node ->
+                ExitNodeRow(node, selectedIp, pings[node.getPrimaryIp()], fastestIp, best, strings, onChoose, onPing)
             }
         } else {
             // On a television the list opens on the node in use: from the top while that
@@ -294,120 +351,138 @@ internal fun ExitNodePicker(
                         }
 
                         items(nodes) { node ->
-                            val nodeIp = node.getPrimaryIp()
-                            val isSelected = if (selectedIp.isNotEmpty()) nodeIp == selectedIp else false
-                            // Parsed once per answer, not once per recomposition.
-                            val pingRaw = pings[nodeIp]
-                            val ping = remember(pingRaw) { pingStateOf(pingRaw) }
-                            val (osIcon, osColor) = getOsVisuals(node.iconOs()).let { (icon, color) ->
-                                if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
-                                else icon to color
-                            }
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                                    .then(if (isSelected) Modifier.tvInitialFocus() else Modifier)
-                                    .shapedClickable(MaterialTheme.shapes.medium) { onChoose(node.id ?: "", node.getPrimaryIp()) },
-                                shape = MaterialTheme.shapes.medium,
-                                border = BorderStroke(
-                                    1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                                ),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(CircleShape)
-                                            .background(
-                                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                                else osColor.copy(alpha = 0.12f)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            osIcon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp),
-                                            tint = if (isSelected) MaterialTheme.colorScheme.primary else osColor
-                                        )
-                                    }
-                                    Spacer(Modifier.width(16.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Text(
-                                                node.getDisplayName(),
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                // A name too long for the row travels
-                                                // across it instead of wrapping onto a
-                                                // second line and making the row taller.
-                                                modifier = Modifier.weight(1f, fill = false).basicMarquee(iterations = Int.MAX_VALUE),
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                            )
-                                            if (nodeIp == fastestIp) {
-                                                Spacer(Modifier.width(6.dp))
-                                                Icon(
-                                                    Icons.Default.Bolt,
-                                                    contentDescription = strings.fastest,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(15.dp)
-                                                )
-                                            }
-                                            if (node.id != null && node.id == best.suggestedId) {
-                                                Spacer(Modifier.width(6.dp))
-                                                SuggestedExitNodeMark(strings.best.suggestedBy)
-                                            }
-                                        }
-                                        val latency = when (ping) {
-                                            is PeerPingState.Measured -> " · ${ping.latency}"
-                                            PeerPingState.InFlight -> " · …"
-                                            PeerPingState.Failed -> " · —"
-                                            PeerPingState.Idle -> ""
-                                        }
-                                        Text(
-                                            nodeIp + latency,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    if (isSelected) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.primary)
-                                        )
-                                    }
-                                    Spacer(Modifier.width(10.dp))
-                                    // Its own click target: measuring a node and
-                                    // choosing it are two different taps, and the
-                                    // row stays choosable while a ping is in flight.
-                                    // Not a stop for a remote, which has "Ping all".
-                                    ExitNodePingChip(
-                                        ping = ping,
-                                        strings = strings.ping,
-                                        onPing = { onPing(nodeIp) },
-                                        modifier = Modifier.tvNoFocus()
-                                    )
-                                }
-                            }
+                            ExitNodeRow(node, selectedIp, pings[node.getPrimaryIp()], fastestIp, best, strings, onChoose, onPing)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * One exit node: its name, address and latency, the marks it has earned, and the chip that
+ * measures it. A tap chooses it. The list draws its nodes with this and so does the map
+ * (ui/ExitNodeWorldMap.kt) — one row, one way of choosing, whichever view is open.
+ */
+@Composable
+private fun ExitNodeRow(
+    node: PeerData,
+    selectedIp: String,
+    pingRaw: String?,
+    fastestIp: String?,
+    best: ExitNodeSuggestion.Outcome?,
+    strings: ExitNodePickerStrings,
+    onChoose: (id: String, ip: String) -> Unit,
+    onPing: (ip: String) -> Unit,
+) {
+    val nodeIp = node.getPrimaryIp()
+    val isSelected = if (selectedIp.isNotEmpty()) nodeIp == selectedIp else false
+    // Parsed once per answer, not once per recomposition.
+    val ping = remember(pingRaw) { pingStateOf(pingRaw) }
+    val (osIcon, osColor) = getOsVisuals(node.iconOs()).let { (icon, color) ->
+        if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
+        else icon to color
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .then(if (isSelected) Modifier.tvInitialFocus() else Modifier)
+            .shapedClickable(MaterialTheme.shapes.medium) { onChoose(node.id ?: "", node.getPrimaryIp()) },
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                        else osColor.copy(alpha = 0.12f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    osIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else osColor
+                )
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        node.getDisplayName(),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        // A name too long for the row travels
+                        // across it instead of wrapping onto a
+                        // second line and making the row taller.
+                        modifier = Modifier.weight(1f, fill = false).basicMarquee(iterations = Int.MAX_VALUE),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (nodeIp == fastestIp) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.Bolt,
+                            contentDescription = strings.fastest,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                    if (node.id != null && node.id == best.suggestedId) {
+                        Spacer(Modifier.width(6.dp))
+                        SuggestedExitNodeMark(strings.best.suggestedBy)
+                    }
+                }
+                val latency = when (ping) {
+                    is PeerPingState.Measured -> " · ${ping.latency}"
+                    PeerPingState.InFlight -> " · …"
+                    PeerPingState.Failed -> " · —"
+                    PeerPingState.Idle -> ""
+                }
+                Text(
+                    nodeIp + latency,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (ping is PeerPingState.Measured) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            // Its own click target: measuring a node and
+            // choosing it are two different taps, and the
+            // row stays choosable while a ping is in flight.
+            // Not a stop for a remote, which has "Ping all".
+            ExitNodePingChip(
+                ping = ping,
+                strings = strings.ping,
+                onPing = { onPing(nodeIp) },
+                modifier = Modifier.tvNoFocus()
+            )
         }
     }
 }

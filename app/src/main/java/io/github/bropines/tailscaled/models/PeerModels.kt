@@ -78,7 +78,10 @@ data class PeerData(
     @SerialName("CapMap") val capMap: Map<String, JsonElement>? = null,
     /** The node's SSH host keys. Tailscale publishes them exactly when the node runs
      *  Tailscale SSH (tailcfg.Hostinfo.TailscaleSSHEnabled). */
-    @SerialName("sshHostKeys") val sshHostKeys: List<String>? = null
+    @SerialName("sshHostKeys") val sshHostKeys: List<String>? = null,
+    /** Where the node says it is. Only nodes the control plane describes carry it — in
+     *  practice Mullvad's exit nodes; a person's own devices have none. */
+    @SerialName("Location") val location: PeerLocation? = null
 ) {
     fun getPrimaryIp(): String = tailscaleIPs?.firstOrNull() ?: "0.0.0.0"
 
@@ -186,6 +189,19 @@ data class PeerData(
         return list
     }
 }
+
+/** tailcfg.Location, as far as placing a node on a map needs it. The coordinates promise no
+ *  accuracy — the centre of the city is usual — and are absent (zero) when unknown. */
+@Serializable
+data class PeerLocation(
+    @SerialName("Country") val country: String? = null,
+    @SerialName("CountryCode") val countryCode: String? = null,
+    @SerialName("City") val city: String? = null,
+    @SerialName("CityCode") val cityCode: String? = null,
+    @SerialName("Latitude") val latitude: Double? = null,
+    @SerialName("Longitude") val longitude: Double? = null,
+    @SerialName("Priority") val priority: Int? = null
+)
 
 /**
  * Which field of [PeerData] a detail row carries. The UI groups, formats and decides what is

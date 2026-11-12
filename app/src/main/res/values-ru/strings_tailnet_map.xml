@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tailnet_map_title">Карта tailnet</string>
+    <string name="tailnet_map_online_format">В сети: %1$d из %2$d</string>
+    <string name="tailnet_map_more_format">Ещё %1$d</string>
+    <string name="tailnet_map_more_title">Не на карте</string>
+    <string name="tailnet_map_more_desc">Сначала карта рисует устройства, с которыми идёт обмен. Эти на экран не поместились.</string>
+    <string name="tailnet_map_empty">В этом tailnet пока нет других устройств</string>
+    <string name="tailnet_map_rate_spoken_format">приём %1$s, отдача %2$s</string>
+    <string name="tailnet_map_received">Получено</string>
+    <string name="tailnet_map_sent">Отправлено</string>
+    <string name="tailnet_map_total_format">всего %1$s</string>
+    <string name="tailnet_map_self_caption">Трафик со всеми устройствами tailnet</string>
+    <string name="tailnet_map_open_peer">Подробнее об устройстве</string>
+
+    <string name="speed_graph_title">Трафик</string>
+    <string name="speed_graph_idle">Сейчас трафика нет</string>
+    <string name="speed_graph_stopped">Виден, пока есть подключение</string>
+    <string name="speed_graph_spoken_format">Трафик tailnet: приём %1$s, отдача %2$s</string>
+
+    <string name="settings_speed_graph_title">График скорости на главном экране</string>
+    <string name="settings_speed_graph_desc">Под карточкой состояния: скорость загрузки и отдачи за последнюю минуту и три устройства, которые сейчас используют канал больше всех. Демон опрашивается, только пока экран открыт.</string>
+    <string name="settings_tailnet_map_title">Кнопка карты tailnet</string>
+    <string name="settings_tailnet_map_desc">Кнопка на главном экране, открывающая карту: это устройство, его узлы и то, как достигается каждый из них — напрямую, через реле или через реле-узел.</string>
+</resources>

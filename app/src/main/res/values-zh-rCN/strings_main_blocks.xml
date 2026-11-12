@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → Appearance → Main screen blocks (core/MainBlocks.kt, ui/MainBlocksSetting.kt). -->
+<resources>
+    <string name="settings_main_blocks_title">主界面区块</string>
+    <string name="settings_main_blocks_desc">主界面显示哪些内容：出口节点、速度图、连接时间线、tailnet 地图以及每张卡片。设置始终保留。</string>
+    <string name="main_blocks_group_pictures">图示</string>
+    <string name="main_blocks_group_cards">卡片</string>
+    <string name="main_block_exit_node">出口节点</string>
+    <string name="main_block_speed_graph">速度图</string>
+    <string name="main_block_speed_graph_desc">最近一分钟的下载与上传，以及谁在使用</string>
+    <string name="main_block_timeline">连接时间线</string>
+    <string name="main_block_timeline_desc">最近几小时内连接正常、恢复中或等待网络的时段</string>
+    <string name="main_block_tailnet_map">Tailnet 地图</string>
+    <string name="main_block_tailnet_map_desc">卡片下方的一行，打开实时地图</string>
+    <string name="main_blocks_done">完成</string>
+</resources>
