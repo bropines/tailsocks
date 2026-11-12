@@ -2,6 +2,14 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [5.8.1] - 2026-11-12
+
+### Fixed
+
+- Tailscale Services: `tailscale serve drain` takes a service out of rotation again, and a drained service stays drained when another rule is edited on the Serve screen. The node no longer sends the coordinator service entries that are not part of the protocol. Services configured before the update keep answering.
+- Taildrop: receiving a file with the name and size of one already there can no longer lose it when the two cannot be compared; the receiver is upstream's own code again instead of a copy that had fallen behind.
+- Native TUN: stopping the VPN at the moment Android hands it a new interface can no longer crash the daemon.
+
 ## [5.8.0] - 2026-11-12
 
 ### Added

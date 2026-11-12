@@ -166,6 +166,20 @@ State as of 2026-10-14, at 5.0.0.
 
 ### Verify on devices
 
+- [ ] **5.8.1 — what a device has not shown yet.** Seen on the Redmi (Root Mode, 2026-11-12):
+      a service created on the Serve screen joining `AdvertiseServices`, `serve drain` emptying
+      it and the drained service staying out through another rule's edit, its removal, the
+      one-time adoption mark written into a root daemon's state directory; Taildrop taking the
+      same file twice (one copy) and a different one under the same name (`name (1)`); the
+      Taildrive file server listening in the app's process, not the root daemon's. Not seen:
+  1. A service answering and going quiet on drain as peers see it — needs a tagged node the
+     policy approves as a host.
+  2. The update itself with a service drained under 5.8.0 (it is advertised once, then drain
+     holds).
+  3. `SwapDevice` closing during a swap on a phone; the race is covered by a unit test only.
+  4. Taildrive after the app's process dies under a living root daemon: the daemon keeps the
+     old loopback address of the file server, and whatever listens there next would get the
+     peers' requests. Clearing the address when the connection is lost closes it.
 - [ ] **5.8.0 — what a device has not shown yet.** Seen on the Redmi (Root Mode, 2026-11-12):
       the DNS hold across a Wi-Fi drop, the DNS proxy's record types, the tailnet map, the speed
       graph, the timeline and the exit-node world map on live data, patch 29's refusal of
