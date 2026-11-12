@@ -555,6 +555,10 @@ func applyNotifyLocked(msg *BusNotify) {
 			if name == "Running" || name == "Starting" {
 				busState.AuthURL = ""
 			}
+			if name == "Running" {
+				// Off this goroutine: it asks the daemon, and the lock is held.
+				go adoptConfiguredServices()
+			}
 		}
 		busState.BackendState = name
 	}

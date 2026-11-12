@@ -1,6 +1,6 @@
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/net/androidvpn/swap.go	2026-11-08 22:32:28
-@@ -0,0 +1,270 @@
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/net/androidvpn/swap.go	2026-11-12 06:53:40
+@@ -0,0 +1,273 @@
 +// Package androidvpn lets TailSocks's daemon move to a new Android VPN
 +// interface without a restart.
 +//
@@ -67,38 +67,40 @@
 +		cur:     dev,
 +		swapped: make(chan struct{}),
 +	}
-+	s.forward(dev, true)
++	s.wg.Add(1)
++	go s.forward(dev, true)
 +	return s
 +}
 +
 +// forward passes dev's events on until dev closes them or s closes. A device
 +// swapped in later passes only its MTU updates; see SwapDevice.
++//
++// It runs as a goroutine counted in s.wg, and the caller counts it before
++// Close can see s as open: Close waits for the forwarders and then closes
++// s.events, so one counted after that wait would send on a closed channel.
 +func (s *SwapDevice) forward(dev tun.Device, first bool) {
-+	s.wg.Add(1)
-+	go func() {
-+		defer s.wg.Done()
-+		for {
++	defer s.wg.Done()
++	for {
++		select {
++		case ev, ok := <-dev.Events():
++			if !ok {
++				return
++			}
++			if !first {
++				ev &= tun.EventMTUUpdate
++				if ev == 0 {
++					continue
++				}
++			}
 +			select {
-+			case ev, ok := <-dev.Events():
-+				if !ok {
-+					return
-+				}
-+				if !first {
-+					ev &= tun.EventMTUUpdate
-+					if ev == 0 {
-+						continue
-+					}
-+				}
-+				select {
-+				case s.events <- ev:
-+				case <-s.done:
-+					return
-+				}
++			case s.events <- ev:
 +			case <-s.done:
 +				return
 +			}
++		case <-s.done:
++			return
 +		}
-+	}()
++	}
 +}
 +
 +// current is the device in use and the channel the next Swap closes; nil
@@ -135,9 +137,10 @@
 +	s.swaps++
 +	close(s.swapped)
 +	s.swapped = make(chan struct{})
++	s.wg.Add(1) // under mu, so before a Close that follows; see forward
 +	s.mu.Unlock()
 +
-+	s.forward(dev, false)
++	go s.forward(dev, false)
 +	// The new device is in place before the old one closes, so a Read that the
 +	// close wakes finds it.
 +	if err := old.Close(); err != nil {
@@ -271,9 +274,9 @@
 +	close(s.events)
 +	return err
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/net/androidvpn/swap_test.go	2026-11-08 22:32:28
-@@ -0,0 +1,330 @@
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/net/androidvpn/swap_test.go	2026-11-12 06:53:51
+@@ -0,0 +1,349 @@
 +package androidvpn
 +
 +import (
@@ -604,8 +607,27 @@
 +		t.Fatal("events not closed")
 +	}
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/net/androidvpn/handoff.go	2026-11-08 22:32:28
++
++// A Swap racing a Close must not start a forwarder that Close no longer waits
++// for: it would send on the closed events channel.
++func TestSwapRacingClose(t *testing.T) {
++	for range 200 {
++		s := NewSwapDevice(newFake("tun0"), t.Logf)
++		next := newFake("tun1")
++		next.events <- tun.EventMTUUpdate
++		done := make(chan struct{})
++		go func() {
++			defer close(done)
++			if err := s.Swap(next); err != nil {
++				next.Close()
++			}
++		}()
++		s.Close()
++		<-done
++	}
++}
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/net/androidvpn/handoff.go	2026-11-12 04:58:32
 @@ -0,0 +1,207 @@
 +//go:build linux
 +
@@ -814,8 +836,8 @@
 +	}
 +	return r.Name, nil
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/net/androidvpn/handoff_other.go	2026-11-08 22:32:28
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/net/androidvpn/handoff_other.go	2026-11-12 04:58:32
 @@ -0,0 +1,27 @@
 +//go:build !linux
 +
@@ -844,8 +866,8 @@
 +func Send(string, *os.File, bool, time.Duration) (string, error) {
 +	return "", errNotLinux
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/net/androidvpn/handoff_test.go	2026-11-08 22:32:28
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/net/androidvpn/handoff_test.go	2026-11-12 04:58:32
 @@ -0,0 +1,160 @@
 +//go:build linux
 +
@@ -1007,8 +1029,8 @@
 +		t.Fatal("Send to a closed socket succeeded")
 +	}
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/net/androidvpn/realtun_test.go	2026-11-08 22:32:28
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/net/androidvpn/realtun_test.go	2026-11-12 04:58:32
 @@ -0,0 +1,202 @@
 +//go:build linux
 +
@@ -1212,8 +1234,8 @@
 +		t.Logf("links after the swap:\n%s", out)
 +	}
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-11-08 22:32:28
+--- /dev/null	2026-11-12 06:57:36
++++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-11-12 04:58:32
 @@ -0,0 +1,62 @@
 +//go:build linux
 +

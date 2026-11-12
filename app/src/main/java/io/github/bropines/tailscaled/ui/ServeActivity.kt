@@ -237,8 +237,8 @@ private data class ServeRule(
     /** The proxy target is `https+insecure://`: an HTTPS backend with an untrusted certificate. */
     val insecureBackend: Boolean,
     /**
-     * Held by the app, not by the daemon. The daemon has no "off" for a rule or a
-     * service (a configured service is Active whatever AdvertiseServices says), so
+     * Held by the app, not by the daemon. The daemon has no "off" for a rule (a
+     * whole service can be drained, `tailscale serve drain`, a rule cannot), so
      * pausing takes the rule out of the daemon's config and keeps it here until
      * it is resumed.
      */

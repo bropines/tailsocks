@@ -517,31 +517,17 @@ func SetServeConfig(configJson string) string {
 
 	client := newLocalClient(socket)
 
-	// STEP 1: Synchronise AdvertiseServices in Prefs.
-	// We do this BEFORE updating ServeConfig so the daemon already knows about the services
-	// when it receives rules for them. This avoids potential discards of service-scoped rules.
-	var advertiseServices []string
-	if svcMap, ok := tmp["Services"].(map[string]interface{}); ok {
-		for svcKey := range svcMap {
-			if strings.HasPrefix(svcKey, "svc:") {
-				advertiseServices = append(advertiseServices, svcKey)
-			}
-		}
+	// The services before and after the write decide what happens to
+	// AdvertiseServices once it has gone through (syncAdvertisedServices). A
+	// config that could not be read counts as empty: every service in the new
+	// one is then advertised, as upstream does for one it has just created.
+	servicesBefore, beforeErr := currentServeServices()
+	if beforeErr != nil {
+		slog.Warn("LocalAPI: could not read the serve config before the write", "err", beforeErr)
 	}
-	prefsPayload, _ := json.Marshal(map[string]interface{}{
-		"AdvertiseServices":    advertiseServices,
-		"AdvertiseServicesSet": true,
-	})
-	slog.Info("LocalAPI: [PATCH] /localapi/v0/prefs (Sync AdvertiseServices)", "services", advertiseServices)
-	// A failure does not stop the reset below — clearing rules must not wait
-	// on it — but it is reported once the rest has gone through, instead of
-	// "OK" over services the daemon never advertised.
-	_, prefsErr := doLocalRequest("PATCH", "/localapi/v0/prefs", strings.NewReader(string(prefsPayload)))
-	if prefsErr != nil {
-		slog.Error("LocalAPI: AdvertiseServices sync failed", "err", prefsErr)
-	}
+	servicesAfter := serveServiceNames(cleanJson)
 
-	// STEP 2: Full reset of ServeConfig.
+	// STEP 1: Full reset of ServeConfig.
 	slog.Info("LocalAPI: ServeConfig [Step 1/2] Resetting config", "if_match", etag)
 	// We use a nil config by sending an empty object.
 	// For some daemon versions, we might need to be even more explicit if it doesn't clear AllowFunnel.
@@ -576,8 +562,9 @@ func SetServeConfig(configJson string) string {
 		if resetFailure != "" {
 			return resetFailure
 		}
-		if prefsErr != nil {
-			return "Error (AdvertiseServices): " + prefsErr.Error()
+		if err := syncAdvertisedServices(servicesBefore, nil); err != nil {
+			slog.Error("LocalAPI: AdvertiseServices sync failed", "err", err)
+			return "Error (AdvertiseServices): " + err.Error()
 		}
 		return "OK"
 	}
@@ -589,7 +576,7 @@ func SetServeConfig(configJson string) string {
 
 	time.Sleep(200 * time.Millisecond)
 
-	// STEP 3: Apply the new config.
+	// STEP 2: Apply the new config.
 	slog.Info("LocalAPI: ServeConfig [Step 2/2] Applying new config", "if_match", nextEtag, "payload", string(cleanJson))
 
 	applyReq, _ := http.NewRequest("POST", "http://local-tailscaled.sock/localapi/v0/serve-config", strings.NewReader(string(cleanJson)))
@@ -597,14 +584,27 @@ func SetServeConfig(configJson string) string {
 		applyReq.Header.Set("If-Match", nextEtag)
 	}
 
+	// A reset that went through and an apply that did not leave the daemon
+	// with no rules at all; the list follows that.
+	applyFailed := func() {
+		if resetFailure != "" {
+			return
+		}
+		if err := syncAdvertisedServices(servicesBefore, nil); err != nil {
+			slog.Error("LocalAPI: AdvertiseServices sync failed", "err", err)
+		}
+	}
+
 	applyResp, err := client.Do(applyReq)
 	if err != nil {
+		applyFailed()
 		return "Error (Apply): " + err.Error()
 	}
 	defer applyResp.Body.Close()
 
 	applyData, _ := io.ReadAll(applyResp.Body)
 	if applyResp.StatusCode != http.StatusOK && applyResp.StatusCode != http.StatusNoContent {
+		applyFailed()
 		slog.Error("LocalAPI: SetServeConfig [Apply] failed", "status", applyResp.StatusCode, "body", string(applyData))
 		return fmt.Sprintf("HTTP %d: %s", applyResp.StatusCode, string(applyData))
 	}
@@ -612,8 +612,11 @@ func SetServeConfig(configJson string) string {
 	finalEtag := applyResp.Header.Get("ETag")
 	slog.Info("LocalAPI: Apply successful", "status", applyResp.StatusCode, "final_etag", finalEtag)
 
-	if prefsErr != nil {
-		return "Error (AdvertiseServices): " + prefsErr.Error()
+	// STEP 3: AdvertiseServices follows the config that is now in place, so a
+	// failed write leaves the list alone.
+	if err := syncAdvertisedServices(servicesBefore, servicesAfter); err != nil {
+		slog.Error("LocalAPI: AdvertiseServices sync failed", "err", err)
+		return "Error (AdvertiseServices): " + err.Error()
 	}
 	return "OK"
 }

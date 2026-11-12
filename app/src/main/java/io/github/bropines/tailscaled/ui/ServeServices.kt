@@ -10,8 +10,8 @@ import kotlinx.coroutines.withContext
 
 /*
  * Where each Tailscale Service this node serves stands in the tailnet, for the Serve screen's
- * service headings. A rule under `svc:<name>` in the serve config makes the daemon advertise
- * the service (ipnlocal's vipServicesFromPrefsLocked marks every configured service Active);
+ * service headings. The bridge puts a service into the daemon's AdvertiseServices when its
+ * first rule under `svc:<name>` is written (appctr/serve_services.go), as the CLI does;
  * the tailnet answers on it only once the service is defined there and this node is approved
  * as its host — by hand in the admin console, or by an auto-approval rule in the policy. When
  * that has happened the netmap carries the node's `service-host` capability with the
