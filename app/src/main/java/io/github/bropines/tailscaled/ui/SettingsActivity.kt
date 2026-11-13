@@ -2617,7 +2617,9 @@ fun SettingsScreen(
             // The summary is a block of the main screen's layout now; this switch is its older
             // handle and stays one, reading and changing the same arrangement the editor does.
             val remoteOnHome = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
-            var connectionSummaryShown by remember { mutableStateOf(MainItem.SUMMARY in MainLayoutStore.load(context, remoteOnHome)) }
+            // Bumped when the list of what is off the screen puts something back (MainHiddenRow).
+            var layoutChanged by remember { mutableIntStateOf(0) }
+            var connectionSummaryShown by remember(layoutChanged) { mutableStateOf(MainItem.SUMMARY in MainLayoutStore.load(context, remoteOnHome)) }
             SettingsSwitchItem(
                 stringResource(R.string.settings_connection_summary_title),
                 stringResource(R.string.settings_connection_summary_desc),
@@ -2628,6 +2630,18 @@ fun SettingsScreen(
                 connectionSummaryShown = it
             }
             MainBlocksRow()
+            MainHiddenRow(
+                remoteTile = remoteOnHome,
+                openHere = { item ->
+                    when (item) {
+                        MainItem.REMOTE -> { remoteOpen = true; true }
+                        MainItem.DNS_SETTINGS -> { open("dns"); true }
+                        MainItem.ROOT -> { open("root"); true }
+                        else -> false
+                    }
+                },
+                onRestored = { layoutChanged++ },
+            )
             var managedOnMainShown by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
             SettingsSwitchItem(
                 stringResource(R.string.settings_managed_on_main_title),

@@ -256,6 +256,16 @@ object MainLayoutStore {
     }
 
     /**
+     * [item] back on the screen, where the editor's palette puts it ([MainLayout.add]): the
+     * list of what is off the screen in Settings → Appearance (ui/MainHiddenItems.kt). The
+     * summary's own switch is turned on with it, so the two never disagree.
+     */
+    fun restore(context: Context, remoteTile: Boolean, item: MainItem) {
+        if (item == MainItem.SUMMARY) GlobalSettings.setConnectionSummaryShown(context, true)
+        save(context, load(context, remoteTile).add(item))
+    }
+
+    /**
      * The connection summary's switch in Settings → Appearance, which is older than the
      * editor and keeps working beside it: its own preference for a screen nobody arranged,
      * and the arrangement itself once there is one.

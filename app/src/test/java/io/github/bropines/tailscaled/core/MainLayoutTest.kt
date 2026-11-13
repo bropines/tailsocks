@@ -280,4 +280,27 @@ class MainLayoutTest {
         assertEquals(arranged.encode(), restored?.encode())
         assertEquals(3, restored?.columns)
     }
+
+    // ─── What is off the screen (Settings → Appearance) ──────────────────────────────────────
+
+    @Test
+    fun whatWasTakenOffIsListedAndComesBackWhereThePaletteWouldPutIt() {
+        val start = MainLayout.default(remoteTile = false)
+        val taken = start.remove(PEERS).remove(SUMMARY)
+        val hidden = taken.addable(everything)
+        assertTrue(PEERS in hidden && SUMMARY in hidden)
+        // Never the two that cannot be taken off, and nothing that is on the screen.
+        assertFalse(STATUS in hidden || SETTINGS in hidden || CONSOLE in hidden)
+        val back = taken.add(PEERS).add(SUMMARY)
+        assertFalse(PEERS in back.addable(everything) || SUMMARY in back.addable(everything))
+        // A tile at the end of the tiles, a block under the last block.
+        assertEquals(PEERS, ids(back).last())
+        assertEquals(ids(taken).indexOf(STATUS) + 1, ids(back).indexOf(SUMMARY))
+    }
+
+    @Test
+    fun whatThisDeviceIsNotOfferedIsNotListed() {
+        val noAdmin: (MainItem) -> Boolean = { it != ADMIN }
+        assertFalse(ADMIN in MainLayout.default(remoteTile = false).addable(noAdmin))
+    }
 }

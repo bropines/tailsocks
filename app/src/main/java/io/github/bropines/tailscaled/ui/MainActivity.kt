@@ -209,6 +209,8 @@ internal const val MAIN_EXTRA_ADD_ACCOUNT = "add_account"
 internal const val MAIN_EXTRA_ADD_ACCOUNT_HONEST = "add_account_honest"
 /** Settings asks the dashboard to open its editor (ui/MainBlocksSetting.kt). */
 internal const val MAIN_EXTRA_EDIT_LAYOUT = "edit_layout"
+/** Settings asks the dashboard to open its accounts menu: the Accounts tile, off the screen (ui/MainHiddenItems.kt). */
+internal const val MAIN_EXTRA_OPEN_ACCOUNTS = "open_accounts"
 
 class MainActivity : ComponentActivity() {
 
@@ -235,6 +237,12 @@ class MainActivity : ComponentActivity() {
             Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra(MAIN_EXTRA_EDIT_LAYOUT, true)
+
+        /** The main screen with its accounts menu open, brought back the same way. */
+        fun accountsIntent(context: Context): Intent =
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MAIN_EXTRA_OPEN_ACCOUNTS, true)
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -375,6 +383,11 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(MAIN_EXTRA_EDIT_LAYOUT, false)) {
             intent.removeExtra(MAIN_EXTRA_EDIT_LAYOUT)
             editLayoutRequest.value = true
+        }
+        // Settings opens the accounts menu of a screen whose Accounts tile was taken off. Once, likewise.
+        if (intent.getBooleanExtra(MAIN_EXTRA_OPEN_ACCOUNTS, false)) {
+            intent.removeExtra(MAIN_EXTRA_OPEN_ACCOUNTS)
+            showAccountSwitcher.value = true
         }
         // Callback of the PackageInstaller-session fallback in launchApkInstaller().
         // A session cannot install silently: it reports STATUS_PENDING_USER_ACTION

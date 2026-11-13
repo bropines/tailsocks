@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Settings → Appearance → "Hidden from the main screen": everything you took off the main screen, still within reach. A tap opens it as its tile would — the peers, files, tailnet map, Taildrive, TailCat, the exit-node list, the scanner and accounts had no other way in — and a button puts it back on the screen.
+
 ## [6.0.2] - 2026-11-12
 
 ### Fixed

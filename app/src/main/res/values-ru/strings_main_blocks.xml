@@ -67,4 +67,15 @@
     <string name="tile_permissions_desc">Что система разрешает приложению</string>
     <string name="tile_tailnet_lock">Tailnet Lock</string>
     <string name="tile_tailnet_lock_desc">Ключи подписи и узлы, которым они доверяют</string>
+    <string name="main_hidden_title">Скрытые с главного экрана</string>
+    <string name="main_hidden_none">Всё на главном экране</string>
+    <plurals name="main_hidden_count">
+        <item quantity="one">%d скрыт: открыть или вернуть</item>
+        <item quantity="few">%d скрыто: открыть или вернуть</item>
+        <item quantity="many">%d скрыто: открыть или вернуть</item>
+        <item quantity="other">%d скрыто: открыть или вернуть</item>
+    </plurals>
+    <string name="main_hidden_sheet_desc">Нажатие открывает раздел, как плитка. Кнопка возвращает его на главный экран.</string>
+    <string name="main_hidden_open">Открыть</string>
+    <string name="main_hidden_restore">Вернуть на главный экран</string>
 </resources>

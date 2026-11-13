@@ -67,4 +67,12 @@
     <string name="tile_permissions_desc">系統允許應用程式執行的操作</string>
     <string name="tile_tailnet_lock">Tailnet Lock</string>
     <string name="tile_tailnet_lock_desc">簽署金鑰及其信任的節點</string>
+    <string name="main_hidden_title">已從主畫面隱藏</string>
+    <string name="main_hidden_none">所有項目都在主畫面上</string>
+    <plurals name="main_hidden_count">
+        <item quantity="other">%d 項不在主畫面：可開啟或放回</item>
+    </plurals>
+    <string name="main_hidden_sheet_desc">輕觸即可像方塊一樣開啟。按鈕會將其放回主畫面。</string>
+    <string name="main_hidden_open">開啟</string>
+    <string name="main_hidden_restore">放回主畫面</string>
 </resources>

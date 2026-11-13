@@ -67,4 +67,13 @@
     <string name="tile_permissions_desc">What the system lets the app do</string>
     <string name="tile_tailnet_lock">Tailnet Lock</string>
     <string name="tile_tailnet_lock_desc">Signing keys and the nodes they trust</string>
+    <string name="main_hidden_title">Hidden from the main screen</string>
+    <string name="main_hidden_none">Everything is on the main screen</string>
+    <plurals name="main_hidden_count">
+        <item quantity="one">%d item off the screen: open it or put it back</item>
+        <item quantity="other">%d items off the screen: open them or put them back</item>
+    </plurals>
+    <string name="main_hidden_sheet_desc">A tap opens it as its tile would. The button puts it back on the main screen.</string>
+    <string name="main_hidden_open">Open</string>
+    <string name="main_hidden_restore">Put back on the main screen</string>
 </resources>
