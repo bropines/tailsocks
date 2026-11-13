@@ -140,3 +140,18 @@ fun MainLayoutPaletteEmpty() = AdaptiveShowcase {
         }
     }
 }
+
+/** Settings → Appearance → what is off the screen (ui/MainHiddenItems.kt), for a screen nobody arranged. */
+@PreviewTest @PhoneBothLanguages @Composable
+fun MainLayoutHidden() = AdaptiveShowcase {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.extraLarge) {
+            MainHiddenContent(
+                rows = paletteRows(untouched.addable { true }),
+                onOpen = {},
+                onRestore = {},
+                modifier = Modifier.padding(top = 24.dp),
+            )
+        }
+    }
+}

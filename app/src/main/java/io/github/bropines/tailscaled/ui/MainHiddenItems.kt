@@ -116,85 +116,96 @@ private fun MainHiddenSheet(
     onDismiss: () -> Unit,
 ) {
     val rows = paletteRows(items)
+    AppModalSheet(onDismissRequest = onDismiss) {
+        MainHiddenContent(rows, onOpen, onRestore, Modifier.navigationBarsPadding())
+    }
+}
+
+/** The sheet's content, apart from the sheet: the screenshot tests draw it on its own. */
+@Composable
+internal fun MainHiddenContent(
+    rows: List<PaletteRow>,
+    onOpen: (MainItem) -> Unit,
+    onRestore: (MainItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val restoreLabel = stringResource(R.string.main_hidden_restore)
     val openLabel = stringResource(R.string.main_hidden_open)
-    AppModalSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+    Column(modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Text(
+            stringResource(R.string.main_hidden_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 24.dp).semantics { heading() },
+        )
+        Text(
+            stringResource(R.string.main_hidden_sheet_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+        )
+        if (rows.isEmpty()) {
             Text(
-                stringResource(R.string.main_hidden_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 24.dp).semantics { heading() },
-            )
-            Text(
-                stringResource(R.string.main_hidden_sheet_desc),
-                style = MaterialTheme.typography.bodySmall,
+                stringResource(R.string.main_hidden_none),
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
             )
-            if (rows.isEmpty()) {
-                Text(
-                    stringResource(R.string.main_hidden_none),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
-                )
-                return@Column
-            }
-            LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(1f, fill = false)) {
-                for ((group, members) in rows.groupBy { it.group }) {
-                    item(key = "group:$group") {
-                        Text(
-                            group,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.animateItem().padding(start = 12.dp, top = 16.dp, bottom = 4.dp).semantics { heading() },
-                        )
-                    }
-                    items(members.size, key = { members[it].item.id }) { i ->
-                        val row = members[i]
-                        val opens = row.item.opens
-                        // A block has nothing to open: the whole row puts it back.
-                        Surface(
-                            onClick = { if (opens) onOpen(row.item) else onRestore(row.item) },
-                            shape = MaterialTheme.shapes.medium,
-                            color = Color.Transparent,
-                            modifier = Modifier.animateItem().fillMaxWidth().semantics {
-                                contentDescription = "${if (opens) openLabel else restoreLabel}: ${row.title}. ${row.desc}"
-                            },
-                        ) {
-                            Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(row.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                                }
-                                Spacer(Modifier.width(14.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        row.desc,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                Spacer(Modifier.width(4.dp))
-                                IconButton(onClick = { onRestore(row.item) }) {
-                                    Icon(
-                                        Icons.Default.AddToHomeScreen,
-                                        contentDescription = "$restoreLabel: ${row.title}",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
+            return@Column
+        }
+        LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(1f, fill = false)) {
+            for ((group, members) in rows.groupBy { it.group }) {
+                item(key = "group:$group") {
+                    Text(
+                        group,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.animateItem().padding(start = 12.dp, top = 16.dp, bottom = 4.dp).semantics { heading() },
+                    )
+                }
+                items(members.size, key = { members[it].item.id }) { i ->
+                    val row = members[i]
+                    val opens = row.item.opens
+                    // A block has nothing to open: the whole row puts it back.
+                    Surface(
+                        onClick = { if (opens) onOpen(row.item) else onRestore(row.item) },
+                        shape = MaterialTheme.shapes.medium,
+                        color = Color.Transparent,
+                        modifier = Modifier.animateItem().fillMaxWidth().semantics {
+                            contentDescription = "${if (opens) openLabel else restoreLabel}: ${row.title}. ${row.desc}"
+                        },
+                    ) {
+                        Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(row.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    row.desc,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            IconButton(onClick = { onRestore(row.item) }) {
+                                Icon(
+                                    Icons.Default.AddToHomeScreen,
+                                    contentDescription = "$restoreLabel: ${row.title}",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
                             }
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
         }
+        Spacer(Modifier.height(4.dp))
     }
 }
