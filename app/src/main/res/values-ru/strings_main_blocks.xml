@@ -78,4 +78,7 @@
     <string name="main_hidden_sheet_desc">Нажатие открывает раздел, как плитка. Кнопка возвращает его на главный экран.</string>
     <string name="main_hidden_open">Открыть</string>
     <string name="main_hidden_restore">Вернуть на главный экран</string>
+    <string name="main_block_managed">Управляемые устройства</string>
+    <string name="main_block_managed_desc">Устройства, которыми управляет это, — сколько поместится в строку</string>
+    <string name="main_layout_when_managing">Появится, когда это устройство будет управлять другим</string>
 </resources>

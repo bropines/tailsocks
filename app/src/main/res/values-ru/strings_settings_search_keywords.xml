@@ -146,4 +146,5 @@
     <string name="search_kw_exit_guard_auto">выходной узел не в сети, отвалился, нет интернета, запасной, автоматически, пауза, failover</string>
     <string name="search_kw_main_blocks">главный экран, скрыть, показать, блоки, карточки, плитки, раскладка, график скорости, лента, карта tailnet, настроить</string>
     <string name="search_kw_dns_rescue">запасной dns, обход, фильтр, nextdns, pihole, pi-hole, adguard, утечка dns, servfail, refused, rescue</string>
+    <string name="search_kw_main_hidden">скрытые, убранные, главный экран, плитки, открыть, вернуть, восстановить</string>
 </resources>

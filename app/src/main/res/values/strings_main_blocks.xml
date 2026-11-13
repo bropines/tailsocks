@@ -76,4 +76,7 @@
     <string name="main_hidden_sheet_desc">A tap opens it as its tile would. The button puts it back on the main screen.</string>
     <string name="main_hidden_open">Open</string>
     <string name="main_hidden_restore">Put back on the main screen</string>
+    <string name="main_block_managed">Managed devices</string>
+    <string name="main_block_managed_desc">The devices this one manages, as many as fit on the line</string>
+    <string name="main_layout_when_managing">Shown once this device manages another one</string>
 </resources>

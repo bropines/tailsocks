@@ -55,6 +55,7 @@ internal fun MainItem.spec(tv: Boolean = false): MainItemSpec = when (this) {
     MainItem.STATUS -> MainItemSpec(R.string.main_block_status, R.string.main_block_status_desc, Icons.Default.PowerSettingsNew)
     MainItem.EXIT_NODE -> MainItemSpec(R.string.main_block_exit_node, R.string.main_block_exit_node_desc, Icons.Default.Public)
     MainItem.SUMMARY -> MainItemSpec(R.string.settings_connection_summary_title, R.string.main_block_summary_desc, Icons.Default.Summarize)
+    MainItem.MANAGED -> MainItemSpec(R.string.main_block_managed, R.string.main_block_managed_desc, Icons.Default.SettingsRemote)
     MainItem.SPEED_GRAPH -> MainItemSpec(R.string.main_block_speed_graph, R.string.main_block_speed_graph_desc, Icons.AutoMirrored.Filled.ShowChart)
     MainItem.TIMELINE -> MainItemSpec(R.string.main_block_timeline, R.string.main_block_timeline_desc, Icons.Default.Timeline)
 

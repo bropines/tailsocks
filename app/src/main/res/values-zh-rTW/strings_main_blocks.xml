@@ -75,4 +75,7 @@
     <string name="main_hidden_sheet_desc">輕觸即可像方塊一樣開啟。按鈕會將其放回主畫面。</string>
     <string name="main_hidden_open">開啟</string>
     <string name="main_hidden_restore">放回主畫面</string>
+    <string name="main_block_managed">受管裝置</string>
+    <string name="main_block_managed_desc">此裝置管理的裝置，一行放得下多少就顯示多少</string>
+    <string name="main_layout_when_managing">當此裝置管理其他裝置時顯示</string>
 </resources>

@@ -19,6 +19,9 @@ class MainLayoutTest {
     /** The order the screen had in 5.9.0, with what was on it by default. */
     private val before = listOf(EXIT_NODE, STATUS, SUMMARY, CONSOLE, PEERS, LOGS, FILES, DNS, NETCHECK, SETTINGS, SERVE, TAILNET_MAP)
 
+    /** The same screen with the managed devices where they were drawn, between the blocks and the tiles. */
+    private val beforeManaged = before.take(3) + MANAGED + before.drop(3)
+
     @Test
     fun aScreenNobodyTouchedIsTheScreenItWas() {
         val layout = MainLayout.legacy({ it.shownByDefault }, summary = true, remoteTile = false)
@@ -26,13 +29,14 @@ class MainLayoutTest {
         assertEquals(MainLayout.AUTO, layout.columns)
         // The map had a row of its own under the cards, and still has.
         assertEquals(listOf(TAILNET_MAP), layout.items.filter { it.wide }.map { it.item })
-        assertEquals(layout, MainLayout.default(remoteTile = false))
+        assertEquals(MainLayout.legacy({ it.shownByDefault }, summary = true, remoteTile = false, managed = true), MainLayout.default(remoteTile = false))
+        assertEquals(beforeManaged, ids(MainLayout.default(remoteTile = false)))
     }
 
     @Test
     fun aTelevisionKeepsItsRemoteTileAboveTheMap() {
         val layout = MainLayout.default(remoteTile = true)
-        assertEquals(before.dropLast(1) + REMOTE + TAILNET_MAP, ids(layout))
+        assertEquals(beforeManaged.dropLast(1) + REMOTE + TAILNET_MAP, ids(layout))
         assertTrue(layout.items.first { it.item == REMOTE }.wide)
     }
 
@@ -196,7 +200,7 @@ class MainLayoutTest {
     @Test
     fun aNewBlockJoinsTheBlocks() {
         val layout = MainLayout.default(false).add(SPEED_GRAPH)
-        assertEquals(listOf(EXIT_NODE, STATUS, SUMMARY, SPEED_GRAPH, CONSOLE), ids(layout).take(5))
+        assertEquals(listOf(EXIT_NODE, STATUS, SUMMARY, MANAGED, SPEED_GRAPH, CONSOLE), ids(layout).take(6))
         // With the card under the tiles, a block follows it there.
         val below = MainLayout.default(false).move(STATUS, TAILNET_MAP).add(TIMELINE)
         assertEquals(listOf(STATUS, TIMELINE), ids(below).takeLast(2))
@@ -295,12 +299,34 @@ class MainLayoutTest {
         assertFalse(PEERS in back.addable(everything) || SUMMARY in back.addable(everything))
         // A tile at the end of the tiles, a block under the last block.
         assertEquals(PEERS, ids(back).last())
-        assertEquals(ids(taken).indexOf(STATUS) + 1, ids(back).indexOf(SUMMARY))
+        assertEquals(ids(taken).indexOfLast { !it.isTile } + 1, ids(back).indexOf(SUMMARY))
     }
 
     @Test
     fun whatThisDeviceIsNotOfferedIsNotListed() {
         val noAdmin: (MainItem) -> Boolean = { it != ADMIN }
         assertFalse(ADMIN in MainLayout.default(remoteTile = false).addable(noAdmin))
+    }
+
+    // ─── The managed devices become an item (layout version 2) ───────────────────────────────
+
+    @Test
+    fun anArrangementFromBeforeGetsTheManagedDevicesWhereTheyWereDrawn() {
+        val v1 = """{"v":1,"columns":0,"items":[{"id":"status"},{"id":"summary"},{"id":"tile_peers"},{"id":"tile_settings"}]}"""
+        assertEquals(listOf(STATUS, SUMMARY, MANAGED, PEERS, SETTINGS), ids(MainLayout.decode(v1, managed = true)!!))
+        // Their switch was off: they stay off.
+        assertEquals(listOf(STATUS, SUMMARY, PEERS, SETTINGS), ids(MainLayout.decode(v1, managed = false)!!))
+        // The card under the tiles: they stood where the tiles met it.
+        val under = """{"v":1,"items":[{"id":"tile_peers"},{"id":"tile_settings"},{"id":"status"}]}"""
+        assertEquals(listOf(PEERS, SETTINGS, MANAGED, STATUS), ids(MainLayout.decode(under, managed = true)!!))
+    }
+
+    @Test
+    fun anArrangementOfVersionTwoIsTakenAsItIs() {
+        val taken = MainLayout.default(remoteTile = false).remove(MANAGED)
+        val back = MainLayout.decode(taken.encode(), managed = true)!!
+        assertFalse(MANAGED in back)
+        val moved = MainLayout.default(remoteTile = false).move(MANAGED, EXIT_NODE)
+        assertEquals(moved, MainLayout.decode(moved.encode(), managed = true))
     }
 }

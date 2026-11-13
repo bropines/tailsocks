@@ -27,6 +27,8 @@ enum class MainItem(
     STATUS("status", Group.BLOCK, removable = false),
     EXIT_NODE("exit_node", Group.BLOCK),
     SUMMARY("summary", Group.BLOCK),
+    /** The devices this one manages (ui/ManagedOnMain.kt): nothing is drawn until it manages one. */
+    MANAGED("managed_devices", Group.BLOCK),
     SPEED_GRAPH("speed_graph", Group.BLOCK),
     TIMELINE("connection_timeline", Group.BLOCK),
 
@@ -145,14 +147,15 @@ data class MainLayout(val items: List<Placed>, val columns: Int = AUTO) {
         /** [columns]: as many as the width holds, by the rule the screen always had. */
         const val AUTO = 0
         const val MAX_COLUMNS = 4
-        private const val VERSION = 1
+        /** 2: the managed devices became an item; a version-1 string had them outside the layout. */
+        private const val VERSION = 2
 
         /**
          * The layout [json] holds, or null when it holds none: an empty string, something
          * that is not a layout. What it names twice is taken once, and the two items that
          * cannot be taken off are put back if a hand-edited or damaged string lost them.
          */
-        fun decode(json: String?): MainLayout? {
+        fun decode(json: String?, managed: Boolean = false): MainLayout? {
             if (json.isNullOrBlank()) return null
             val stored = runCatching { AppJson.decodeFromString<Stored>(json) }.getOrNull() ?: return null
             val items = stored.items
@@ -161,23 +164,35 @@ data class MainLayout(val items: List<Placed>, val columns: Int = AUTO) {
                 .toMutableList()
             if (items.none { it.item == MainItem.STATUS }) items.add(0, Placed(MainItem.STATUS))
             if (items.none { it.item == MainItem.SETTINGS }) items.add(Placed(MainItem.SETTINGS))
-            return MainLayout(items, stored.columns.takeIf { it in 1..MAX_COLUMNS } ?: AUTO)
+            val layout = MainLayout(items, stored.columns.takeIf { it in 1..MAX_COLUMNS } ?: AUTO)
+            // Before version 2 the managed devices were drawn outside the arrangement, in the gap
+            // where the blocks meet the tiles, unless their switch ([managed]) took them off.
+            return if (stored.v < 2 && managed) layout.withManagedAtSeam() else layout
+        }
+
+        /** [MANAGED][MainItem.MANAGED] where it was always drawn: before the first item that changes from blocks to tiles. */
+        private fun MainLayout.withManagedAtSeam(): MainLayout {
+            if (MainItem.MANAGED in this) return this
+            val seam = (1 until items.size).firstOrNull { items[it].item.isTile != items[it - 1].item.isTile } ?: items.size
+            return copy(items = items.toMutableList().apply { add(seam, Placed(MainItem.MANAGED)) })
         }
 
         /**
          * The screen as it was before it could be arranged, for whoever has arranged nothing:
          * the order it always had, without what the old switches took off it ([shown] answers
-         * for each of those, [summary] for the connection summary's own switch). [remoteTile]:
+         * for each of those, [summary] and [managed] for the switches of the connection summary and
+         * of the managed devices, which sit where the blocks end). [remoteTile]:
          * a device that keeps remote management on its home screen — a television — has its
          * tile; anyone else can add it.
          */
-        fun legacy(shown: (MainBlock) -> Boolean, summary: Boolean, remoteTile: Boolean): MainLayout {
+        fun legacy(shown: (MainBlock) -> Boolean, summary: Boolean, remoteTile: Boolean, managed: Boolean = false): MainLayout {
             val items = buildList {
                 if (shown(MainBlock.EXIT_NODE)) add(MainItem.EXIT_NODE)
                 add(MainItem.STATUS)
                 if (summary) add(MainItem.SUMMARY)
                 if (shown(MainBlock.SPEED_GRAPH)) add(MainItem.SPEED_GRAPH)
                 if (shown(MainBlock.CONNECTION_TIMELINE)) add(MainItem.TIMELINE)
+                if (managed) add(MainItem.MANAGED)
                 if (shown(MainBlock.CONSOLE)) add(MainItem.CONSOLE)
                 if (shown(MainBlock.PEERS)) add(MainItem.PEERS)
                 if (shown(MainBlock.LOGS)) add(MainItem.LOGS)
@@ -193,7 +208,7 @@ data class MainLayout(val items: List<Placed>, val columns: Int = AUTO) {
         }
 
         /** What a fresh install shows. */
-        fun default(remoteTile: Boolean): MainLayout = legacy({ it.shownByDefault }, summary = true, remoteTile = remoteTile)
+        fun default(remoteTile: Boolean): MainLayout = legacy({ it.shownByDefault }, summary = true, remoteTile = remoteTile, managed = true)
 
         /**
          * The rows [cells] make in [columns]: tiles side by side until a row is full or
@@ -234,14 +249,16 @@ object MainLayoutStore {
     /** Whether the person has arranged the screen; until then it follows the old switches. */
     fun isCustom(context: Context): Boolean = MainLayout.decode(GlobalSettings.getString(context, KEY, "")) != null
 
+    private fun managed(context: Context) = GlobalSettings.isManagedOnMainShown(context)
+
     /**
      * The layout to draw. [arranged] is false where the screen is not the person's to
      * arrange — a television, which has no editor: an arrangement that came with a phone's
      * backup is left in the preference and not followed.
      */
     fun load(context: Context, remoteTile: Boolean, arranged: Boolean = true): MainLayout =
-        (if (arranged) MainLayout.decode(GlobalSettings.getString(context, KEY, "")) else null)
-            ?: MainLayout.legacy({ it.isShown(context) }, GlobalSettings.isConnectionSummaryShown(context), remoteTile)
+        (if (arranged) MainLayout.decode(GlobalSettings.getString(context, KEY, ""), managed(context)) else null)
+            ?: MainLayout.legacy({ it.isShown(context) }, GlobalSettings.isConnectionSummaryShown(context), remoteTile, managed(context))
 
     fun save(context: Context, layout: MainLayout) = GlobalSettings.setString(context, KEY, layout.encode())
 
@@ -253,6 +270,7 @@ object MainLayoutStore {
         GlobalSettings.setString(context, KEY, "")
         MainBlock.entries.forEach { it.setShown(context, it.shownByDefault) }
         GlobalSettings.setConnectionSummaryShown(context, true)
+        GlobalSettings.setManagedOnMainShown(context, true)
     }
 
     /**
@@ -262,6 +280,7 @@ object MainLayoutStore {
      */
     fun restore(context: Context, remoteTile: Boolean, item: MainItem) {
         if (item == MainItem.SUMMARY) GlobalSettings.setConnectionSummaryShown(context, true)
+        if (item == MainItem.MANAGED) GlobalSettings.setManagedOnMainShown(context, true)
         save(context, load(context, remoteTile).add(item))
     }
 
@@ -275,5 +294,17 @@ object MainLayoutStore {
         if (!isCustom(context)) return
         val layout = load(context, remoteTile)
         save(context, if (shown) layout.add(MainItem.SUMMARY) else layout.remove(MainItem.SUMMARY))
+    }
+
+    /**
+     * The managed devices' switch in Settings → Appearance, older than their place in the
+     * layout and kept beside it like the summary's: its own preference for a screen nobody
+     * arranged, and the arrangement itself once there is one.
+     */
+    fun setManagedShown(context: Context, remoteTile: Boolean, shown: Boolean) {
+        GlobalSettings.setManagedOnMainShown(context, shown)
+        if (!isCustom(context)) return
+        val layout = load(context, remoteTile)
+        save(context, if (shown) layout.add(MainItem.MANAGED) else layout.remove(MainItem.MANAGED))
     }
 }

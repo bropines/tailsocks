@@ -185,6 +185,7 @@ object SettingsCatalog {
         row("show_changelog", SettingsPage.APPEARANCE, R.string.settings_show_changelog_title, R.string.settings_show_changelog_desc, R.string.search_kw_show_changelog, look)
         row("connection_summary", SettingsPage.APPEARANCE, R.string.settings_connection_summary_title, R.string.settings_connection_summary_desc, R.string.search_kw_connection_summary, look)
         row("main_blocks", SettingsPage.APPEARANCE, R.string.settings_main_blocks_title, R.string.settings_main_blocks_desc, R.string.search_kw_main_blocks, look)
+        row("main_hidden", SettingsPage.APPEARANCE, R.string.main_hidden_title, R.string.main_hidden_sheet_desc, R.string.search_kw_main_hidden, look)
         row("managed_on_main", SettingsPage.APPEARANCE, R.string.settings_managed_on_main_title, R.string.settings_managed_on_main_desc, R.string.search_kw_managed_on_main, look)
         row("update_check", SettingsPage.APPEARANCE, R.string.settings_update_check_title, R.string.settings_update_check_desc, R.string.search_kw_update_check, look, needs = Need.SELF_UPDATE)
         row("update_beta", SettingsPage.APPEARANCE, R.string.settings_update_beta_title, R.string.settings_update_beta_desc, R.string.search_kw_update_beta, look, needs = Need.SELF_UPDATE)

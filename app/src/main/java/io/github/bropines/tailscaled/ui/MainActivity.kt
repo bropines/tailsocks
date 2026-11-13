@@ -660,7 +660,6 @@ fun MainScreen(
     // Off for anyone who prefers the screen as it was: on a phone of the
     // right size everything, menu included, fits without scrolling, and the
     // summary's extra rows push the last menu row off it.
-    var showManagedOnMain by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
     // What is on the screen and where (core/MainLayout.kt). Until the person arranges it, it is
     // read off the switches the screen had before, so it is the screen they know. Re-read when
     // the screen comes back to the front: Settings can change it too.
@@ -796,7 +795,8 @@ fun MainScreen(
     }
     // The devices this one manages, when it manages any (ui/ManagedOnMain.kt): read off the peer
     // list above, and again when the page a scanned code opened — which may have paired — is left.
-    val managed = rememberManagedDevices(activeAccount.id, tailnetPeers.takeIf { proxyState != "STOPPED" }, showManagedOnMain, scannedPairing == null)
+    // Shown while their block is on the screen: the old switch in Settings → Appearance moves it too.
+    val managed = rememberManagedDevices(activeAccount.id, tailnetPeers.takeIf { proxyState != "STOPPED" }, MainItem.MANAGED in layout, scannedPairing == null)
     // Where the menu has the tile of the other direction — who manages this device — they stand
     // beside it, in its row, while a tile there is two cards wide. A handheld has no such tile,
     // and they have a place of their own: tiles under a dashboard's cards, pills on a phone.
@@ -985,7 +985,6 @@ fun MainScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                showManagedOnMain = GlobalSettings.isManagedOnMainShown(context)
                 if (previewLayout == null && !editing) layout = MainLayoutStore.load(context, remoteTileOffered, arrangeable)
                 isTunEnabled = GlobalSettings.isTunModeEnabled(context)
                 isTunDisplaced = TunVpnService.isDisplaced(context)
@@ -1797,6 +1796,7 @@ fun MainScreen(
             // The summary stays whatever the card's warnings say: it is what the card is about.
             MainItem.SUMMARY -> cardState == "ACTIVE" && connectionSummary != null
             MainItem.SPEED_GRAPH -> cardState == "ACTIVE"
+            MainItem.MANAGED -> managed.devices.isNotEmpty()
             else -> true
         }
         val block: @Composable ColumnScope.(MainItem, Modifier) -> Unit = { item, cardModifier ->
@@ -1808,6 +1808,7 @@ fun MainScreen(
                     act { context.startActivity(Intent(context, TailnetMapActivity::class.java)) }
                 }
                 MainItem.TIMELINE -> ConnectionTimelineCard(Modifier.fillMaxWidth())
+                MainItem.MANAGED -> ManagedPills(managed)
                 else -> Unit
             }
         }
@@ -1825,7 +1826,9 @@ fun MainScreen(
         // fillHeight: beside the menu, the card takes the height the status
         // column has left, so the pair ends on one line (see the two-pane layout).
         val statusPane: @Composable ColumnScope.(fillHeight: Boolean) -> Unit = { fillHeight ->
-            val drawn = placed.map { it.item }.filter { !it.isTile && blockShows(it) }
+            // Beside the menu the managed devices stand under it (pills, or a dashboard's tiles),
+            // where they always were; only the one flow puts them where the person moved them.
+            val drawn = placed.map { it.item }.filter { !it.isTile && it != MainItem.MANAGED && blockShows(it) }
             val anchor = bannersBefore(drawn)
             drawn.forEachIndexed { i, item ->
                 if (i > 0) Spacer(modifier = Modifier.height(mainGap(drawn[i - 1], item)))
@@ -1923,15 +1926,7 @@ fun MainScreen(
                 // something to show; in use, only what has something to show.
                 val cells = if (editing) placed else placed.filter { it.item.isTile || blockShows(it.item) }
                 val drawn = cells.map { it.item }
-                // The managed devices take their line out of the gap between the status and
-                // the menu: the first place where a block meets a tile.
-                val seam = (1 until drawn.size).firstOrNull { drawn[it].isTile != drawn[it - 1].isTile }?.let { drawn[it] }
-                val inserts = buildList {
-                    if (seam != null && managed.devices.isNotEmpty()) {
-                        add(MainCanvasInsert(seam, replacesGap = true) { ManagedPills(managed, Modifier.padding(top = 6.dp, bottom = 14.dp)) })
-                    }
-                    add(MainCanvasInsert(bannersBefore(drawn)) { banners() })
-                }
+                val inserts = listOf(MainCanvasInsert(bannersBefore(drawn)) { banners() })
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1981,7 +1976,10 @@ fun MainScreen(
                                     else MenuCard(title = entry.title, icon = entry.icon, icon2 = entry.icon2, modifier = focus, onClick = entry.onClick)
                                 }
                                 blockShows(item) -> Column(horizontalAlignment = Alignment.CenterHorizontally) { block(item, Modifier) }
-                                else -> MainBlockPlaceholder(item)
+                                else -> MainBlockPlaceholder(
+                                    item,
+                                    note = if (item == MainItem.MANAGED) R.string.main_layout_when_managing else R.string.main_layout_when_connected,
+                                )
                             }
                         }
                         AnimatedVisibility(visible = editing && layout.addable(itemOffered).isNotEmpty()) {

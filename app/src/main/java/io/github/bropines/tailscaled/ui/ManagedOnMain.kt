@@ -53,6 +53,8 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -78,8 +80,8 @@ import kotlinx.coroutines.withContext
  * already has for a row of its own (WideMenuCard). Where that row is taken — a television,
  * by the tile of the other direction: who manages this device (ui/RemoteTile.kt) — one tile
  * stands beside that one. A phone has a pill, as light as the summary's, that opens something:
- * the device managed last, and a small button beside it for the others. Settings → Appearance
- * hides all of it.
+ * as many devices as fit on its line, the one managed last first, and a small button for the
+ * rest. It is a block of the layout (MainItem.MANAGED): the editor moves it or takes it off.
  */
 
 // ─── What is shown ───────────────────────────────────────────────────────────────────────────
@@ -367,55 +369,122 @@ internal fun RowScope.ManagedTileCells(managed: ManagedDevices, places: Int) {
     }
 }
 
-// ─── A phone: a pill ─────────────────────────────────────────────────────────────────────────
+// ─── A phone: pills ──────────────────────────────────────────────────────────────────────────
+
+/** How wide one pill gets while it shares the line: a long name is cut, not the others. */
+private val PILL_SHARED_MAX = 200.dp
+
+/** The narrowest a pill gets to make room for another: some six letters of its name. */
+private val PILL_SHARED_MIN = 136.dp
+
+/** Between two pills. */
+private val PILL_GAP = 8.dp
 
 /**
- * One device as a pill, in the summary's shape (ConnectionSummaryRow) and with what the
- * summary's have not: an arrow, for it opens something. It is the device managedFirst names —
- * the one managed last while it is there — by name, with the peers list's dot when it is there
- * and a grey one when it is not. The others are behind a small round button beside it that
- * opens the list of them all. Nothing while there is no device.
+ * The devices as pills, in the summary's shape (ConnectionSummaryRow) and with what the
+ * summary's have not: an arrow, for each opens something. As many as fit on one line stand side
+ * by side, in managedFirst's order — the one managed last first — each by name (cut short, down
+ * to a few letters, to make room for one more), with the peers
+ * list's dot when it is there and a grey one when it is not; those without room are behind a
+ * small round button that opens the list of them all. One device alone may take the line.
+ * Nothing while there is no device.
  */
 @Composable
 internal fun ManagedPills(managed: ManagedDevices, modifier: Modifier = Modifier) {
-    val lead = managed.devices.firstOrNull() ?: return
+    val devices = managed.devices
+    if (devices.isEmpty()) return
     val manage = stringResource(R.string.remote_manage_button)
-    Row(
-        modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        key(lead.nodeId) {
-            ManagedPill(
-                icon = remoteGlyph(lead.tv),
-                text = lead.name,
-                presence = lead.presence,
-                onClick = { managed.open(lead) },
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .focusRequester(managed.first)
-                    .semantics { onClick(label = manage, action = null) },
-            )
-        }
-        val others = managed.devices.size - 1
-        if (others > 0) {
-            val label = stringResource(R.string.managed_all_count, managed.devices.size)
-            val colors = MaterialTheme.colorScheme
-            Surface(
-                onClick = managed.openAll,
-                shape = CircleShape,
-                color = colors.surfaceContainerHigh,
-                modifier = Modifier.semantics { contentDescription = label },
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.heightIn(min = 36.dp).padding(horizontal = 10.dp)
-                ) {
-                    Icon(Icons.Default.Devices, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("+$others", style = MaterialTheme.typography.labelLarge, color = colors.onSurface, maxLines = 1)
-                }
+    val pill: @Composable (RemoteDeviceRow, Boolean) -> Unit = { device, first ->
+        ManagedPill(
+            icon = remoteGlyph(device.tv),
+            text = device.name,
+            presence = device.presence,
+            onClick = { managed.open(device) },
+            modifier = Modifier
+                .then(if (first) Modifier.focusRequester(managed.first) else Modifier)
+                .semantics { onClick(label = manage, action = null) },
+        )
+    }
+    // Every pill, then a button for each count of devices that could be left without one; the
+    // measure keeps what fits and places only that. A plain layout, not a subcomposition: the
+    // two panes ask the row beside the status for its intrinsic height.
+    Layout(
+        content = {
+            devices.forEachIndexed { i, device -> key(device.nodeId) { pill(device, i == 0) } }
+            for (hidden in 1 until devices.size) ManagedMore(hidden, devices.size, managed.openAll)
+        },
+        modifier = modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val max = constraints.maxWidth
+        val gap = PILL_GAP.roundToPx()
+        val n = devices.size
+        val pills = measurables.take(n)
+        val buttons = measurables.drop(n)
+        val cap = if (n == 1) max else minOf(max, PILL_SHARED_MAX.roundToPx())
+        val wants = pills.map { minOf(it.maxIntrinsicWidth(Constraints.Infinity), cap) }
+        fun buttonWidth(hidden: Int) = buttons[hidden - 1].maxIntrinsicWidth(Constraints.Infinity)
+        val least = minOf(cap, PILL_SHARED_MIN.roundToPx())
+        // How wide each of the first [count] pills is in [room]: as its name wants while they all
+        // fit; otherwise the short ones keep theirs and the long ones share what is left, each
+        // cut to the same width — down to [least], below which a name says nothing.
+        fun widths(count: Int, room: Int): List<Int>? {
+            val want = wants.take(count)
+            if (want.sum() <= room) return want
+            if (count == 1) return listOf(room.coerceAtLeast(0))
+            if (least * count > room) return null
+            val sorted = want.sorted()
+            var left = room
+            var share = room / count
+            for ((i, w) in sorted.withIndex()) {
+                share = left / (count - i)
+                if (w > share) break
+                left -= w
             }
+            return want.map { minOf(it, share) }
+        }
+        // As many as fit, the one managed last first.
+        var count = n
+        var sizes: List<Int>? = null
+        while (count >= 1) {
+            val rest = n - count
+            val room = max - gap * (count - 1) - (if (rest > 0) buttonWidth(rest) + gap else 0)
+            sizes = widths(count, room)
+            if (sizes != null) break
+            count--
+        }
+        val rest = n - count
+        val button = if (rest > 0) buttons[rest - 1].measure(Constraints(maxWidth = max)) else null
+        val placed = (0 until count).map { i -> pills[i].measure(Constraints(maxWidth = sizes!![i])) } + listOfNotNull(button)
+        val width = placed.sumOf { it.width } + gap * (placed.size - 1)
+        val height = placed.maxOf { it.height }
+        layout(max, height) {
+            var x = ((max - width) / 2).coerceAtLeast(0)
+            for (p in placed) {
+                p.place(x, (height - p.height) / 2)
+                x += p.width + gap
+            }
+        }
+    }
+}
+
+/** The small round button for the [hidden] devices without a pill of their own, out of [total]. */
+@Composable
+private fun ManagedMore(hidden: Int, total: Int, onClick: () -> Unit) {
+    val label = stringResource(R.string.managed_all_count, total)
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = colors.surfaceContainerHigh,
+        modifier = Modifier.semantics { contentDescription = label },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.heightIn(min = 36.dp).padding(horizontal = 10.dp)
+        ) {
+            Icon(Icons.Default.Devices, contentDescription = null, tint = colors.primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(4.dp))
+            Text("+$hidden", style = MaterialTheme.typography.labelLarge, color = colors.onSurface, maxLines = 1)
         }
     }
 }

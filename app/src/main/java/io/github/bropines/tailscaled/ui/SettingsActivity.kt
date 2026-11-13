@@ -2642,14 +2642,15 @@ fun SettingsScreen(
                 },
                 onRestored = { layoutChanged++ },
             )
-            var managedOnMainShown by remember { mutableStateOf(GlobalSettings.isManagedOnMainShown(context)) }
+            // Like the summary's: the block of the layout now, and this switch its older handle.
+            var managedOnMainShown by remember(layoutChanged) { mutableStateOf(MainItem.MANAGED in MainLayoutStore.load(context, remoteOnHome)) }
             SettingsSwitchItem(
                 stringResource(R.string.settings_managed_on_main_title),
                 stringResource(R.string.settings_managed_on_main_desc),
                 Icons.Default.SettingsRemote,
                 managedOnMainShown
             ) {
-                GlobalSettings.setManagedOnMainShown(context, it)
+                MainLayoutStore.setManagedShown(context, remoteOnHome, it)
                 managedOnMainShown = it
             }
             if (UpdateChannel.selfUpdate(context)) {

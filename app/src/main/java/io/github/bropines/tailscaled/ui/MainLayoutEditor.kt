@@ -230,7 +230,7 @@ internal fun MainAddCell(onClick: () -> Unit, modifier: Modifier = Modifier) {
  * still be moved and taken off.
  */
 @Composable
-internal fun MainBlockPlaceholder(item: MainItem, modifier: Modifier = Modifier) {
+internal fun MainBlockPlaceholder(item: MainItem, modifier: Modifier = Modifier, @androidx.annotation.StringRes note: Int = R.string.main_layout_when_connected) {
     val spec = item.spec()
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -243,7 +243,7 @@ internal fun MainBlockPlaceholder(item: MainItem, modifier: Modifier = Modifier)
             Column(Modifier.weight(1f)) {
                 Text(stringResource(spec.title), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    stringResource(R.string.main_layout_when_connected),
+                    stringResource(note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

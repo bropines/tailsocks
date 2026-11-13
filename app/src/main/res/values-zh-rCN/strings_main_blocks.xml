@@ -75,4 +75,7 @@
     <string name="main_hidden_sheet_desc">点按即可像磁贴一样打开。按钮会将其放回主界面。</string>
     <string name="main_hidden_open">打开</string>
     <string name="main_hidden_restore">放回主界面</string>
+    <string name="main_block_managed">受管设备</string>
+    <string name="main_block_managed_desc">此设备管理的设备，一行能放下多少就显示多少</string>
+    <string name="main_layout_when_managing">当此设备管理其他设备时显示</string>
 </resources>

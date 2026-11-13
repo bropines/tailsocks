@@ -2,6 +2,17 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Main screen: the devices this one manages are a block of the layout like any other. Hold the screen and move them anywhere or take them off; they are in the editor's "+" and in Settings → Appearance → "Hidden from the main screen". The switch in Settings → Appearance still shows or hides them. They stay where they were until you move them.
+- Main screen: as many managed devices as fit stand side by side on a phone, the one managed last first, with names cut short to make room; the rest are behind the "+N" button, as before.
+
+### Fixed
+
+- Settings search finds "Hidden from the main screen".
+
 ## [6.0.3] - 2026-11-13
 
 ### Added

@@ -110,6 +110,9 @@ internal val MainTileGap = 16.dp
  * it follows — it reads as the card's last line.
  */
 internal fun mainGap(above: MainItem, below: MainItem): Dp = when {
+    // The managed devices' pills: a light line close under what they follow, as they always sat.
+    below == MainItem.MANAGED -> if (above.isTile) MainTileGap else 6.dp
+    above == MainItem.MANAGED -> if (below.isTile) 14.dp else 12.dp
     above.isTile && below.isTile -> MainTileGap
     above.isTile != below.isTile -> 32.dp
     below == MainItem.SUMMARY -> 12.dp
@@ -118,7 +121,7 @@ internal fun mainGap(above: MainItem, below: MainItem): Dp = when {
 
 /**
  * Something that is not the person's to arrange and still has a place in the flow: the
- * banners above the status card, the pill of the devices this one manages. It stands above
+ * banners above the status card. It stands above
  * the row that starts with [before], and is gone while the screen is being arranged. With
  * nothing to draw it takes no room; [replacesGap] is for what was always drawn in the gap
  * between two parts of the screen and brings its own padding.

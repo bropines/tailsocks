@@ -151,4 +151,5 @@
     <string name="search_kw_exit_guard_auto">出口节点离线, 掉线, 无法上网, 故障转移, 自动, 暂停</string>
     <string name="search_kw_main_blocks">主界面, 主屏幕, 隐藏, 显示, 区块, 卡片, 布局, 速度图, 时间线, tailnet 地图, 自定义</string>
     <string name="search_kw_dns_rescue">dns 救援, 备用, 绕过, 过滤, nextdns, pihole, pi-hole, adguard, dns 泄漏, servfail, refused</string>
+    <string name="search_kw_main_hidden">隐藏, 移除, 主界面, 磁贴, 打开, 放回, 恢复</string>
 </resources>

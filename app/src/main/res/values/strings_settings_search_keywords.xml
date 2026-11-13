@@ -152,4 +152,5 @@
     <string name="search_kw_exit_guard_auto">exit node offline, failover, fallback, no internet, exit node down, pause exit node, automatic</string>
     <string name="search_kw_main_blocks">main screen, home screen, hide, show, blocks, cards, tiles, layout, speed graph, timeline, tailnet map, customize</string>
     <string name="search_kw_dns_rescue">dns rescue, fallback, bypass, filter, nextdns, pihole, pi-hole, adguard, dns leak, servfail, refused</string>
+    <string name="search_kw_main_hidden">hidden, removed, taken off, main screen, home screen, tiles, open, put back, restore</string>
 </resources>
