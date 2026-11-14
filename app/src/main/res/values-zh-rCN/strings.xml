@@ -8,7 +8,6 @@
     <!-- 主界面 -->
     <string name="status_stopped">已停止</string>
     <string name="status_running">运行中</string>
-    <string name="action_stop">断开连接</string>
     <string name="tap_to_start">点按启动</string>
 
     <!-- 设置项 -->
@@ -297,10 +296,8 @@
     <string name="files_hub_title">文件</string>
     <string name="files_empty_inbox">暂无接收到的文件</string>
     <string name="files_empty_history">暂无历史记录</string>
-    <string name="files_sending">发送中…</string>
     <string name="files_auto_save_failed">自动保存失败：%1$s</string>
     <string name="files_save_error">保存出错：%1$s</string>
-    <string name="files_sent">已发送！</string>
     <string name="files_peer_no_id">守护进程列出的 %1$s 没有节点 ID，无法确定发送目标。请刷新列表后重试</string>
     <string name="share_failed_format">无法发送 %1$s：%2$s</string>
     <string name="taildrop_notif_channel">接收到的文件</string>
@@ -415,9 +412,6 @@
     <!-- ======================== 设备 ======================== -->
     <string name="peers_title">设备</string>
     <string name="peers_search_placeholder">按名称、IP 或系统搜索…</string>
-    <string name="peers_sending">发送中…</string>
-    <string name="peers_sent">已发送！</string>
-    <string name="peers_failed_format">失败：%1$s</string>
     <string name="peers_daemon_not_running">守护进程未运行</string>
     <string name="peers_network_error">网络错误</string>
     <string name="action_start_service">启动服务</string>
@@ -664,7 +658,6 @@
     <string name="settings_exit_node_empty">没有可用的出口节点</string>
     <string name="share_title">发送到…</string>
     <string name="share_files_count_format">%1$d 个文件</string>
-    <string name="share_sending">发送中…</string>
 
     <!-- Taildrive -->
     <string name="taildrive_title">Taildrive 共享</string>

@@ -85,10 +85,4 @@
     <string name="speed_graph_stopped">Shown while connected</string>
     <!-- What a screen reader says for the whole card. -->
     <string name="speed_graph_spoken_format">Tailnet traffic: receiving %1$s, sending %2$s</string>
-
-    <!-- Settings: the two switches. -->
-    <string name="settings_speed_graph_title">Speed graph on the main screen</string>
-    <string name="settings_speed_graph_desc">Under the status card: the download and upload rate over the last minute, and the three devices using the most right now. Read from the daemon only while the screen is open.</string>
-    <string name="settings_tailnet_map_title">Tailnet map button</string>
-    <string name="settings_tailnet_map_desc">A button on the main screen that opens the map: this device, its peers, and how each one is reached — directly, through a relay or through a peer relay.</string>
 </resources>

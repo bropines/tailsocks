@@ -64,8 +64,4 @@
     <string name="speed_graph_stopped">Виден, пока есть подключение</string>
     <string name="speed_graph_spoken_format">Трафик tailnet: приём %1$s, отдача %2$s</string>
 
-    <string name="settings_speed_graph_title">График скорости на главном экране</string>
-    <string name="settings_speed_graph_desc">Под карточкой состояния: скорость загрузки и отдачи за последнюю минуту и три устройства, которые сейчас используют канал больше всех. Демон опрашивается, только пока экран открыт.</string>
-    <string name="settings_tailnet_map_title">Кнопка карты tailnet</string>
-    <string name="settings_tailnet_map_desc">Кнопка на главном экране, открывающая карту: это устройство, его узлы и то, как достигается каждый из них — напрямую, через реле или через реле-узел.</string>
 </resources>

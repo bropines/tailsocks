@@ -64,7 +64,6 @@
     <string name="admin_pv_issue_duplicate">某个字段写了两次；只有最后一条生效。</string>
     <string name="admin_pv_issue_case">某个字段的拼写与文档名称不一致。</string>
     <string name="admin_pv_issue_legacy">部分内容由旧版字段（users、ports 或 allow）表述。</string>
-    <string name="admin_pv_server_error">服务器拒绝了此项</string>
     <!-- The pages of the visual editor. -->
     <string name="admin_pv_section_access">访问</string>
     <string name="admin_pv_section_ssh">SSH</string>

@@ -32,6 +32,4 @@
     <string name="connection_timeline_summary_empty">No history yet. It fills in while the service runs.</string>
     <string name="connection_timeline_hint">Select a stretch of the bar for details</string>
 
-    <string name="settings_connection_timeline_title">Connection history</string>
-    <string name="settings_connection_timeline_desc">Show the connection timeline on the main screen</string>
 </resources>

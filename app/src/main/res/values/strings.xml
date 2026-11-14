@@ -9,7 +9,6 @@
     <!-- Main screen -->
     <string name="status_stopped">Stopped</string>
     <string name="status_running">Running</string>
-    <string name="action_stop">Disconnect</string>
     <string name="tap_to_start">Tap to start</string>
 
     <!-- Settings Items -->
@@ -334,10 +333,8 @@
     <string name="files_hub_title">Files</string>
     <string name="files_empty_inbox">No incoming files</string>
     <string name="files_empty_history">No history yet</string>
-    <string name="files_sending">Sending…</string>
     <string name="files_auto_save_failed">Auto-save failed: %1$s</string>
     <string name="files_save_error">Save error: %1$s</string>
-    <string name="files_sent">Sent!</string>
     <string name="files_peer_no_id">The daemon listed %1$s without a node ID, so there is nothing to address the file to. Refresh the list and try again</string>
     <string name="share_failed_format">Couldn\'t send %1$s: %2$s</string>
     <!-- "File received" notification (TaildropEvents): its channel, title and "name from device" text -->
@@ -457,9 +454,6 @@
     <!-- ======================== Peers / Network Devices ======================== -->
     <string name="peers_title">Peers</string>
     <string name="peers_search_placeholder">Search by name, IP or OS…</string>
-    <string name="peers_sending">Sending…</string>
-    <string name="peers_sent">Sent!</string>
-    <string name="peers_failed_format">Failed: %1$s</string>
     <string name="peers_daemon_not_running">Daemon not running</string>
     <string name="peers_network_error">Network error</string>
     <string name="action_start_service">Start Service</string>
@@ -717,7 +711,6 @@
     <string name="settings_exit_node_empty">No exit nodes available</string>
     <string name="share_title">Send to…</string>
     <string name="share_files_count_format">%1$d files</string>
-    <string name="share_sending">Sending…</string>
     <!-- Taildrive Screen -->
     <string name="taildrive_title">Taildrive Shares</string>
     <string name="taildrive_cd_add">Add Share</string>

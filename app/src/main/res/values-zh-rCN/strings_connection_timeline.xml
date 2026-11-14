@@ -27,6 +27,4 @@
     <string name="connection_timeline_summary_empty">暂无历史记录，服务运行期间会逐步记录。</string>
     <string name="connection_timeline_hint">选择时间条上的一段以查看详情</string>
 
-    <string name="settings_connection_timeline_title">连接历史</string>
-    <string name="settings_connection_timeline_desc">在主屏幕显示连接时间线</string>
 </resources>

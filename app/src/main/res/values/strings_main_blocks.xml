@@ -19,7 +19,6 @@
     <string name="main_layout_narrow_cd">%1$s: back to one cell</string>
     <string name="main_layout_move_earlier">Move earlier</string>
     <string name="main_layout_move_later">Move later</string>
-    <string name="main_layout_always">Always on the screen</string>
     <string name="main_layout_when_connected">Shown while connected</string>
     <string name="main_layout_palette_title">Add to the main screen</string>
     <string name="main_layout_palette_empty">Everything is already on the screen</string>
@@ -36,7 +35,6 @@
     <string name="main_block_speed_graph_desc">Download and upload over the last minute, and who is using it</string>
     <string name="main_block_timeline">Connection timeline</string>
     <string name="main_block_timeline_desc">When the connection was up, recovering or waiting, over the last hours</string>
-    <string name="main_block_tailnet_map">Tailnet map</string>
     <string name="main_block_tailnet_map_desc">The live map: this device, its peers and how each one is reached</string>
     <string name="tile_console_desc">Run tailscale commands</string>
     <string name="tile_peers_desc">The devices of your tailnet</string>
