@@ -41,6 +41,12 @@ adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 ```
 Gradle then makes two APKs of that one ABI (`app-arm64-v8a-debug.apk` and a universal one holding the same ABI — the universal APK is always built, for the release's reproducibility). Without `-PtargetAbi` nothing changes: all four ABIs and the universal APK, which is what a release and F-Droid build. A core built with `TS_ABIS` lacks the other ABIs, so run `build.sh` without it again before a full build.
 
+*Configuration cache* — the build is clean under Gradle's configuration cache (debug, unit tests and a release build were checked), which saves the configuration phase on every repeated command. It is not switched on in the repository's `gradle.properties`, because that file is also what F-Droid builds with, and a cache problem there would fail their build for a gain they do not need. Switch it on for yourself in `~/.gradle/gradle.properties`:
+```properties
+org.gradle.configuration-cache=true
+```
+`scripts/licenses/generate.py` passes `--no-configuration-cache` for its own init script.
+
 *Tests* — the JVM unit tests, and the bridge's Go tests on Linux (they need the patched tree `build.sh` leaves in `appctr/tailscale_src`; on macOS the bridge does not compile for the host, since patch 21's `netmon.WakePollingMonitors` is not built for darwin — use a Linux container, e.g. the `golang` image, or leave them to CI):
 ```bash
 ./gradlew app:testDebugUnitTest

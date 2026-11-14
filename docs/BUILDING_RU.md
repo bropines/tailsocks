@@ -58,6 +58,13 @@ adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 ```
 Gradle тогда делает два APK этой одной ABI (`app-arm64-v8a-debug.apk` и universal с той же ABI — universal APK собирается всегда, ради воспроизводимости релиза). Без `-PtargetAbi` ничего не меняется: все четыре ABI и universal APK — так собирают релиз и F-Droid. В ядре, собранном с `TS_ABIS`, нет остальных ABI, поэтому перед полной сборкой запустите `build.sh` ещё раз без него.
 
+#### Кэш конфигурации
+Сборка чиста под кэшем конфигурации Gradle (проверены debug, юнит-тесты и релизная сборка), а он экономит фазу конфигурации на каждой повторной команде. В `gradle.properties` репозитория он не включён: этот файл использует и F-Droid, и проблема кэша сломала бы их сборку ради выигрыша, который им не нужен. Включите его у себя в `~/.gradle/gradle.properties`:
+```properties
+org.gradle.configuration-cache=true
+```
+`scripts/licenses/generate.py` передаёт `--no-configuration-cache` ради своего init-скрипта.
+
 #### Тесты
 JVM-тесты и, на Linux, Go-тесты моста (им нужно пропатченное дерево, которое `build.sh` оставляет в `appctr/tailscale_src`; на macOS мост не собирается под хост — `netmon.WakePollingMonitors` из патча 21 не собирается для darwin, — запускайте их в Linux-контейнере, например в образе `golang`, или оставьте CI):
 ```bash

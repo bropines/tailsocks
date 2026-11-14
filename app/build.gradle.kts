@@ -513,8 +513,14 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 // ordinary build still cannot slip out unsigned.
 val allowUnsignedRelease = project.hasProperty("allowUnsignedRelease")
 tasks.matching { it.name.startsWith("package") && it.name.endsWith("Release") }.configureEach {
+    // Locals, not the script's own values and file(): an action that reaches
+    // into the build script cannot be stored by Gradle's configuration cache
+    // ("cannot serialize Gradle script object references"), so a release built
+    // with --configuration-cache failed here. Same checks, same messages.
+    val allowUnsigned = allowUnsignedRelease
+    val appDir = layout.projectDirectory.asFile
     doFirst {
-        if (allowUnsignedRelease) return@doFirst
+        if (allowUnsigned) return@doFirst
         val path = System.getenv("KEYSTORE_FILE")
             ?: throw GradleException(
                 """
@@ -530,7 +536,7 @@ tasks.matching { it.name.startsWith("package") && it.name.endsWith("Release") }.
                 """.trimIndent()
             )
 
-        if (!file(path).exists()) {
+        if (!appDir.resolve(path).exists()) {
             throw GradleException("KEYSTORE_FILE points at a missing file: $path")
         }
         for (v in listOf("KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")) {
