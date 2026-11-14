@@ -76,5 +76,4 @@
     <string name="admin_pv_section_attributes">设备属性</string>
     <string name="admin_pv_section_posture">设备合规状态</string>
     <string name="admin_pv_section_network">网络及其他</string>
-    <string name="admin_pv_section_pending">%1$s 很快就能在这里编辑；在那之前，请用 JSON。</string>
 </resources>

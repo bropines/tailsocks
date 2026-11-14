@@ -54,6 +54,27 @@ class VisualConsoleTest {
     }
 
     @Test
+    fun onlyATextFromOutsideMovesTheJsonFieldsEpoch() {
+        val json = editor(visual = false)
+        // Typing: the field's own text never comes back to reset it.
+        val typed = json.typed(json.text + " ").typed(json.text + "  ")
+        assertEquals(json.textEpoch, typed.textEpoch)
+        assertEquals(json.text + "  ", typed.text)
+        assertSame("the same text is no change", typed, typed.typed(typed.text))
+        // A visual edit, an undo and a redo replace the text: the field must follow.
+        val edited = editor().visualEdit { PolicyEdits.putHost(it, "nas", "100.64.0.10") }.first
+        assertEquals(1, edited.textEpoch)
+        assertEquals(2, edited.undo().textEpoch)
+        assertEquals(3, edited.undo().redo().textEpoch)
+        // Steps that leave the text as it is do not.
+        assertEquals(edited.textEpoch, edited.toJson(null).toVisual(null).textEpoch)
+        // A conflict resolved builds a new editor in the old one's place: a different epoch even
+        // when the text happens to be the one the field shows.
+        val resolved = PolicyEditorState(base = PolicyFile(sample, "\"etag-2\""), text = typed.text, visual = false).replacing(typed)
+        assertTrue(resolved.textEpoch != typed.textEpoch)
+    }
+
+    @Test
     fun aRoundTripWithoutTypingAddsNoStep() {
         val e = editor()
         val back = e.toJson(null).toVisual(null)

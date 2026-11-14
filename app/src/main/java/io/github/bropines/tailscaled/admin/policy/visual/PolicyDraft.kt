@@ -1,7 +1,6 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
 import io.github.bropines.tailscaled.admin.policy.HuIssue
-import io.github.bropines.tailscaled.admin.policy.HuJson
 
 /**
  * The visual editor's working copy: the policy text both editors share, the model read from it,
@@ -20,8 +19,8 @@ data class PolicyDraft(
     /** Null while the text does not parse: the visual editor then shows [issue] and a way to the JSON editor. */
     val model: PolicyModel? by lazy { PolicyModel.read(text) }
 
-    /** Why the text does not parse, the first problem; null when it does. */
-    val issue: HuIssue? by lazy { HuJson.check(text).firstOrNull() }
+    /** Why the text does not parse, the first problem (HuJson.check's); null when it does. Through SourceTree's memo, like [model]. */
+    val issue: HuIssue? by lazy { SourceTree.issueOf(text) }
 
     /** Duplicate top-level keys make every visual edit ambiguous; the editor is read-only until they are fixed. */
     val editable: Boolean get() = model?.duplicateSections?.isEmpty() == true

@@ -73,8 +73,23 @@ data class PolicyEditorState(
     val refusal: PolicyRefusal? = null,
     /** What the editor was opened to do, until the visual view's page for it has taken it up. */
     val launch: VisualLaunch? = null,
+    /**
+     * Counts the times [text] was replaced from outside the JSON field — a visual edit, an
+     * undo, a resolved conflict ([replacing]) — and never its typing ([typed]). The JSON field
+     * follows [text] only when this changes: keyed on the text itself it would compare an
+     * older text, captured by the composition that launched the effect, with a field that a
+     * keystroke queued during a slow frame has already moved on — and put the cursor at 0.
+     */
+    val textEpoch: Int = 0,
 ) {
     val changed: Boolean get() = text != base.text
+
+    /** The JSON field's own typing: the review and the send error no longer apply. */
+    fun typed(newText: String): PolicyEditorState =
+        if (newText == text) this else copy(text = newText, review = null, sendError = null)
+
+    /** This editor in the place of [previous] (a resolved conflict, a revert): its text came from outside. */
+    fun replacing(previous: PolicyEditorState?): PolicyEditorState = copy(textEpoch = (previous?.textEpoch ?: 0) + 1)
 
     /** The visual view's working copy. */
     val draft: PolicyDraft get() = PolicyDraft(text, undoStack, redoStack)
@@ -82,7 +97,8 @@ data class PolicyEditorState(
     /**
      * [d] as the editor's text and steps. A different text drops the review it no longer
      * matches, and the open or outlined element when the text no longer has it (an undo took
-     * back the rule just added).
+     * back the rule just added). A different text comes from outside the JSON field, so it
+     * moves [textEpoch].
      */
     fun withDraft(d: PolicyDraft): PolicyEditorState {
         if (d.text == text) return if (d.undoStack == undoStack && d.redoStack == redoStack) this else copy(undoStack = d.undoStack, redoStack = d.redoStack)
@@ -90,7 +106,7 @@ data class PolicyEditorState(
         fun kept(p: PolicyPath?) = p?.takeIf { tree?.at(it) != null }
         return copy(
             text = d.text, undoStack = d.undoStack, redoStack = d.redoStack, review = null, sendError = null,
-            selected = kept(selected), focus = kept(focus),
+            selected = kept(selected), focus = kept(focus), textEpoch = textEpoch + 1,
         )
     }
 

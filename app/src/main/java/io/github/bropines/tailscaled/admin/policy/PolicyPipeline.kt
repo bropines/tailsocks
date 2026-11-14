@@ -14,7 +14,10 @@ import io.github.bropines.tailscaled.admin.safety.PlannedChange
 import io.github.bropines.tailscaled.admin.safety.PolicyEvidence
 import io.github.bropines.tailscaled.admin.safety.PolicyGate
 import io.github.bropines.tailscaled.admin.safety.TargetType
-import kotlinx.coroutines.CancellationException
+import io.github.bropines.tailscaled.admin.console.attempt
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** The pipeline's steps, in the order they run; each one runs only when the one before passed. */
 enum class PolicyStep { LOCAL, SERVER, DIFF, RISKS, ACCESS }
@@ -123,6 +126,11 @@ object PolicyPipeline {
     /**
      * Runs the checks in order — the local parse, /acl/validate, the diff, the risk lint, the
      * access previews — publishing the review after each, and stops at the first that fails.
+     *
+     * The parsing, the diff of two whole files, the lint and the access resolution run on
+     * [cpu] (a 100 KB policy is tens of milliseconds of it on a phone); [publish] is called in
+     * the caller's context — the main thread for the console — and so is each request's start.
+     * Cancelling the caller (the editor closed, a newer review) stops it at the next step.
      */
     suspend fun review(
         backend: AdminBackend,
@@ -131,12 +139,13 @@ object PolicyPipeline {
         subject: AccessSubject?,
         isRevert: Boolean = false,
         view: TailnetView? = null,
+        cpu: CoroutineDispatcher = Dispatchers.Default,
         publish: (PolicyReview) -> Unit = {},
     ): PolicyReview {
         var r = PolicyReview(base, candidate, isRevert)
         publish(r)
 
-        val issues = HuJson.check(candidate)
+        val issues = withContext(cpu) { HuJson.check(candidate) }
         r = r.copy(local = issues, running = if (issues.isEmpty()) PolicyStep.SERVER else null)
         publish(r)
         if (issues.isNotEmpty()) return r
@@ -147,50 +156,49 @@ object PolicyPipeline {
         publish(r)
         if (!ok) return r
 
-        val diff = LineDiff.diff(LineDiff.lines(base.text), LineDiff.lines(candidate))
+        val diff = withContext(cpu) { LineDiff.diff(LineDiff.lines(base.text), LineDiff.lines(candidate)) }
         r = r.copy(diff = diff, running = PolicyStep.RISKS)
         publish(r)
 
-        val risks = PolicyLint.introduced(HuJson.parseOrNull(base.text), HuJson.parse(candidate))
+        val risks = withContext(cpu) { PolicyLint.introduced(HuJson.parseOrNull(base.text), HuJson.parse(candidate)) }
         r = r.copy(risks = risks, running = PolicyStep.ACCESS)
         publish(r)
 
-        r = r.copy(access = access(backend, base.text, candidate, subject, view), running = null)
+        r = r.copy(access = access(backend, base.text, candidate, subject, view, cpu), running = null)
         publish(r)
         return r
     }
 
     /**
      * The "don't lock yourself out" previews: this phone's user and address, before and after;
-     * with [view], each loss resolved into the devices it really costs.
+     * with [view], each loss resolved into the devices it really costs. The parses and the
+     * resolution run on [cpu]; the review parsed both texts just before, so HuJson's memo of
+     * the last two texts answers them.
      */
-    suspend fun access(backend: AdminBackend, before: String, after: String, subject: AccessSubject?, view: TailnetView? = null): AccessReport {
+    suspend fun access(
+        backend: AdminBackend,
+        before: String,
+        after: String,
+        subject: AccessSubject?,
+        view: TailnetView? = null,
+        cpu: CoroutineDispatcher = Dispatchers.Default,
+    ): AccessReport {
         if (subject == null || (subject.login == null && subject.ipv4 == null)) return AccessReport(emptyList(), AccessSkip.NOT_IN_TAILNET)
         val asks = buildList {
             subject.login?.let { add(PolicyPreviewType.USER to it) }
             subject.ipv4?.let { ip -> subject.ports.forEach { add(PolicyPreviewType.IP_PORT to "$ip:$it") } }
         }
-        val beforePolicy = HuJson.parseOrNull(before)
-        val afterPolicy = HuJson.parseOrNull(after)
+        val (beforePolicy, afterPolicy) = withContext(cpu) { HuJson.parseOrNull(before) to HuJson.parseOrNull(after) }
         return AccessReport(asks.map { (type, what) ->
             val b = attempt { backend.previewPolicy(before, type, what) }
             val a = if (b.isSuccess) attempt { backend.previewPolicy(after, type, what) } else b
             val bp = b.getOrNull()
             val ap = a.getOrNull()
             val resolved = if (view != null && bp != null && ap != null) {
-                runCatching { ReachResolver.resolve(type, what, bp, ap, beforePolicy, afterPolicy, view, subject.login) }.getOrNull()
+                withContext(cpu) { runCatching { ReachResolver.resolve(type, what, bp, ap, beforePolicy, afterPolicy, view, subject.login) }.getOrNull() }
             } else null
             AccessProbe(type, what, bp, ap, b.exceptionOrNull() ?: a.exceptionOrNull(), resolved)
         })
-    }
-
-    /** runCatching that lets cancellation through. */
-    private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
-        Result.success(block())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(e)
     }
 }
 

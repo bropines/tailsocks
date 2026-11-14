@@ -148,8 +148,14 @@ object HuJson {
      * comments, then the brackets' balance, then the grammar. Empty when it parses; otherwise
      * the first problem, which is the one worth fixing first.
      */
-    fun check(text: String): List<HuIssue> {
-        val tokens = tokenize(text)
+    fun check(text: String): List<HuIssue> = check(text, tokenize(text))
+
+    /**
+     * [check] over [tokens], which must be `tokenize(text)`: the grammar's descent reads the
+     * same list instead of tokenizing again, and SourceTree.parse runs this on the tokens it
+     * builds from — one tokenization for all three, the same function deciding what is rejected.
+     */
+    internal fun check(text: String, tokens: List<HuToken>): List<HuIssue> {
         val lines = Lines(text)
         fun issue(kind: HuIssueKind, at: Int, found: String = "", other: Int? = null) =
             listOf(HuIssue(kind, lines.lineOf(at), lines.columnOf(at), found, other))
@@ -177,7 +183,7 @@ object HuJson {
         }
         stack.lastOrNull()?.let { return issue(HuIssueKind.UNCLOSED, it.second, it.first.toString(), lines.lineOf(it.second)) }
         return try {
-            parse(text)
+            document(text, tokens, lines)
             emptyList()
         } catch (e: HuParseException) {
             listOf(e.issue)
@@ -192,9 +198,21 @@ object HuJson {
     }
 
     /** The document, which must be one object, as the policy file is. */
-    fun parse(text: String): HuObject {
-        val p = Parser(text)
-        val root = p.document()
+    fun parse(text: String): HuObject =
+        when (val r = parsed.getOrPut(text) { try { document(text, tokenize(text), Lines(text)) } catch (e: HuParseException) { e.issue } }) {
+            is HuObject -> r
+            else -> throw HuParseException(r as HuIssue)
+        }
+
+    /**
+     * The last two texts' trees (or the issue that stops one), keyed by the exact text
+     * (TextMemo): the risks parse the saved policy and the draft after every edit, the rule
+     * editor and the lint the same draft again. The nodes are immutable, so they are shared.
+     */
+    internal val parsed = TextMemo<Any>(2)
+
+    private fun document(text: String, tokens: List<HuToken>, lines: Lines): HuObject {
+        val root = Parser(text, tokens, lines).document()
         return root as? HuObject ?: throw HuParseException(HuIssue(HuIssueKind.NOT_AN_OBJECT, root.line, 1))
     }
 
@@ -259,9 +277,8 @@ object HuJson {
     }
 
     /** Recursive descent over the tokens, comments and spaces skipped, trailing commas allowed. */
-    private class Parser(private val text: String) {
-        private val tokens = tokenize(text).filter { it.type != HuTokenType.SPACE && it.type != HuTokenType.COMMENT }
-        private val lines = Lines(text)
+    private class Parser(private val text: String, all: List<HuToken>, private val lines: Lines) {
+        private val tokens = all.filter { it.type != HuTokenType.SPACE && it.type != HuTokenType.COMMENT }
         private var pos = 0
 
         private fun peek(): HuToken? = tokens.getOrNull(pos)

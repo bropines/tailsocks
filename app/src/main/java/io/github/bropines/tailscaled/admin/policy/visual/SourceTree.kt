@@ -1,7 +1,9 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
+import io.github.bropines.tailscaled.admin.policy.HuIssue
 import io.github.bropines.tailscaled.admin.policy.HuJson
 import io.github.bropines.tailscaled.admin.policy.HuParseException
+import io.github.bropines.tailscaled.admin.policy.TextMemo
 import io.github.bropines.tailscaled.admin.policy.HuToken
 import io.github.bropines.tailscaled.admin.policy.HuTokenType
 
@@ -89,12 +91,37 @@ class SourceTree private constructor(val text: String, val root: SrcObject, val 
     fun slice(v: SrcValue): String = text.substring(v.start, v.end)
 
     companion object {
-        /** The tree of [text], or a [HuParseException] naming the first problem. */
-        fun parse(text: String): SourceTree {
+        /**
+         * The last two texts' outcomes — a [SourceTree] or the [HuIssue] that stops it — keyed
+         * by the exact text (TextMemo): the edit engine, the draft, the shell and the pages all
+         * ask for the tree of the same one or two texts per edit, and only the first ask parses.
+         */
+        internal val memo = TextMemo<Any>(2)
+
+        /**
+         * The tree of [text], or a [HuParseException] naming the first problem. Remembered for the
+         * last two texts, failures included; the tree is immutable, so it is shared.
+         */
+        fun parse(text: String): SourceTree =
+            when (val r = memo.getOrPut(text) { try { build(text) } catch (e: HuParseException) { e.issue } }) {
+                is SourceTree -> r
+                else -> throw HuParseException(r as HuIssue)
+            }
+
+        /** The first problem of [text] as [parse] sees it — exactly HuJson.check's first — or null; through the memo. */
+        fun issueOf(text: String): HuIssue? = try {
+            parse(text)
+            null
+        } catch (e: HuParseException) {
+            e.issue
+        }
+
+        private fun build(text: String): SourceTree {
             // HuJson.check reports unterminated strings and brackets with better positions than
             // a plain descent would; run it first so both parsers reject exactly the same texts.
-            HuJson.check(text).firstOrNull()?.let { throw HuParseException(it) }
+            // One tokenization serves the check, its grammar descent and the builder.
             val tokens = HuJson.tokenize(text)
+            HuJson.check(text, tokens).firstOrNull()?.let { throw HuParseException(it) }
             val root = Builder(text, tokens).document()
             return SourceTree(text, root, tokens)
         }

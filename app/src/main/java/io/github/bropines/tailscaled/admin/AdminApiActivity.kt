@@ -62,6 +62,8 @@ import io.github.bropines.tailscaled.core.wrapContextWithLocale
 import io.github.bropines.tailscaled.ui.AppTopBar
 import io.github.bropines.tailscaled.ui.LocalDemo
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * The admin console. Its state lives in [AdminConsoleViewModel] and survives rotation; the
@@ -104,9 +106,16 @@ fun AdminApiMainScreen(onBack: () -> Unit) {
     AdminConsoleRoot(viewModel(), onBack)
 }
 
+/**
+ * The console over [vm]'s state — without the policy editor's working copy: every keystroke
+ * and every visual edit is a new [ConsoleState], and the dashboard, its tab labels and the
+ * page behind the full-screen editor would all recompose with it. The editor's host collects
+ * the whole state itself (PolicyEditorHost), so the shell only sees the editor open and close.
+ */
 @Composable
 fun AdminConsoleRoot(vm: AdminConsoleViewModel, onBack: () -> Unit) {
-    val state by vm.state.collectAsState()
+    val shell = remember(vm) { vm.state.map { it.withoutEditor() }.distinctUntilChanged() }
+    val state by shell.collectAsState(initial = vm.state.value.withoutEditor())
     AdminConsoleContent(state, vm, onBack)
 }
 

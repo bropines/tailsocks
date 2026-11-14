@@ -156,6 +156,14 @@ data class ConsoleState(
     /** Share invites by device path id. */
     val deviceInvites: Map<String, Loadable<List<ApiDeviceInvite>>> = emptyMap(),
 ) {
+    /**
+     * This state as the console's shell sees it: the policy editor left out. Its working copy
+     * changes with every keystroke and every visual edit, and only the editor's host reads it
+     * (it collects the whole state itself); with it out, two states that differ only there are
+     * equal and the dashboard under the editor does not recompose.
+     */
+    fun withoutEditor(): ConsoleState = if (policy.editor == null) this else copy(policy = policy.copy(editor = null))
+
     val writeBlock: WriteBlock?
         get() = when {
             active?.readOnly == true -> WriteBlock.READ_ONLY_PROFILE

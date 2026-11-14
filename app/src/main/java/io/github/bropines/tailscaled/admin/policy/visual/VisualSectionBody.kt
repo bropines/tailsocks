@@ -1,10 +1,6 @@
 package io.github.bropines.tailscaled.admin.policy.visual
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Construction
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-import io.github.bropines.tailscaled.R
 
 /**
  * One page of the visual editor. Each page is its own composable in its own file, owned by one
@@ -26,16 +22,4 @@ fun VisualSectionBody(section: VisualSection, env: VisualEnv, actions: VisualAct
         VisualSection.RELAYS -> RelaysSection(env, actions, layout)
         VisualSection.NETWORK -> NetworkSection(env, actions, layout)
     }
-}
-
-/** A page whose slice has not landed yet: its place, and the way to the JSON editor. */
-@Composable
-fun SectionPending(section: VisualSection, actions: VisualActions) {
-    val ctx = LocalContext.current
-    EmptySection(
-        icon = Icons.Default.Construction,
-        text = ctx.getString(R.string.admin_pv_section_pending, ctx.getString(section.label)),
-        actionLabel = ctx.getString(R.string.admin_pv_edit_in_json),
-        onAction = { actions.openJson(1) },
-    )
 }

@@ -133,19 +133,27 @@ fun VisualEditorScreen(state: ConsoleState, editor: PolicyEditorState, vm: Admin
     val errors = remember(editor.text, refusal) {
         if (refusal != null && refusalCurrent) VisualEnv.errors(editor.text, refusal.messages) else emptyMap()
     }
-    val env = VisualEnv(
-        draft = draft,
-        devices = state.devices.value.orEmpty(),
-        users = state.users.value.orEmpty(),
-        headscale = headscale,
-        canWrite = canWrite,
-        risks = risks,
-        errors = errors,
-        focus = editor.focus,
-        derpMap = state.policy.derpMap,
-        launch = editor.launch,
-        templates = state.policy.templates,
-    )
+    // Remembered by what it is built from: a console update that touches none of it (a devices
+    // refresh elsewhere, a message) keeps the same env, and the pages and cards that take it skip.
+    val devices = state.devices.value.orEmpty()
+    val users = state.users.value.orEmpty()
+    val derpMap = state.policy.derpMap
+    val templates = state.policy.templates
+    val env = remember(draft, devices, users, headscale, canWrite, risks, errors, editor.focus, derpMap, editor.launch, templates) {
+        VisualEnv(
+            draft = draft,
+            devices = devices,
+            users = users,
+            headscale = headscale,
+            canWrite = canWrite,
+            risks = risks,
+            errors = errors,
+            focus = editor.focus,
+            derpMap = derpMap,
+            launch = editor.launch,
+            templates = templates,
+        )
+    }
     // The bundled templates and the cache, for the cards the pages offer; the published set only when the catalog opens.
     LaunchedEffect(vm) { vm?.policy?.loadTemplates() }
 

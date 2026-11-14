@@ -75,6 +75,25 @@ class HuJsonTest {
     }
 
     @Test
+    fun theSourceTreeRejectsExactlyWhatCheckRejectsFromOneTokenization() {
+        val texts = listOf(
+            "{\n  \"a\": \"x\n}", "{\n  \"a\": 1 /* oops\n}", "{\n  \"a\": [1, 2\n}", "{\n \"a\": {\n", "{\"a\": 1}\n}",
+            "{\n\"a\" 1}", "{\"a\": 1\n \"b\": 2}", "[1, 2]", "  // nothing\n", "{\"a\": tru}", "{\"a\": 01}", "",
+            "{\n // c\n \"b\": [1, 2,],\n \"a\": {\"x\": 1.50},\n}", "{\"a\": [{\"b\": null}, true, -1.5e3,],}",
+        )
+        for (text in texts) {
+            val issue = HuJson.check(text).firstOrNull()
+            assertEquals("check over its own tokens: $text", HuJson.check(text), HuJson.check(text, HuJson.tokenize(text)))
+            val treeIssue = try {
+                io.github.bropines.tailscaled.admin.policy.visual.SourceTree.parse(text); null
+            } catch (e: HuParseException) {
+                e.issue
+            }
+            assertEquals("the tree and the check agree on: $text", issue, treeIssue)
+        }
+    }
+
+    @Test
     fun escapesAndLinesInTheTree() {
         val root = HuJson.parse("{\n  \"a\\\"b\": \"x\\u0041\\n\",\n  \"list\": [\n    \"y\",\n  ],\n}")
         assertEquals("xA\n", (root["a\"b"] as HuString).value)

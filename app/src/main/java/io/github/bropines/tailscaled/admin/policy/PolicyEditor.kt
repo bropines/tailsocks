@@ -52,7 +52,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -99,9 +101,14 @@ import kotlinx.coroutines.withContext
  * The editor over the whole screen while [ConsoleState.policy] has one open: the text, then
  * the review of it, and the choice a 412 asks for. A window of its own, with the parent's
  * locale provided again inside.
+ *
+ * With a [vm] it reads the console's whole state itself: the shell above it is handed the
+ * state without the editor (ConsoleState.withoutEditor), so typing recomposes this host and
+ * not the dashboard under it. [shell] is that state, or the whole one in previews.
  */
 @Composable
-fun PolicyEditorHost(state: ConsoleState, vm: AdminConsoleViewModel?) {
+fun PolicyEditorHost(shell: ConsoleState, vm: AdminConsoleViewModel?) {
+    val state = vm?.state?.collectAsState()?.value ?: shell
     val editor = state.policy.editor ?: return
     val ctx = LocalContext.current
     val parent = rememberParentLocals()
@@ -197,8 +204,16 @@ fun PolicyEditorScreen(editor: PolicyEditorState, vm: AdminConsoleViewModel?, re
 
     var jump by remember { mutableStateOf<Int?>(null) }
 
-    // The text replaced from outside (a conflict resolved): the field follows.
-    LaunchedEffect(editor.text) { if (editor.text != tfv.text) tfv = TextFieldValue(editor.text) }
+    // The text replaced from outside (a conflict resolved, a visual edit): the field follows.
+    // Keyed on textEpoch, never on the text: the field's own typing comes back as a new
+    // editor.text, and an effect comparing that captured text with the live field would see
+    // a keystroke queued during a slow frame as a difference and reset the field (cursor at 0).
+    var shownEpoch by remember { mutableIntStateOf(editor.textEpoch) }
+    LaunchedEffect(editor.textEpoch) {
+        if (editor.textEpoch == shownEpoch) return@LaunchedEffect
+        shownEpoch = editor.textEpoch
+        if (editor.text != tfv.text) tfv = TextFieldValue(editor.text)
+    }
     // A line asked for by the review (an error, a finding): taken once.
     LaunchedEffect(editor.goToLine) {
         editor.goToLine?.let { jump = it }

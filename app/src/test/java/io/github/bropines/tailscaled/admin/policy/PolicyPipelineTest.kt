@@ -15,6 +15,7 @@ import io.github.bropines.tailscaled.admin.safety.SafeChangeRunner
 import io.github.bropines.tailscaled.admin.safety.SafetyContext
 import io.github.bropines.tailscaled.admin.secure.LockState
 import io.github.bropines.tailscaled.admin.secure.WriteGrant
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -101,6 +102,31 @@ class PolicyPipelineTest {
         val out = runner(t, audit).run(PolicyChanges.plan(review, texts, "tailnet"), gates())
         assertEquals(ChangeOutcome.Refused(Refusal.POLICY_PIPELINE), out)
         assertTrue(t.requestsTo("POST", "/acl").none { !it.url.contains("validate") })
+    }
+
+    @Test
+    fun theChecksRunOnTheCpuDispatcherAndTheReviewIsPublishedOnTheCallers() = runBlocking {
+        val t = FakeTransport().ok("POST", "/acl/validate", "")
+        val caller = Thread.currentThread()
+        val cpuThreads = mutableSetOf<Thread>()
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "cpu-test") }
+        val cpu = pool.asCoroutineDispatcher()
+        val counting = object : kotlinx.coroutines.CoroutineDispatcher() {
+            override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) =
+                cpu.dispatch(context, Runnable { cpuThreads += Thread.currentThread(); block.run() })
+        }
+        val published = mutableListOf<Thread>()
+        try {
+            val review = PolicyPipeline.review(
+                testBackend(t), io.github.bropines.tailscaled.admin.api.PolicyFile(base, "\"e1\""), mine, subject = null,
+                publish = { published += Thread.currentThread() }, cpu = counting,
+            )
+            assertTrue(review.passed)
+        } finally {
+            pool.shutdown()
+        }
+        assertEquals("the check, the diff and the lint left the caller's thread", "cpu-test", cpuThreads.single().name)
+        assertTrue("every step was published where the review was asked", published.isNotEmpty() && published.all { it === caller })
     }
 
     @Test

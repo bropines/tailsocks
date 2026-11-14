@@ -6,7 +6,7 @@ import io.github.bropines.tailscaled.admin.api.AdminApiException
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.Loadable
-import kotlinx.coroutines.CancellationException
+import io.github.bropines.tailscaled.admin.console.attempt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -197,13 +197,5 @@ class DevicesViewModel : ViewModel() {
             record = { rec -> runCatching { vm.audit.append(rec) } },
         )
         vm.propose(planned)
-    }
-
-    private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
-        Result.success(block())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(e)
     }
 }

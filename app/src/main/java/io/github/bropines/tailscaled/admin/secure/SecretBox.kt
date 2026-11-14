@@ -50,11 +50,25 @@ internal object SealedBlob {
  */
 class KeystoreSecretBox(private val alias: String = DEFAULT_ALIAS) : SecretBox {
 
+    /**
+     * The key's handle once looked up: loading the Keystore and fetching the key is a round
+     * trip to keystore2 on every call otherwise — per line, for the sealed audit log. Dropped
+     * when an operation with it fails, so a key that was reset is looked up (or made) again.
+     */
+    @Volatile
+    private var cached: SecretKey? = null
+
     override fun seal(plaintext: String, aad: String): String {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, key(create = true))
-        cipher.updateAAD(aad.toByteArray())
-        return SealedBlob.encode(cipher.iv, cipher.doFinal(plaintext.toByteArray()))
+        val key = key(create = true)
+        return try {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+            cipher.updateAAD(aad.toByteArray())
+            SealedBlob.encode(cipher.iv, cipher.doFinal(plaintext.toByteArray()))
+        } catch (e: Exception) {
+            cached = null
+            throw e
+        }
     }
 
     override fun open(blob: String, aad: String): String {
@@ -66,11 +80,17 @@ class KeystoreSecretBox(private val alias: String = DEFAULT_ALIAS) : SecretBox {
             cipher.updateAAD(aad.toByteArray())
             String(cipher.doFinal(ct))
         } catch (e: Exception) {
+            cached = null
             throw SecretUnavailableException("cannot open the stored secret (${e.javaClass.simpleName})", e)
         }
     }
 
     private fun key(create: Boolean): SecretKey? {
+        cached?.let { return it }
+        return lookUp(create)?.also { cached = it }
+    }
+
+    private fun lookUp(create: Boolean): SecretKey? {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         (ks.getKey(alias, null) as? SecretKey)?.let { return it }
         if (!create) return null

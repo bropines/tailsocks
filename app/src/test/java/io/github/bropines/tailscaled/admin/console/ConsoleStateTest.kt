@@ -10,6 +10,8 @@ import io.github.bropines.tailscaled.admin.api.CredentialKind
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.secure.LockState
+import io.github.bropines.tailscaled.admin.devices.DeviceQueries
+import io.github.bropines.tailscaled.admin.devices.DeviceSort
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -19,6 +21,20 @@ import org.junit.Test
 class ConsoleStateTest {
 
     private val tailscale = Capabilities(BackendKind.TAILSCALE, CredentialKind.API_TOKEN, TailscaleBackend.FEATURES)
+
+    @Test
+    fun theShellDoesNotSeeTheEditorsTyping() {
+        val file = io.github.bropines.tailscaled.admin.api.PolicyFile("{}", "\"e1\"")
+        val closed = ConsoleState(policy = io.github.bropines.tailscaled.admin.policy.PolicyState(file = Loadable(file)))
+        org.junit.Assert.assertSame("no editor: nothing to leave out", closed, closed.withoutEditor())
+        val editor = io.github.bropines.tailscaled.admin.policy.PolicyEditorState(file, "{}")
+        val typed1 = closed.copy(policy = closed.policy.copy(editor = editor.typed("{ }")))
+        val typed2 = closed.copy(policy = closed.policy.copy(editor = editor.typed("{  }")))
+        assertEquals("two keystrokes are one state to the shell", typed1.withoutEditor(), typed2.withoutEditor())
+        assertNull(typed1.withoutEditor().policy.editor)
+        // Anything else that changes still does.
+        assertFalse(typed1.withoutEditor() == typed1.copy(policyTags = listOf("tag:x")).withoutEditor())
+    }
 
     @Test
     fun aBackendWithoutAFeatureLosesItsTab() {
@@ -61,7 +77,7 @@ class ConsoleStateTest {
             ApiDevice(nodeId = "b", name = "b.t.ts.net", connectedToControl = true),
             ApiDevice(nodeId = "c", name = "c.t.ts.net", connectedToControl = false, lastSeen = "2026-10-05T00:00:00Z"),
         )
-        assertEquals(listOf("b", "c", "a"), io.github.bropines.tailscaled.admin.sortDevices(list, "last_seen").map { it.nodeId })
-        assertEquals(listOf("a", "b", "c"), io.github.bropines.tailscaled.admin.sortDevices(list, "name").map { it.nodeId })
+        assertEquals(listOf("b", "c", "a"), DeviceQueries.sorted(list, DeviceSort.LAST_SEEN).map { it.nodeId })
+        assertEquals(listOf("a", "b", "c"), DeviceQueries.sorted(list, DeviceSort.NAME).map { it.nodeId })
     }
 }

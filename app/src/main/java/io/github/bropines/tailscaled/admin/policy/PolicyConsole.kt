@@ -14,13 +14,13 @@ import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.admin.console.attempt
 import io.github.bropines.tailscaled.admin.policy.templates.TemplateSources
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.VisualLaunch
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.safety.ChangeOutcome
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -35,6 +35,8 @@ import kotlinx.coroutines.withContext
 class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) {
 
     private var reviewJob: Job? = null
+    /** The 412's read of their version and the merge; cancelled with the editor. */
+    private var conflictJob: Job? = null
     private val store by lazy { PolicyStore(vm.app.filesDir, KeystoreSecretBox()) }
     private val views by lazy { PolicyViewPrefs.of(vm.app) }
     private var templateJob: Job? = null
@@ -157,7 +159,8 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
     }
 
     private fun newEditor(base: PolicyFile, text: String, isRevert: Boolean = false, visual: Boolean = state.visual, line: Int? = null): PolicyEditorState {
-        val ed = PolicyEditorState(base = base, text = text, isRevert = isRevert, visual = visual)
+        // Replacing an open editor (a conflict resolved) is a text from outside: the JSON field follows.
+        val ed = PolicyEditorState(base = base, text = text, isRevert = isRevert, visual = visual).replacing(state.editor)
         return when {
             !visual -> ed.copy(goToLine = line, jsonBase = text)
             line != null -> PolicyEditorState.elementAt(text, line)?.let(ed::focused) ?: ed
@@ -165,10 +168,11 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
         }
     }
 
-    fun edit(text: String) = setEditor { if (it.text == text) it else it.copy(text = text, review = null, sendError = null) }
+    fun edit(text: String) = setEditor { it.typed(text) }
 
     fun closeEditor() {
         reviewJob?.cancel()
+        conflictJob?.cancel()
         set { it.copy(editor = null, conflict = null) }
     }
 
@@ -333,12 +337,18 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
     /** The 412: their version fetched, my edit merged onto it where the two do not touch. */
     private fun conflict(review: PolicyReview) {
         val b = vm.backend ?: return
-        vm.viewModelScope.launch {
+        conflictJob?.cancel()
+        conflictJob = vm.viewModelScope.launch {
             val theirs = attempt { b.policyFile() }.getOrElse {
                 setEditor { e -> e.copy(sendError = vm.text.getString(R.string.admin_cfg_policy_conflict_unread, ConsoleText.error(vm.text, it))) }
                 return@launch
             }
-            val merge = LineDiff.merge3(LineDiff.lines(review.base.text), LineDiff.lines(review.candidate), LineDiff.lines(theirs.text))
+            // Two diffs of whole files: off the main thread. Closing the editor cancels this job,
+            // so no conflict is published for an editor that is gone; the state is set on main.
+            val merge = withContext(Dispatchers.Default) {
+                LineDiff.merge3(LineDiff.lines(review.base.text), LineDiff.lines(review.candidate), LineDiff.lines(theirs.text))
+            }
+            if (vm.backend !== b) return@launch
             set {
                 it.copy(
                     file = Loadable(theirs, loadedAt = System.currentTimeMillis()),
@@ -438,14 +448,6 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
             ),
             warnings = warnings,
         )
-    }
-
-    private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
-        Result.success(block())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(e)
     }
 
     companion object {

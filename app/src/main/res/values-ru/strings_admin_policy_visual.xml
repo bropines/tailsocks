@@ -72,5 +72,4 @@
     <string name="admin_pv_section_attributes">Атрибуты устройств</string>
     <string name="admin_pv_section_posture">Состояние устройств</string>
     <string name="admin_pv_section_network">Сеть и прочее</string>
-    <string name="admin_pv_section_pending">Раздел «%1$s» скоро можно будет править здесь; пока — в JSON.</string>
 </resources>

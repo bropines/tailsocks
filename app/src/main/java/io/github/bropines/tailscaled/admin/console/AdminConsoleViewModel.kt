@@ -89,6 +89,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     /** The session's first loads went out (they may, behind the unlock to view: nothing shows). */
     private var started = false
     private var viewUnlocked = false
+    /** A screen of this session asked for the phone's change log ([reloadLocalLog]): writes keep it current. */
+    private var localLogRead = false
     /** What to do once a change applied (show a returned secret, reload a sheet), by change. */
     private val afterApply = mutableMapOf<PlannedChange, () -> Unit>()
     /** What to do with a change's outcome, whatever it is: the policy editor answers a 412. */
@@ -141,8 +143,25 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         capsJob?.cancel()
         cacheJob?.cancel()
         started = false
+        localLogRead = false
         backend = null
         runner = null
+        // A change waiting at a gate belongs to the session that planned it: activate() resets
+        // the safety step to Idle with a fresh state, and its callbacks (and whatever they
+        // captured) would otherwise stay here until the ViewModel dies. A change already being
+        // applied keeps them: its outcome still lands (the policy's revert copy is saved).
+        dropCallbacksAtGate()
+    }
+
+    /** Forgets the callbacks of the change waiting at Confirm or Unlock, if one is. */
+    private fun dropCallbacksAtGate() {
+        val planned = when (val step = _state.value.safety) {
+            is SafetyStep.Confirm -> step.planned
+            is SafetyStep.Unlock -> step.planned
+            else -> return
+        }
+        afterApply.remove(planned)
+        onOutcome.remove(planned)
     }
 
     private suspend fun activate(profile: AdminProfile) {
@@ -171,8 +190,11 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 rememberRefusals(profile, caps)
             }
         }
-        val (log, kept) = withContext(Dispatchers.IO) { audit.records(profile.id) to cache.read(profile.id) }
-        _state.update { ConsoleCache.seed(it.copy(phase = phaseAfterLoad(), localLog = log), kept) }
+        // The phone's own change log is not read here: every line is a Keystore round trip, and
+        // the lists kept from the last session should not wait for it. It is read when a screen
+        // that shows it loads (LOGS, a Headscale server's SERVER tab).
+        val kept = withContext(Dispatchers.IO) { cache.read(profile.id) }
+        _state.update { ConsoleCache.seed(it.copy(phase = phaseAfterLoad()), kept) }
         keepCopies(profile.id)
         // Behind the unlock to view as well: the person is busy with the prompt, the lists arrive meanwhile.
         if (_state.value.phase == ConsolePhase.READY || _state.value.phase == ConsolePhase.LOCKED) start()
@@ -283,6 +305,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             ConsoleTab.SETTINGS -> loadOne(force, { it.settings }, { s, v -> s.copy(settings = v) }) { it.tailnetSettings() }
             ConsoleTab.SERVER -> {
                 headscale.refresh(force)
+                // The server tab shows the phone's change log too.
+                reloadLocalLog()
                 loadList(force, { it.users }, { s, v -> s.copy(users = v) }) { it.listUsers(UserListType.ALL) }
             }
         }
@@ -303,7 +327,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val id = device.pathId
         _state.update { it.copy(routes = it.routes + (id to (it.routes[id] ?: Loadable()).copy(loading = true, error = null))) }
         viewModelScope.launch {
-            val r = runCatching { b.deviceRoutes(id) }
+            val r = attempt { b.deviceRoutes(id) }
+            // An answer from the profile the person has just left belongs to no device here.
+            if (backend !== b) return@launch
             _state.update {
                 it.copy(routes = it.routes + (id to Loadable(r.getOrNull(), false, r.exceptionOrNull(), loadedAt = System.currentTimeMillis())))
             }
@@ -315,7 +341,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val name = service.name
         _state.update { it.copy(serviceHosts = it.serviceHosts + (name to (it.serviceHosts[name] ?: Loadable()).copy(loading = true, error = null))) }
         viewModelScope.launch {
-            val r = runCatching { b.serviceHosts(name) }
+            val r = attempt { b.serviceHosts(name) }
+            if (backend !== b) return@launch
             _state.update {
                 it.copy(
                     serviceHosts = it.serviceHosts + (name to Loadable(
@@ -326,11 +353,18 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * The phone's change log into the state. After the first read the log answers from memory
+     * (AdminAuditLog keeps what it opened and adds its own appends), so a reload after a write
+     * opens no line again.
+     */
     fun reloadLocalLog() {
         val id = _state.value.active?.id ?: return
+        localLogRead = true
         viewModelScope.launch(Dispatchers.IO) {
             val records = audit.records(id)
-            _state.update { it.copy(localLog = records) }
+            // A read that finishes after a profile switch is the old profile's log.
+            _state.update { if (it.active?.id == id) it.copy(localLog = records) else it }
         }
     }
 
@@ -389,8 +423,12 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val b = backend ?: return
         if (!force && _state.value.policyTags.isNotEmpty()) return
         viewModelScope.launch {
-            val tags = runCatching { b.policyTags() }.getOrDefault(emptyList())
-            _state.update { it.copy(policyTags = tags) }
+            // Tailscale's answer is the whole policy as JSON, parsed to find the tags: not for the main thread.
+            val read = attempt { withContext(Dispatchers.Default) { b.policyTags() } }
+            // Another profile's tags would land in this one's state and, through keepCopies, in
+            // its copy on disk — and loadTags(force = false) would never correct them.
+            if (backend !== b) return@launch
+            _state.update { it.copy(policyTags = ConsoleLoads.tagsAfter(it.policyTags, read)) }
         }
     }
 
@@ -479,11 +517,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cancelChange() {
-        when (val step = _state.value.safety) {
-            is SafetyStep.Confirm -> { afterApply.remove(step.planned); onOutcome.remove(step.planned) }
-            is SafetyStep.Unlock -> { afterApply.remove(step.planned); onOutcome.remove(step.planned) }
-            else -> Unit
-        }
+        dropCallbacksAtGate()
         _state.update { it.copy(safety = SafetyStep.Idle) }
     }
 
@@ -506,15 +540,24 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val r = runner ?: return
         _state.update { it.copy(safety = SafetyStep.Applying(planned.change)) }
         viewModelScope.launch {
-            // Off the main thread: the runner appends to the audit log file.
-            val out = withContext(Dispatchers.IO) { r.run(planned, gates) }
+            // Off the main thread: the runner appends to the audit log file. Whatever it throws
+            // past what it catches itself, the spinner does not stay up and the callbacks go.
+            val out = try {
+                withContext(Dispatchers.IO) { r.run(planned, gates) }
+            } catch (e: Throwable) {
+                afterApply.remove(planned)
+                onOutcome.remove(planned)
+                if (runner === r) _state.update { if (it.safety is SafetyStep.Applying) it.copy(safety = SafetyStep.Idle) else it }
+                throw e
+            }
             val then = afterApply.remove(planned)
             _state.update { it.copy(safety = SafetyStep.Idle) }
             say(ConsoleText.outcome(text, planned.change.title, out), undo = planned.undo.takeIf { out is ChangeOutcome.Applied })
             if (out is ChangeOutcome.Applied) then?.invoke()
             onOutcome.remove(planned)?.invoke(out)
             refreshAfter(planned.change.kind)
-            reloadLocalLog()
+            // Only once a screen has shown the log: before that, nothing reads it.
+            if (localLogRead) reloadLocalLog()
         }
     }
 
@@ -642,7 +685,6 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         private const val TAG = "AdminConsole"
         private const val FRESH_MS = 60_000L
         private const val CACHE_WRITE_DELAY_MS = 1_500L
-        private const val DAY_MS = 24L * 3600 * 1000
 
     }
 }
