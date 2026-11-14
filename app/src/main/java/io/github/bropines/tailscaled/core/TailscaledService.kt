@@ -62,9 +62,23 @@ class TailscaledService : Service() {
          * START — the activity, the tile, the watchdog, the boot receiver, Tasker,
          * AppFunctions, widgets — ends in [startTailscale], so this is the only gate.
          */
-        private val startGate = StartGate(
+        private val startExecutor =
             java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "tailsocks-start") }
-        )
+        private val startGate = StartGate(startExecutor)
+
+        /**
+         * Removes Root Mode rules a dead daemon left behind ([RootOrphanSweep]),
+         * on the start executor so it is ordered against every start sequence.
+         * Called once, at process start; costs nothing when no rules are recorded.
+         */
+        fun sweepOrphanedRootRouting(context: Context) {
+            val app = context.applicationContext
+            if (!GlobalSettings.isRootRoutingInstalled(app)) return
+            startExecutor.execute {
+                runCatching { RootOrphanSweep.run(app) }
+                    .onFailure { Log.w("TailscaledService", "Orphaned root routing sweep failed: ${it.message}") }
+            }
+        }
 
         /** When the live service instance was created (elapsedRealtime), 0 while there is none. */
         @Volatile private var instanceCreatedAt = 0L
@@ -2122,6 +2136,15 @@ class TailscaledService : Service() {
             }
             applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
             if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                // Rules recorded as installed at a start are a previous run's: the
+                // daemon may have died with this process, and its two nat OUTPUT
+                // jumps then point every DNS query on the phone at a resolver that
+                // may not be there. Take them off before anything else; the chain
+                // stays, and the health gate puts them back once MagicDNS answers
+                // (the first apply rebuilds the ruleset and arms them only then).
+                if (GlobalSettings.isRootRoutingInstalled(this@TailscaledService)) {
+                    RootUtils.setDnsRedirectHooked(false)
+                }
                 val socketFile = java.io.File(options.socketPath)
                 // A socket file left behind by a killed daemon still exists, so
                 // liveness is decided by an actual connect before we query it.

@@ -27,6 +27,9 @@ class TailSocksApp : Application() {
         KeyHandover.sweep(this)
         // The launcher alias the icon preference names; binder calls, off the main thread.
         Thread { AppIcons.reconcile(this) }.start()
+        // Root Mode rules a daemon that died with this process left behind
+        // (RootOrphanSweep); ordered against every start by the start executor.
+        TailscaledService.sweepOrphanedRootRouting(this)
         // Go cannot find the device's zone on its own, and the log stamps it
         // writes would be UTC; kept current when the user travels.
         applyTimeZone()

@@ -799,6 +799,16 @@ one's start-up cleanup removed the first one's addresses from `tailscale0`,
 and the survivor ran with no tailnet address and an empty table 52 while the
 card said Active.
 
+Rules outlive a daemon that dies with the app. If the root daemon dies while the
+app process is dead too, the `TAILSOCKS_DNS` jumps used to stay and the phone
+had no DNS until the app was opened. Now, when the app process starts with the
+rules recorded as installed: if the connection is not wanted and no process
+with this `--socket=` exists, the routing cleanup runs once (the ROOT log says
+so); if it is wanted, the start takes the two `nat OUTPUT` DNS jumps off before
+anything else and the health gate puts them back once MagicDNS answers. Both
+run on the same serial thread as the start, so neither can remove the rules of
+a start in flight.
+
 ---
 
 ## 📱 Enabling Root Integration in App
