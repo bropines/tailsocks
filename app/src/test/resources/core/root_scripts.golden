@@ -1,0 +1,497 @@
+=== tailnetRouteV4 ===
+ip route replace 100.64.0.0/10 dev tailscale0 table 53 metric 1
+
+=== tailnetRulesV4 ===
+ip rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null || true
+ip rule add fwmark 0x1000000/0x1000000 table 53 priority 100
+while ip rule del to 100.64.0.0/10 iif lo table 53 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 table 53 2>/dev/null; do :; done
+ip rule add to 100.64.0.0/10 iif lo table 53 priority 100
+iptables -w -t mangle -N TAILSOCKS_MARK 2>/dev/null || iptables -w -t mangle -F TAILSOCKS_MARK
+iptables -w -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000
+iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || iptables -w -t mangle -A OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK
+iptables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -o tailscale0 -j ACCEPT
+iptables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -i tailscale0 -j ACCEPT
+
+=== tailnetTierV6 ===
+ip -6 route replace fd7a:115c:a1e0::/48 dev tailscale0 table 53 metric 1 2>/dev/null || true
+ip -6 rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null || true
+ip -6 rule add fwmark 0x1000000/0x1000000 table 53 priority 100 2>/dev/null || true
+while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 53 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 table 53 2>/dev/null; do :; done
+ip -6 rule add to fd7a:115c:a1e0::/48 iif lo table 53 priority 100 2>/dev/null || true
+ip6tables -w -t mangle -N TAILSOCKS_MARK 2>/dev/null || ip6tables -w -t mangle -F TAILSOCKS_MARK
+ip6tables -w -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000 2>/dev/null || true
+ip6tables -w -t mangle -C OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || ip6tables -w -t mangle -A OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || true
+ip6tables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true
+ip6tables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true
+
+=== legacyRuleCleanup ===
+while iptables -w -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done
+while ip6tables -w -t mangle -D OUTPUT -d fd7a:115c:a1e0::/48 -j MARK --set-mark 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+
+=== staleDaemonRulePurge ip ===
+while ip rule del pref 5210 lookup main 2>/dev/null; do :; done
+while ip rule del pref 5230 lookup default 2>/dev/null; do :; done
+while ip rule del pref 5250 type unreachable 2>/dev/null; do :; done
+while ip rule del pref 5270 lookup 52 2>/dev/null; do :; done
+
+=== staleDaemonRulePurge ip -6 ===
+while ip -6 rule del pref 5210 lookup main 2>/dev/null; do :; done
+while ip -6 rule del pref 5230 lookup default 2>/dev/null; do :; done
+while ip -6 rule del pref 5250 type unreachable 2>/dev/null; do :; done
+while ip -6 rule del pref 5270 lookup 52 2>/dev/null; do :; done
+
+=== excludeRulesInstall 3 ===
+PHYS=$(ip route get 1.1.1.1 mark 0x20000 2>/dev/null | sed -n 's/.*table \([A-Za-z0-9_]*\).*/\1/p' | head -n1)
+PHYS6=$(ip -6 route get 2001:4860:4860::8888 mark 0x20000 2>/dev/null | sed -n 's/.*table \([A-Za-z0-9_]*\).*/\1/p' | head -n1)
+V6UP=0
+if [ -d /proc/sys/net/ipv6 ] && [ "$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)" = "0" ]; then V6UP=1; fi
+GOTO=$(ip rule show 2>/dev/null | while read -r p rest; do
+    p=${p%:}
+    case "$p" in ''|*[!0-9]*) continue;; esac
+    [ "$p" -ge 10000 ] && { echo "$p"; break; }
+done)
+GOTO6=$(ip -6 rule show 2>/dev/null | while read -r p rest; do
+    p=${p%:}
+    case "$p" in ''|*[!0-9]*) continue;; esac
+    [ "$p" -ge 10000 ] && { echo "$p"; break; }
+done)
+while ip rule del uidrange 10123-10123 priority 190 2>/dev/null; do :; done
+{ [ -n "$GOTO" ] && ip rule add uidrange 10123-10123 goto "$GOTO" priority 190 2>/dev/null; } || true
+while ip rule del uidrange 10124-10124 priority 190 2>/dev/null; do :; done
+{ [ -n "$GOTO" ] && ip rule add uidrange 10124-10124 goto "$GOTO" priority 190 2>/dev/null; } || true
+while ip rule del uidrange 10200-10200 priority 190 2>/dev/null; do :; done
+{ [ -n "$GOTO" ] && ip rule add uidrange 10200-10200 goto "$GOTO" priority 190 2>/dev/null; } || true
+EXCL=$(ip rule show 2>/dev/null | grep '^190:')
+EXCL_DET=$(echo "$EXCL" | grep -E '\[detached\]| unresolved')
+case "$EXCL_DET" in *'uidrange 10123-10123'*)
+    while ip rule del uidrange 10123-10123 priority 190 2>/dev/null; do :; done
+    echo 'verify: exclusion goto target unresolved, physical table used instead'
+    { [ -n "$PHYS" ] && ip rule add uidrange 10123-10123 iif lo lookup "$PHYS" priority 190 2>/dev/null; } || true;;
+*)
+    case "$EXCL" in *'uidrange 10123-10123'*) ;; *) { [ -n "$PHYS" ] && ip rule add uidrange 10123-10123 iif lo lookup "$PHYS" priority 190 2>/dev/null; } || true;; esac;;
+esac
+case "$EXCL_DET" in *'uidrange 10124-10124'*)
+    while ip rule del uidrange 10124-10124 priority 190 2>/dev/null; do :; done
+    echo 'verify: exclusion goto target unresolved, physical table used instead'
+    { [ -n "$PHYS" ] && ip rule add uidrange 10124-10124 iif lo lookup "$PHYS" priority 190 2>/dev/null; } || true;;
+*)
+    case "$EXCL" in *'uidrange 10124-10124'*) ;; *) { [ -n "$PHYS" ] && ip rule add uidrange 10124-10124 iif lo lookup "$PHYS" priority 190 2>/dev/null; } || true;; esac;;
+esac
+case "$EXCL_DET" in *'uidrange 10200-10200'*)
+    while ip rule del uidrange 10200-10200 priority 190 2>/dev/null; do :; done
+    echo 'verify: exclusion goto target unresolved, physical table used instead'
+    { [ -n "$PHYS" ] && ip rule add uidrange 10200-10200 iif lo lookup "$PHYS" priority 190 2>/dev/null; } || true;;
+*)
+    case "$EXCL" in *'uidrange 10200-10200'*) ;; *) { [ -n "$PHYS" ] && ip rule add uidrange 10200-10200 iif lo lookup "$PHYS" priority 190 2>/dev/null; } || true;; esac;;
+esac
+EXCL=$(ip rule show 2>/dev/null | grep '^190:')
+case "$EXCL" in *'uidrange 10123-10123'*) ;; *) echo 'verify: ip refused every uidrange rule, per-app exclusions not installed';; esac
+case "$EXCL" in *'uidrange 10124-10124'*) ;; *) echo 'verify: ip refused every uidrange rule, per-app exclusions not installed';; esac
+case "$EXCL" in *'uidrange 10200-10200'*) ;; *) echo 'verify: ip refused every uidrange rule, per-app exclusions not installed';; esac
+while ip -6 rule del uidrange 10123-10123 priority 190 2>/dev/null; do :; done
+{ [ -n "$GOTO6" ] && ip -6 rule add uidrange 10123-10123 goto "$GOTO6" priority 190 2>/dev/null; } || true
+while ip -6 rule del uidrange 10124-10124 priority 190 2>/dev/null; do :; done
+{ [ -n "$GOTO6" ] && ip -6 rule add uidrange 10124-10124 goto "$GOTO6" priority 190 2>/dev/null; } || true
+while ip -6 rule del uidrange 10200-10200 priority 190 2>/dev/null; do :; done
+{ [ -n "$GOTO6" ] && ip -6 rule add uidrange 10200-10200 goto "$GOTO6" priority 190 2>/dev/null; } || true
+EXCL6=$(ip -6 rule show 2>/dev/null | grep '^190:')
+EXCL_DET6=$(echo "$EXCL6" | grep -E '\[detached\]| unresolved')
+case "$EXCL_DET6" in *'uidrange 10123-10123'*)
+    while ip -6 rule del uidrange 10123-10123 priority 190 2>/dev/null; do :; done
+    echo 'verify: exclusion goto target unresolved, physical table used instead'
+    { [ -n "$PHYS6" ] && ip -6 rule add uidrange 10123-10123 iif lo lookup "$PHYS6" priority 190 2>/dev/null; } || true;;
+*)
+    case "$EXCL6" in *'uidrange 10123-10123'*) ;; *) { [ -n "$PHYS6" ] && ip -6 rule add uidrange 10123-10123 iif lo lookup "$PHYS6" priority 190 2>/dev/null; } || true;; esac;;
+esac
+case "$EXCL_DET6" in *'uidrange 10124-10124'*)
+    while ip -6 rule del uidrange 10124-10124 priority 190 2>/dev/null; do :; done
+    echo 'verify: exclusion goto target unresolved, physical table used instead'
+    { [ -n "$PHYS6" ] && ip -6 rule add uidrange 10124-10124 iif lo lookup "$PHYS6" priority 190 2>/dev/null; } || true;;
+*)
+    case "$EXCL6" in *'uidrange 10124-10124'*) ;; *) { [ -n "$PHYS6" ] && ip -6 rule add uidrange 10124-10124 iif lo lookup "$PHYS6" priority 190 2>/dev/null; } || true;; esac;;
+esac
+case "$EXCL_DET6" in *'uidrange 10200-10200'*)
+    while ip -6 rule del uidrange 10200-10200 priority 190 2>/dev/null; do :; done
+    echo 'verify: exclusion goto target unresolved, physical table used instead'
+    { [ -n "$PHYS6" ] && ip -6 rule add uidrange 10200-10200 iif lo lookup "$PHYS6" priority 190 2>/dev/null; } || true;;
+*)
+    case "$EXCL6" in *'uidrange 10200-10200'*) ;; *) { [ -n "$PHYS6" ] && ip -6 rule add uidrange 10200-10200 iif lo lookup "$PHYS6" priority 190 2>/dev/null; } || true;; esac;;
+esac
+if [ "$V6UP" = 1 ]; then
+EXCL6=$(ip -6 rule show 2>/dev/null | grep '^190:')
+case "$EXCL6" in *'uidrange 10123-10123'*) ;; *) echo 'verify: ip -6 refused every uidrange rule, per-app exclusions not installed (v6)';; esac
+case "$EXCL6" in *'uidrange 10124-10124'*) ;; *) echo 'verify: ip -6 refused every uidrange rule, per-app exclusions not installed (v6)';; esac
+case "$EXCL6" in *'uidrange 10200-10200'*) ;; *) echo 'verify: ip -6 refused every uidrange rule, per-app exclusions not installed (v6)';; esac
+fi
+
+=== excludeRulesInstall 0 ===
+
+=== excludeRulesTeardown ===
+ip rule show 2>/dev/null | sed -n 's/^190:[^u]*uidrange \([0-9]*\)-\([0-9]*\).*/\1 \2/p' | while read a b; do ip rule del uidrange "$a"-"$b" priority 190 2>/dev/null || true; done
+ip -6 rule show 2>/dev/null | sed -n 's/^190:[^u]*uidrange \([0-9]*\)-\([0-9]*\).*/\1 \2/p' | while read a b; do ip -6 rule del uidrange "$a"-"$b" priority 190 2>/dev/null || true; done
+
+=== bypassChainTeardown v4 ===
+iptables -w -t mangle -D OUTPUT -j TAILSOCKS_BYPASS 2>/dev/null || true
+iptables -w -t mangle -F TAILSOCKS_BYPASS 2>/dev/null || true
+iptables -w -t mangle -X TAILSOCKS_BYPASS 2>/dev/null || true
+
+=== bypassChainTeardown v6 ===
+ip6tables -w -t mangle -D OUTPUT -j TAILSOCKS_BYPASS 2>/dev/null || true
+ip6tables -w -t mangle -F TAILSOCKS_BYPASS 2>/dev/null || true
+ip6tables -w -t mangle -X TAILSOCKS_BYPASS 2>/dev/null || true
+
+=== localBypassRoutes v4 ===
+ip route replace throw '192.168.1.0/24' table 52 2>/dev/null || true
+ip route replace throw '10.0.0.0/8' table 52 2>/dev/null || true
+
+=== localBypassRoutes v6 ===
+ip -6 route replace throw 'fd00::/8' table 52 2>/dev/null || true
+ip -6 route replace throw 'fe80::/10' table 52 2>/dev/null || true
+
+=== localBypassRoutesRemove v4 ===
+ip route del throw '192.168.1.0/24' table 52 2>/dev/null || true
+ip route del throw '10.0.0.0/8' table 52 2>/dev/null || true
+
+=== localBypassRoutesRemove v6 ===
+ip -6 route del throw 'fd00::/8' table 52 2>/dev/null || true
+
+=== localReturnRulesInstall v4 ===
+GOTO_LAN=$(ip rule show 2>/dev/null | while read -r p rest; do
+    p=${p%:}
+    case "$p" in ''|*[!0-9]*) continue;; esac
+    [ "$p" -ge 10000 ] && { echo "$p"; break; }
+done)
+PHYS_LAN=$(ip route get 1.1.1.1 mark 0x20000 2>/dev/null | sed -n 's/.*table \([A-Za-z0-9_]*\).*/\1/p' | head -n1)
+{ [ -n "$GOTO_LAN" ] && ip rule add to '192.168.1.0/24' iif lo goto "$GOTO_LAN" priority 150 2>/dev/null; } || true
+ip rule show 2>/dev/null | grep -q '^150:.*to 192.168.1.0/24' || { [ -n "$PHYS_LAN" ] && ip rule add to '192.168.1.0/24' iif lo lookup "$PHYS_LAN" priority 150 2>/dev/null; } || true
+
+=== localReturnRulesInstall v6 ===
+GOTO_LAN=$(ip -6 rule show 2>/dev/null | while read -r p rest; do
+    p=${p%:}
+    case "$p" in ''|*[!0-9]*) continue;; esac
+    [ "$p" -ge 10000 ] && { echo "$p"; break; }
+done)
+PHYS_LAN=$(ip -6 route get 2001:4860:4860::8888 mark 0x20000 2>/dev/null | sed -n 's/.*table \([A-Za-z0-9_]*\).*/\1/p' | head -n1)
+{ [ -n "$GOTO_LAN" ] && ip -6 rule add to '2001:db8:1::/64' iif lo goto "$GOTO_LAN" priority 150 2>/dev/null; } || true
+ip -6 rule show 2>/dev/null | grep -q '^150:.*to 2001:db8:1::/64' || { [ -n "$PHYS_LAN" ] && ip -6 rule add to '2001:db8:1::/64' iif lo lookup "$PHYS_LAN" priority 150 2>/dev/null; } || true
+
+=== localReturnRulesRemove v4 ===
+while ip rule del priority 150 2>/dev/null; do :; done
+
+=== localReturnRulesRemove v6 ===
+while ip -6 rule del priority 150 2>/dev/null; do :; done
+
+=== cgnatGuardRoutes ===
+ip route replace throw '100.64.5.0/24' table 53 2>/dev/null || true
+ip route replace throw '100.100.0.0/16' table 53 2>/dev/null || true
+ip route show table 53 2>/dev/null | while read -r t c rest; do
+    [ "$t" = throw ] || continue
+    [ "$c" = '100.64.5.0/24' ] && continue
+    [ "$c" = '100.100.0.0/16' ] && continue
+    ip route del throw "$c" table 53 2>/dev/null || true
+done
+
+=== cgnatGuardRoutes empty ===
+ip route show table 53 2>/dev/null | while read -r t c rest; do
+    [ "$t" = throw ] || continue
+    ip route del throw "$c" table 53 2>/dev/null || true
+done
+
+=== routeTableTeardown 53 ===
+while ip rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null; do :; done
+while ip -6 rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 iif lo table 53 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 53 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 table 53 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 table 53 2>/dev/null; do :; done
+while ip rule del fwmark 1099 table 53 2>/dev/null; do :; done
+while ip rule del fwmark 1099 lookup 53 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 table 53 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 lookup 53 2>/dev/null; do :; done
+ip route del 100.64.0.0/10 dev tailscale0 table 53 2>/dev/null || true
+ip -6 route del fd7a:115c:a1e0::/48 dev tailscale0 table 53 2>/dev/null || true
+ip route show table 53 2>/dev/null | while read -r t c rest; do
+    [ "$t" = throw ] || continue
+    ip route del throw "$c" table 53 2>/dev/null || true
+done
+
+=== routeTableTeardown 1099 ===
+while ip rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null; do :; done
+while ip -6 rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 iif lo table 1099 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 1099 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 table 1099 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 table 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true
+ip -6 route del fd7a:115c:a1e0::/48 dev tailscale0 table 1099 2>/dev/null || true
+
+=== catchAllTeardown v4 ===
+while ip rule del priority 200 lookup 52 2>/dev/null; do :; done
+
+=== catchAllTeardown v6 ===
+while ip -6 rule del priority 200 lookup 52 2>/dev/null; do :; done
+
+=== catchAllInstall v4 ===
+while ip rule del priority 200 lookup 52 2>/dev/null; do :; done
+ip rule add fwmark 0x0/0x2020000 iif lo lookup 52 priority 200
+ip rule show 2>/dev/null | grep -qE '^200:.*fwmark (0x0|0)/0x2020000.*lookup 52' || { while ip rule del priority 200 lookup 52 2>/dev/null; do :; done; echo 'MISSING4'; }
+
+=== catchAllInstall v6 ===
+while ip -6 rule del priority 200 lookup 52 2>/dev/null; do :; done
+ip -6 rule add fwmark 0x0/0x2020000 iif lo lookup 52 priority 200 2>/dev/null || true
+ip -6 rule show 2>/dev/null | grep -qE '^200:.*fwmark (0x0|0)/0x2020000.*lookup 52' || { while ip -6 rule del priority 200 lookup 52 2>/dev/null; do :; done; echo 'MISSING6'; }
+
+=== catchAllInstall scoped ===
+while ip rule del priority 200 lookup 52 2>/dev/null; do :; done
+ip rule add fwmark 0x0/0x2020000 iif lo uidrange 0-9999 lookup 52 priority 200 2>/dev/null || true
+ip rule add fwmark 0x0/0x2020000 iif lo uidrange 10201-99999 lookup 52 priority 200 2>/dev/null || true
+ip rule show 2>/dev/null | grep -qE '^200:.*fwmark (0x0|0)/0x2020000.*lookup 52' || { while ip rule del priority 200 lookup 52 2>/dev/null; do :; done; echo 'MISSING4'; }
+
+=== rpFilterLoosen ===
+mkdir -p '/data/adb/tailsocks' && chmod 700 '/data/adb/tailsocks'
+for f in /proc/sys/net/ipv4/conf/*/rp_filter; do
+    if [ "$(cat "$f" 2>/dev/null)" = "1" ]; then
+        [ -f '/data/adb/tailsocks/rp_filter.orig' ] || { cat /proc/sys/net/ipv4/conf/all/rp_filter > '/data/adb/tailsocks/rp_filter.orig.tmp' && mv '/data/adb/tailsocks/rp_filter.orig.tmp' '/data/adb/tailsocks/rp_filter.orig'; }
+        echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter
+        break
+    fi
+done
+
+=== rpFilterRestore ===
+if [ -f '/data/adb/tailsocks/rp_filter.orig' ]; then
+    case "$(cat '/data/adb/tailsocks/rp_filter.orig' 2>/dev/null)" in 0|1|2) cat '/data/adb/tailsocks/rp_filter.orig' > /proc/sys/net/ipv4/conf/all/rp_filter 2>/dev/null || true;; esac
+    rm -f '/data/adb/tailsocks/rp_filter.orig'
+fi
+
+=== dnsChainTeardown ===
+while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
+iptables -w -t nat -F TAILSOCKS_DNS 2>/dev/null || true
+iptables -w -t nat -X TAILSOCKS_DNS 2>/dev/null || true
+
+=== dnsHookInstall ===
+iptables -w -t nat -C OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null || iptables -w -t nat -I OUTPUT 1 -p udp --dport 53 -j TAILSOCKS_DNS
+iptables -w -t nat -C OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null || iptables -w -t nat -I OUTPUT 1 -p tcp --dport 53 -j TAILSOCKS_DNS
+
+=== dnsHookRemove ===
+while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
+
+=== applyVerifyScript tt ===
+ip addr show dev tailscale0 2>/dev/null | grep -qE 'inet6? (100\.|fd7a:115c:a1e0:)' || echo 'daemon: tailscale0 has no tailnet address'
+ip route show table 52 2>/dev/null | grep -q '^default' || echo 'daemon: no default route in table 52 with an exit node selected'
+ip route show table 53 2>/dev/null | grep -q . || { echo 'verify: table 53 is empty'; exit 1; }
+TS_RULES=$(ip rule show 2>/dev/null)
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*fwmark 0x1000000/0x1000000 lookup 53' || { echo 'verify: priority-100 fwmark rule into table 53 missing'; exit 1; }
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*to 100\.64\.0\.0/10 .*lookup 53' || { echo 'verify: priority-100 tailnet destination rule into table 53 missing'; exit 1; }
+iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || { echo 'verify: mangle OUTPUT jump into TAILSOCKS_MARK missing'; exit 1; }
+iptables -w -t nat -S TAILSOCKS_DNS >/dev/null 2>&1 || { echo 'verify: TAILSOCKS_DNS chain missing'; exit 1; }
+[ "$(iptables -w -t nat -S TAILSOCKS_DNS 2>/dev/null | grep -c -- '-j DNAT')" -ge 2 ] || { echo 'verify: TAILSOCKS_DNS lacks its DNAT lines'; exit 1; }
+echo 'verify: ok'
+
+=== applyVerifyScript tf ===
+ip addr show dev tailscale0 2>/dev/null | grep -qE 'inet6? (100\.|fd7a:115c:a1e0:)' || echo 'daemon: tailscale0 has no tailnet address'
+ip route show table 53 2>/dev/null | grep -q . || { echo 'verify: table 53 is empty'; exit 1; }
+TS_RULES=$(ip rule show 2>/dev/null)
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*fwmark 0x1000000/0x1000000 lookup 53' || { echo 'verify: priority-100 fwmark rule into table 53 missing'; exit 1; }
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*to 100\.64\.0\.0/10 .*lookup 53' || { echo 'verify: priority-100 tailnet destination rule into table 53 missing'; exit 1; }
+iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || { echo 'verify: mangle OUTPUT jump into TAILSOCKS_MARK missing'; exit 1; }
+iptables -w -t nat -S TAILSOCKS_DNS >/dev/null 2>&1 || { echo 'verify: TAILSOCKS_DNS chain missing'; exit 1; }
+[ "$(iptables -w -t nat -S TAILSOCKS_DNS 2>/dev/null | grep -c -- '-j DNAT')" -ge 2 ] || { echo 'verify: TAILSOCKS_DNS lacks its DNAT lines'; exit 1; }
+echo 'verify: ok'
+
+=== applyVerifyScript ft ===
+ip addr show dev tailscale0 2>/dev/null | grep -qE 'inet6? (100\.|fd7a:115c:a1e0:)' || echo 'daemon: tailscale0 has no tailnet address'
+ip route show table 52 2>/dev/null | grep -q '^default' || echo 'daemon: no default route in table 52 with an exit node selected'
+ip route show table 53 2>/dev/null | grep -q . || { echo 'verify: table 53 is empty'; exit 1; }
+TS_RULES=$(ip rule show 2>/dev/null)
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*fwmark 0x1000000/0x1000000 lookup 53' || { echo 'verify: priority-100 fwmark rule into table 53 missing'; exit 1; }
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*to 100\.64\.0\.0/10 .*lookup 53' || { echo 'verify: priority-100 tailnet destination rule into table 53 missing'; exit 1; }
+iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || { echo 'verify: mangle OUTPUT jump into TAILSOCKS_MARK missing'; exit 1; }
+echo 'verify: ok'
+
+=== applyVerifyScript ff ===
+ip addr show dev tailscale0 2>/dev/null | grep -qE 'inet6? (100\.|fd7a:115c:a1e0:)' || echo 'daemon: tailscale0 has no tailnet address'
+ip route show table 53 2>/dev/null | grep -q . || { echo 'verify: table 53 is empty'; exit 1; }
+TS_RULES=$(ip rule show 2>/dev/null)
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*fwmark 0x1000000/0x1000000 lookup 53' || { echo 'verify: priority-100 fwmark rule into table 53 missing'; exit 1; }
+printf '%s\n' "$TS_RULES" | grep -q '^100:.*to 100\.64\.0\.0/10 .*lookup 53' || { echo 'verify: priority-100 tailnet destination rule into table 53 missing'; exit 1; }
+iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || { echo 'verify: mangle OUTPUT jump into TAILSOCKS_MARK missing'; exit 1; }
+echo 'verify: ok'
+
+=== routingCleanupScript ===
+while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
+iptables -w -t nat -F TAILSOCKS_DNS 2>/dev/null || true
+iptables -w -t nat -X TAILSOCKS_DNS 2>/dev/null || true
+iptables -w -t mangle -D OUTPUT -j TAILSOCKS_BYPASS 2>/dev/null || true
+iptables -w -t mangle -F TAILSOCKS_BYPASS 2>/dev/null || true
+iptables -w -t mangle -X TAILSOCKS_BYPASS 2>/dev/null || true
+ip6tables -w -t mangle -D OUTPUT -j TAILSOCKS_BYPASS 2>/dev/null || true
+ip6tables -w -t mangle -F TAILSOCKS_BYPASS 2>/dev/null || true
+ip6tables -w -t mangle -X TAILSOCKS_BYPASS 2>/dev/null || true
+ip rule show 2>/dev/null | sed -n 's/^190:[^u]*uidrange \([0-9]*\)-\([0-9]*\).*/\1 \2/p' | while read a b; do ip rule del uidrange "$a"-"$b" priority 190 2>/dev/null || true; done
+ip -6 rule show 2>/dev/null | sed -n 's/^190:[^u]*uidrange \([0-9]*\)-\([0-9]*\).*/\1 \2/p' | while read a b; do ip -6 rule del uidrange "$a"-"$b" priority 190 2>/dev/null || true; done
+iptables -w -t mangle -D OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || true
+iptables -w -t mangle -F TAILSOCKS_MARK 2>/dev/null || true
+iptables -w -t mangle -X TAILSOCKS_MARK 2>/dev/null || true
+ip6tables -w -t mangle -D OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || true
+ip6tables -w -t mangle -F TAILSOCKS_MARK 2>/dev/null || true
+ip6tables -w -t mangle -X TAILSOCKS_MARK 2>/dev/null || true
+while iptables -w -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done
+while iptables -w -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done
+while ip6tables -w -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done
+while ip6tables -w -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done
+while ip rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null; do :; done
+while ip -6 rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 iif lo table 53 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 53 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 table 53 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 table 53 2>/dev/null; do :; done
+while ip rule del fwmark 1099 table 53 2>/dev/null; do :; done
+while ip rule del fwmark 1099 lookup 53 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 table 53 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 lookup 53 2>/dev/null; do :; done
+ip route del 100.64.0.0/10 dev tailscale0 table 53 2>/dev/null || true
+ip -6 route del fd7a:115c:a1e0::/48 dev tailscale0 table 53 2>/dev/null || true
+ip route show table 53 2>/dev/null | while read -r t c rest; do
+    [ "$t" = throw ] || continue
+    ip route del throw "$c" table 53 2>/dev/null || true
+done
+while ip rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null; do :; done
+while ip -6 rule del fwmark 0x1000000/0x1000000 table 1099 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 iif lo table 1099 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 iif lo table 1099 2>/dev/null; do :; done
+while ip rule del to 100.64.0.0/10 table 1099 2>/dev/null; do :; done
+while ip -6 rule del to fd7a:115c:a1e0::/48 table 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+while ip -6 rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+ip route del 100.64.0.0/10 dev tailscale0 table 1099 2>/dev/null || true
+ip -6 route del fd7a:115c:a1e0::/48 dev tailscale0 table 1099 2>/dev/null || true
+while ip rule del priority 200 lookup 52 2>/dev/null; do :; done
+while ip -6 rule del priority 200 lookup 52 2>/dev/null; do :; done
+while ip rule del priority 150 2>/dev/null; do :; done
+while ip -6 rule del priority 150 2>/dev/null; do :; done
+ip route show table 52 2>/dev/null | while read t c rest; do
+    [ "$t" = throw ] || continue
+    [ "$c" = 127.0.0.0/8 ] && continue
+    ip route del throw "$c" table 52 2>/dev/null || true
+done
+ip -6 route show table 52 2>/dev/null | while read t c rest; do
+    [ "$t" = throw ] || continue
+    ip -6 route del throw "$c" table 52 2>/dev/null || true
+done
+while ip rule del pref 5210 lookup main 2>/dev/null; do :; done
+while ip rule del pref 5230 lookup default 2>/dev/null; do :; done
+while ip rule del pref 5250 type unreachable 2>/dev/null; do :; done
+while ip rule del pref 5270 lookup 52 2>/dev/null; do :; done
+while ip -6 rule del pref 5210 lookup main 2>/dev/null; do :; done
+while ip -6 rule del pref 5230 lookup default 2>/dev/null; do :; done
+while ip -6 rule del pref 5250 type unreachable 2>/dev/null; do :; done
+while ip -6 rule del pref 5270 lookup 52 2>/dev/null; do :; done
+if [ -f '/data/adb/tailsocks/rp_filter.orig' ]; then
+    case "$(cat '/data/adb/tailsocks/rp_filter.orig' 2>/dev/null)" in 0|1|2) cat '/data/adb/tailsocks/rp_filter.orig' > /proc/sys/net/ipv4/conf/all/rp_filter 2>/dev/null || true;; esac
+    rm -f '/data/adb/tailsocks/rp_filter.orig'
+fi
+ip route del 100.64.0.0/10 dev tailscale0 2>/dev/null || true
+ip -6 route del fd7a:115c:a1e0::/48 dev tailscale0 2>/dev/null || true
+while iptables -w -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done
+while ip6tables -w -t mangle -D OUTPUT -d fd7a:115c:a1e0::/48 -j MARK --set-mark 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done
+while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+while iptables -w -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+i=0
+while [ $i -lt 4 ]; do
+    i=$((i+1))
+    top=""
+    while read -r f1 f2 f3 root mnt rest; do
+        if [ "$mnt" = /system/etc/hosts ]; then top="$root"; fi
+    done < /proc/self/mountinfo
+    ours=0
+    case "$top" in '<HOSTS>'|'<HOSTS-REL>') ours=1;; esac
+    [ $ours = 1 ] || grep -qxF '# TailSocks MagicDNS names, <HOSTS>' /system/etc/hosts 2>/dev/null || break
+    umount /system/etc/hosts 2>/dev/null || break
+done
+
+=== launchLockDir ===
+/data/user/0/app/files/root-daemon-launch.lock
+=== launchGuardScript ===
+TS_LAUNCH_LOCK='/data/user/0/app/files/root-daemon-launch.lock'
+TS_LAUNCH_PAT='--socket=/data/user/0/app/files/tailscaled.sock'
+ts_launch_lock() {
+    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null && { echo $$ > "$TS_LAUNCH_LOCK/pid"; return 0; }
+    h=$(cat "$TS_LAUNCH_LOCK/pid" 2>/dev/null)
+    b=$(stat -c %Y "$TS_LAUNCH_LOCK" 2>/dev/null) || b=$(date +%s)
+    if [ $(($(date +%s) - b)) -le 60 ]; then
+        [ -z "$h" ] && return 1
+        kill -0 "$h" 2>/dev/null && return 1
+    fi
+    rm -rf "$TS_LAUNCH_LOCK"
+    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null || return 1
+    echo $$ > "$TS_LAUNCH_LOCK/pid"
+}
+ts_launch_lock || { echo 'launch: skipped, another launch for this socket is in progress'; exit 0; }
+trap 'rm -rf "$TS_LAUNCH_LOCK"' EXIT
+trap 'exit 1' HUP INT TERM
+if pgrep -f -- "$TS_LAUNCH_PAT" >/dev/null 2>&1; then echo 'launch: skipped, a daemon for this socket is already running'; exit 0; fi
+
+=== logTrimScript ===
+if [ -f '/data/user/0/app/logs/tailscaled.log' ]; then
+    LOG_SIZE="$(wc -c < '/data/user/0/app/logs/tailscaled.log' 2>/dev/null || echo 0)"
+    if [ "$LOG_SIZE" -gt 2097152 ] 2>/dev/null; then
+        tail -n 500 '/data/user/0/app/logs/tailscaled.log' > '/data/user/0/app/logs/tailscaled.log.tmp' && mv '/data/user/0/app/logs/tailscaled.log.tmp' '/data/user/0/app/logs/tailscaled.log'
+    fi
+fi
+
+=== hostsMarker ===
+# TailSocks MagicDNS names, /data/adb/tailsocks/hosts
+=== hostsUnbindScript ===
+i=0
+while [ $i -lt 4 ]; do
+    i=$((i+1))
+    top=""
+    while read -r f1 f2 f3 root mnt rest; do
+        if [ "$mnt" = /system/etc/hosts ]; then top="$root"; fi
+    done < /proc/self/mountinfo
+    ours=0
+    case "$top" in '/data/adb/tailsocks/hosts'|'/adb/tailsocks/hosts') ours=1;; esac
+    [ $ours = 1 ] || grep -qxF '# marker it'\''s' /system/etc/hosts 2>/dev/null || break
+    umount /system/etc/hosts 2>/dev/null || break
+done
+
+=== daemonKillScript sock ===
+pkill -15 -f -- '--socket=/data/user/0/app/files/tailscaled.sock' 2>/dev/null || true
+i=0; while [ $i -lt 10 ] && pgrep -f -- '--socket=/data/user/0/app/files/tailscaled.sock' >/dev/null 2>&1; do sleep 0.1; i=$((i+1)); done
+pkill -9 -f -- '--socket=/data/user/0/app/files/tailscaled.sock' 2>/dev/null || true
+rm -f '/data/user/0/app/files/tailscaled.sock'
+
+=== daemonKillScript empty ===
+killall -15 libtailscale.so 2>/dev/null || true
+i=0; while [ $i -lt 10 ] && pidof libtailscale.so >/dev/null 2>&1; do sleep 0.1; i=$((i+1)); done
+killall -9 libtailscale.so 2>/dev/null || true
+
+=== stateHandBackScript ===
+if [ -d '/data/user/0/app' ]; then
+  chown -R 10234:10234 '/data/user/0/app' 2>/dev/null || true
+  find '/data/user/0/app' -type d -exec chmod 700 {} + 2>/dev/null || true
+  find '/data/user/0/app' -type f -exec chmod 600 {} + 2>/dev/null || true
+fi
+[ -d '/storage/emulated/0/Download/Taildrop' ] && chown -R 10234:10234 '/storage/emulated/0/Download/Taildrop' 2>/dev/null
+
