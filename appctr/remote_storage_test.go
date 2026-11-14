@@ -4,11 +4,13 @@ package appctr
 // diagnostics and the scrubbed log.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -239,7 +241,7 @@ func TestRemoteStorageSend(t *testing.T) {
 	result := "OK"
 	hold := make(chan struct{})
 	close(hold)
-	r.m.sendFile = func(peer, path string) string {
+	r.m.sendFile = func(_ context.Context, peer, path string, _ *atomic.Int64) string {
 		<-hold
 		sends <- sent{peer, path}
 		return result
@@ -567,5 +569,71 @@ func TestRemoteDiag(t *testing.T) {
 	}
 	if got := strings.Join(diag, ","); got != "report,log" {
 		t.Errorf("diag lines, newest first: %s", got)
+	}
+}
+
+// A transfer started for a remote request ends when the endpoint is released
+// or the daemon stops taking the file: it ran on context.Background(), so a
+// peer that stopped reading held the goroutine, the open file and the
+// caller's "sending" slot for as long as the daemon kept the request.
+func TestRemoteStorageSendCanEnd(t *testing.T) {
+	r, owner := rtFull(t)
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := remoteStorageRoots
+	remoteStorageRoots = []string{root + "/"}
+	t.Cleanup(func() { remoteStorageRoots = saved })
+	file := filepath.Join(root, "film.mkv")
+	if err := os.WriteFile(file, []byte("the film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(map[string]any{"path": file})
+	r.app.set(func(a *remoteFakeApp) { a.answers[remoteRequestStorageFile] = string(b) })
+
+	// A peer that takes nothing: the send waits for its context alone.
+	started := make(chan struct{}, 1)
+	r.m.sendFile = func(ctx context.Context, _, _ string, _ *atomic.Int64) string {
+		started <- struct{}{}
+		<-ctx.Done()
+		return "Error: " + sendCancelled
+	}
+	ended := func() map[string]any {
+		t.Helper()
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			if f := r.m.fetchFor(rtPhone.id); f != nil && f.State != "sending" {
+				return map[string]any{"state": f.State, "error": f.Error}
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		t.Fatal("the transfer is still sending")
+		return nil
+	}
+
+	// Nothing taken for the stall time: given up, and said why.
+	r.m.mu.Lock()
+	r.m.sendStall = 120 * time.Millisecond
+	r.m.mu.Unlock()
+	if a := r.call(rtPhone, "POST", "/v1/storage/send", owner, map[string]string{"path": file}); a.status != 200 {
+		t.Fatalf("send: %d %s", a.status, a.raw)
+	}
+	<-started
+	if f := ended(); f["state"] != "failed" || !strings.HasPrefix(f["error"].(string), "stalled") {
+		t.Errorf("after a stall: %v", f)
+	}
+
+	// The endpoint released: the transfer with it.
+	r.m.mu.Lock()
+	r.m.sendStall = time.Hour
+	r.m.mu.Unlock()
+	if a := r.call(rtPhone, "POST", "/v1/storage/send", owner, map[string]string{"path": file}); a.status != 200 {
+		t.Fatalf("send: %d %s", a.status, a.raw)
+	}
+	<-started
+	r.m.release()
+	if f := ended(); f["state"] != "failed" || f["error"] != sendCancelled {
+		t.Errorf("after the release: %v", f)
 	}
 }

@@ -268,6 +268,7 @@ package appctr
 // rather than as a code nobody could use.
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
@@ -276,6 +277,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -434,9 +436,15 @@ type remoteManager struct {
 	browsed map[string]bool
 	// What the storage and diagnostics routes take from the rest of the
 	// bridge; replaceable in tests.
-	sendFile func(peerID, path string) string
-	logText  func() string
-	relays   func() string
+	sendFile func(ctx context.Context, peerID, path string, sent *atomic.Int64) string
+	// sends is the context of the transfers started for remote requests,
+	// cancelled — and dropped, for the next one to make a new one — when the
+	// endpoint is released or switched off (remote_storage.go).
+	sends     context.Context
+	stopSends context.CancelFunc
+	sendStall time.Duration
+	logText   func() string
+	relays    func() string
 }
 
 func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI) *remoteManager {
@@ -456,7 +464,8 @@ func newRemoteManager(policy remotePolicy, clock remoteClock, api remoteLocalAPI
 		delegateAnswer: remoteDelegateAnswer,
 		reportWait:     remoteReportWait,
 		reportAnswer:   remoteReportAnswer,
-		sendFile:       SendFileFromAPI,
+		sendFile:       sendFile,
+		sendStall:      remoteSendStall,
 		logText:        GetLogs,
 		relays:         ReconnectRelays,
 	}
@@ -586,6 +595,7 @@ func (l *remoteListener) close() {
 // release closes the listener and reports whether there was one.
 func (m *remoteManager) release() bool {
 	m.mu.Lock()
+	m.stopSendsLocked()
 	l := m.listener
 	m.listener = nil
 	m.selfAt = time.Time{}
@@ -612,6 +622,7 @@ func (m *remoteManager) configure(enabled bool, storePath string) (needListener 
 	m.enabled = enabled && m.store != nil
 	var old *remoteListener
 	if !m.enabled {
+		m.stopSendsLocked()
 		old, m.listener = m.listener, nil
 		m.listenErr = ""
 		m.closeWindowLocked("cancelled")

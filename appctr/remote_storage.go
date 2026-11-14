@@ -20,6 +20,7 @@ package appctr
 // and the state live under /data, and no answer of the app can name them.
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -28,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -367,14 +369,22 @@ func (m *remoteManager) handleStorageSend(rq *remoteRequest) (int, any) {
 		m.fetches = kept
 	}
 	m.fetches[node] = f
-	send := m.sendFile
+	send, stall := m.sendFile, m.sendStall
+	ctx, cancel := context.WithCancel(m.sendContextLocked())
 	m.mu.Unlock()
 
 	answer := *f
 	go func() {
+		defer cancel()
 		// The daemon's own transfer to the asking node: Taildrop decides
 		// whether the two may exchange files at all.
-		res := send(node, got.Path)
+		var sent atomic.Int64
+		var stalled atomic.Bool
+		go watchSendStall(ctx, &sent, stall, func() { stalled.Store(true); cancel() })
+		res := send(ctx, node, got.Path, &sent)
+		if stalled.Load() && res != "OK" {
+			res = "Error: stalled: nothing was taken for " + stall.String()
+		}
 		ok := res == "OK"
 		m.mu.Lock()
 		if ok {
@@ -392,6 +402,56 @@ func (m *remoteManager) handleStorageSend(rq *remoteRequest) (int, any) {
 		Name string `json:"name"`
 		Size int64  `json:"size"`
 	}{answer.ID, answer.Name, answer.Size}
+}
+
+// remoteSendStall is how long a transfer started for a remote request may go
+// without the daemon taking a byte of the file before it is given up. Minutes,
+// not seconds: a slow DERP path and a peer that is still deciding are not
+// stalls. Without it a peer that stopped reading while the tailnet path stayed
+// up held the goroutine, the open file and the caller's fetch slot ("sending"
+// is never pruned) for as long as the daemon kept the request.
+const remoteSendStall = 5 * time.Minute
+
+// sendContextLocked is the context the transfers for remote requests run
+// under, made on first use. Caller holds m.mu.
+func (m *remoteManager) sendContextLocked() context.Context {
+	if m.sends == nil {
+		m.sends, m.stopSends = context.WithCancel(context.Background())
+	}
+	return m.sends
+}
+
+// stopSendsLocked cancels every transfer started for a remote request: the
+// endpoint is going away. Caller holds m.mu.
+func (m *remoteManager) stopSendsLocked() {
+	if m.stopSends != nil {
+		m.stopSends()
+	}
+	m.sends, m.stopSends = nil, nil
+}
+
+// watchSendStall calls stop when sent has not moved for stall, and returns
+// when ctx is done.
+func watchSendStall(ctx context.Context, sent *atomic.Int64, stall time.Duration, stop func()) {
+	if stall <= 0 {
+		return
+	}
+	tick := time.NewTicker(stall / 4)
+	defer tick.Stop()
+	last, since := sent.Load(), time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-tick.C:
+			if n := sent.Load(); n != last {
+				last, since = n, now
+			} else if now.Sub(since) >= stall {
+				stop()
+				return
+			}
+		}
+	}
 }
 
 // ─── Shared folders ─────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ package appctr
 // grant, and closing at once.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -40,7 +41,7 @@ func newFilesRig(t *testing.T) (*remoteRig, *atomic.Int32, *atomic.Int32) {
 	r := newElevateRig(t)
 	var logged, sent atomic.Int32
 	r.m.logText = func() string { logged.Add(1); return "a line of the log" }
-	r.m.sendFile = func(string, string) string { sent.Add(1); return "OK" }
+	r.m.sendFile = func(context.Context, string, string, *atomic.Int64) string { sent.Add(1); return "OK" }
 	r.app.set(func(a *remoteFakeApp) {
 		a.answers[remoteRequestShareAdd] = ""
 		a.answers[remoteRequestShareRemove] = ""

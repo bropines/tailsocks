@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -560,7 +561,7 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	r.m.asks = newRemoteLimiter(1e6, 1e6)
 	r.m.taildropDir = func() string { return "" }
 	// Nothing of a test reaches the real daemon, its log or a real transfer.
-	r.m.sendFile = func(string, string) string { return "Error: no transfer in this test" }
+	r.m.sendFile = func(context.Context, string, string, *atomic.Int64) string { return "Error: no transfer in this test" }
 	r.m.logText = func() string { return "" }
 	r.m.relays = func() string { return "" }
 	// The device's network access to files is a ceiling with tests of its own
