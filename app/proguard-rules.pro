@@ -26,18 +26,17 @@
 }
 
 # ── kotlinx.serialization ───────────────────────────────────────────────────
-# Serializers are generated at compile time, so almost nothing is needed — but
-# keep the generated $$serializer classes and the synthetic serializer()
-# accessors for this app's @Serializable models so R8 does not strip them.
+# Serializers are generated at compile time and reached by direct calls; what a
+# lookup by reflection needs (serializer<T>() on a type R8 cannot follow) —
+# the Companion field and its serializer() of every @Serializable class — is
+# kept by the rules kotlinx-serialization-json ships in its jar
+# (META-INF/proguard, `-if @kotlinx.serialization.Serializable class **`), which
+# R8 applies by itself. A wider copy used to stand here and kept the Companion
+# of every class in the app, serializable or not (821 seeds against ~100
+# serializers); a release build checked that each $$serializer and each
+# serializable class's Companion.serializer() survives without it.
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**
--keepclassmembers class io.github.bropines.tailscaled.** {
-    *** Companion;
-}
--keepclasseswithmembers class io.github.bropines.tailscaled.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
--keep,includedescriptorclasses class io.github.bropines.tailscaled.**$$serializer { *; }
 
 # ── Jetpack AppFunctions (KSP-generated inventory/invoker) ───────────────────
 -keep class androidx.appfunctions.internal.** { *; }
