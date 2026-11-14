@@ -111,8 +111,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
@@ -259,18 +261,25 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        checkNotificationPermission()
+        // Once per launch, not per recreation: a rotation, a language or an interface-scale
+        // change (recreate() in onResume) is the same launch, and repeated the permission
+        // request — until the system starts denying it by itself — and the update check
+        // with its toast.
+        val firstCreate = savedInstanceState == null
+        if (firstCreate) checkNotificationPermission()
         // Runs only past the onboarding gate above, so the wizard is never
         // interrupted; a fresh install records its version and shows nothing.
         // Must run before handleAppStartup(): that launches an IO coroutine which
         // writes last_update_time, and checkWhatsNew() reads it to tell a fresh
         // install from an upgrade.
-        if (savedInstanceState == null) checkWhatsNew()
+        if (firstCreate) checkWhatsNew()
         handleAppStartup()
         // A network request on every launch, so it is the user's to switch off
         // (and off by default where a store handles updates).
-        if (GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
-        else kotlinx.coroutines.MainScope().launch(Dispatchers.IO) { pruneUpdateDownloads(this@MainActivity) }
+        if (firstCreate) {
+            if (GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
+            else UpdateDownload.scope.launch { pruneUpdateDownloads(applicationContext) }
+        }
         handleIntent(intent)
 
         setContent {
@@ -492,18 +501,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The launch-time update check. In the process's scope with the application's context (in
+     * the app's language): it used to run in a MainScope of its own that held this activity for
+     * as long as a slow request took, past a rotation or a close.
+     */
     private fun checkForUpdatesSilent() {
-        val scope = kotlinx.coroutines.MainScope()
-        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            pruneUpdateDownloads(this@MainActivity)
+        val app = wrapContextWithLocale(applicationContext)
+        UpdateDownload.scope.launch {
+            pruneUpdateDownloads(app)
             try {
-                val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
+                val currentVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0.0.0"
                 // Releases, and betas too for whoever asked for them (core/UpdateCheck.kt).
-                val betas = GlobalSettings.isBetaUpdates(this@MainActivity)
+                val betas = GlobalSettings.isBetaUpdates(app)
                 val tag = UpdateCheck.offer(currentVersion, UpdateCheck.fetch(betas), betas)?.tag
                 if (tag != null) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
+                        Toast.makeText(app, app.getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {}
@@ -533,7 +547,7 @@ fun MainScreen(
     // Which account cannot be deleted; read again whenever the list changes.
     var primaryId by remember(accounts.value) { mutableStateOf(AccountManager.getPrimaryId(context)) }
     
-    var showAddAccountDialog by remember { mutableStateOf(false) }
+    var showAddAccountDialog by rememberSaveable { mutableStateOf(false) }
     var showRenameAccountDialog by remember { mutableStateOf(false) }
     var showSwitchConfirmDialog by remember { mutableStateOf<TailscaleAccount?>(null) }
     var accountToDeleteConfirm by remember { mutableStateOf<TailscaleAccount?>(null) }
@@ -550,12 +564,12 @@ fun MainScreen(
         statusAside = null
     }
     
-    var newAccountName by remember { mutableStateOf("") }
+    var newAccountName by rememberSaveable { mutableStateOf("") }
     // "Report the real OS" for the profile about to be created: decided here,
     // before its first login, because the coordinator binds a node to the OS
     // it registered with (ProfileHostinfo).
     // A new profile reports the real OS unless the box is cleared (ProfileHostinfo).
-    var newAccountHonest by remember { mutableStateOf(true) }
+    var newAccountHonest by rememberSaveable { mutableStateOf(true) }
     LaunchedEffect(addAccountRequest.value) {
         addAccountRequest.value?.let { honest ->
             newAccountHonest = honest
@@ -563,8 +577,13 @@ fun MainScreen(
             addAccountRequest.value = null
         }
     }
-    var accountMenuExpanded by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    // Saveable, like the dialogs and sheets below that hold nothing but a flag or a draft that
+    // is not a secret: neither activity handles configuration changes, so a rotation recreates
+    // the screen and used to close whatever was open, with what had been typed in it.
+    var accountMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
+    // Read when the screen is resumed (the observer below): it changes only in the system's
+    // settings, and coming back from there resumes this screen. It was a binder call every 2 s.
     var isBatteryOptimizationsIgnored by remember { mutableStateOf(true) }
     // Read from preferences on every composition of this screen, so a recreation
     // (a language change, a rotation) and a process restart both bring the ask
@@ -649,13 +668,17 @@ fun MainScreen(
     }
     // The other devices, from the same status read as the summary: what a large window's
     // devices card lists (MainDashboard.kt). A phone has no such card and shows none of it.
-    var tailnetPeers by remember {
-        mutableStateOf(
-            demo?.statusJson?.let { json ->
-                runCatching { listablePeers(AppJson.decodeFromString<StatusResponse>(json)) }.getOrNull()
-            }
-        )
+    val demoPeers = remember {
+        demo?.statusJson?.let { json ->
+            runCatching { listablePeers(AppJson.decodeFromString<StatusResponse>(json)) }.getOrNull()
+        }
     }
+    var tailnetPeers by remember { mutableStateOf(demoPeers) }
+    // The same list for the managed devices, which the screen's own scope reads: replaced only
+    // when what they take from it changes (managedPresence). tailnetPeers is new on every read —
+    // traffic counters, handshakes — and read there, it re-ran all of MainScreen every 10 s;
+    // it is now read only by what draws it, a wide Peers tile and a large window's devices card.
+    var managedPeers by remember { mutableStateOf(demoPeers) }
     var reconnectingRelays by remember { mutableStateOf(false) }
     // Off for anyone who prefers the screen as it was: on a phone of the
     // right size everything, menu included, fits without scrolling, and the
@@ -703,7 +726,9 @@ fun MainScreen(
     }
     var isProcessing by remember { mutableStateOf(false) }
     var loginUrl by remember { mutableStateOf<String?>(null) }
-    var show410Warning by remember { mutableStateOf(false) }
+    // Saveable: the bridge's last error is cleared by the read that found it (getLastError), so
+    // a rotation or a recreate() for a language or scale change lost the banner for good.
+    var show410Warning by rememberSaveable { mutableStateOf(false) }
 
     // A television cannot fill in a login form: it signs in with a code on its own screen
     // (ui/SignIn.kt), which opens by itself whenever the daemon turns out to want a login
@@ -738,7 +763,7 @@ fun MainScreen(
             if (!tv) editing = true
         }
     }
-    var confirmStop by remember { mutableStateOf(false) }
+    var confirmStop by rememberSaveable { mutableStateOf(false) }
     fun stopNow() {
         isProcessing = true
         context.startService(Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" })
@@ -747,7 +772,7 @@ fun MainScreen(
         if (tv) confirmStop = true else stopNow()
     }
 
-    var showExitNodeSheet by remember { mutableStateOf(false) }
+    var showExitNodeSheet by rememberSaveable { mutableStateOf(false) }
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var isExitNodesLoading by remember { mutableStateOf(false) }
     fun openExitNodeSheet() {
@@ -770,6 +795,10 @@ fun MainScreen(
             exitNodeRequest.value = false
             openExitNodeSheet()
         }
+    }
+    // A sheet that was open before a rotation comes back open, with its list still to read.
+    LaunchedEffect(Unit) {
+        if (showExitNodeSheet && exitNodes.isEmpty() && !isExitNodesLoading) openExitNodeSheet()
     }
     // The QR scanner, from the top bar and tailsocks://scan: an app link opens
     // as if tapped, a TailCat address in a new connection's editor; any other
@@ -796,7 +825,7 @@ fun MainScreen(
     // The devices this one manages, when it manages any (ui/ManagedOnMain.kt): read off the peer
     // list above, and again when the page a scanned code opened — which may have paired — is left.
     // Shown while their block is on the screen: the old switch in Settings → Appearance moves it too.
-    val managed = rememberManagedDevices(activeAccount.id, tailnetPeers.takeIf { proxyState != "STOPPED" }, MainItem.MANAGED in layout, scannedPairing == null)
+    val managed = rememberManagedDevices(activeAccount.id, managedPeers.takeIf { proxyState != "STOPPED" }, MainItem.MANAGED in layout, scannedPairing == null)
     // Where the menu has the tile of the other direction — who manages this device — they stand
     // beside it, in its row, while a tile there is two cards wide. A handheld has no such tile,
     // and they have a place of their own: tiles under a dashboard's cards, pills on a phone.
@@ -819,139 +848,164 @@ fun MainScreen(
         }
     }
 
-    // Watchdog: Sync UI state with actual daemon status
-    LaunchedEffect(Unit) {
+    // The watchdog lives as long as the screen, and an account switch replaces the profile's
+    // store and its exit node without restarting it (the activity is not recreated): it reads
+    // them through these, or it kept the first account's for good — `was_logged_in` written
+    // into the wrong profile, the new profile's exit node looked up by the old one's address.
+    val currentPrefs by rememberUpdatedState(prefs)
+    val currentExitNodeIp by rememberUpdatedState(exitNodeIp)
+    val pollLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+
+    // Watchdog: Sync UI state with actual daemon status.
+    //
+    // Only while the screen is at least STARTED. It is the task's singleTask root, so it stays
+    // composed under Settings, Peers and every other screen, and in the background for as long
+    // as the service keeps the process: a bare LaunchedEffect kept polling there — every 2 s
+    // the bridge, every 10 s and again every 30 s the full status with every peer, ~480 status
+    // reads an hour for a screen nobody saw. The counters stay outside the block, so a stop
+    // and a start carry on where they were; the first tick after a start runs at once, and the
+    // status is read again at once too, so what comes back is current within one round trip.
+    LaunchedEffect(pollLifecycle) {
+        // The preview renderer has no bridge, and a preview's state is handed in (LocalDemo).
+        if (inPreview || demo != null) return@LaunchedEffect
         var urlDetected = false
         var lastAvatarSync = 0L
         var lastSummaryAt = 0L
         var loggedOutSeconds = 0
-        while (true) {
-            // Each of these can be a LocalAPI round trip, and LocalAPI holds a request
-            // while the daemon has no backend yet: read on this thread every 2 s, a
-            // daemon that was slow to start froze the screen it was starting under.
-            val isProcessAlive = withContext(Dispatchers.IO) { try { appctr.Appctr.isRunning() } catch (e: Exception) { false } }
-            val backendState = if (isProcessAlive) {
-                withContext(Dispatchers.IO) { try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" } }
-            } else "Stopped"
-            daemonBackend = backendState
-            shownWarnings = if (isProcessAlive) {
-                visibleWarnings(
-                    parseHealthWarnings(withContext(Dispatchers.IO) { runCatching { appctr.Appctr.getHealthWarningsJSON() }.getOrNull() }),
-                    System.currentTimeMillis()
-                )
-            } else emptyList()
+        pollLifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            // Back in front: the summary and the devices may be minutes old.
+            lastSummaryAt = 0L
+            // The status read runs beside the tick, as it always did — a large tailnet's status
+            // takes longer than a tick — and a slow one is not stacked on by the next.
+            var statusRead: kotlinx.coroutines.Job? = null
+            while (true) {
+                // Each of these can be a LocalAPI round trip, and LocalAPI holds a request
+                // while the daemon has no backend yet: read on this thread every 2 s, a
+                // daemon that was slow to start froze the screen it was starting under.
+                val isProcessAlive = withContext(Dispatchers.IO) { try { appctr.Appctr.isRunning() } catch (e: Exception) { false } }
+                val backendState = if (isProcessAlive) {
+                    withContext(Dispatchers.IO) { try { appctr.Appctr.getBackendState() } catch (e: Exception) { "Error" } }
+                } else "Stopped"
+                daemonBackend = backendState
+                shownWarnings = if (isProcessAlive) {
+                    visibleWarnings(
+                        parseHealthWarnings(withContext(Dispatchers.IO) { runCatching { appctr.Appctr.getHealthWarningsJSON() }.getOrNull() }),
+                        System.currentTimeMillis()
+                    )
+                } else emptyList()
 
-            if (isProcessAlive && backendState == "Running") {
-                // A login opened in a Custom Tab is done: back over the tab.
-                context.findActivity()?.let { LoginTab.finished(it) }
-                val wasLoggedIn = prefs.getBoolean("was_logged_in", false)
-                if (!wasLoggedIn) {
-                    prefs.edit().putBoolean("was_logged_in", true).apply()
-                }
-                // A running backend means any start/login transition is over. If
-                // isProcessing was left set (no START broadcast reached this
-                // screen, e.g. a slow browser login), the sync below never ran and
-                // the "connection issue" card stayed up over a working tailnet.
-                if (isProcessing && (proxyState == "STARTING" || proxyState == "LOGGED_OUT" || proxyState == "CONNECTION_ISSUE")) {
-                    isProcessing = false
-                }
-            }
-
-            // Sync state if not explicitly in transition
-            if (!isProcessing) {
-                proxyState = if (isProcessAlive) {
-                    if (backendState == "NeedsLogin" || backendState == "NoState") {
-                        loggedOutSeconds += 2
-                        if (loggedOutSeconds >= 10) {
-                            if (prefs.getBoolean("was_logged_in", false) && loginUrl.isNullOrBlank()) {
-                                "CONNECTION_ISSUE"
-                            } else {
-                                "LOGGED_OUT"
-                            }
-                        } else {
-                            if (proxyState == "STOPPED") "ACTIVE" else proxyState
-                        }
-                    } else {
-                        loggedOutSeconds = 0
-                        "ACTIVE"
+                if (isProcessAlive && backendState == "Running") {
+                    // A login opened in a Custom Tab is done: back over the tab.
+                    context.findActivity()?.let { LoginTab.finished(it) }
+                    val wasLoggedIn = currentPrefs.getBoolean("was_logged_in", false)
+                    if (!wasLoggedIn) {
+                        currentPrefs.edit().putBoolean("was_logged_in", true).apply()
                     }
-                } else {
-                    loggedOutSeconds = 0
-                    "STOPPED"
-                }
-            }
-
-            if (isProcessAlive) {
-                val url = withContext(Dispatchers.IO) { try { appctr.Appctr.getLoginURL() } catch (e: Exception) { "" } }
-                loginUrl = if (url.isNullOrBlank()) null else url
-                
-                if (loginUrl != null) urlDetected = true
-                else if (urlDetected) {
-                    show410Warning = false
-                    urlDetected = false
-                }
-
-                val lastErr = withContext(Dispatchers.IO) { try { appctr.Appctr.getLastError() } catch (e: Exception) { "" } }
-                if (lastErr == "410_GONE") show410Warning = true
-
-                // The summary under the card: a status read every 10 s, off the
-                // main thread, only while the backend is actually running.
-                val summaryNow = System.currentTimeMillis()
-                if (backendState == "Running" && summaryNow - lastSummaryAt > 10_000) {
-                    lastSummaryAt = summaryNow
-                    val ipForExit = exitNodeIp
-                    scope.launch(Dispatchers.IO) {
-                        val status = DaemonStatus.readOrNull()
-                        val built = status?.let { runCatching { summarize(it, ipForExit) }.getOrNull() }
-                        val peers = status?.let { runCatching { listablePeers(it) }.getOrNull() }
-                        withContext(Dispatchers.Main) {
-                            connectionSummary = built
-                            tailnetPeers = peers
-                        }
+                    // A running backend means any start/login transition is over. If
+                    // isProcessing was left set (no START broadcast reached this
+                    // screen, e.g. a slow browser login), the sync below never ran and
+                    // the "connection issue" card stayed up over a working tailnet.
+                    if (isProcessing && (proxyState == "STARTING" || proxyState == "LOGGED_OUT" || proxyState == "CONNECTION_ISSUE")) {
+                        isProcessing = false
                     }
-                } else if (backendState != "Running") {
-                    connectionSummary = null
-                    tailnetPeers = null
                 }
 
-                // Background avatar sync
-                val now = System.currentTimeMillis()
-                if (now - lastAvatarSync > 30000) { // Every 30 seconds
-                    lastAvatarSync = now
-                    scope.launch(Dispatchers.IO) {
-                        try {
+                // Sync state if not explicitly in transition (nextMainState, MainStatusLogic.kt).
+                if (!isProcessing) {
+                    val tick = nextMainState(
+                        previous = proxyState,
+                        alive = isProcessAlive,
+                        backend = backendState,
+                        loggedOutSeconds = loggedOutSeconds,
+                        wasLoggedIn = currentPrefs.getBoolean("was_logged_in", false),
+                        hasLoginUrl = !loginUrl.isNullOrBlank(),
+                    )
+                    proxyState = tick.state
+                    loggedOutSeconds = tick.loggedOutSeconds
+                }
+
+                if (isProcessAlive) {
+                    val url = withContext(Dispatchers.IO) { try { appctr.Appctr.getLoginURL() } catch (e: Exception) { "" } }
+                    loginUrl = if (url.isNullOrBlank()) null else url
+
+                    if (loginUrl != null) urlDetected = true
+                    else if (urlDetected) {
+                        show410Warning = false
+                        urlDetected = false
+                    }
+
+                    val lastErr = withContext(Dispatchers.IO) { try { appctr.Appctr.getLastError() } catch (e: Exception) { "" } }
+                    if (lastErr == "410_GONE") show410Warning = true
+
+                    // The summary under the card and the devices, from a status read every
+                    // 10 s, off the main thread, only while the backend is actually running —
+                    // and the account's picture from that same read every 30 s (mainReadsDue).
+                    val now = System.currentTimeMillis()
+                    val reads = mainReadsDue(now, backendState == "Running", lastSummaryAt, lastAvatarSync)
+                    if (reads.status && statusRead?.isActive != true) {
+                        lastSummaryAt = now
+                        if (reads.avatar) lastAvatarSync = now
+                        val ipForExit = currentExitNodeIp
+                        val account = activeAccount
+                        statusRead = launch(Dispatchers.IO) {
                             val status = DaemonStatus.readOrNull()
-                            if (status != null) {
-                                val selfUserId = status.self?.userID
-                                val selfUser = status.users?.get(selfUserId?.toString()) ?: status.users?.values?.firstOrNull()
-                                val picUrl = selfUser?.profilePicUrl
-                                if (!picUrl.isNullOrEmpty() && picUrl != activeAccount.avatarUrl) {
-                                    downloadAndCacheAvatar(context, activeAccount.id, picUrl)
-                                    AccountManager.updateAccountAvatar(context, activeAccount.id, picUrl)
+                            val built = status?.let { runCatching { summarize(it, ipForExit) }.getOrNull() }
+                            val peers = status?.let { runCatching { listablePeers(it) }.getOrNull() }
+                            withContext(Dispatchers.Main) {
+                                connectionSummary = built
+                                tailnetPeers = peers
+                                if (managedPresence(peers) != managedPresence(managedPeers)) managedPeers = peers
+                            }
+                            // Background avatar sync, off the status just read.
+                            val picUrl = if (reads.avatar && status != null) avatarToSync(status, account.avatarUrl) else null
+                            if (picUrl != null) {
+                                try {
+                                    downloadAndCacheAvatar(context, account.id, picUrl)
+                                    AccountManager.updateAccountAvatar(context, account.id, picUrl)
                                     withContext(Dispatchers.Main) {
                                         accounts.value = AccountManager.getAccounts(context)
                                         activeAccount = AccountManager.getActiveAccount(context)
                                     }
-                                }
+                                } catch (e: Exception) {}
                             }
-                        } catch (e: Exception) {}
+                        }
+                    } else if (backendState != "Running") {
+                        connectionSummary = null
+                        tailnetPeers = null
+                        managedPeers = null
                     }
+                } else {
+                    loginUrl = null
+                    show410Warning = false
+                    urlDetected = false
                 }
-            } else {
-                loginUrl = null
-                show410Warning = false
-                urlDetected = false
-            }
 
-            // Check battery optimization status
-            val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-            isBatteryOptimizationsIgnored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                pm.isIgnoringBatteryOptimizations(context.packageName)
-            } else {
-                true
+                delay(MAIN_TICK_MS)
             }
+        }
+    }
 
-            delay(2000)
+    // The one question that goes on being asked while the screen is stopped: a login opened in
+    // a Custom Tab stops this screen, the tab being on top of it, and the watchdog above with
+    // it — yet it is the watchdog's Running that closes the tab (LoginTab.finished). So while
+    // the screen is stopped with a login link on it, the backend alone is checked at the same
+    // pace, until it runs or for as long as the tab would still be closed; nothing at all
+    // otherwise. Back in front, the watchdog takes over.
+    LaunchedEffect(pollLifecycle) {
+        if (inPreview || demo != null) return@LaunchedEffect
+        pollLifecycle.currentStateFlow.collectLatest { state ->
+            if (state.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) || loginUrl == null) return@collectLatest
+            val until = android.os.SystemClock.elapsedRealtime() + MAIN_LOGIN_WATCH_MS
+            while (android.os.SystemClock.elapsedRealtime() < until) {
+                delay(MAIN_TICK_MS)
+                val running = withContext(Dispatchers.IO) {
+                    runCatching { appctr.Appctr.isRunning() && appctr.Appctr.getBackendState() == "Running" }.getOrDefault(false)
+                }
+                if (running) {
+                    context.findActivity()?.let { LoginTab.finished(it) }
+                    break
+                }
+            }
         }
     }
 
@@ -987,6 +1041,15 @@ fun MainScreen(
                 dnsHasFallback = GlobalSettings.dnsHasFallback(context)
                 isRootYielded = GlobalSettings.isRootRoutingYielded(context)
                 isRootShared = GlobalSettings.isRootRoutingShared(context)
+                // Check battery optimization status (a binder call; not in a preview, which has none).
+                if (!inPreview && demo == null) {
+                    val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    isBatteryOptimizationsIgnored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        pm.isIgnoringBatteryOptimizations(context.packageName)
+                    } else {
+                        true
+                    }
+                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -995,7 +1058,10 @@ fun MainScreen(
         }
     }
 
-    DisposableEffect(context) {
+    // Keyed on the profile's store too: the receiver writes that profile's exit node into the
+    // state that holds it, and both are replaced on an account switch (see the watchdog above).
+    // The swap is two back-to-back calls on the main thread, once per switch.
+    DisposableEffect(context, prefs) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
@@ -1026,7 +1092,8 @@ fun MainScreen(
     }
 
     if (showAddAccountDialog) {
-        var newAccountServer by remember { mutableStateOf("") }
+        var newAccountServer by rememberSaveable { mutableStateOf("") }
+        // A secret: never in the saved state, which the system writes out with the task.
         var newAccountAuthKey by remember { mutableStateOf("") }
         // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
         val dlgTitle = stringResource(R.string.main_add_account_title)
@@ -1278,6 +1345,16 @@ fun MainScreen(
             activeLiveLine = line
         }
 
+        // What each profile says of itself, read once per opening and for every row together,
+        // off the main thread: the first look at another profile's store loads its file, and
+        // whether it ever registered can read its state. Done in the frame that opened the sheet,
+        // that was file I/O per row; the sheet is still sliding in when this lands.
+        var accountFacts by remember { mutableStateOf<Map<String, AccountManager.AccountFacts>>(emptyMap()) }
+        LaunchedEffect(accounts.value) {
+            val ids = accounts.value.map { it.id }
+            accountFacts = withContext(Dispatchers.IO) { ids.associateWith { AccountManager.facts(context, it) } }
+        }
+
         // With a remote the sheet opens on the account in use — OK there closes it and
         // changes nothing — wherever that account is in the list.
         val activeIndex = accounts.value.indexOfFirst { it.id == activeAccount.id }.coerceAtLeast(0)
@@ -1331,9 +1408,7 @@ fun MainScreen(
                         val account = accounts.value[i]
                         val isActive = account.id == activeAccount.id
                         val isPrimary = account.id == primaryId
-                        val facts = remember(account.id, accountMenuExpanded) {
-                            AccountManager.facts(context, account.id)
-                        }
+                        val facts = accountFacts[account.id]
                         AccountRow(
                             account = account,
                             facts = facts,
@@ -1767,7 +1842,8 @@ fun MainScreen(
                         onStop = { requestStop() },
                         // Where signing in is a code on this screen, the card's button shows it.
                         onShowCode = if (browserSignIn) null else ({ signInOpen = true }),
-                        codeWasLeft = signInLeft
+                        codeWasLeft = signInLeft,
+                        accountId = activeAccount.id,
                     )
                 }
 
@@ -2174,11 +2250,14 @@ fun MainScreen(
         val coreVer = remember {
             try { appctr.Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
         }
-        var latestVersion by remember { mutableStateOf<String?>(null) }
-        var downloadUrl by remember { mutableStateOf<String?>(null) }
+        // Saveable: the answer of a check outlives a rotation, so a dialog that comes back
+        // still offers the update — and the download under way, which UpdateDownload holds.
+        var latestVersion by rememberSaveable { mutableStateOf<String?>(null) }
+        var downloadUrl by rememberSaveable { mutableStateOf<String?>(null) }
         var isCheckingUpdate by remember { mutableStateOf(false) }
-        var isDownloading by remember { mutableStateOf(false) }
-        var downloadProgress by remember { mutableIntStateOf(0) }
+        val download by UpdateDownload.progress.collectAsState()
+        val isDownloading = download != null
+        val downloadProgress = download?.percent ?: 0
 
         // The one question the dialog answers first: is an update waiting?
         val updateReady = latestVersion?.let { isVersionNewer(versionName, it) } == true
@@ -2302,19 +2381,13 @@ fun MainScreen(
                                         // An update is waiting: the action is a real button, not a line of text.
                                         val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
                                         val cleanVer = latestVersion!!.removePrefix("v")
-                                        val destFile = java.io.File(destDir, "tailsocks-update-$cleanVer.apk")
+                                        val destFile = UpdateDownload.apkFile(destDir, cleanVer)
 
-                                        var isApkCached by remember(destFile.absolutePath) {
-                                            mutableStateOf(
-                                                if (destFile.exists() && destFile.length() > 0) {
-                                                    try {
-                                                        val pInfo = context.packageManager.getPackageArchiveInfo(destFile.absolutePath, 0)
-                                                        pInfo != null && pInfo.packageName == context.packageName
-                                                    } catch (e: Exception) {
-                                                        false
-                                                    }
-                                                } else false
-                                            )
+                                        // Whether it is already downloaded parses the APK: off the main thread, not in
+                                        // a frame. The button reads Download for the moment that takes.
+                                        var isApkCached by remember(destFile.absolutePath) { mutableStateOf(false) }
+                                        LaunchedEffect(destFile.absolutePath) {
+                                            isApkCached = withContext(Dispatchers.IO) { UpdateDownload.isOwnApk(context, destFile) }
                                         }
 
                                         Button(
@@ -2340,63 +2413,9 @@ fun MainScreen(
                                                     links.open(UpdateCheck.page(latestVersion!!), dlgGithub)
                                                     return@Button
                                                 }
-                                                val targetUrl = downloadUrl
-                                                isDownloading = true
-                                                downloadProgress = 0
-                                                scope.launch(Dispatchers.IO) {
-                                                    pruneUpdateDownloads(context, keepVersion = cleanVer)
-                                                    val tempFile = java.io.File(destDir, "tailsocks-update-$cleanVer.tmp")
-                                                    try {
-                                                        val url = java.net.URL(targetUrl)
-                                                        val conn = url.openConnection() as java.net.HttpURLConnection
-                                                        conn.instanceFollowRedirects = true
-                                                        // A server that stops answering must end the download, not leave its progress bar up for ever.
-                                                        conn.connectTimeout = 15_000
-                                                        conn.readTimeout = 30_000
-                                                        conn.connect()
-                                                        val totalLength = conn.contentLength
-
-                                                        conn.inputStream.use { input ->
-                                                            tempFile.outputStream().use { output ->
-                                                                val buffer = ByteArray(8192)
-                                                                var read: Int
-                                                                var totalRead = 0L
-                                                                while (input.read(buffer).also { read = it } != -1) {
-                                                                    output.write(buffer, 0, read)
-                                                                    totalRead += read
-                                                                    if (totalLength > 0) {
-                                                                        val pct = (totalRead * 100 / totalLength).toInt()
-                                                                        withContext(Dispatchers.Main) { downloadProgress = pct }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        val pInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
-                                                        if (pInfo != null && pInfo.packageName == context.packageName) {
-                                                            if (destFile.exists()) destFile.delete()
-                                                            tempFile.renameTo(destFile)
-                                                            withContext(Dispatchers.Main) {
-                                                                isDownloading = false
-                                                                isApkCached = true
-                                                                Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
-                                                                launchApkInstaller(context, destFile)
-                                                            }
-                                                        } else {
-                                                            if (tempFile.exists()) tempFile.delete()
-                                                            withContext(Dispatchers.Main) {
-                                                                isDownloading = false
-                                                                Toast.makeText(context, context.getString(R.string.main_check_failed_format, "Corrupted APK downloaded"), Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        if (tempFile.exists()) tempFile.delete()
-                                                        withContext(Dispatchers.Main) {
-                                                            isDownloading = false
-                                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    }
-                                                }
+                                                // In the process's scope (UpdateDownload): a rotation or a
+                                                // closed dialog no longer cancels it halfway.
+                                                UpdateDownload.start(context, downloadUrl!!, cleanVer, destDir)
                                             },
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
@@ -3123,12 +3142,18 @@ fun LoggedOutCard(
      */
     onShowCode: (() -> Unit)? = null,
     /** The code was shown and left: its button is where the remote comes back to. */
-    codeWasLeft: Boolean = false
+    codeWasLeft: Boolean = false,
+    /**
+     * The profile the card signs in: the screen's active account. A switch does not recreate
+     * the screen, so a card that looked it up once kept the first one's auth key. Null (a
+     * preview) reads the stored active account.
+     */
+    accountId: String? = null,
 ) {
     val context = LocalContext.current
-    val activeAccount = remember { io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context) }
-    val profilePrefs = remember(activeAccount) { context.getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE) }
-    var enteredKey by remember { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
+    val profileId = remember(accountId) { accountId ?: io.github.bropines.tailscaled.core.AccountManager.getActiveAccount(context).id }
+    val profilePrefs = remember(profileId) { context.getSharedPreferences("appctr_$profileId", Context.MODE_PRIVATE) }
+    var enteredKey by remember(profileId) { mutableStateOf(profilePrefs.getString("authkey", "") ?: "") }
     var showKeyInput by remember { mutableStateOf(false) }
     // The link's sheet goes with the link: a login that went through closes it.
     var showLink by remember { mutableStateOf(false) }
@@ -3634,7 +3659,7 @@ private fun AboutBackdrop(onDismiss: () -> Unit) {
  * download that is not newer than the installed version (installed or
  * superseded) and every stale .tmp; keepVersion names the download in flight.
  */
-private fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) {
+internal fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) {
     val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return
     val installed = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
@@ -3657,7 +3682,8 @@ private fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) 
 @Composable
 private fun AccountRow(
     account: TailscaleAccount,
-    facts: AccountManager.AccountFacts,
+    /** Null until the sheet has read them (off the main thread): the line under the name waits. */
+    facts: AccountManager.AccountFacts?,
     active: Boolean,
     liveLine: String?,
     editing: Boolean,
@@ -3674,6 +3700,8 @@ private fun AccountRow(
     val context = LocalContext.current
     val subtitle = when {
         active && !liveLine.isNullOrEmpty() -> liveLine
+        // Empty, not absent: the row keeps its height while the facts are read.
+        facts == null -> ""
         active -> listOf(facts.loginServer, notConnectedLabel).joinToString(" · ")
         else -> listOf(
             facts.loginServer,
@@ -3707,7 +3735,7 @@ private fun AccountRow(
                     )
                     // Glyphs, not words: an auth key means this account logs in on
                     // its own, the robot means it registers as an Android device.
-                    if (facts.hasAuthKey) {
+                    if (facts?.hasAuthKey == true) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Default.VpnKey,
@@ -3716,7 +3744,7 @@ private fun AccountRow(
                             modifier = Modifier.size(13.dp)
                         )
                     }
-                    if (facts.honestOs) {
+                    if (facts?.honestOs == true) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Default.Android,
@@ -3799,13 +3827,28 @@ private fun AccountRow(
 @Composable
 private fun AccountAvatar(account: TailscaleAccount, active: Boolean) {
     val context = LocalContext.current
-    val bitmap = remember(account.id, account.avatarUrl) {
-        val f = java.io.File(context.filesDir, "avatars/${account.id}.png")
-        if (f.exists()) runCatching { android.graphics.BitmapFactory.decodeFile(f.absolutePath) }.getOrNull() else null
+    val targetPx = with(androidx.compose.ui.platform.LocalDensity.current) { 38.dp.roundToPx() }
+    // Read and decoded off the main thread, at about the size it is drawn (avatarSampleSize):
+    // the tailnet's pictures are several hundred pixels for a 38 dp circle, and decoding them
+    // whole in composition was file I/O and an image decode per row in the frame that opened
+    // the sheet. The initial stands in until it is there.
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, account.id, account.avatarUrl, targetPx) {
+        value = withContext(Dispatchers.IO) {
+            val f = java.io.File(context.filesDir, "avatars/${account.id}.png")
+            if (!f.exists()) return@withContext null
+            runCatching {
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(f.absolutePath, bounds)
+                val opts = android.graphics.BitmapFactory.Options().apply {
+                    inSampleSize = avatarSampleSize(bounds.outWidth, bounds.outHeight, targetPx)
+                }
+                android.graphics.BitmapFactory.decodeFile(f.absolutePath, opts)?.asImageBitmap()
+            }.getOrNull()
+        }
     }
-    if (bitmap != null) {
+    bitmap?.let { image ->
         androidx.compose.foundation.Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = image,
             contentDescription = null,
             modifier = Modifier
                 .size(38.dp)
