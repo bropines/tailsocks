@@ -1345,6 +1345,16 @@ fun MainScreen(
             activeLiveLine = line
         }
 
+        // What each profile says of itself, read once per opening and for every row together,
+        // off the main thread: the first look at another profile's store loads its file, and
+        // whether it ever registered can read its state. Done in the frame that opened the sheet,
+        // that was file I/O per row; the sheet is still sliding in when this lands.
+        var accountFacts by remember { mutableStateOf<Map<String, AccountManager.AccountFacts>>(emptyMap()) }
+        LaunchedEffect(accounts.value) {
+            val ids = accounts.value.map { it.id }
+            accountFacts = withContext(Dispatchers.IO) { ids.associateWith { AccountManager.facts(context, it) } }
+        }
+
         // With a remote the sheet opens on the account in use — OK there closes it and
         // changes nothing — wherever that account is in the list.
         val activeIndex = accounts.value.indexOfFirst { it.id == activeAccount.id }.coerceAtLeast(0)
@@ -1398,9 +1408,7 @@ fun MainScreen(
                         val account = accounts.value[i]
                         val isActive = account.id == activeAccount.id
                         val isPrimary = account.id == primaryId
-                        val facts = remember(account.id, accountMenuExpanded) {
-                            AccountManager.facts(context, account.id)
-                        }
+                        val facts = accountFacts[account.id]
                         AccountRow(
                             account = account,
                             facts = facts,
@@ -3674,7 +3682,8 @@ internal fun pruneUpdateDownloads(context: Context, keepVersion: String? = null)
 @Composable
 private fun AccountRow(
     account: TailscaleAccount,
-    facts: AccountManager.AccountFacts,
+    /** Null until the sheet has read them (off the main thread): the line under the name waits. */
+    facts: AccountManager.AccountFacts?,
     active: Boolean,
     liveLine: String?,
     editing: Boolean,
@@ -3691,6 +3700,8 @@ private fun AccountRow(
     val context = LocalContext.current
     val subtitle = when {
         active && !liveLine.isNullOrEmpty() -> liveLine
+        // Empty, not absent: the row keeps its height while the facts are read.
+        facts == null -> ""
         active -> listOf(facts.loginServer, notConnectedLabel).joinToString(" · ")
         else -> listOf(
             facts.loginServer,
@@ -3724,7 +3735,7 @@ private fun AccountRow(
                     )
                     // Glyphs, not words: an auth key means this account logs in on
                     // its own, the robot means it registers as an Android device.
-                    if (facts.hasAuthKey) {
+                    if (facts?.hasAuthKey == true) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Default.VpnKey,
@@ -3733,7 +3744,7 @@ private fun AccountRow(
                             modifier = Modifier.size(13.dp)
                         )
                     }
-                    if (facts.honestOs) {
+                    if (facts?.honestOs == true) {
                         Spacer(Modifier.width(6.dp))
                         Icon(
                             Icons.Default.Android,
@@ -3816,13 +3827,28 @@ private fun AccountRow(
 @Composable
 private fun AccountAvatar(account: TailscaleAccount, active: Boolean) {
     val context = LocalContext.current
-    val bitmap = remember(account.id, account.avatarUrl) {
-        val f = java.io.File(context.filesDir, "avatars/${account.id}.png")
-        if (f.exists()) runCatching { android.graphics.BitmapFactory.decodeFile(f.absolutePath) }.getOrNull() else null
+    val targetPx = with(androidx.compose.ui.platform.LocalDensity.current) { 38.dp.roundToPx() }
+    // Read and decoded off the main thread, at about the size it is drawn (avatarSampleSize):
+    // the tailnet's pictures are several hundred pixels for a 38 dp circle, and decoding them
+    // whole in composition was file I/O and an image decode per row in the frame that opened
+    // the sheet. The initial stands in until it is there.
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, account.id, account.avatarUrl, targetPx) {
+        value = withContext(Dispatchers.IO) {
+            val f = java.io.File(context.filesDir, "avatars/${account.id}.png")
+            if (!f.exists()) return@withContext null
+            runCatching {
+                val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(f.absolutePath, bounds)
+                val opts = android.graphics.BitmapFactory.Options().apply {
+                    inSampleSize = avatarSampleSize(bounds.outWidth, bounds.outHeight, targetPx)
+                }
+                android.graphics.BitmapFactory.decodeFile(f.absolutePath, opts)?.asImageBitmap()
+            }.getOrNull()
+        }
     }
-    if (bitmap != null) {
+    bitmap?.let { image ->
         androidx.compose.foundation.Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = image,
             contentDescription = null,
             modifier = Modifier
                 .size(38.dp)
