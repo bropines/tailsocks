@@ -47,6 +47,12 @@ class TunVpnService : VpnService() {
     companion object {
         const val ACTION_START = "io.github.bropines.tailscaled.TUN_START"
         const val ACTION_STOP  = "io.github.bropines.tailscaled.TUN_STOP"
+        /**
+         * ACTION_STOP's extra: the daemon outlives the tunnel, so the native
+         * engine's daemon is relaunched in userspace mode ([relaunchAfterTunStop]).
+         * Absent means the caller tears the daemon down next.
+         */
+        const val EXTRA_DAEMON_STAYS = "daemon_stays"
 
         /** MagicDNS; hev carries it to the daemon over SOCKS5 UDP, the native engine answers it itself. */
         const val TUN_DNS_IP   = "100.100.100.100"
@@ -367,11 +373,12 @@ class TunVpnService : VpnService() {
             if (action == VpnService.SERVICE_INTERFACE) startCoreForAlwaysOn()
         }
 
+        val daemonStays = intent?.getBooleanExtra(EXTRA_DAEMON_STAYS, false) == true
         executor.submit {
             try {
                 if (action == ACTION_STOP) {
                     waitingForAddresses = false
-                    stopTunInternal()
+                    stopTunInternal(relaunchDaemon = relaunchAfterTunStop(daemonStays, ProxyState.isUserLetRunning(this)))
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                         stopSelf()
                     }
@@ -871,8 +878,17 @@ class TunVpnService : VpnService() {
      * native engine. The daemon is then stopped once and started once, on the
      * new device, by the SetNativeTun that follows — instead of a relaunch in
      * userspace mode in between and a second one right after.
+     *
+     * relaunchDaemon: with the native engine, the daemon is started again in
+     * userspace mode once the device is gone. Its default keeps the daemon for
+     * as long as the connection is wanted (a revoke by another VPN app, a
+     * failed replacement); ACTION_STOP says explicitly, because the main
+     * service's restart, recovery and stops kill the daemon right after.
      */
-    private fun stopTunInternal(nativeStartFollows: Boolean = false) {
+    private fun stopTunInternal(
+        nativeStartFollows: Boolean = false,
+        relaunchDaemon: Boolean = ProxyState.isUserLetRunning(this),
+    ) {
         Log.i(TAG, "Stopping TUN...")
         isRunning = false
         builtEngine = null
@@ -887,11 +903,11 @@ class TunVpnService : VpnService() {
         if (currentEngine == ENGINE_NATIVE) {
             // tailscaled holds its own copy of the device. For a restart into
             // the native engine the bridge only stops the daemon; otherwise it
-            // relaunches it in userspace mode unless the whole connection is
-            // going down.
+            // relaunches it in userspace mode when the daemon is to outlive
+            // the tunnel (relaunchDaemon).
             try {
                 if (nativeStartFollows) Appctr.releaseNativeTunForSwap()
-                else Appctr.clearNativeTun(ProxyState.isUserLetRunning(this))
+                else Appctr.clearNativeTun(relaunchDaemon)
             } catch (e: Exception) {
                 Log.w(TAG, "Native TUN: releasing the device failed: $e")
             }

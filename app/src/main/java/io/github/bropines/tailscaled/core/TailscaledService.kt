@@ -499,7 +499,12 @@ class TailscaledService : Service() {
             applyTaildrive(this@TailscaledService)
         }
 
-        if (GlobalSettings.isRootModeEnabled(this@TailscaledService) && GlobalSettings.isRootTunEnabled(this@TailscaledService)) {
+        if (rootRoutingApplies(
+                GlobalSettings.isRootModeEnabled(this@TailscaledService),
+                GlobalSettings.isRootTunEnabled(this@TailscaledService),
+                rootDaemonAttached = runningRootSpec != null
+            )
+        ) {
             // The VPN-slot callback is registered in onCreate and may have been
             // refused; the tick is the backstop that keeps the answer current.
             if (!vpnCallbackRegistered) refreshForeignVpnFromScan()
@@ -1336,9 +1341,11 @@ class TailscaledService : Service() {
         // because the daemon still looked alive.
         shutdownInFlight = Thread {
             try {
-                stopTunMode()
-                shutdownDaemon()
-                Thread.sleep(1500)
+                ownTeardown {
+                    stopTunMode()
+                    shutdownDaemon()
+                    Thread.sleep(1500)
+                }
                 if (gen != lifecycleGeneration.get() || !ProxyState.isUserLetRunning(this)) {
                     // A manual stop, restart or start landed during the pause; a stop
                     // must not be undone, and a start owns the service now.
@@ -1367,8 +1374,13 @@ class TailscaledService : Service() {
      * pressing Stop and neither recovery ever fired.
      */
     private fun onDaemonExited() {
-        if (teardownStarted || !ProxyState.isUserLetRunning(this)) {
-            // A stop or restart is already in progress, or the user stopped.
+        val verdict = classifyDaemonExit(
+            teardownStarted = teardownStarted,
+            userWantsRunning = ProxyState.isUserLetRunning(this),
+            ownTeardownInFlight = ownTeardowns.get() > 0
+        )
+        if (verdict == DaemonExit.EXPECTED) {
+            // A stop, restart or recovery is taking the daemon down, or the user stopped.
             return
         }
         Appctr.logAndroid("ERROR", "CORE", "The daemon exited unexpectedly")
@@ -2073,7 +2085,9 @@ class TailscaledService : Service() {
                         startTunMode()
                     }
                 } else {
-                    stopTunMode()
+                    // The daemon outlives the tunnel here: the bridge relaunches it
+                    // in userspace mode once the native engine lets go of the device.
+                    stopTunMode(daemonStays = true)
                 }
                 // A switch between proxy and TUN relaunches the daemon a few seconds
                 // from here, and what the tick does on a new run — Taildrive's file
@@ -2114,9 +2128,15 @@ class TailscaledService : Service() {
             // joins it and starts afterwards instead of seeing a daemon that is
             // about to be killed and doing nothing.
             shutdownInFlight = Thread {
-                stopTunMode()
-                shutdownDaemon()
-                Thread.sleep(1000)
+                // The whole teardown, pause included, is the restart's own: an
+                // exit the supervisor reports in it is not a crash (see
+                // classifyDaemonExit). teardownStarted was cleared above and
+                // cannot say so.
+                ownTeardown {
+                    stopTunMode()
+                    shutdownDaemon()
+                    Thread.sleep(1000)
+                }
                 if (gen != lifecycleGeneration.get()) {
                     // A stop or a fresh START landed during the teardown; the
                     // START path joins this thread and starts itself, a stop wins.
@@ -2607,6 +2627,22 @@ class TailscaledService : Service() {
      */
     private val stopGeneration = java.util.concurrent.atomic.AtomicInteger()
 
+    /**
+     * How many of the service's own teardowns are running (shutdownDaemon, and
+     * a restart's or recovery's teardown with its pause). A daemon exit inside
+     * one is expected, whatever teardownStarted says; see [classifyDaemonExit].
+     */
+    private val ownTeardowns = java.util.concurrent.atomic.AtomicInteger()
+
+    private inline fun <T> ownTeardown(block: () -> T): T {
+        ownTeardowns.incrementAndGet()
+        try {
+            return block()
+        } finally {
+            ownTeardowns.decrementAndGet()
+        }
+    }
+
     /** Teardown thread of the most recent stop, while it is still running. */
     @Volatile private var shutdownInFlight: Thread? = null
 
@@ -2686,18 +2722,23 @@ class TailscaledService : Service() {
     }
 
     /** Blocking teardown of the daemon and everything attached to it. */
-    private fun shutdownDaemon() {
+    private fun shutdownDaemon() = ownTeardown {
         try { Appctr.stopDriveServer() } catch (e: Exception) {}
         try { Appctr.stopDriveProxy() } catch (e: Exception) {}
 
         val rootMode = GlobalSettings.isRootModeEnabled(this)
-        if (rootMode) {
-            // Release the bridge first: the IPN bus and the DNS proxy must stop
-            // talking to a daemon that is about to disappear.
-            Appctr.detachExternal()
-        } else {
-            Appctr.stop()
-        }
+        // Release the bridge first: the IPN bus and the DNS proxy must stop
+        // talking to a daemon that is about to disappear. Stop() releases an
+        // attached root daemon exactly as DetachExternal does, and on top of it
+        // stops a daemon the bridge launched itself — retiring its supervisor
+        // first, so the exit is not reported as a crash. Which of the two runs
+        // is a fact about the bridge, not about the Root Mode setting: a switch
+        // into Root Mode flips the setting while the bridge's own userspace
+        // daemon is still running, and detaching from it left that daemon to
+        // the root kill script below, whose kill its supervisor then reported
+        // as a crash — the stand-down took the restart's start with it.
+        Appctr.stop()
+        runningRootSpec = null
 
         // Rule removal is deliberately not tied to Root Mode still being on.
         // Turning the mode off flips the setting before the service is asked to
@@ -2915,7 +2956,14 @@ class TailscaledService : Service() {
         }
     }
 
-    private fun stopTunMode() {
+    /**
+     * Takes the VpnService down. [daemonStays]: the daemon keeps running after
+     * the tunnel (a settings apply switching TUN off), so the native engine's
+     * daemon is relaunched in userspace mode; every other caller tears the
+     * daemon down right after, and a relaunch would only start a daemon that
+     * teardown then kills (see [relaunchAfterTunStop]).
+     */
+    private fun stopTunMode(daemonStays: Boolean = false) {
         TunVpnService.setDisplaced(this, false)
         try {
             if (!TunVpnService.isRunning && !tunRequested) {
@@ -2929,6 +2977,7 @@ class TailscaledService : Service() {
             tunRequested = false
             startService(Intent(this, TunVpnService::class.java).apply {
                 action = TunVpnService.ACTION_STOP
+                putExtra(TunVpnService.EXTRA_DAEMON_STAYS, daemonStays)
             })
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop TunVpnService", e)
@@ -3047,16 +3096,14 @@ class TailscaledService : Service() {
             // otherwise stay up, forwarding into a SOCKS proxy that is gone.
             stopTunMode()
             ShareTargets.clear(this)
-            val rootMode = GlobalSettings.isRootModeEnabled(this)
             // On the start executor, not a thread of its own: a new instance's
             // start, requested right after this destroy, queues behind this
             // teardown instead of adopting a daemon the teardown then kills.
             startExecutor.execute {
-                if (rootMode) {
-                    Appctr.detachExternal()
-                } else {
-                    Appctr.stop()
-                }
+                // Kills only a daemon the bridge launched; an attached root
+                // daemon is released, as in shutdownDaemon.
+                Appctr.stop()
+                runningRootSpec = null
                 // Autostart installed means the daemon is expected to outlive the
                 // app, so it is left alone — but its rules are still ours to drop
                 // if the daemon is going away with us.
