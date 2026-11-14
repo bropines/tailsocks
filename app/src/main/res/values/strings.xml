@@ -462,6 +462,7 @@
     <string name="peers_failed_format">Failed: %1$s</string>
     <string name="peers_daemon_not_running">Daemon not running</string>
     <string name="peers_network_error">Network error</string>
+    <string name="peers_status_failed">The daemon did not answer: %1$s</string>
     <string name="action_start_service">Start Service</string>
     <string name="action_retry">Retry</string>
 

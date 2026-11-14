@@ -47,13 +47,15 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
-import appctr.Appctr
+import android.os.SystemClock
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -209,21 +211,35 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
         
         coroutineScope.launch(Dispatchers.IO) {
             try {
+                suspend fun showStopped() = withContext(Dispatchers.Main) {
+                    daemonStopped = true
+                    loaded = true
+                    isRefreshing = false
+                }
                 // A stopped service is not an error to print: the screen offers to start it.
                 if (!ProxyState.isActualRunning(context)) {
-                    withContext(Dispatchers.Main) {
-                        daemonStopped = true
-                        loaded = true
-                        isRefreshing = false
-                    }
+                    showStopped()
                     return@launch
                 }
-                val json = Appctr.getStatusFromAPI()
-
-                if (json.isNullOrBlank() || json.startsWith("Error")) {
-                    throw Exception(if (json.isNullOrBlank()) context.getString(R.string.peers_daemon_not_running) else json)
+                // A daemon that is starting answers {"Error": …} for its first seconds — no
+                // socket yet, or in Root Mode a bridge not attached yet. Those seconds are the
+                // loading state (the refresh spinner over a list that is not there yet), not an
+                // error: the read is tried again until the grace runs out. Only a failure that
+                // outlasts it is printed; a service stopped meanwhile gets the start offer.
+                var read = DaemonStatus.read()
+                val graceEnds = SystemClock.elapsedRealtime() + STATUS_GRACE_MS
+                while (read is DaemonStatus.Read.Failed && SystemClock.elapsedRealtime() < graceEnds) {
+                    delay(STATUS_RETRY_MS)
+                    if (!ProxyState.isActualRunning(context)) {
+                        showStopped()
+                        return@launch
+                    }
+                    read = DaemonStatus.read()
                 }
-                val status = AppJson.decodeFromString<StatusResponse>(json)
+                val status = when (read) {
+                    is DaemonStatus.Read.Ok -> read.status
+                    is DaemonStatus.Read.Failed -> throw Exception(context.getString(R.string.peers_status_failed, read.error))
+                }
                 val loadedPeers = listablePeers(status)
                 withContext(Dispatchers.Main) {
                     selfPeer = status.self
@@ -240,6 +256,9 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                 // refresh a minute later costs no network at all.
                 val versions = PeerVersionSource.versionsFor(context, listOfNotNull(status.self) + loadedPeers)
                 withContext(Dispatchers.Main) { peerVersions = versions }
+            } catch (e: CancellationException) {
+                // The screen left during the wait above: nothing to show, and nobody to show it to.
+                throw e
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     isRefreshing = false
@@ -746,6 +765,12 @@ private fun PeerData.matchesQuery(query: String): Boolean =
 
 /** The last tab picked by hand, for the next visit. A per-device preference, like the theme. */
 private const val PEERS_TAB_PREF = "peers_tab"
+
+/** How long a load waits out a daemon that is still coming up before it prints the failure,
+ *  and how often it asks again meanwhile. The start screen's own wait is 15 s
+ *  (DaemonStoppedState); by then the socket is long there. */
+private const val STATUS_GRACE_MS = 10_000L
+private const val STATUS_RETRY_MS = 1_000L
 
 private fun storedPeerTab(context: Context): PeerTab {
     val name = GlobalSettings.getString(context, PEERS_TAB_PREF, PeerTab.ALL.name)
