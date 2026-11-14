@@ -106,7 +106,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 
 * **High-Density 2×4 Grid Dashboard**:
   - The main dashboard ([`MainActivity.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainActivity.kt)) utilizes a dense, scroll-free vertical layout encapsulated in a `Column`.
-  - Core control is a large `StatusCard` with `MaterialTheme.shapes.extraLarge` (28.dp) corners serving as the primary connection toggle.
+  - Core control is a large `StatusCard` ([`MainStatusCard.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainStatusCard.kt)) with `MaterialTheme.shapes.extraLarge` (28.dp) corners serving as the primary connection toggle.
   - Sub-menus are arranged in a 2×4 grid using `Row` components where each `MenuCard` uses `Modifier.weight(1f)` for a precise 2-column distribution.
 
 * **Component & Layout Patterns**:
