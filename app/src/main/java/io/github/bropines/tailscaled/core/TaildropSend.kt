@@ -16,6 +16,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
+import java.util.UUID
 
 /** What became of one file: [error] is null when it arrived, else the reason in words. */
 data class TaildropSendOutcome(val name: String, val error: String?)
@@ -41,8 +42,10 @@ fun sendTaildropFiles(
  * arrived or not — the one send routine of the three send sites (Files, the Share sheet, a
  * peer's sheet). Blocking: call it from a background dispatcher.
  *
- * The daemon takes a path, not a stream, so the file is copied into the cache first; the
- * SHA-256 and the size are taken during that copy, in the same pass. A `file:` URI — a
+ * The daemon takes a path, not a stream, so the file is copied into the cache first
+ * ([TaildropCopies]: a directory of its own per send, so two sends of a same-named file
+ * cannot write, send and delete each other's copy); the SHA-256 and the size are taken
+ * during that copy, in the same pass. A `file:` URI — a
  * file picked in the app's own browser, on a device without the system's picker — is a
  * path already, and one the bridge reads in this process: it is hashed where it lies and
  * sent from there, since a film on a USB stick does not fit a television's cache as well.
@@ -68,15 +71,20 @@ fun sendTaildropFile(
     var sha256: String? = null
     var durationMs: Long? = null
     var error: String? = null
-    val tmp = File(File(context.cacheDir, "taildrop_out/${source.name.lowercase()}").apply { mkdirs() }, name)
+    // Words that end up in the history and the notifications: in the app's language, whoever calls.
+    val strings = AppStrings.of(context)
     // The bridge names the file after the path it is given, so only a path that ends in [name].
     val inPlace = uri.takeIf { it.scheme == ContentResolver.SCHEME_FILE }?.path?.let(::File)?.takeIf { it.name == name }
+    var tmp: File? = null
     try {
-        val target = taildropTargetId(context, peer)
+        val target = taildropTargetId(strings, peer)
         val (copied, hash) = when {
             inPlace != null -> inPlace.inputStream().use { hashing(it, null) }
-            opened != null -> opened.use { i -> tmp.outputStream().use { o -> hashing(i, o) } }
-            else -> copyHashing(context, uri, tmp)
+            else -> {
+                val copy = TaildropCopies.of(context).newCopy(name).also { tmp = it }
+                if (opened != null) opened.use { i -> copy.outputStream().use { o -> hashing(i, o) } }
+                else copyHashing(context, uri, copy, strings)
+            }
         }
         size = copied
         sha256 = hash
@@ -84,16 +92,16 @@ fun sendTaildropFile(
         val started = SystemClock.elapsedRealtime()
         // "OK" is the bridge's word for a 2xx from the peer itself; anything else starts with
         // "Error" and carries the peer's HTTP status and body, or the local failure.
-        val path = (inPlace ?: tmp).absolutePath
+        val path = (inPlace ?: tmp!!).absolutePath
         val res = if (sendId != null) Appctr.sendFileTracked(sendId, target, path) else Appctr.sendFileFromAPI(target, path)
         durationMs = SystemClock.elapsedRealtime() - started
         if (res != "OK") error = res.removePrefix("Error: ").ifBlank { res }
-            .let { if (it == SEND_CANCELLED) context.getString(R.string.taildrop_out_cancelled) else it }
+            .let { if (it == SEND_CANCELLED) strings.getString(R.string.taildrop_out_cancelled) else it }
     } catch (e: Exception) {
         error = e.message ?: e.javaClass.simpleName
     } finally {
         runCatching { opened?.close() }
-        tmp.delete()
+        tmp?.let(TaildropCopies::discard)
     }
 
     val now = currentPeer(peer) ?: peer
@@ -155,9 +163,53 @@ internal fun httpStatusOf(error: String): Int? =
 private val HTTP_STATUS = Regex("""^HTTP (\d{3})\b""")
 
 /** The peer as the daemon sees it now, by StableNodeID; null when the status cannot say. */
-internal fun currentPeer(peer: PeerData): PeerData? {
-    val id = peer.id?.takeIf { it.isNotEmpty() } ?: return null
-    return DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.id == id }
+internal fun currentPeer(peer: PeerData): PeerData? = peer.id?.takeIf { it.isNotEmpty() }?.let(::peerById)
+
+/** The peer with StableNodeID [id] in a fresh status; null when the status cannot say. Blocking. */
+internal fun peerById(id: String): PeerData? =
+    DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.id == id }
+
+/**
+ * Where a send's copy for the daemon is written: `cache/taildrop_out/<random>/<name>`, a
+ * directory of its own per send. The bridge names the file after the path's last element, so
+ * the name has to be the file's own — and named by that alone, two sends of a same-named
+ * file at once (the outbox and a remote device's send, say) wrote, sent and deleted the
+ * same path. A process killed mid-send leaves its copy behind — possibly gigabytes — so the
+ * first copy a process makes clears out whatever an earlier process left there; nothing of
+ * this process can be in it yet.
+ */
+internal class TaildropCopies(private val root: File) {
+    private var swept = false
+
+    /** A fresh path for a copy of a file called [name], in a directory nothing else uses. */
+    @Synchronized
+    fun newCopy(name: String): File {
+        if (!swept) {
+            swept = true
+            root.listFiles()?.forEach { it.deleteRecursively() }
+        }
+        val dir = File(root, UUID.randomUUID().toString())
+        if (!dir.mkdirs()) throw IOException("no room for a copy in the cache")
+        return File(dir, name)
+    }
+
+    companion object {
+        const val DIR = "taildrop_out"
+
+        @Volatile
+        private var instance: TaildropCopies? = null
+
+        /** The process's one instance, so the sweep happens once per process. */
+        fun of(context: Context): TaildropCopies = instance ?: synchronized(this) {
+            instance ?: TaildropCopies(File(context.cacheDir, DIR)).also { instance = it }
+        }
+
+        /** Removes a copy made by [newCopy], and its directory. */
+        fun discard(copy: File) {
+            copy.delete()
+            copy.parentFile?.delete()
+        }
+    }
 }
 
 /** The bridge's word for a send stopped by cancelSendFile (appctr/taildrop_send.go). */
@@ -167,9 +219,9 @@ internal fun displayNameOf(context: Context, uri: Uri): String =
     getFileName(context, uri) ?: "file_${System.currentTimeMillis()}"
 
 /** Copies [uri] into [dest] and hashes it on the way: one read of the source. */
-private fun copyHashing(context: Context, uri: Uri, dest: File): Pair<Long, String> {
+private fun copyHashing(context: Context, uri: Uri, dest: File, strings: Context): Pair<Long, String> {
     val input = context.contentResolver.openInputStream(uri)
-        ?: throw IOException(context.getString(R.string.taildrop_error_unreadable))
+        ?: throw IOException(strings.getString(R.string.taildrop_error_unreadable))
     return input.use { i -> dest.outputStream().use { o -> hashing(i, o) } }
 }
 

@@ -8,7 +8,6 @@ import java.io.OutputStream
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.math.exp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -345,9 +344,7 @@ internal class DownloadQueue(private val world: DownloadWorld, private val scope
             }
             val dt = now - rateAt
             if (dt <= 0) return
-            val sample = (received - rateBytes) * 1000.0 / dt
-            val weight = 1 - exp(-dt / RATE_TAU_MS)
-            rate = rate?.let { it + weight * (sample - it) } ?: sample
+            rate = TransferRate.smoothed(rate, (received - rateBytes) * 1000.0 / dt, dt)
             rateBytes = received
             rateAt = now
         }
@@ -670,7 +667,6 @@ internal class DownloadQueue(private val world: DownloadWorld, private val scope
         private const val BUFFER_BYTES = 256 * 1024
         /** How often the page is told how far the files have got. */
         private const val PUBLISH_MS = 200L
-        private const val RATE_TAU_MS = 3_000.0
 
         /** Downloads into the same folder share its sink: one cache of its names, one claim at a time. */
         private fun folderKey(folder: ReceiveFolder): String = when (folder) {
