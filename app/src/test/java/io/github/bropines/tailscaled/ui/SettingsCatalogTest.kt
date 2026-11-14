@@ -33,7 +33,7 @@ class SettingsCatalogTest {
         "SettingsExitNodeItem" to 0,
         // NodeSettings.kt: (state, field, title, …).
         "NodeSwitchRow" to 2,
-        // The tunnel modes of SettingsActivity.kt: always called by name.
+        // The tunnel modes of SettingsTunnel.kt: always called by name.
         "ModeOption" to 2,
     )
 
