@@ -623,19 +623,6 @@ class TunVpnService : VpnService() {
             return false
         }
 
-        // The probe from before the native engine existed: can a child process
-        // of ours ioctl the VPN fd? A duplicate goes to a short-lived tailscaled
-        // that reports the interface name and MTU; hev gets the original below,
-        // so traffic is untouched. Kept on the compatibility engine because its
-        // log line says whether the native engine could run on this device.
-        try {
-            val dup = fd.dup()
-            val report = Appctr.probeTunFd(dup.detachFd())
-            Log.i(TAG, "TUN fd probe:\n$report")
-        } catch (e: Exception) {
-            Log.w(TAG, "TUN fd probe failed: $e")
-        }
-
         // Start hev tunnel (JNI).
         Log.i(TAG, "Calling TProxyStartService JNI...")
         TProxyStartService(configFile.absolutePath, fd.fd)

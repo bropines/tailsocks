@@ -168,11 +168,6 @@ d orig/net/dns/resolver/forwarder.go tailscale_src/net/dns/resolver/forwarder.go
 # years but nothing in the daemon ever read it.
 d orig/net/dnscache/dnscache.go tailscale_src/net/dnscache/dnscache.go > patches/15-dnscache-static-hosts.patch
 
-# 17-android-tunfd-probe.patch (creates cmd/tailscaled/android_tunfd_probe.go)
-# Native-TUN experiment: TS_TUN_FD_PROBE=<fd> makes tailscaled report what it
-# can do with an inherited VpnService TUN fd (TUNGETIFF, SIOCGIFMTU) and exit.
-d /dev/null tailscale_src/cmd/tailscaled/android_tunfd_probe.go > patches/17-android-tunfd-probe.patch
-
 # 18-android-vpn-tun.patch (creates cmd/tailscaled/android_vpn.go)
 # Native TUN: --tun=android-vpn builds the wireguard-go device from the
 # VpnService fd in TS_TUN_FD; the matching tryEngine/getLocalBackend edits in
