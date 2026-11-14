@@ -29,23 +29,13 @@ import kotlinx.coroutines.runBlocking
  *    is a different device, not a reason to guess by name.
  *
  * Read-only: it lists devices and nothing else, so it needs no unlock. Blocking, so call it
- * off the main thread. Safe from several coroutines at once: they take turns on the cache.
+ * off the main thread. Safe from several threads at once: callers that arrive during a fetch
+ * wait for that same fetch, and no lock is held while the network answers.
  */
 object PeerVersionSource {
     private const val TAG = "PeerVersionSource"
     private const val TTL_OK_MS = 5 * 60 * 1000L
     private const val TTL_FAILED_MS = 60 * 1000L
-
-    /** One answer from the Admin API, or one failure to get it, and how long it stands for. */
-    private class Snapshot(
-        /** The profile the answer was fetched with: an edited profile invalidates it. */
-        val profile: AdminProfile,
-        val devices: List<ApiDevice>,
-        val expiresAt: Long,
-    )
-
-    private val lock = Any()
-    private var snapshot: Snapshot? = null
 
     /**
      * The version of every peer in [peers] the Admin API reports one for, keyed by
@@ -112,7 +102,10 @@ object PeerVersionSource {
     }
 
     /** Forget what was fetched, so the next [versionsFor] or [versionFor] asks again. */
-    fun invalidate() = synchronized(lock) { snapshot = null }
+    @Synchronized
+    fun invalidate() {
+        shared = null
+    }
 
     /** "tail1234.ts.net" from the first peer whose MagicDNS name has a domain. */
     private fun suffixOf(peers: Collection<PeerData>): String? = peers.firstNotNullOfOrNull { p ->
@@ -124,26 +117,33 @@ object PeerVersionSource {
      * otherwise. Null when no admin profile serves this tailnet. An empty list is the
      * remembered shape of a failed fetch: every peer then misses, and the sheet shows no
      * version for a while, which is the right answer to an API that did not answer.
+     *
+     * Callers that arrive while a fetch is under way wait for that one ([SharedFetch]); none of
+     * them holds a lock while the network answers, so a dead API pins no thread behind another.
      */
     private fun devices(context: Context, suffix: String?): List<ApiDevice>? {
         val profile = AdminProfiles.forTailnet(context, suffix) ?: return null
         if (!AdminProfiles.hasCredential(context, profile)) return null
-
-        synchronized(lock) {
-            val now = System.currentTimeMillis()
-            snapshot?.let { if (it.profile == profile && now < it.expiresAt) return it.devices }
-            val fetched = try {
-                val backend = AdminProfiles.newBackend(context, profile)
-                runBlocking { backend.listDevices().items }
-            } catch (e: Exception) {
-                Log.w(TAG, "Admin API device list for ${profile.displayName} failed: ${e.javaClass.simpleName}: ${e.message}")
-                null
-            }
-            val next = Snapshot(profile, fetched ?: emptyList(), now + if (fetched != null) TTL_OK_MS else TTL_FAILED_MS)
-            snapshot = next
-            return next.devices
-        }
+        val app = context.applicationContext
+        // The callers are blocking (PeersActivity, PeerPath, both off the main thread).
+        return runBlocking { lists(app).get(profile) }
     }
+
+    /** The edited profile is another key: its answer is fetched again. */
+    private var shared: SharedFetch<AdminProfile, List<ApiDevice>>? = null
+
+    @Synchronized
+    private fun lists(app: Context): SharedFetch<AdminProfile, List<ApiDevice>> = shared ?: SharedFetch<AdminProfile, List<ApiDevice>>(
+        okTtlMs = TTL_OK_MS, failedTtlMs = TTL_FAILED_MS, failed = emptyList(),
+    ) { profile ->
+        try {
+            AdminProfiles.newBackend(app, profile).listDevices().items
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.w(TAG, "Admin API device list for ${profile.displayName} failed: ${e.javaClass.simpleName}: ${e.message}")
+            null
+        }
+    }.also { shared = it }
 
     /** "nodekey:ABC…" and "nodekey:abc…" are the same key. Blank is no key. */
     private fun normalizeKey(key: String?): String? =
