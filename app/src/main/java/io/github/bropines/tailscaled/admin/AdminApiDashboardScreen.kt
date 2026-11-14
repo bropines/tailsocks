@@ -111,7 +111,7 @@ fun AdminDashboard(
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val tabs = state.tabs
-    val tabLabels = tabs.map { ctx.getString(tabLabel(it)) }
+    val tabLabels = remember(tabs, ctx) { tabs.map { ctx.getString(tabLabel(it)) } }
     val pagerState = rememberPagerState(initialPage = tabs.indexOf(startTab).coerceAtLeast(0), pageCount = { tabs.size })
 
     var selectedDeviceId by rememberSaveable { mutableStateOf(initialDeviceId) }

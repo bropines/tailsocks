@@ -21,6 +21,20 @@ class ConsoleStateTest {
     private val tailscale = Capabilities(BackendKind.TAILSCALE, CredentialKind.API_TOKEN, TailscaleBackend.FEATURES)
 
     @Test
+    fun theShellDoesNotSeeTheEditorsTyping() {
+        val file = io.github.bropines.tailscaled.admin.api.PolicyFile("{}", "\"e1\"")
+        val closed = ConsoleState(policy = io.github.bropines.tailscaled.admin.policy.PolicyState(file = Loadable(file)))
+        org.junit.Assert.assertSame("no editor: nothing to leave out", closed, closed.withoutEditor())
+        val editor = io.github.bropines.tailscaled.admin.policy.PolicyEditorState(file, "{}")
+        val typed1 = closed.copy(policy = closed.policy.copy(editor = editor.typed("{ }")))
+        val typed2 = closed.copy(policy = closed.policy.copy(editor = editor.typed("{  }")))
+        assertEquals("two keystrokes are one state to the shell", typed1.withoutEditor(), typed2.withoutEditor())
+        assertNull(typed1.withoutEditor().policy.editor)
+        // Anything else that changes still does.
+        assertFalse(typed1.withoutEditor() == typed1.copy(policyTags = listOf("tag:x")).withoutEditor())
+    }
+
+    @Test
     fun aBackendWithoutAFeatureLosesItsTab() {
         assertEquals("Tailscale has every tab but a Headscale server's own", ConsoleTab.entries - ConsoleTab.SERVER, ConsoleState(caps = tailscale).tabs)
         assertEquals("before the capabilities are known, everything shows", ConsoleTab.entries, ConsoleState().tabs)

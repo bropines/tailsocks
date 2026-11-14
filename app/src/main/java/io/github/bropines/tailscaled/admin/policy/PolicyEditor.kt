@@ -52,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -100,9 +101,14 @@ import kotlinx.coroutines.withContext
  * The editor over the whole screen while [ConsoleState.policy] has one open: the text, then
  * the review of it, and the choice a 412 asks for. A window of its own, with the parent's
  * locale provided again inside.
+ *
+ * With a [vm] it reads the console's whole state itself: the shell above it is handed the
+ * state without the editor (ConsoleState.withoutEditor), so typing recomposes this host and
+ * not the dashboard under it. [shell] is that state, or the whole one in previews.
  */
 @Composable
-fun PolicyEditorHost(state: ConsoleState, vm: AdminConsoleViewModel?) {
+fun PolicyEditorHost(shell: ConsoleState, vm: AdminConsoleViewModel?) {
+    val state = vm?.state?.collectAsState()?.value ?: shell
     val editor = state.policy.editor ?: return
     val ctx = LocalContext.current
     val parent = rememberParentLocals()

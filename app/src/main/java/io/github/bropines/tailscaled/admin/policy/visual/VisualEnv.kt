@@ -38,7 +38,8 @@ data class VisualEnv(
     val templates: TemplateCatalog? = null,
 ) {
     val model: PolicyModel? get() = draft.model
-    val view: TailnetView get() = TailnetView(devices, users.takeIf { it.isNotEmpty() })
+    /** Built once per env, on first use: a page asks for it per card. */
+    val view: TailnetView by lazy { TailnetView(devices, users.takeIf { it.isNotEmpty() }) }
     /** Edits are offered at all: a writable policy whose text parses without duplicate sections. */
     val editable: Boolean get() = canWrite && draft.editable
 
