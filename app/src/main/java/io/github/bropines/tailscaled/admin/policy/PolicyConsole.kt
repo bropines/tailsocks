@@ -157,7 +157,8 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
     }
 
     private fun newEditor(base: PolicyFile, text: String, isRevert: Boolean = false, visual: Boolean = state.visual, line: Int? = null): PolicyEditorState {
-        val ed = PolicyEditorState(base = base, text = text, isRevert = isRevert, visual = visual)
+        // Replacing an open editor (a conflict resolved) is a text from outside: the JSON field follows.
+        val ed = PolicyEditorState(base = base, text = text, isRevert = isRevert, visual = visual).replacing(state.editor)
         return when {
             !visual -> ed.copy(goToLine = line, jsonBase = text)
             line != null -> PolicyEditorState.elementAt(text, line)?.let(ed::focused) ?: ed
@@ -165,7 +166,7 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
         }
     }
 
-    fun edit(text: String) = setEditor { if (it.text == text) it else it.copy(text = text, review = null, sendError = null) }
+    fun edit(text: String) = setEditor { it.typed(text) }
 
     fun closeEditor() {
         reviewJob?.cancel()

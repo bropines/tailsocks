@@ -53,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -197,8 +198,16 @@ fun PolicyEditorScreen(editor: PolicyEditorState, vm: AdminConsoleViewModel?, re
 
     var jump by remember { mutableStateOf<Int?>(null) }
 
-    // The text replaced from outside (a conflict resolved): the field follows.
-    LaunchedEffect(editor.text) { if (editor.text != tfv.text) tfv = TextFieldValue(editor.text) }
+    // The text replaced from outside (a conflict resolved, a visual edit): the field follows.
+    // Keyed on textEpoch, never on the text: the field's own typing comes back as a new
+    // editor.text, and an effect comparing that captured text with the live field would see
+    // a keystroke queued during a slow frame as a difference and reset the field (cursor at 0).
+    var shownEpoch by remember { mutableIntStateOf(editor.textEpoch) }
+    LaunchedEffect(editor.textEpoch) {
+        if (editor.textEpoch == shownEpoch) return@LaunchedEffect
+        shownEpoch = editor.textEpoch
+        if (editor.text != tfv.text) tfv = TextFieldValue(editor.text)
+    }
     // A line asked for by the review (an error, a finding): taken once.
     LaunchedEffect(editor.goToLine) {
         editor.goToLine?.let { jump = it }
