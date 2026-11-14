@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -391,11 +392,10 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         }
     }
 
-    val hostActivity = remember(context) {
-        generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }
-            .filterIsInstance<android.app.Activity>()
-            .firstOrNull()
-    }
+    // findActivity, not a walk down baseContext: under TailSocksTheme's language wrapper the
+    // chain ends at a configuration context and never reaches the activity, so the walk found
+    // nothing whenever a language was chosen in the app and the command was never stopped.
+    val hostActivity = remember(context) { context.findActivity() }
     if (demo == null) DisposableEffect(Unit) {
         onDispose {
             // Closing the console stops a command still running: its output has nowhere to

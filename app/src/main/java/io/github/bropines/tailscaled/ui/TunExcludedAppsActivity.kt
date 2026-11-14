@@ -1,8 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -51,6 +49,7 @@ import io.github.bropines.tailscaled.core.SlidingSegmentedChips
 import io.github.bropines.tailscaled.core.CompactSearchBar
 import io.github.bropines.tailscaled.core.TunVpnService
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -132,11 +131,10 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
     // Save on the way out, whichever way the user leaves: back gesture, back key or the arrow.
     // Only when the Activity is really finishing, so a trip to Home does not restart the tunnel
     // behind the user's back.
-    val hostActivity = remember(context) {
-        generateSequence(context) { (it as? ContextWrapper)?.baseContext }
-            .filterIsInstance<Activity>()
-            .firstOrNull()
-    }
+    // findActivity follows TailSocksTheme's language wrapper, whose baseContext chain never
+    // reaches the activity: with a language chosen in the app the plain walk found none, and
+    // every trip to Home counted as leaving.
+    val hostActivity = remember(context) { context.findActivity() }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, hostActivity) {
         val observer = LifecycleEventObserver { _, event ->
