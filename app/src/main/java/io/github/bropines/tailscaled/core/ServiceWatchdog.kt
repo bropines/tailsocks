@@ -141,6 +141,16 @@ object ServiceWatchdog {
     }
 
     /**
+     * The root daemon did not come up on a start, and the service stopped.
+     * The service's own card cannot carry this: it goes away with the service.
+     * A tap starts again, through the same path as the other notifications
+     * here; nothing latches, and the next start or stop takes it down.
+     */
+    fun noteRootStartFailed(context: Context) {
+        postReviveNotification(context, R.string.notif_root_failed, R.string.notif_root_failed_text)
+    }
+
+    /**
      * The coordination server refused the node because its reported OS changed
      * since registration ("Report the real OS" turned on for a node registered
      * as Linux). Nothing latches; the START path cancels it like the others.
@@ -208,7 +218,17 @@ class WatchdogReceiver : BroadcastReceiver() {
         if (intent.action != ServiceWatchdog.ACTION_CHECK) return
 
         val wantsRunning = ProxyState.isUserLetRunning(context)
-        if (wantsRunning && !ProxyState.isActualRunning(context)) {
+        // The question is whether the service is attached to a daemon, not
+        // whether a daemon is alive. Outside Root Mode the two are the same
+        // (ProxyState.isActualRunning answers with Appctr.isRunning() there).
+        // In Root Mode the daemon outlives the app process by design, so after
+        // the process was killed isActualRunning saw its socket answer and the
+        // watchdog never fired — while the ruleset (catch-all, DNS redirect)
+        // stayed on the device with nothing running the DNS health gate, the
+        // coexistence re-check or the hosts sync. A fresh process is attached
+        // to nothing until the service attaches it, so this is false exactly
+        // when the service is gone; START_ACTION then adopts the running daemon.
+        if (wantsRunning && !appctr.Appctr.isRunning()) {
             Log.w("ServiceWatchdog", "Service is gone while the user wants it running, reviving")
             try {
                 ContextCompat.startForegroundService(

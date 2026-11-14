@@ -283,7 +283,8 @@ class TailscaledService : Service() {
     private val maxMagicDnsFailures = 3
 
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    @Volatile private var refreshTickRunning = false
+    /** One refresh tick at a time; a pass asked for meanwhile runs right after. */
+    private val tickGate = TickGate()
 
     /** Delayed "network is back" notification refresh. Held as a named Runnable
      *  posted on refreshHandler so onDestroy can cancel it — a throwaway Handler's
@@ -327,25 +328,25 @@ class TailscaledService : Service() {
 
     /**
      * The tick queries the daemon over its socket, so it runs off the main
-     * thread and only re-schedules itself once it is done.
+     * thread and only re-schedules itself once it is done. A pass asked for
+     * while one is running (reevaluateRootRouting, Doze ending) is not dropped:
+     * [tickGate] remembers it and the next tick starts the moment this one ends.
      */
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            if (refreshTickRunning) return
-            refreshTickRunning = true
+            if (!tickGate.tryBegin()) return
             Thread {
                 val interval = try {
                     runRefreshTick()
                 } catch (e: Exception) {
                     Log.w(TAG, "Refresh tick failed: ${e.message}")
                     15000L
-                } finally {
-                    refreshTickRunning = false
                 }
                 refreshHandler.post {
+                    val again = tickGate.end()
                     if (!teardownStarted) {
                         refreshHandler.removeCallbacks(this)
-                        refreshHandler.postDelayed(this, interval)
+                        refreshHandler.postDelayed(this, if (again) 0L else interval)
                     }
                 }
             }.start()
@@ -355,10 +356,9 @@ class TailscaledService : Service() {
     private fun runRefreshTick(): Long {
         // No longer need to manually check and reset Exit Nodes here,
         // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
-        val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
-        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        val defaultInterval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
-        var interval = defaultInterval
+        // 15 s. A per-profile "refresh_interval" was read here on every tick, but
+        // nothing has ever written it.
+        var interval = 15000L
 
         val isRunning = Appctr.isRunning()
         val backendState = if (isRunning) {
@@ -589,12 +589,9 @@ class TailscaledService : Service() {
                 }
 
                 Log.i(TAG, "Applying Root tailscale0 routing ($reason)")
-                // Pass the Context so the SO_MARK check reads the daemon log
-                // by its canonical path. Without it the check falls back to
-                // the log of a daemon this process launched, which is unset
-                // when the app attached to one the boot script had already
-                // started — and the exit-node catch-all would then never be
-                // installed after a reboot.
+                // The Context lets the SO_MARK check read the daemon log by its
+                // canonical path — also for a daemon the boot script started,
+                // which this process never launched.
                 val result = RootUtils.applyTailscale0Routing(
                     dnsRedirect,
                     bypass,
@@ -1245,6 +1242,7 @@ class TailscaledService : Service() {
     private fun standDownAfterCrash() {
         if (teardownStarted) return
         teardownStarted = true
+        stopGeneration.incrementAndGet()
         refreshHandler.removeCallbacks(refreshRunnable)
         try {
             stopTunMode()
@@ -1515,12 +1513,6 @@ class TailscaledService : Service() {
     }
 
     /**
-     * Backstop for a callback registration the system refused — both of ours are
-     * registered inside a catch that swallows the failure, so nothing else would
-     * notice. One cheap ConnectivityManager scan per refresh tick.
-     */
-    @Suppress("DEPRECATION")
-    /**
      * Notices another tunnel coming or going, without polling anything expensive.
      *
      * Two reasons this exists rather than leaning on the ConnectivityManager
@@ -1633,6 +1625,11 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * Backstop for a callback registration the system refused — both of ours are
+     * registered inside a catch that swallows the failure, so nothing else would
+     * notice. One cheap ConnectivityManager scan per refresh tick.
+     */
     // allNetworks is deprecated for callbacks, which this service has as well;
     // this is the one-off scan that seeds and re-checks what they report.
     @Suppress("DEPRECATION")
@@ -1847,7 +1844,7 @@ class TailscaledService : Service() {
             return START_NOT_STICKY
         }
 
-        if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
+        if (action == "REFRESH_ACTION" || action == ACTION_APPLY_SETTINGS) {
             // A settings change says nothing about the tailnet: keep what the
             // card says, and let the tick change it if the change did.
             enterForeground(currentCardOrConnecting())
@@ -1882,22 +1879,34 @@ class TailscaledService : Service() {
                 refreshHandler.postDelayed(refreshRunnable, 1000)
                 return START_STICKY
             }
-            // The root daemon reads its listeners, credentials and switches at start,
-            // from what RootUtils launched it with. The bridge cannot restart a daemon
-            // it did not launch: asked to apply such a change it started a second one
-            // of its own beside the root daemon, which died on the taken SOCKS5 port
-            // and took Root Mode down with it — one switch in Settings, and the
-            // phone was offline until the next manual start.
-            if (GlobalSettings.isRootModeEnabled(this)) {
-                val wanted = rootDaemonSpec(buildStartOptions())
-                val running = runningRootSpec
-                if (running != null && running != wanted) {
-                    Log.i(TAG, "A setting the root daemon reads at start changed; restarting it")
-                    return onStartCommand(Intent(this, TailscaledService::class.java).setAction("RESTART_ACTION"), flags, startId)
-                }
-            }
             Thread {
-                Appctr.applySettings(buildStartOptions())
+                // buildStartOptions is not a getter: it may restart ByeDPI (with a
+                // 200 ms sleep), writes preferences, touches files and the package
+                // manager and makes a JNI call — so it runs here, once, and not on
+                // the main thread as the restart check below used to.
+                val options = buildStartOptions()
+                // The root daemon reads its listeners, credentials and switches at start,
+                // from what RootUtils launched it with. The bridge cannot restart a daemon
+                // it did not launch: asked to apply such a change it started a second one
+                // of its own beside the root daemon, which died on the taken SOCKS5 port
+                // and took Root Mode down with it — one switch in Settings, and the
+                // phone was offline until the next manual start.
+                if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                    val wanted = rootDaemonSpec(options)
+                    val running = runningRootSpec
+                    if (running != null && running != wanted) {
+                        Log.i(TAG, "A setting the root daemon reads at start changed; restarting it")
+                        // Lifecycle commands run on the main thread. A stop that
+                        // landed meanwhile wins: RESTART would clear its guard.
+                        refreshHandler.post {
+                            if (!teardownStarted && ProxyState.isUserLetRunning(this@TailscaledService)) {
+                                onStartCommand(Intent(this@TailscaledService, TailscaledService::class.java).setAction("RESTART_ACTION"), flags, startId)
+                            }
+                        }
+                        return@Thread
+                    }
+                }
+                Appctr.applySettings(options)
                 try { Thread.sleep(1500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
                 applyTaildrive(this@TailscaledService)
@@ -1942,6 +1951,10 @@ class TailscaledService : Service() {
             // swallowed by stopMe()'s teardownStarted guard.
             val gen = lifecycleGeneration.incrementAndGet()
             teardownStarted = false
+            // The restart tears the daemon down before starting it again, so a
+            // start still in flight is superseded as it is by a stop; the
+            // restart's own startTailscale() captures the new value.
+            stopGeneration.incrementAndGet()
             ServiceWatchdog.schedule(this)
             refreshHandler.removeCallbacks(refreshRunnable)
             // An account switch comes this way: the old account's devices leave the share sheet.
@@ -2020,7 +2033,22 @@ class TailscaledService : Service() {
         // here: a second START_ACTION during an in-flight start (tile double-tap,
         // swipe from Recents, watchdog, Tasker) would make the first start kill
         // the daemon it had just launched while the service kept showing Active.
-        fun stale() = teardownStarted
+        //
+        // The flag alone is not enough either: Stop then Start clears it again,
+        // and a start thread that did not happen to sample it while it was set
+        // (it sleeps 400 ms between adoption probes, and su can take seconds)
+        // carried on beside the start queued behind the stop — two threads
+        // starting and attaching the same daemon while the stop killed it.
+        // [stopGeneration] is bumped by every stop and by nothing that only
+        // starts, so a stop at any point since this start began supersedes it,
+        // whatever came after.
+        val stopGen = stopGeneration.get()
+        fun stale() = teardownStarted || stopGen != stopGeneration.get()
+        // A superseded start tears down what it launched only while the stop is
+        // still the latest command. Once a newer start owns the service (Stop
+        // then Start), that start adopts whatever is running; tearing it down
+        // here would take the newer start's daemon with it.
+        fun ownsCleanup() = teardownStarted
 
         Thread {
             // buildStartOptions does file IO, preference writes, a ServerSocket
@@ -2031,7 +2059,7 @@ class TailscaledService : Service() {
                     // buildStartOptions may already have started ByeDPI; the stop
                     // that superseded us ran before that, so clean up here.
                     Log.i(TAG, "Start abandoned: stopped before the daemon was launched")
-                    shutdownDaemon()
+                    if (ownsCleanup()) shutdownDaemon()
                     return@Thread
                 }
                 applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
@@ -2060,36 +2088,49 @@ class TailscaledService : Service() {
                         // env file that script reads next boot is brought up to date
                         // now, so a settings change made while attached is not lost
                         // to the next reboot.
-                        RootUtils.writeRootEnvFile(this@TailscaledService, rootDaemonSpec(options))
+                        val spec = rootDaemonSpec(options)
+                        RootUtils.writeRootEnvFile(this@TailscaledService, spec)
                         // What it was really started with is not known; taken to be
                         // this, so that only a change made from here on restarts it.
-                        runningRootSpec = rootDaemonSpec(options)
+                        runningRootSpec = spec
                         Appctr.attachExternal(options)
                     } else {
                         // GIVE_UP: a daemon that never answered, socket or not —
                         // it is killed before another is started beside it.
                         if (adoption == RootAdoption.Step.GIVE_UP || socketFile.exists()) {
                             Log.w(TAG, "Root daemon is gone or did not answer ($adoption). Stopping what is left of it and restarting.")
-                            RootUtils.stopRootDaemon(options.socketPath)
-                            RootUtils.handStateBackToApp(this@TailscaledService)
+                            RootUtils.stopRootDaemon(options.socketPath, handBackTo = this@TailscaledService)
                         }
-                        val ok = RootUtils.startRootDaemon(this@TailscaledService, rootDaemonSpec(options))
+                        val spec = rootDaemonSpec(options)
+                        val ok = RootUtils.startRootDaemon(this@TailscaledService, spec)
 
                         if (!ok) {
                             // Do not report "Active" for a daemon that never came up.
                             Log.e(TAG, "Root daemon failed to start, aborting service start")
                             updateNotification(CardState.ROOT_FAILED)
-                            stopMe()
+                            // The card dies with the service: stopMe() shows
+                            // "Stopping" and its completion removes the
+                            // notification, so ROOT_FAILED was on screen for the
+                            // gap between two calls. What stays is a dismissible
+                            // notification that says so — posted after stopMe(),
+                            // which cancels that notification id on its way. On
+                            // the main thread, like every other stop, so stopMe's
+                            // guard is not raced by a STOP_ACTION.
+                            refreshHandler.post {
+                                if (stale()) return@post
+                                stopMe()
+                                ServiceWatchdog.noteRootStartFailed(this@TailscaledService)
+                            }
                             return@Thread
                         }
                         if (stale()) {
                             // A stop landed while su was bringing the daemon up; its
                             // teardown ran before the daemon existed, so take it down here.
                             Log.i(TAG, "Start abandoned after the root daemon launched, shutting it down again")
-                            shutdownDaemon()
+                            if (ownsCleanup()) shutdownDaemon()
                             return@Thread
                         }
-                        runningRootSpec = rootDaemonSpec(options)
+                        runningRootSpec = spec
                         Appctr.attachExternal(options)
                     }
                 } else {
@@ -2102,7 +2143,7 @@ class TailscaledService : Service() {
                     }
                     if (stale()) {
                         Log.i(TAG, "Start abandoned before launching the daemon")
-                        shutdownDaemon()
+                        if (ownsCleanup()) shutdownDaemon()
                         return@Thread
                     }
                     // Native TUN engine: when the node's addresses are known from the
@@ -2130,9 +2171,11 @@ class TailscaledService : Service() {
                     // process asynchronously, so give it a moment to appear before
                     // taking it down, or it would be left running under no service.
                     Log.i(TAG, "Start abandoned after the daemon launched, shutting it down again")
-                    var waited = 0
-                    while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
-                    shutdownDaemon()
+                    if (ownsCleanup()) {
+                        var waited = 0
+                        while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
+                        shutdownDaemon()
+                    }
                     return@Thread
                 }
                 // Not "connected" yet: the daemon has only been launched. The card
@@ -2144,7 +2187,7 @@ class TailscaledService : Service() {
                 if (waitForDaemonReady()) {
                     if (stale()) {
                         Log.i(TAG, "Start abandoned after the daemon became ready, shutting it down again")
-                        shutdownDaemon()
+                        if (ownsCleanup()) shutdownDaemon()
                         return@Thread
                     }
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
@@ -2376,13 +2419,23 @@ class TailscaledService : Service() {
 
     /**
      * Bumped by every stop and every start. The deferred completion of a stop
-     * (stopSelf and friends) only runs if no start superseded it meanwhile,
-     * and a start thread abandons its work once a stop superseded it. Without
+     * (stopSelf and friends) only runs if no start superseded it meanwhile;
+     * a start thread abandons its work once a stop superseded it, which it
+     * reads from [stopGeneration] rather than from this. Without
      * this, STOP followed by a quick START left the service dead with
      * desired_running=true (so the watchdog "revived it by itself" later), and
      * STOP during a slow start left a daemon running under no service.
      */
     private val lifecycleGeneration = java.util.concurrent.atomic.AtomicInteger()
+
+    /**
+     * Bumped by every stop (stopMe, the crash stand-down, onDestroy) and by the
+     * teardown half of RESTART, and by nothing that only starts. A start thread
+     * captures it and abandons its work once it moves: unlike [teardownStarted],
+     * which the next START clears again, a stop cannot be missed by a thread
+     * that was asleep while it happened. See startTailscale.
+     */
+    private val stopGeneration = java.util.concurrent.atomic.AtomicInteger()
 
     /** Teardown thread of the most recent stop, while it is still running. */
     @Volatile private var shutdownInFlight: Thread? = null
@@ -2408,6 +2461,7 @@ class TailscaledService : Service() {
     private fun stopMe() {
         if (teardownStarted) return
         teardownStarted = true
+        stopGeneration.incrementAndGet()
 
         // Record the user's decision before anything that can fail. If the
         // teardown below crashes the process, desired_running must already be
@@ -2515,7 +2569,19 @@ class TailscaledService : Service() {
         // it installed, instead of recording rules this teardown is deleting.
         rootRoutingGeneration.incrementAndGet()
 
-        if (installed) {
+        if (killDaemon) {
+            // One root shell for all of it: stopRootDaemon removes the routing
+            // first (always, recorded or not — the boot script installs T1
+            // without recording it), then kills the daemon and hands its state
+            // back. This used to be four shells, the routing cleanup run twice.
+            rootCleanupInFlight = installed
+            try {
+                RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock", handBackTo = this@TailscaledService)
+                if (installed) GlobalSettings.setRootRoutingInstalled(this, false)
+            } finally {
+                rootCleanupInFlight = false
+            }
+        } else if (installed) {
             rootCleanupInFlight = true
             try {
                 RootUtils.cleanupTailscale0Routing()
@@ -2523,10 +2589,6 @@ class TailscaledService : Service() {
             } finally {
                 rootCleanupInFlight = false
             }
-        }
-        if (killDaemon) {
-            RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock")
-            RootUtils.handStateBackToApp(this@TailscaledService)
         }
     }
     
@@ -2810,6 +2872,7 @@ class TailscaledService : Service() {
         // case where the system tore the service down without going through it.
         if (!teardownStarted) {
             teardownStarted = true
+            stopGeneration.incrementAndGet()
             // The system destroyed us without stopMe(): the TUN tunnel would
             // otherwise stay up, forwarding into a SOCKS proxy that is gone.
             stopTunMode()

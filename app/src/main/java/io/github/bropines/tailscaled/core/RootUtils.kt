@@ -187,11 +187,11 @@ object RootUtils {
      *    that was started by hand (no [RUN_MARKER]), so an earlier run's line
      *    can never vouch for it.
      */
-    private const val RUN_MARKER = "TailSocks: daemon start"
-    private const val DAEMON_START_LINE = "wgengine.NewUserspaceEngine(tun"
+    internal const val RUN_MARKER = "TailSocks: daemon start"
+    internal const val DAEMON_START_LINE = "wgengine.NewUserspaceEngine(tun"
 
     /** Lines the app or the boot script write into the daemon log carry this tag; none of them is daemon output. */
-    private const val APP_LINE_TAG = "TailSocks:"
+    internal const val APP_LINE_TAG = "TailSocks:"
 
     /**
      * The netns probe (patch 16) logs exactly one line per run containing
@@ -202,12 +202,22 @@ object RootUtils {
      * never two loose tokens (a message that merely mentions both would
      * otherwise open the gate).
      */
-    private const val SO_MARK_LINE = "netns: SO_MARK"
-    private const val SO_MARK_OK = "netns: SO_MARK $BYPASS_MARK set on tailscaled sockets"
+    internal const val SO_MARK_LINE = "netns: SO_MARK"
+    internal const val SO_MARK_OK = "netns: SO_MARK $BYPASS_MARK set on tailscaled sockets"
 
     /** Backward log scan in [soMarkVerdict]: bytes read per step, and how far back to look before giving up. */
-    private const val SCAN_CHUNK = 1 shl 20
-    private const val SCAN_LIMIT = 256L shl 20
+    internal const val SCAN_CHUNK = 1 shl 20
+    internal const val SCAN_LIMIT = 256L shl 20
+
+    /**
+     * Above this size the daemon log is cut to its last [LOG_TRIM_KEEP_LINES]
+     * lines before a daemon is started — by the boot script, and by
+     * [startRootDaemon] with the same three lines ([logTrimScript]). The log is
+     * root-owned and only ever appended to; before the app's start path
+     * trimmed it too, a phone without the boot script grew it without bound.
+     */
+    internal const val LOG_TRIM_BYTES = 2_097_152L
+    internal const val LOG_TRIM_KEEP_LINES = 500
 
     /** Markers the apply script prints when a catch-all did not land; distinct so v4 → WARN, v6 → INFO. */
     private const val V4_CATCH_ALL_MISSING = "verify: v4 exit-node catch-all NOT installed (ip dropped the fwmark mask)"
@@ -250,13 +260,23 @@ object RootUtils {
 
     /**
      * Log of the daemon launched by [startRootDaemon] and the file size just
-     * before the launch. Lets [daemonMarksSockets] ignore lines from earlier runs
-     * even when the caller has no Context; both stay unset when the app merely
-     * attached to a daemon that was already running (boot script), in which case
-     * the last [RUN_MARKER] line the script wrote bounds the current run instead.
+     * before the launch: a run start [soMarkVerdict] can use even before the
+     * daemon has written anything. Both stay unset when the app merely attached
+     * to a daemon that was already running (boot script), in which case the
+     * last [RUN_MARKER] line the script wrote bounds the current run instead.
      */
     @Volatile private var lastDaemonLogFile: File? = null
     @Volatile private var daemonLogStartOffset: Long = -1L
+
+    /*
+     * Every iptables/ip6tables call here (and in the boot script) passes `-w`:
+     * wait for the xtables lock instead of failing at once with "Another app
+     * is currently holding the xtables lock". The apply is triggered by
+     * network changes, exactly when netd is rewriting its own chains, and an
+     * immediate failure there dropped a rule silently. `-w` without a timeout
+     * exists in every iptables Android has shipped since 5.0; a lock that is
+     * never released is bounded by the root shell's own timeout.
+     */
 
     /** Dedicated iptables chains. Owning named chains makes every rule we install
      *  idempotent, inspectable and removable in one shot — unlike appending to
@@ -772,6 +792,15 @@ object RootUtils {
     }
 
     private fun writeRootEnvFile(env: String, dataDir: String): Boolean {
+        val ok = runSu("control-proxy-env", rootEnvFileScript(env, dataDir)).ok
+        if (!ok) {
+            Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start with stale or no settings")
+        }
+        return ok
+    }
+
+    /** The env file write as a script; [startRootDaemon] runs it in its launch shell. */
+    private fun rootEnvFileScript(env: String, dataDir: String): String {
         val envScript = StringBuilder()
             .append("mkdir -p ").append(paths.envDir).append(" && chmod 700 ").append(paths.envDir).append('\n')
             .append("cat > ").append(paths.envFile).append(" <<'TAILSOCKS_ENV_EOF'\n")
@@ -784,11 +813,7 @@ object RootUtils {
             .append("TAILSOCKS_ENV_EOF\n")
             .append("chmod 600 ").append(paths.envFile).append('\n')
             .append("rm -f ").append(shQuote("$dataDir/files/control_proxy.env")).append('\n')
-        val ok = runSu("control-proxy-env", envScript.toString()).ok
-        if (!ok) {
-            Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start with stale or no settings")
-        }
-        return ok
+        return envScript.toString()
     }
 
     fun startRootDaemon(context: Context, spec: RootDaemonSpec): Boolean {
@@ -797,15 +822,18 @@ object RootUtils {
             val dataDir = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
             val logsDir = File(dataDir, "logs").apply { mkdirs() }.absolutePath
             val logFile = if (spec.logFilePath.isNotEmpty()) spec.logFilePath else "$logsDir/tailscaled.log"
-            // Everything the daemon appends from here on belongs to this run.
+            // Everything the daemon appends from here on belongs to this run —
+            // unless the script below trims the log first, which moves every
+            // offset; the run marker it writes bounds the run then.
             lastDaemonLogFile = File(logFile)
-            daemonLogStartOffset = File(logFile).length()
+            val logLength = File(logFile).length()
+            daemonLogStartOffset = if (logLength > LOG_TRIM_BYTES) -1L else logLength
+            soMarkScan.reset()
 
             val socketFile = File(spec.socketPath)
             socketFile.parentFile?.mkdirs()
 
             val env = rootDaemonEnv(context, spec, logsDir)
-            writeRootEnvFile(env, dataDir)
 
             // Every argument is quoted: the listen addresses come from free-text
             // settings fields and are interpolated into a root shell.
@@ -826,9 +854,15 @@ object RootUtils {
                 }
             }.joinToString(" ")
 
-            val sb = StringBuilder(env)
+            // The env file the boot script reads next boot, then the same
+            // variables exported for this launch — one root shell for both; they
+            // used to be two, in this order.
+            val sb = StringBuilder(rootEnvFileScript(env, dataDir))
+            sb.append(env)
+            // The boot script's trim, before the marker so the marker survives it.
+            sb.append(logTrimScript(logFile))
             // Run marker first: everything the daemon prints in this run follows
-            // it, which is what daemonMarksSockets keys on (the boot script writes
+            // it, which is what the SO_MARK gate keys on (the boot script writes
             // the same line). A missing marker means "unverified", never "marks".
             sb.append("echo ${shQuote(RUN_MARKER)} >> ${shQuote(logFile)}\n")
             // Received Taildrop files are created by the root daemon with 0666
@@ -864,6 +898,9 @@ object RootUtils {
 
             val res = runSu("daemon-start", sb.toString(), timeoutMs = 30_000L)
             Log.d(TAG, "Root daemon launch result exitCode=${res.exitCode}")
+            if (!res.ok) {
+                Log.w(TAG, "The daemon-start shell failed; the root-owned control_proxy.env may not have been written")
+            }
 
             // Verify the daemon really came up rather than trusting the exit code.
             var attempts = 0
@@ -902,7 +939,7 @@ object RootUtils {
      * are dropped: no root command argument legitimately contains one, and a
      * newline would end the line inside the env file the boot script reads.
      */
-    private fun shQuote(value: String): String =
+    internal fun shQuote(value: String): String =
         "'" + value.replace("\r", "").replace("\n", "").replace("'", "'\\''") + "'"
 
     /** A hosts entry may only contain characters valid in a DNS name. */
@@ -912,7 +949,7 @@ object RootUtils {
     private val ipv6Literal = Regex("^[0-9A-Fa-f:]{2,45}$")
 
     /** An address is written to a root-owned file, so it must really be one. */
-    private fun isIpLiteral(value: String): Boolean = when {
+    internal fun isIpLiteral(value: String): Boolean = when {
         ipv4Literal.matches(value) -> value.split(".").all { (it.toIntOrNull() ?: 256) <= 255 }
         ipv6Literal.matches(value) -> value.contains(":")
         else -> false
@@ -946,18 +983,66 @@ object RootUtils {
         // 'TAILSOCKS_EOF' is quoted, so the shell performs no expansion at all
         // on the body — the entries are copied through verbatim.
         val sb = StringBuilder()
-        sb.append("set -e\n")
         val hosts = paths.hostsFile
+        // Only our own bind comes off, and before `set -e`: the unbind is a
+        // loop of tests that end in a non-zero status by design. Whatever else
+        // is mounted there — Magisk's systemless hosts, AdAway — stays, and its
+        // entries become the base ours are appended to.
+        sb.append(hostsUnbindScript(hosts, hostsMarker(hosts)))
+        sb.append("set -e\n")
         sb.append("mkdir -p ${paths.hostsDir}\n")
-        sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
         sb.append("cp /system/etc/hosts $hosts 2>/dev/null || printf '127.0.0.1 localhost\\n::1 ip6-localhost\\n' > $hosts\n")
         sb.append("cat >> $hosts <<'TAILSOCKS_EOF'\n")
+        // How the next sync and the stop know the file at /system/etc/hosts is ours.
+        sb.append(hostsMarker(hosts)).append('\n')
         for (line in lines) sb.append(line).append('\n')
         sb.append("TAILSOCKS_EOF\n")
         sb.append("chmod 644 $hosts\n")
         sb.append("chcon u:object_r:system_file:s0 $hosts 2>/dev/null || true\n")
         sb.append("mount -o bind $hosts /system/etc/hosts 2>/dev/null || true\n")
         return runSu("hosts-sync", sb.toString()).ok
+    }
+
+    /**
+     * The line [updateRootHosts] writes into its copy of the hosts file. Names
+     * the copy, so the release app and the debug build (each with its own
+     * file, [RootPaths]) never take each other's for their own. No peer entry
+     * can equal it: entries start with an address, this with `#`.
+     */
+    internal fun hostsMarker(hostsFile: String): String = "# TailSocks MagicDNS names, $hostsFile"
+
+    /**
+     * Unmounts what is bound over `/system/etc/hosts` only while it is ours,
+     * and keeps going while ours is what is visible (a bind left stacked by an
+     * earlier failure), four layers at most.
+     *
+     * Every sync and every stop used to run a bare `umount /system/etc/hosts`.
+     * On the first sync after a boot our bind is not there yet, so that removed
+     * whatever another root module had put there (Magisk's systemless hosts,
+     * AdAway) and took the stock file as the base. Ours is recognised two ways,
+     * either one enough: the topmost mount on that path in
+     * `/proc/self/mountinfo` has our copy as its source (its root field is the
+     * path inside the `/data` filesystem, or the full path), or the visible
+     * file carries [hostsMarker] — which also covers a bind made by a build
+     * that wrote no marker, and a mount namespace whose mountinfo names the
+     * source differently. Field 4 of mountinfo is the root, field 5 the mount
+     * point; read with shell builtins.
+     */
+    internal fun hostsUnbindScript(hostsFile: String, marker: String): String = buildString {
+        val full = shQuote(hostsFile)
+        val rel = shQuote(hostsFile.removePrefix("/data"))
+        append("i=0\n")
+        append("while [ \$i -lt 4 ]; do\n")
+        append("    i=\$((i+1))\n")
+        append("    top=\"\"\n")
+        append("    while read -r f1 f2 f3 root mnt rest; do\n")
+        append("        if [ \"\$mnt\" = /system/etc/hosts ]; then top=\"\$root\"; fi\n")
+        append("    done < /proc/self/mountinfo\n")
+        append("    ours=0\n")
+        append("    case \"\$top\" in $full|$rel) ours=1;; esac\n")
+        append("    [ \$ours = 1 ] || grep -qxF ${shQuote(marker)} /system/etc/hosts 2>/dev/null || break\n")
+        append("    umount /system/etc/hosts 2>/dev/null || break\n")
+        append("done\n")
     }
 
     /**
@@ -971,22 +1056,16 @@ object RootUtils {
      * left unhooked because MagicDNS is not answering, which is neither a
      * failure nor a yield.
      *
+     * A failed apply still leaves rules on the device — the tailnet tier is
+     * installed before anything can fail — which is why the caller records
+     * them as installed before the script runs, not from [ok].
+     *
      * @param ok                every rule the script was asked to install is there.
-     * @param rulesOnDevice     the script wrote something, so a cleanup is owed
-     *                          whatever [ok] says. True even for a failed apply:
-     *                          the tailnet tier is installed before anything can
-     *                          fail, and a cleanup that finds nothing costs one
-     *                          root shell, while rules nobody remembers installing
-     *                          stay until the next reboot.
      * @param shared            the catch-all was scoped to the uid ranges another
      *                          tunnel bypasses, rather than taking the device.
-     * @param yielded           another tunnel changed what we installed — true in
-     *                          the [shared] case too, which is why the two are
-     *                          reported apart.
-     * @param dnsChainInstalled TAILSOCKS_DNS exists and is populated. Like
-     *                          [rulesOnDevice] this is what the script wrote, not
-     *                          what [ok] says: the DNS section runs before both
-     *                          verify lines.
+     * @param dnsChainInstalled TAILSOCKS_DNS exists and is populated. This is what
+     *                          the script wrote, not what [ok] says: the DNS
+     *                          section runs before both verify lines.
      * @param dnsHooked         the nat OUTPUT jumps are in, i.e. the redirect is
      *                          live. False with [dnsChainInstalled] true means the
      *                          health gate is holding it back; [setDnsRedirectHooked]
@@ -996,9 +1075,7 @@ object RootUtils {
      */
     class RoutingApplyResult(
         val ok: Boolean,
-        val rulesOnDevice: Boolean,
         val shared: Boolean,
-        val yielded: Boolean,
         val dnsChainInstalled: Boolean,
         val dnsHooked: Boolean
     )
@@ -1017,9 +1094,9 @@ object RootUtils {
      * @param context           used to locate the daemon log, which decides whether
      *                          the exit-node catch-all (pref 200 → table 52) may be
      *                          installed: only a daemon that has logged that it marks
-     *                          its sockets gets it. Without a Context the log of the
-     *                          daemon [startRootDaemon] launched is used; if there is
-     *                          none either, the catch-all is skipped with a WARN.
+     *                          its sockets gets it (or, when the log is silent, one
+     *                          that is the binary we ship). Also the settings, the
+     *                          package manager and the daemon socket.
      * @param foreignVpn        the caller's ConnectivityManager answer to "does another
      *                          app hold Android's VPN slot?", or null when it has none.
      *                          It is OR-ed with [detectForeignVpn], which sees a tunnel
@@ -1049,13 +1126,12 @@ object RootUtils {
     fun applyTailscale0Routing(
         dnsRedirect: Boolean = true,
         dnsBypassAddrs: List<String> = emptyList(),
-        context: Context? = null,
+        context: Context,
         foreignVpn: Boolean? = null,
         takeDeviceAnyway: Boolean = false,
         probeResult: ForeignVpnVerdict? = null
     ): RoutingApplyResult {
-        val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
-        var verdict = logFile?.let { soMarkVerdict(it) } ?: SoMarkVerdict(false, "no daemon log to check")
+        var verdict = soMarkVerdict(rootDaemonLogFile(context))
         // A log that never carried the probe line is silence, not a "no". Ask the
         // process itself before withholding the exit node. An explicit negative
         // from the daemon ("daemon logged: ...") is left alone.
@@ -1091,19 +1167,17 @@ object RootUtils {
         // to bypass. Android hands those to the physical network, so carrying
         // them costs that tunnel nothing — and it is the whole point of sharing
         // a device rather than taking turns on it.
-        val selfUid = context?.applicationInfo?.uid?.toLong()
+        val selfUid = context.applicationInfo?.uid?.toLong()
         val gaps = if (ownDevice) emptyList() else carryableGaps(probe.memberRanges, selfUid, context)
         val shared = !ownDevice && gaps.isNotEmpty()
         val installCatchAll = marks && (ownDevice || shared)
         val installDns = dnsRedirect && (ownDevice || shared)
         // The health gate, see [magicDnsAnswers]: the chain is built whenever
         // this tier is ours to install, but the two nat OUTPUT jumps that make
-        // it live only go in while the daemon's resolver is answering. Without a
-        // Context there is no socket to ask on — the boot path — and the
-        // redirect is armed as every earlier version did.
+        // it live only go in while the daemon's resolver is answering.
         val hold = dnsRedirectHold
         if (installDns && hold != null) lastMagicDnsReason = hold
-        val dnsHealthy = installDns && hold == null && (context == null || magicDnsAnswers(context))
+        val dnsHealthy = installDns && hold == null && magicDnsAnswers(context)
         if (installDns && !dnsHealthy) {
             rootLog(
                 "WARN",
@@ -1189,42 +1263,17 @@ object RootUtils {
         sb.append(routeTableTeardown(LEGACY_ROUTE_TABLE, ourThrows = false))
 
         // --- IPv4 policy routing ---
-        sb.append("ip route replace $CGNAT_V4 dev tailscale0 table $ROUTE_TABLE metric 1\n")
+        sb.append(tailnetRouteV4())
         // Immediately after the /10, because these are the holes in it.
         sb.append(cgnatGuardRoutes(cgnatGuard.map { it.second }))
-        sb.append("ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100\n")
-        // A destination rule as well as the fwmark one: the mark is applied in
-        // mangle OUTPUT, AFTER the kernel has already picked the source address
-        // from the default (Wi-Fi/cellular) table. A root-owned socket — the
-        // daemon's own DNS forwarder talking to a split-DNS resolver on a peer —
-        // therefore left tailscale0 with the Wi-Fi address as source and never
-        // got an answer. Matching on destination makes the first lookup land in
-        // our own table, so the source is the tailnet address.
-        //
-        // `iif lo` scopes it to locally generated packets: without it we also
-        // claimed packets being forwarded through this device (a subnet router,
-        // a tethered client) and answered them with our own source address.
-        // No fwmark selector here on purpose — that very DNS forwarder socket is
-        // unmarked, and a marked-only rule would send it back to the physical
-        // table, which is the bug this rule exists to fix.
-        sb.append("while ip rule del to $CGNAT_V4 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("ip rule add to $CGNAT_V4 iif lo table $ROUTE_TABLE priority 100\n")
-
-        sb.append("iptables -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -t mangle -F $CHAIN_MARK\n")
-        sb.append("iptables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
-        sb.append("iptables -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
-
-        sb.append("iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT\n")
-        sb.append("iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT\n")
+        sb.append(tailnetRulesV4())
 
         // --- Per-app exclusions: uid rules, both families in one call ---
         // The teardown runs whatever we install: it clears the rules of an
         // earlier apply and the mangle chain of an earlier version. The install
         // only follows the catch-all — an exclusion is a hole in the catch-all,
         // and without one it would just take the uid out of the foreign tunnel.
-        sb.append(bypassChainTeardown("iptables"))
+        sb.append(bypassChainTeardown("iptables -w"))
         sb.append(excludeRulesTeardown())
         if (installCatchAll) sb.append(excludeRulesInstall(bypassUids))
 
@@ -1251,24 +1300,10 @@ object RootUtils {
         }
 
         // --- IPv6 policy routing ---
-        sb.append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
-        sb.append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
-        // `iif lo` for the same reason as the v4 twin above, and no fwmark
-        // selector for the same reason either.
-        sb.append("while ip -6 rule del to $TAILNET_V6 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("ip -6 rule add to $TAILNET_V6 iif lo table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
-
-        sb.append("ip6tables -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -F $CHAIN_MARK\n")
-        sb.append("ip6tables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
-
-        sb.append("ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
-        sb.append("ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+        sb.append(tailnetTierV6())
 
         // --- Per-app exclusions (IPv6): the v6 uid rules are emitted above ---
-        sb.append(bypassChainTeardown("ip6tables"))
+        sb.append(bypassChainTeardown("ip6tables -w"))
 
         // --- Exit-node catch-all (IPv6) ---
         // The purge is harmless anywhere; the rule itself only where IPv6 exists
@@ -1296,7 +1331,7 @@ object RootUtils {
         // time the script reaches here, whoever put them there.
         sb.append(dnsChainTeardown())
         if (installDns) {
-            sb.append("iptables -t nat -N $CHAIN_DNS 2>/dev/null || iptables -t nat -F $CHAIN_DNS\n")
+            sb.append("iptables -w -t nat -N $CHAIN_DNS 2>/dev/null || iptables -w -t nat -F $CHAIN_DNS\n")
             // First, before anything else in the chain: whatever the other
             // tunnel resolves for its own apps goes through untouched. netd
             // stamps its network id into the low 16 bits of the mark, and it is
@@ -1305,7 +1340,7 @@ object RootUtils {
             // since the uid on that packet is the resolver's, not the app's.
             for (netId in dnsExemptNetIds) {
                 sb.append(
-                    "iptables -t nat -A $CHAIN_DNS -m mark --mark 0x%x/0xffff -j RETURN 2>/dev/null || true\n"
+                    "iptables -w -t nat -A $CHAIN_DNS -m mark --mark 0x%x/0xffff -j RETURN 2>/dev/null || true\n"
                         .format(netId)
                 )
             }
@@ -1316,17 +1351,17 @@ object RootUtils {
             // see it, and those names still go to MagicDNS. Measured: this
             // RETURN's counter stays at zero while the DNAT's climbs.
             for (uid in bypassUids) {
-                sb.append("iptables -t nat -A $CHAIN_DNS -m owner --uid-owner $uid -j RETURN 2>/dev/null || echo '$OWNER_MATCH_MISSING'\n")
+                sb.append("iptables -w -t nat -A $CHAIN_DNS -m owner --uid-owner $uid -j RETURN 2>/dev/null || echo '$OWNER_MATCH_MISSING'\n")
             }
             // Queries already aimed at the tailnet (MagicDNS itself, Split DNS
             // resolvers living on peers) must never be rewritten.
-            sb.append("iptables -t nat -A $CHAIN_DNS -d $CGNAT_V4 -j RETURN\n")
+            sb.append("iptables -w -t nat -A $CHAIN_DNS -d $CGNAT_V4 -j RETURN\n")
             // Upstream resolvers the daemon and our own DNS proxy forward to.
             for (addr in dnsBypassAddrs.distinct()) {
-                sb.append("iptables -t nat -A $CHAIN_DNS -d $addr -j RETURN\n")
+                sb.append("iptables -w -t nat -A $CHAIN_DNS -d $addr -j RETURN\n")
             }
-            sb.append("iptables -t nat -A $CHAIN_DNS -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
-            sb.append("iptables -t nat -A $CHAIN_DNS -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
+            sb.append("iptables -w -t nat -A $CHAIN_DNS -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
+            sb.append("iptables -w -t nat -A $CHAIN_DNS -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
             // The chain is complete either way; only these two lines redirect
             // anything, and they wait for a resolver that answers.
             if (dnsHealthy) sb.append(dnsHookInstall())
@@ -1338,7 +1373,7 @@ object RootUtils {
             // only appended when there are uids to exclude.
             sb.append(
                 "[ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ] && " +
-                    "{ ip6tables -t nat -S >/dev/null 2>&1 || echo '$DNS_V6_NO_NAT'; } || true\n"
+                    "{ ip6tables -w -t nat -S >/dev/null 2>&1 || echo '$DNS_V6_NO_NAT'; } || true\n"
             )
         }
 
@@ -1347,7 +1382,7 @@ object RootUtils {
         // reported as success.
         sb.append("ip route show table $ROUTE_TABLE 2>/dev/null | grep -q . || { echo 'verify: table $ROUTE_TABLE is empty'; exit 1; }\n")
         if (installDns) {
-            sb.append("iptables -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
+            sb.append("iptables -w -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
         }
         sb.append("echo 'verify: ok'\n")
 
@@ -1356,7 +1391,7 @@ object RootUtils {
         // happens next. A failed apply used to leave them with nothing recording
         // that they existed — not the next apply, not the stop path — and they
         // stayed until the phone was rebooted.
-        context?.let { GlobalSettings.setRootRoutingInstalled(it, true) }
+        GlobalSettings.setRootRoutingInstalled(context, true)
 
         val res = runSu("routing-apply", sb.toString())
         // Checked before the exit code: an ignored -m owner rule cannot fail the
@@ -1392,7 +1427,7 @@ object RootUtils {
             )
         }
         if (res.output.contains(DNS_V6_NO_NAT)) {
-            context?.let { GlobalSettings.setRootDnsV6Unsupported(it, true) }
+            GlobalSettings.setRootDnsV6Unsupported(context, true)
             rootLog(
                 "WARN",
                 "device-wide DNS covers IPv4 only: this kernel has no IPv6 `nat` table, so there is nowhere to " +
@@ -1400,7 +1435,7 @@ object RootUtils {
                     "MagicDNS — tailnet names still resolve, because the daemon's own resolver is asked over IPv4"
             )
         } else if (installDns) {
-            context?.let { GlobalSettings.setRootDnsV6Unsupported(it, false) }
+            GlobalSettings.setRootDnsV6Unsupported(context, false)
         }
         if (res.output.contains(UIDRANGE_MISSING_V6)) {
             rootLog(
@@ -1464,9 +1499,8 @@ object RootUtils {
         // The jumps are part of the script above, so the cached hook state is
         // set from what it did rather than by calling out to another shell.
         //
-        // Deliberately not conditioned on [SuResult.ok], for the same reason
-        // [RoutingApplyResult.rulesOnDevice] is not: the script has no `set -e`
-        // and both verify lines run after the DNS section, so whatever this
+        // Deliberately not conditioned on [SuResult.ok]: the script has no
+        // `set -e` and both verify lines run after the DNS section, so whatever this
         // section was asked to install is on the device whether the verify
         // passed or not. Reporting a live redirect as absent left the health
         // gate — the only thing that can take it off again — disarmed against a
@@ -1479,12 +1513,65 @@ object RootUtils {
         )
         return RoutingApplyResult(
             ok = res.ok,
-            rulesOnDevice = true,
             shared = shared,
-            yielded = !ownDevice,
             dnsChainInstalled = installDns,
             dnsHooked = dnsHooked
         )
+    }
+
+    /**
+     * The tailnet tier's (T1) IPv4 route into table 53. Written by the boot
+     * script too, line for line ([RootBootScriptDriftTest] checks the two).
+     */
+    internal fun tailnetRouteV4(): String = "ip route replace $CGNAT_V4 dev tailscale0 table $ROUTE_TABLE metric 1\n"
+
+    /** T1's IPv4 rules and chains: the two priority-100 rules, TAILSOCKS_MARK, the FORWARD pair. The boot script writes them too. */
+    internal fun tailnetRulesV4(): String = buildString {
+        append("ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
+        append("ip rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100\n")
+        // A destination rule as well as the fwmark one: the mark is applied in
+        // mangle OUTPUT, AFTER the kernel has already picked the source address
+        // from the default (Wi-Fi/cellular) table. A root-owned socket — the
+        // daemon's own DNS forwarder talking to a split-DNS resolver on a peer —
+        // therefore left tailscale0 with the Wi-Fi address as source and never
+        // got an answer. Matching on destination makes the first lookup land in
+        // our own table, so the source is the tailnet address.
+        //
+        // `iif lo` scopes it to locally generated packets: without it we also
+        // claimed packets being forwarded through this device (a subnet router,
+        // a tethered client) and answered them with our own source address.
+        // No fwmark selector here on purpose — that very DNS forwarder socket is
+        // unmarked, and a marked-only rule would send it back to the physical
+        // table, which is the bug this rule exists to fix.
+        append("while ip rule del to $CGNAT_V4 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("ip rule add to $CGNAT_V4 iif lo table $ROUTE_TABLE priority 100\n")
+
+        append("iptables -w -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -F $CHAIN_MARK\n")
+        append("iptables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
+        append("iptables -w -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
+
+        append("iptables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -o tailscale0 -j ACCEPT\n")
+        append("iptables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -i tailscale0 -j ACCEPT\n")
+    }
+
+    /** T1's IPv6 half: route, rules, chain and FORWARD pair, all best-effort. The boot script writes them too. */
+    internal fun tailnetTierV6(): String = buildString {
+        append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
+        append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
+        append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+        // `iif lo` for the same reason as the v4 twin above, and no fwmark
+        // selector for the same reason either.
+        append("while ip -6 rule del to $TAILNET_V6 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("ip -6 rule add to $TAILNET_V6 iif lo table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+
+        append("ip6tables -w -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -F $CHAIN_MARK\n")
+        append("ip6tables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
+        append("ip6tables -w -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
+
+        append("ip6tables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
+        append("ip6tables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
     }
 
     /** Outcome of the root-side coexistence probe: [present] is the gate, [reason] is what the ROOT log and Check Routing show. */
@@ -1542,15 +1629,13 @@ object RootUtils {
      * and would keep [foreignBypassGaps] from ever returning empty, so the full
      * yield could never be reached. Android knows who these apps are; we ask it.
      */
-    private fun vpnClientUids(context: Context?): Set<Long> {
-        if (context == null) return emptySet()
-        return runCatching {
-            context.packageManager
-                .queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
-                .mapNotNull { it.serviceInfo?.applicationInfo?.uid?.toLong() }
-                .toSet()
-        }.getOrDefault(emptySet())
-    }
+    private fun vpnClientUids(vpnServices: List<android.content.pm.ResolveInfo>?): Set<Long> =
+        vpnServices?.mapNotNull { it.serviceInfo?.applicationInfo?.uid?.toLong() }?.toSet() ?: emptySet()
+
+    /** Every app's `VpnService`, asked once per apply for both uses below; null when the query failed. */
+    private fun vpnServices(context: Context): List<android.content.pm.ResolveInfo>? = runCatching {
+        context.packageManager.queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+    }.getOrNull()
 
     /**
      * uids we are willing to carry: installed applications that are not VPN
@@ -1563,11 +1648,11 @@ object RootUtils {
      * there too. Measured on the device: uid 20354 sat in a gap with no package
      * behind it, and carrying it wrote a rule that could never match anything.
      */
-    private fun carryableUids(context: Context?): Set<Long>? {
-        val pm = context?.packageManager ?: return null
+    private fun carryableUids(context: Context, vpnServices: List<android.content.pm.ResolveInfo>?): Set<Long>? {
+        val pm = context.packageManager
+        vpnServices ?: return null
         return runCatching {
-            val vpnPackages = pm
-                .queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+            val vpnPackages = vpnServices
                 .mapNotNull { it.serviceInfo?.packageName }
                 .toSet()
             val selfUid = context.applicationInfo?.uid?.toLong()
@@ -1580,7 +1665,7 @@ object RootUtils {
     }
 
     /** Splits [range] around [holes], dropping the holes themselves. */
-    private fun splitAround(range: LongRange, holes: Collection<Long>): List<LongRange> {
+    internal fun splitAround(range: LongRange, holes: Collection<Long>): List<LongRange> {
         val sorted = holes.filter { it in range }.sorted()
         if (sorted.isEmpty()) return listOf(range)
         val out = mutableListOf<LongRange>()
@@ -1596,7 +1681,7 @@ object RootUtils {
     /** Beyond this many uids a gap is kept whole rather than resolved app by app. */
     private const val GAP_RESOLVE_LIMIT = 64
 
-    private fun foreignBypassGaps(ranges: List<LongRange>, selfUid: Long?): List<LongRange> {
+    internal fun foreignBypassGaps(ranges: List<LongRange>): List<LongRange> {
         if (ranges.isEmpty()) return emptyList()
         val sorted = ranges.sortedBy { it.first }
         val gaps = mutableListOf<LongRange>()
@@ -1618,11 +1703,12 @@ object RootUtils {
      * cut out of it, so a client running in "tunnel only these apps" mode cannot
      * make us walk thousands of uids or install a rule per app.
      */
-    private fun carryableGaps(ranges: List<LongRange>, selfUid: Long?, context: Context?): List<LongRange> {
-        val raw = foreignBypassGaps(ranges, selfUid)
+    private fun carryableGaps(ranges: List<LongRange>, selfUid: Long?, context: Context): List<LongRange> {
+        val raw = foreignBypassGaps(ranges)
         if (raw.isEmpty()) return raw
-        val vpnUids = vpnClientUids(context) + listOfNotNull(selfUid)
-        val carryable = carryableUids(context)
+        val services = vpnServices(context)
+        val vpnUids = vpnClientUids(services) + listOfNotNull(selfUid)
+        val carryable = carryableUids(context, services)
         return raw.flatMap { g ->
             val span = g.last - g.first + 1
             when {
@@ -1697,7 +1783,12 @@ object RootUtils {
             // shell failure would already have broken the apply itself.
             return ForeignVpnVerdict(false, "the coexistence probe could not be run")
         }
-        fun values(tag: String) = res.output.lineSequence()
+        return parseForeignVpnProbe(res.output)
+    }
+
+    /** The coexistence probe's `FOREIGN_*` lines, read into a verdict. */
+    internal fun parseForeignVpnProbe(output: String): ForeignVpnVerdict {
+        fun values(tag: String) = output.lineSequence()
             .filter { it.startsWith("$tag ") }
             .map { it.removePrefix("$tag ").trim() }
             .filter { it.isNotEmpty() }
@@ -1754,23 +1845,40 @@ object RootUtils {
 
     /** Removes every rule this app installs, including those from older versions. */
     fun cleanupTailscale0Routing(): Boolean {
+        val res = runSu("routing-cleanup", routingCleanupScript())
+        if (res.ok) noteRoutingRemoved()
+        return res.ok
+    }
+
+    /** What a finished routing cleanup records, whichever shell ran it. */
+    private fun noteRoutingRemoved() {
+        noteDnsHookState(false, "the Root Mode ruleset was removed")
+        rootLog("INFO", "tailscale0 routing removed")
+    }
+
+    /**
+     * The routing cleanup as a script: run on its own by [cleanupTailscale0Routing],
+     * and in the same shell as the kill by [stopRootDaemon]. No `exit` in it, so
+     * it can be followed by more commands.
+     */
+    internal fun routingCleanupScript(): String {
         val sb = StringBuilder()
         sb.append(dnsChainTeardown())
-        sb.append(bypassChainTeardown("iptables"))
-        sb.append(bypassChainTeardown("ip6tables"))
+        sb.append(bypassChainTeardown("iptables -w"))
+        sb.append(bypassChainTeardown("ip6tables -w"))
         sb.append(excludeRulesTeardown())
 
-        sb.append("iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("iptables -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("iptables -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -D OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("iptables -w -t mangle -D OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("iptables -w -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("iptables -w -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -D OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
 
-        sb.append("while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
-        sb.append("while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
-        sb.append("while ip6tables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
-        sb.append("while ip6tables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while iptables -w -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while iptables -w -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while ip6tables -w -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while ip6tables -w -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
 
         // Ours, and the one 4.0 moved away from: an upgrade that stops Root
         // Mode must collect both, and neither is ever flushed — see [ROUTE_TABLE].
@@ -1811,21 +1919,16 @@ object RootUtils {
         sb.append("ip -6 route del $TAILNET_V6 dev tailscale0 2>/dev/null || true\n")
 
         sb.append(legacyRuleCleanup())
-        sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
-
-        val res = runSu("routing-cleanup", sb.toString())
-        if (res.ok) {
-            noteDnsHookState(false, "the Root Mode ruleset was removed")
-            rootLog("INFO", "tailscale0 routing removed")
-        }
-        return res.ok
+        // Our hosts bind, and nobody else's (see [hostsUnbindScript]).
+        sb.append(hostsUnbindScript(paths.hostsFile, hostsMarker(paths.hostsFile)))
+        return sb.toString()
     }
 
     /** Detaches and drops our nat chain; safe to run when it does not exist. */
     private fun dnsChainTeardown(): String = buildString {
         append(dnsHookRemove())
-        append("iptables -t nat -F $CHAIN_DNS 2>/dev/null || true\n")
-        append("iptables -t nat -X $CHAIN_DNS 2>/dev/null || true\n")
+        append("iptables -w -t nat -F $CHAIN_DNS 2>/dev/null || true\n")
+        append("iptables -w -t nat -X $CHAIN_DNS 2>/dev/null || true\n")
     }
 
     /**
@@ -1845,8 +1948,8 @@ object RootUtils {
     private fun dnsHookInstall(): String = buildString {
         for (proto in listOf("udp", "tcp")) {
             append(
-                "iptables -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
-                    "iptables -t nat -I OUTPUT 1 -p $proto --dport 53 -j $CHAIN_DNS\n"
+                "iptables -w -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
+                    "iptables -w -t nat -I OUTPUT 1 -p $proto --dport 53 -j $CHAIN_DNS\n"
             )
         }
     }
@@ -1854,7 +1957,7 @@ object RootUtils {
     /** Drains the jumps, duplicates included; a no-op when none are there. */
     private fun dnsHookRemove(): String = buildString {
         for (proto in listOf("udp", "tcp")) {
-            append("while iptables -t nat -D OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null; do :; done\n")
+            append("while iptables -w -t nat -D OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null; do :; done\n")
         }
     }
 
@@ -1882,14 +1985,14 @@ object RootUtils {
             if (hooked) {
                 // A jump to a chain that does not exist is refused by iptables,
                 // and the caller would be left believing DNS is redirected.
-                append("iptables -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo '$DNS_CHAIN_ABSENT'; exit 1; }\n")
+                append("iptables -w -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo '$DNS_CHAIN_ABSENT'; exit 1; }\n")
                 append(dnsHookInstall())
                 // Both, read back: a UDP jump alone would leave every TCP query
                 // — a large answer, a DoT-less resolver retrying — outside
                 // MagicDNS while the caller was told the redirect is on.
                 for (proto in listOf("udp", "tcp")) {
                     append(
-                        "iptables -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
+                        "iptables -w -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
                             "{ echo '$DNS_HOOK_FAILED'; exit 1; }\n"
                     )
                 }
@@ -2116,15 +2219,15 @@ object RootUtils {
      * Those were appended directly to OUTPUT/FORWARD and piled up on every
      * restart, so they are drained here until none are left.
      */
-    private fun legacyRuleCleanup(): String = buildString {
-        append("while iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
-        append("while ip6tables -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
+    internal fun legacyRuleCleanup(): String = buildString {
+        append("while iptables -w -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
+        append("while ip6tables -w -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
         append("while ip rule del fwmark $LEGACY_MARK table $LEGACY_ROUTE_TABLE 2>/dev/null; do :; done\n")
         append("while ip rule del fwmark $LEGACY_MARK lookup $LEGACY_ROUTE_TABLE 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -d $CGNAT_V4 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -d $CGNAT_V4 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -d $CGNAT_V4 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -d $CGNAT_V4 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
     }
 
     /**
@@ -2160,21 +2263,29 @@ object RootUtils {
      * The user's own exclusions plus link-local, filtered to plain CIDRs of the
      * right family. These are written as `throw` routes in the daemon's table,
      * where longest-prefix match lets a more specific accepted subnet route win
-     * over a broader exclusion. A Context is needed to read the setting; without
-     * one only link-local is excluded, which keeps the boot path's script valid.
+     * over a broader exclusion.
      */
-    private fun manualExclusions(context: Context?, v6: Boolean): List<String> {
-        val fromSettings = context?.let { GlobalSettings.getTunExcludedCIDRs(it) } ?: ""
+    private fun manualExclusions(context: Context, v6: Boolean): List<String> {
+        val (valid, dropped) = filterCidrs(GlobalSettings.getTunExcludedCIDRs(context), v6)
+        if (dropped.isNotEmpty()) {
+            rootLog("WARN", "exit-node exclusions ignored, not plain CIDRs: ${dropped.joinToString(", ")}")
+        }
+        return valid
+    }
+
+    /**
+     * The setting's text split into CIDRs of one family, link-local added:
+     * the ones kept (in order, once each) and the ones dropped for not being
+     * plain CIDRs.
+     */
+    internal fun filterCidrs(fromSettings: String, v6: Boolean): Pair<List<String>, List<String>> {
         val all = (fromSettings.split(',', ';', ' ', '\n') + listOf(LINK_LOCAL_V4, LINK_LOCAL_V6))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
         val wanted = all.filter { if (v6) it.contains(':') else !it.contains(':') }
         val valid = wanted.filter { if (v6) CIDR_V6.matches(it) else CIDR_V4.matches(it) }
         val dropped = wanted - valid.toSet()
-        if (dropped.isNotEmpty()) {
-            rootLog("WARN", "exit-node exclusions ignored, not plain CIDRs: ${dropped.joinToString(", ")}")
-        }
-        return valid.distinct()
+        return valid.distinct() to dropped
     }
 
     /**
@@ -2183,8 +2294,8 @@ object RootUtils {
      * conflict they exist for is an accepted route with the *same* prefix, which
      * the daemon's RouteReplace would overwrite in table 52.
      */
-    private fun autoLanExclusions(context: Context?, v6: Boolean): List<String> =
-        if (context != null && GlobalSettings.isRootYieldLanEnabled(context)) ownLanPrefixes(v6) else emptyList()
+    private fun autoLanExclusions(context: Context, v6: Boolean): List<String> =
+        if (GlobalSettings.isRootYieldLanEnabled(context)) ownLanPrefixes(v6) else emptyList()
 
     /**
      * Prefixes this device holds on a real interface: the LAN the platform
@@ -2209,15 +2320,11 @@ object RootUtils {
                 val addr = ia.address ?: continue
                 val len = ia.networkPrefixLength.toInt()
                 if (!v6 && addr is java.net.Inet4Address && len in 1..32) {
-                    val bytes = addr.address
-                    val value = bytes.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+                    val value = ipv4Value(addr.address)
                     if (value in 0x64400000L..0x647fffffL) continue
                     if (value in 0xa9fe0000L..0xa9feffffL) continue
                     if (value in 0x7f000000L..0x7fffffffL) continue
-                    val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
-                    val network = value and mask
-                    val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
-                    found.add("$dotted/$len")
+                    found.add(ipv4Network(addr.address, len))
                 } else if (v6 && addr is java.net.Inet6Address && len in 1..128) {
                     if (addr.isLinkLocalAddress || addr.isLoopbackAddress) continue
                     val bytes = addr.address
@@ -2233,6 +2340,17 @@ object RootUtils {
         return found.distinct()
     }
 
+    /** An IPv4 address's four bytes as an unsigned number. */
+    internal fun ipv4Value(bytes: ByteArray): Long = bytes.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+
+    /** `a.b.c.d/len` for the network an IPv4 address of prefix length [len] (1..32) sits in. */
+    internal fun ipv4Network(bytes: ByteArray, len: Int): String {
+        val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
+        val network = ipv4Value(bytes) and mask
+        val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
+        return "$dotted/$len"
+    }
+
     /** Signature for the routing-apply gate: a changed LAN prefix must re-apply the rules. */
     fun localLanSignature(): String = (ownLanPrefixes(false) + ownLanPrefixes(v6 = true)).sorted().joinToString(",")
 
@@ -2241,12 +2359,9 @@ object RootUtils {
      *
      * The same list the TUN mode hands to `addDisallowedApplication`, so one
      * setting governs both tunnel modes. A package that is no longer installed
-     * is skipped and named in the log rather than failing the apply, and
-     * without a Context (the boot path) nothing is excluded — the device-wide
-     * behaviour, which is what earlier versions always did.
+     * is skipped and named in the log rather than failing the apply.
      */
-    private fun excludedUids(context: Context?): List<Int> {
-        if (context == null) return emptyList()
+    private fun excludedUids(context: Context): List<Int> {
         val pkgs = GlobalSettings.getTunExcludedApps(context).map { it.trim() }.filter { it.isNotEmpty() }
         if (pkgs.isEmpty()) return emptyList()
         val pm = context.packageManager
@@ -2289,7 +2404,7 @@ object RootUtils {
      * tailnet addresses. Being priority-based and network-agnostic, the rule
      * needs no refresh when Wi-Fi gives way to mobile data.
      */
-    private fun excludeRulesInstall(uids: List<Int>): String {
+    internal fun excludeRulesInstall(uids: List<Int>): String {
         if (uids.isEmpty()) return ""
         return buildString {
             append("PHYS=$(ip route get 1.1.1.1 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
@@ -2309,43 +2424,63 @@ object RootUtils {
                 append("    [ \"\$p\" -ge $NETD_RULE_MIN ] && { echo \"\$p\"; break; }\n")
                 append("done)\n")
             }
-            for (uid in uids) {
-                for ((ip, goto, phys) in listOf(
-                    Triple("ip", "\$GOTO", "\$PHYS"),
-                    Triple("ip -6", "\$GOTO6", "\$PHYS6")
-                )) {
+            // Per family, in passes over all uids rather than uid by uid: every
+            // rule is added first, then the rule list is read back once and each
+            // uid is checked against that snapshot with `case`, a shell builtin.
+            // Reading the list per uid and per check cost three `ip rule show`
+            // and five `grep` per uid and family, ~20 processes per excluded app
+            // inside every apply. The checks are the same and still run after
+            // the add they verify; only the reads are shared. The snapshots keep
+            // pref-[EXCLUDE_PRIO] lines only, which nothing but these rules
+            // uses, so a match anywhere in one is a match on one of those lines.
+            for ((v, ip) in listOf("" to "ip", "6" to "ip -6")) {
+                val goto = "\$GOTO$v"
+                val phys = "\$PHYS$v"
+                fun fallback(uid: Int) =
+                    "{ [ -n \"$phys\" ] && $ip rule add uidrange $uid-$uid iif lo lookup \"$phys\" priority $EXCLUDE_PRIO 2>/dev/null; } || true"
+                for (uid in uids) {
                     append("while $ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
                     append(
                         "{ [ -n \"$goto\" ] && $ip rule add uidrange $uid-$uid goto \"$goto\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
                     )
-                    // A goto the kernel could not resolve: the rule exists but is
-                    // never evaluated, which is worse than no rule at all.
-                    append(
-                        "if $ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:' | grep -F 'uidrange $uid-$uid' | " +
-                            "grep -qE '\\[detached\\]| unresolved'; then\n"
-                    )
+                }
+                append("EXCL$v=\$($ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:')\n")
+                // A goto the kernel could not resolve: the rule exists but is
+                // never evaluated, which is worse than no rule at all.
+                append("EXCL_DET$v=\$(echo \"\$EXCL$v\" | grep -E '\\[detached\\]| unresolved')\n")
+                for (uid in uids) {
+                    // Fallback, also taken when no rule exists in netd's band at
+                    // all: pin the uid to the physical table by hand. A detached
+                    // rule is deleted first, which leaves the uid with none.
+                    append("case \"\$EXCL_DET$v\" in *'uidrange $uid-$uid'*)\n")
                     append("    while $ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
                     append("    echo '$GOTO_UNRESOLVED'\n")
-                    append("fi\n")
-                    // Fallback, also taken when no rule exists in netd's band at
-                    // all: pin the uid to the physical table by hand.
-                    append(
-                        "$ip rule show 2>/dev/null | grep -q '^$EXCLUDE_PRIO:.*uidrange $uid-$uid' || " +
-                            "{ [ -n \"$phys\" ] && $ip rule add uidrange $uid-$uid iif lo lookup \"$phys\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
-                    )
-                    // Neither form landed. On a device whose `ip` was built
-                    // without uid-range support that is what always happens, and
-                    // both attempts are silent about it: `ip rule add` fails, the
-                    // `|| true` swallows it, and the summary used to announce an
-                    // exclusion that does not exist.
-                    val present = "$ip rule show 2>/dev/null | grep -q '^$EXCLUDE_PRIO:.*uidrange $uid-$uid'"
-                    if (ip == "ip") {
-                        append("$present || echo '$UIDRANGE_MISSING_V4'\n")
-                    } else {
-                        // The trailing `|| true` keeps a device with IPv6 off
-                        // from ending a script on a non-zero test.
-                        append("[ \"\$V6UP\" = 1 ] && { $present || echo '$UIDRANGE_MISSING_V6'; } || true\n")
+                    append("    ${fallback(uid)};;\n")
+                    append("*)\n")
+                    append("    case \"\$EXCL$v\" in *'uidrange $uid-$uid'*) ;; *) ${fallback(uid)};; esac;;\n")
+                    append("esac\n")
+                }
+                // Neither form landed. On a device whose `ip` was built
+                // without uid-range support that is what always happens, and
+                // both attempts are silent about it: `ip rule add` fails, the
+                // `|| true` swallows it, and the summary used to announce an
+                // exclusion that does not exist. A second read, after the
+                // fallbacks.
+                val marker = if (v.isEmpty()) UIDRANGE_MISSING_V4 else UIDRANGE_MISSING_V6
+                val check = buildString {
+                    append("EXCL$v=\$($ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:')\n")
+                    for (uid in uids) {
+                        append("case \"\$EXCL$v\" in *'uidrange $uid-$uid'*) ;; *) echo '$marker';; esac\n")
                     }
+                }
+                if (v.isEmpty()) {
+                    append(check)
+                } else {
+                    // Only where IPv6 is up, so a device with it off cannot
+                    // raise the alarm.
+                    append("if [ \"\$V6UP\" = 1 ]; then\n")
+                    append(check)
+                    append("fi\n")
                 }
             }
         }
@@ -2471,7 +2606,7 @@ object RootUtils {
             if (!(runCatching { nif.isUp }.getOrDefault(false))) continue
             for (ia in nif.interfaceAddresses.orEmpty()) {
                 val addr = ia.address as? java.net.Inet4Address ?: continue
-                val value = addr.address.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+                val value = ipv4Value(addr.address)
                 if (value !in 0x64400000L..0x647fffffL) continue
                 val len = ia.networkPrefixLength.toInt()
                 if (len !in 11..32) {
@@ -2482,10 +2617,7 @@ object RootUtils {
                     )
                     continue
                 }
-                val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
-                val network = value and mask
-                val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
-                found.add(name to "$dotted/$len")
+                found.add(name to ipv4Network(addr.address, len))
             }
         }
         return found.distinctBy { it.second }
@@ -2676,8 +2808,12 @@ object RootUtils {
      * Anything unreadable or absent counts as "does not mark": without the mark
      * the pref-200 catch-all would route the daemon's own tunnel packets into
      * tailscale0, so the safe failure mode is "no exit node", never a loop.
+     *
+     * Read by [SoMarkLogScan]: after the first full scan of a run only the
+     * bytes appended since are read.
      */
-    fun daemonMarksSockets(logFile: File): Boolean = soMarkVerdict(logFile).marks
+    private fun soMarkVerdict(logFile: File): SoMarkVerdict =
+        soMarkScan.verdict(logFile, if (lastDaemonLogFile == logFile) daemonLogStartOffset else -1L)
 
     /**
      * Second opinion for the socket-marking gate, taken from the running daemon
@@ -2695,8 +2831,8 @@ object RootUtils {
      * Returns null when nothing can be read, which leaves the log's verdict
      * standing — the gate's failure mode is "no exit node", never a loop.
      */
-    private fun daemonMarksByEnviron(context: Context?): SoMarkVerdict? {
-        val libDir = context?.applicationInfo?.nativeLibraryDir ?: return null
+    private fun daemonMarksByEnviron(context: Context): SoMarkVerdict? {
+        val libDir = context.applicationInfo?.nativeLibraryDir ?: return null
         val script = buildString {
             append("for p in \$(pidof libtailscale.so 2>/dev/null); do\n")
             // The binary is the CLI as well (ts_include_cli): a `tailscale`
@@ -2722,56 +2858,25 @@ object RootUtils {
         }
     }
 
-    private fun soMarkVerdict(logFile: File): SoMarkVerdict {
-        val recorded = if (lastDaemonLogFile == logFile) daemonLogStartOffset else -1L
-        val noProbe = "no '$SO_MARK_LINE' line since this run's start in ${logFile.path}"
-        try {
-            java.io.RandomAccessFile(logFile, "r").use { raf ->
-                val len = raf.length()
-                val bounded = recorded in 0..len
-                val floor = if (bounded) recorded else 0L
-                val buf = ByteArray(SCAN_CHUNK)
-                // Leading partial line of the chunk read before this one (later in the file).
-                var carry = ""
-                var pos = len
-                // Verdict of the last probe line met, pending a run start below it.
-                var probe: SoMarkVerdict? = null
-                while (pos > floor) {
-                    if (len - pos >= SCAN_LIMIT) {
-                        return SoMarkVerdict(false, "no run start within the last ${SCAN_LIMIT shr 20} MiB of ${logFile.path}; run unverified")
-                    }
-                    val start = maxOf(floor, pos - SCAN_CHUNK)
-                    val n = (pos - start).toInt()
-                    raf.seek(start)
-                    raf.readFully(buf, 0, n)
-                    // ISO-8859-1 decodes bytes 1:1, so no multi-byte sequence can straddle a chunk boundary.
-                    val lines = (String(buf, 0, n, Charsets.ISO_8859_1) + carry).split('\n')
-                    // Unless this chunk begins at the floor (a line start by
-                    // construction), its first segment continues a line from the
-                    // chunk below and is judged together with that one.
-                    val first = if (start > floor) 1 else 0
-                    carry = if (start > floor) lines[0] else ""
-                    for (i in lines.indices.reversed()) {
-                        if (i < first) break
-                        val line = lines[i]
-                        if (line.contains(RUN_MARKER) || line.contains(DAEMON_START_LINE)) {
-                            return probe ?: SoMarkVerdict(false, noProbe)
-                        }
-                        if (probe != null || line.contains(APP_LINE_TAG) || !line.contains(SO_MARK_LINE)) continue
-                        probe = if (line.contains(SO_MARK_OK)) SoMarkVerdict(true, "daemon logged '$SO_MARK_OK'")
-                        else SoMarkVerdict(false, "daemon logged: ${line.trim()}")
-                    }
-                    pos = start
-                }
-                if (bounded) {
-                    // The recorded launch offset is a run start by construction.
-                    return probe ?: SoMarkVerdict(false, "no '$SO_MARK_LINE' line yet for the run started at byte $recorded of ${logFile.path}")
-                }
-                return SoMarkVerdict(false, "no run start ('$RUN_MARKER' or '$DAEMON_START_LINE') in ${logFile.path}; run unverified")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "soMarkVerdict: cannot read ${logFile.path}: ${e.message}")
-            return SoMarkVerdict(false, "cannot read ${logFile.path} (${e.message})")
+    /** Remembers how far the daemon log was read, so an apply reads only what was appended since. */
+    private val soMarkScan = SoMarkLogScan()
+
+    /**
+     * Cuts the daemon log to its last [LOG_TRIM_KEEP_LINES] lines when it is
+     * over [LOG_TRIM_BYTES]: the boot script's three lines, for the app's own
+     * start. Run only before a daemon starts — `mv` gives the file a new inode,
+     * which a running daemon would not follow.
+     */
+    internal fun logTrimScript(logFile: String): String {
+        val f = shQuote(logFile)
+        val tmp = shQuote("$logFile.tmp")
+        return buildString {
+            append("if [ -f $f ]; then\n")
+            append("    LOG_SIZE=\"\$(wc -c < $f 2>/dev/null || echo 0)\"\n")
+            append("    if [ \"\$LOG_SIZE\" -gt $LOG_TRIM_BYTES ] 2>/dev/null; then\n")
+            append("        tail -n $LOG_TRIM_KEEP_LINES $f > $tmp && mv $tmp $f\n")
+            append("    fi\n")
+            append("fi\n")
         }
     }
 
@@ -2789,8 +2894,8 @@ object RootUtils {
      * busy the DNS chain is, and whether another tunnel owns the device — the
      * decision [applyTailscale0Routing] made, with its reason.
      */
-    fun dumpRoutingState(context: Context? = null): String {
-        val logFile = context?.let { rootDaemonLogFile(it) } ?: lastDaemonLogFile
+    fun dumpRoutingState(context: Context): String {
+        val logFile = rootDaemonLogFile(context)
         val orig = shQuote(RP_FILTER_ORIG)
         val uids = excludedUids(context)
         // A route lookup needs an address, not a prefix; the network address of
@@ -2799,7 +2904,7 @@ object RootUtils {
         // Its own root shell, so it runs before the dump script is assembled and
         // its verdict is printed as part of the dump rather than out of band.
         val coexist = detectForeignVpn()
-        val taildropDir = context?.let { TaildropPaths.dir(it, AccountManager.getActiveAccount(it).id).absolutePath }
+        val taildropDir = TaildropPaths.dir(context, AccountManager.getActiveAccount(context).id).absolutePath
         val script = buildString {
             append("echo '--- ip rule ---'\n")
             append("ip rule show 2>/dev/null || echo '(ip rule show failed)'\n")
@@ -2838,20 +2943,16 @@ object RootUtils {
             append("echo '--- rules installed but never evaluated ([detached] / unresolved goto targets) ---'\n")
             append("{ ip rule show 2>/dev/null; ip -6 rule show 2>/dev/null; } | grep -E '\\[detached\\]| unresolved' || echo '(none)'\n")
             append("echo '--- every fwmark claim in mangle, ours and anyone else's ---'\n")
-            append("iptables -t mangle -S 2>/dev/null | grep -- '--set-xmark' || echo '(none)'\n")
+            append("iptables -w -t mangle -S 2>/dev/null | grep -- '--set-xmark' || echo '(none)'\n")
             append("echo '--- rp_filter ---'\n")
             append("for f in /proc/sys/net/ipv4/conf/*/rp_filter; do printf '%s=%s\\n' \"\${f#/proc/sys/net/ipv4/conf/}\" \"\$(cat \"\$f\" 2>/dev/null)\"; done 2>/dev/null\n")
             append("[ -f $orig ] && echo \"saved original all=\$(cat $orig)\"\n")
             append("echo '--- daemon log: last run marker, last SO_MARK probe line (any run), gate verdict ---'\n")
-            if (logFile != null) {
-                val lf = shQuote(logFile.absolutePath)
-                append("grep -n '$RUN_MARKER' $lf 2>/dev/null | tail -n 1 | grep . || echo '(no \"$RUN_MARKER\" line: daemon not started by TailSocks)'\n")
-                append("grep '$SO_MARK_LINE' $lf 2>/dev/null | grep -v '$APP_LINE_TAG' | tail -n 1 | grep . || echo '(no SO_MARK line in daemon log)'\n")
-                val verdict = soMarkVerdict(logFile)
-                append("echo ${shQuote("gate: " + (if (verdict.marks) "daemon marks sockets" else "pref-$CATCH_ALL_PRIO withheld") + " (" + verdict.reason + ")")}\n")
-            } else {
-                append("echo '(daemon log path unknown)'\n")
-            }
+            val lf = shQuote(logFile.absolutePath)
+            append("grep -n '$RUN_MARKER' $lf 2>/dev/null | tail -n 1 | grep . || echo '(no \"$RUN_MARKER\" line: daemon not started by TailSocks)'\n")
+            append("grep '$SO_MARK_LINE' $lf 2>/dev/null | grep -v '$APP_LINE_TAG' | tail -n 1 | grep . || echo '(no SO_MARK line in daemon log)'\n")
+            val verdict = soMarkVerdict(logFile)
+            append("echo ${shQuote("gate: " + (if (verdict.marks) "daemon marks sockets" else "pref-$CATCH_ALL_PRIO withheld") + " (" + verdict.reason + ")")}\n")
             append("echo '--- coexistence (which tiers the last apply installed, and why) ---'\n")
             append(
                 "echo " + shQuote(
@@ -2860,25 +2961,23 @@ object RootUtils {
                 ) + "\n"
             )
             append("echo '--- mangle $CHAIN_MARK ---'\n")
-            append("iptables -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
             append("echo '--- mangle $CHAIN_BYPASS (removed in 4.0; anything here is upgrade residue) ---'\n")
-            append("iptables -t mangle -S $CHAIN_BYPASS 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t mangle -S $CHAIN_BYPASS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat OUTPUT jumps into $CHAIN_DNS (without these the redirect is built but inert) ---'\n")
-            append("iptables -t nat -S OUTPUT 2>/dev/null | grep -- '-j $CHAIN_DNS' || echo '(unhooked)'\n")
+            append("iptables -w -t nat -S OUTPUT 2>/dev/null | grep -- '-j $CHAIN_DNS' || echo '(unhooked)'\n")
             append("echo '--- nat $CHAIN_DNS ---'\n")
-            append("iptables -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat $CHAIN_DNS counters ---'\n")
-            append("iptables -t nat -L $CHAIN_DNS -n -v -x 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t nat -L $CHAIN_DNS -n -v -x 2>/dev/null || echo '(absent)'\n")
             append("echo '--- tailscale0 ---'\n")
             append("ip -br addr show tailscale0 2>/dev/null || echo '(interface missing)'\n")
-            if (taildropDir != null) {
-                // The real owner and mode bits of what the root daemon wrote, to read in
-                // Check Routing rather than guess at. Expected while the daemon runs:
-                // root-owned, 0644 (0666 under the start scripts' umask 022); after it
-                // stops, owned by the app uid (handStateBackToApp).
-                append("echo '--- taildrop dir (received files; expect 0644 while the root daemon runs, app-owned after it stops) ---'\n")
-                append("ls -la ${shQuote(taildropDir)} 2>&1 | head -n 40\n")
-            }
+            // The real owner and mode bits of what the root daemon wrote, to read in
+            // Check Routing rather than guess at. Expected while the daemon runs:
+            // root-owned, 0644 (0666 under the start scripts' umask 022); after it
+            // stops, owned by the app uid (handStateBackToApp).
+            append("echo '--- taildrop dir (received files; expect 0644 while the root daemon runs, app-owned after it stops) ---'\n")
+            append("ls -la ${shQuote(taildropDir)} 2>&1 | head -n 40\n")
             append("echo '--- ip binary ---'\n")
             append("ip -V 2>&1 | head -n 1\n")
         }
@@ -2909,31 +3008,69 @@ object RootUtils {
         return res.ok
     }
 
-    fun stopRootDaemon(socketPath: String = ""): Boolean {
-        cleanupTailscale0Routing()
-        // Match only our own daemon by its --socket argument, which contains this
-        // app's private data path. `pkill -f libtailscale.so` matched the full
-        // command line of every process on the device, so a second profile, a
-        // Termux tailscaled, or any unrelated app shipping that library was
-        // killed as root too.
+    /** Printed by the stop shell once each part has run, so one shell can report three results. */
+    private const val STOP_CLEANUP_DONE = "TAILSOCKS_STOP: routing cleanup done"
+    private const val STOP_HANDBACK_DONE = "TAILSOCKS_STOP: state handed back"
+
+    /**
+     * Removes the routing, terminates the root daemon and, given [handBackTo],
+     * hands its state back to the app — in one root shell.
+     *
+     * The stop used to spend four: the caller's cleanup, the same cleanup again
+     * as this function's first line, the kill, and the chown — about ninety
+     * delete loops run twice, and a fixed one-second sleep between SIGTERM and
+     * SIGKILL. The commands and their order are what they were; the second
+     * cleanup pass is gone, and the sleep is a poll that ends as soon as the
+     * daemon has exited, still SIGKILL after one second at the latest.
+     *
+     * Always true, as before: no caller can do anything with a failed stop.
+     */
+    fun stopRootDaemon(socketPath: String = "", handBackTo: Context? = null): Boolean {
+        val handBack = handBackTo?.let { stateHandBackScript(it) }
         val script = buildString {
-            if (socketPath.isNotEmpty()) {
-                val pat = shQuote("--socket=$socketPath")
-                append("pkill -15 -f -- $pat 2>/dev/null || true\n")
-                append("sleep 1\n")
-                append("pkill -9 -f -- $pat 2>/dev/null || true\n")
-                append("rm -f ${shQuote(socketPath)}\n")
-            } else {
-                // No socket path to scope by; fall back to the exact process name.
-                append("killall -15 libtailscale.so 2>/dev/null || true\n")
-                append("sleep 1\n")
-                append("killall -9 libtailscale.so 2>/dev/null || true\n")
+            append(routingCleanupScript())
+            append("echo '$STOP_CLEANUP_DONE'\n")
+            append(daemonKillScript(socketPath))
+            if (handBack != null) {
+                append(handBack)
+                append("echo '$STOP_HANDBACK_DONE'\n")
             }
         }
-        val res = runSu("daemon-stop", script)
+        val res = runSu("daemon-stop", script, timeoutMs = 30_000L, quiet = true)
         Log.d(TAG, "Root daemon stopped exitCode=${res.exitCode}")
+        val other = res.output.lineSequence()
+            .filter { it.isNotBlank() && it != STOP_CLEANUP_DONE && it != STOP_HANDBACK_DONE }
+            .joinToString("\n")
+        if (res.ok && other.isNotEmpty()) rootLog("INFO", "daemon-stop: $other")
+        if (res.output.contains(STOP_CLEANUP_DONE)) noteRoutingRemoved()
         rootLog("INFO", "Root daemon stopped")
+        if (handBack != null && !res.output.contains(STOP_HANDBACK_DONE)) {
+            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
+        }
         return true
+    }
+
+    /**
+     * SIGTERM, up to a second for the daemon to exit, then SIGKILL, for the
+     * daemon matched by its `--socket=` argument and nothing else. That argument
+     * contains this app's private data path. `pkill -f libtailscale.so` matched
+     * the full command line of every process on the device, so a second profile,
+     * a Termux tailscaled, or any unrelated app shipping that library was killed
+     * as root too.
+     */
+    internal fun daemonKillScript(socketPath: String): String = buildString {
+        if (socketPath.isNotEmpty()) {
+            val pat = shQuote("--socket=$socketPath")
+            append("pkill -15 -f -- $pat 2>/dev/null || true\n")
+            append("i=0; while [ \$i -lt 10 ] && pgrep -f -- $pat >/dev/null 2>&1; do sleep 0.1; i=\$((i+1)); done\n")
+            append("pkill -9 -f -- $pat 2>/dev/null || true\n")
+            append("rm -f ${shQuote(socketPath)}\n")
+        } else {
+            // No socket path to scope by; fall back to the exact process name.
+            append("killall -15 libtailscale.so 2>/dev/null || true\n")
+            append("i=0; while [ \$i -lt 10 ] && pidof libtailscale.so >/dev/null 2>&1; do sleep 0.1; i=\$((i+1)); done\n")
+            append("killall -9 libtailscale.so 2>/dev/null || true\n")
+        }
     }
 
     /**
@@ -2951,6 +3088,16 @@ object RootUtils {
      * is guaranteed to be available.
      */
     fun handStateBackToApp(context: Context): Boolean {
+        val script = (stateHandBackScript(context) ?: return true) + "exit 0\n"
+        val res = runSu("state-chown", script, timeoutMs = 15_000L)
+        if (!res.ok) {
+            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
+        }
+        return res.ok
+    }
+
+    /** [handStateBackToApp]'s commands, without the `exit`; null when there is nothing to hand back. */
+    private fun stateHandBackScript(context: Context): String? {
         val uid = context.applicationInfo.uid
         val dir = File(context.filesDir, "states").absolutePath
         // Received Taildrop files: the root daemon writes them into files/taildrop/<account>
@@ -2959,22 +3106,18 @@ object RootUtils {
         // this hands over ownership once root is about to go away, so a later non-root
         // session can rename or rewrite them too. Ownership only — modes are left alone.
         val taildrop = File(context.filesDir, "taildrop").absolutePath
-        if (!File(dir).exists() && !File(taildrop).exists()) return true
-        val script = buildString {
-            append("if [ -d ${shQuote(dir)} ]; then\n")
-            append("  chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
-            // Ownership is what matters; keep the modes the daemon expects.
-            append("  find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
-            append("  find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
-            append("fi\n")
-            append("[ -d ${shQuote(taildrop)} ] && chown -R $uid:$uid ${shQuote(taildrop)} 2>/dev/null\n")
-            append("exit 0\n")
-        }
-        val res = runSu("state-chown", script, timeoutMs = 15_000L)
-        if (!res.ok) {
-            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
-        }
-        return res.ok
+        if (!File(dir).exists() && !File(taildrop).exists()) return null
+        return stateHandBackScript(uid, dir, taildrop)
+    }
+
+    internal fun stateHandBackScript(uid: Int, dir: String, taildrop: String): String = buildString {
+        append("if [ -d ${shQuote(dir)} ]; then\n")
+        append("  chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
+        // Ownership is what matters; keep the modes the daemon expects.
+        append("  find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
+        append("  find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
+        append("fi\n")
+        append("[ -d ${shQuote(taildrop)} ] && chown -R $uid:$uid ${shQuote(taildrop)} 2>/dev/null\n")
     }
 
     fun setServiceScriptInstalled(context: Context, install: Boolean): Boolean {
@@ -3043,6 +3186,30 @@ object RootUtils {
         return RootBootScript.state(head, expected)
     }
 
+    /**
+     * [serviceScriptState] and [isTailscaleCliInstalled] in one root shell, for
+     * the boot receiver, which used to spend four (check and reinstall, twice)
+     * inside its broadcast budget.
+     */
+    fun rootIntegrationState(context: Context): Pair<RootBootScript.State, Boolean> {
+        val present = "TAILSOCKS_SCRIPT_PRESENT"
+        val end = "TAILSOCKS_SCRIPT_END"
+        val cli = "TAILSOCKS_CLI_PRESENT"
+        val res = runSu(
+            "root-integration-check",
+            "[ -f \"${paths.serviceScript}\" ] && { echo '$present'; head -n ${RootBootScript.HEADER_SEARCH_LINES} \"${paths.serviceScript}\"; echo '$end'; }\n" +
+                "{ ${paths.cliCheckScript()}; } | grep -q exists && echo '$cli'\n" +
+                "true\n",
+            timeoutMs = 10_000L,
+            quiet = true
+        )
+        val head = if (res.ok && res.output.contains(present)) res.output.substringAfter(present).substringBefore(end) else null
+        val expected = runCatching {
+            RootBootScript.expectedVersion(bootScriptTemplate(context), context.packageName, bootScriptDaemonBin(context))
+        }.getOrDefault("")
+        return RootBootScript.state(head, expected) to (res.ok && res.output.contains(cli))
+    }
+
     fun setTailscaleCliInstalled(context: Context, install: Boolean): Boolean {
         return try {
             if (install) {
@@ -3107,56 +3274,28 @@ object RootUtils {
         }
     }
 
+    /**
+     * One A query to 1.1.1.1 over UDP, for when the system resolver could not
+     * answer. The reply is parsed ([DnsWire.firstA]): it must answer this query's
+     * id with NOERROR, and the address is the first A record's. The packet used
+     * to be scanned from its end for any four bytes that looked like an address,
+     * which a trailing CNAME, SOA or OPT record turned into a wrong one — handed
+     * to the root daemon as the control proxy's address. The socket is closed on
+     * every path; a timeout, the common failure, used to leak it.
+     */
     private fun resolveHostViaUdpDns(host: String): String? {
         return try {
-            val socket = java.net.DatagramSocket()
-            socket.soTimeout = 2000
-            val dnsServer = java.net.InetAddress.getByName("1.1.1.1")
-
-            val baos = java.io.ByteArrayOutputStream()
-            val dos = java.io.DataOutputStream(baos)
-            dos.writeShort(0x1234)
-            dos.writeShort(0x0100)
-            dos.writeShort(0x0001)
-            dos.writeShort(0x0000)
-            dos.writeShort(0x0000)
-            dos.writeShort(0x0000)
-
-            for (part in host.split(".")) {
-                val bytes = part.toByteArray(Charsets.US_ASCII)
-                dos.writeByte(bytes.size)
-                dos.write(bytes)
+            val id = java.security.SecureRandom().nextInt(0x10000)
+            val query = DnsWire.aQuery(host, id) ?: return null
+            java.net.DatagramSocket().use { socket ->
+                socket.soTimeout = 2000
+                val dnsServer = java.net.InetAddress.getByName("1.1.1.1")
+                socket.send(java.net.DatagramPacket(query, query.size, dnsServer, 53))
+                val buf = ByteArray(512)
+                val reply = java.net.DatagramPacket(buf, buf.size)
+                socket.receive(reply)
+                DnsWire.firstA(reply.data, reply.length, id)
             }
-            dos.writeByte(0)
-            dos.writeShort(0x0001)
-            dos.writeShort(0x0001)
-
-            val query = baos.toByteArray()
-            val packet = java.net.DatagramPacket(query, query.size, dnsServer, 53)
-            socket.send(packet)
-
-            val buf = ByteArray(512)
-            val recvPacket = java.net.DatagramPacket(buf, buf.size)
-            socket.receive(recvPacket)
-            socket.close()
-
-            val data = recvPacket.data
-            val length = recvPacket.length
-            if (length > 12) {
-                val ancnt = ((data[6].toInt() and 0xff) shl 8) or (data[7].toInt() and 0xff)
-                if (ancnt > 0) {
-                    for (i in (length - 4) downTo 12) {
-                        val b0 = data[i].toInt() and 0xff
-                        val b1 = data[i + 1].toInt() and 0xff
-                        val b2 = data[i + 2].toInt() and 0xff
-                        val b3 = data[i + 3].toInt() and 0xff
-                        if (b0 in 1..254 && b3 in 1..254 && b0 != 127) {
-                            return "$b0.$b1.$b2.$b3"
-                        }
-                    }
-                }
-            }
-            null
         } catch (e: Exception) {
             Log.w(TAG, "Direct UDP DNS resolution failed for '$host': ${e.message}")
             null
