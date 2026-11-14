@@ -35,4 +35,14 @@ class AccountPrimaryTest {
         // And with the first account gone too: whichever comes first.
         assertEquals(work.id, AccountManager.primaryOf(listOf(work, home), "1759999999999"))
     }
+
+    // --- The active account --------------------------------------------------------------------
+
+    @Test
+    fun theActiveAccountIsTheStoredOneWhileItExistsElseTheFirst() {
+        val accounts = listOf(first, work)
+        assertEquals(work.id, AccountManager.activeOf(accounts, work.id).id)
+        assertEquals("a deleted account falls back", first.id, AccountManager.activeOf(accounts, "gone").id)
+        assertEquals(first.id, AccountManager.activeOf(accounts, null).id)
+    }
 }

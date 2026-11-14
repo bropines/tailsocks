@@ -26,6 +26,9 @@ class TaildriveDocumentsTest {
 
     private fun folder(path: String) = WebDavFile("$path/", isDirectory = true, size = 0, lastModified = 0)
 
+    /** A Depth-0 request that fails: these tests are about the Depth-1 road it falls back to. */
+    private val noStat: (String) -> List<WebDavFile> = { throw WebDavHttpException("PROPFIND", 400, "") }
+
     // --- The id -----------------------------------------------------------------------------------
 
     @Test
@@ -140,7 +143,7 @@ class TaildriveDocumentsTest {
     fun anEmptyListingIsNoDocument() {
         assertNull(DriveDocuments.fromListing(video, emptyList(), mimeOf))
         try {
-            DriveDocuments.resolve(video, { emptyList() }, mimeOf)
+            DriveDocuments.resolve(video, noStat, { emptyList() }, mimeOf)
             fail("expected FileNotFoundException")
         } catch (e: FileNotFoundException) {
         }
@@ -209,7 +212,7 @@ class TaildriveDocumentsTest {
 
     @Test
     fun resolveGivesTheRealAnswerWhenTheServerAnswers() {
-        val doc = DriveDocuments.resolve(video, { path ->
+        val doc = DriveDocuments.resolve(video, noStat, { path ->
             assertEquals(video.path, path)
             listOf(file(path))
         }, mimeOf)
@@ -219,11 +222,11 @@ class TaildriveDocumentsTest {
 
     @Test
     fun resolveTurnsAFailureIntoTheFailureAnswer() {
-        val doc = DriveDocuments.resolve(video, { throw WebDavHttpException("PROPFIND", 502, "") }, mimeOf)
+        val doc = DriveDocuments.resolve(video, noStat, { throw WebDavHttpException("PROPFIND", 502, "") }, mimeOf)
         assertNull(doc.size)
         assertFalse(doc.isDirectory)
         try {
-            DriveDocuments.resolve(video, { throw WebDavHttpException("PROPFIND", 404, "") }, mimeOf)
+            DriveDocuments.resolve(video, noStat, { throw WebDavHttpException("PROPFIND", 404, "") }, mimeOf)
             fail("expected FileNotFoundException")
         } catch (e: FileNotFoundException) {
         }
@@ -244,11 +247,11 @@ class TaildriveDocumentsTest {
         }
 
         // What it used to be: the calling thread asks, and the answer is wrong without a word.
-        val before = DriveDocuments.resolve(video, list, mimeOf)
+        val before = DriveDocuments.resolve(video, noStat, list, mimeOf)
         assertNull("the answer for the exception is not the file", before.size)
 
         // What it is: the same request, handed to the worker.
-        val after = ProviderWorker.run { DriveDocuments.resolve(video, list, mimeOf) }
+        val after = ProviderWorker.run { DriveDocuments.resolve(video, noStat, list, mimeOf) }
         assertEquals("video/mp4", after.mime)
         assertFalse(after.isDirectory)
         assertEquals(38_189_343L, after.size)

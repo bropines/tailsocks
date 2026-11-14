@@ -1,7 +1,6 @@
 package io.github.bropines.tailscaled.core
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
@@ -114,6 +113,10 @@ class TailcatService : Service() {
             override fun onTailcatChanged(id: String?) = refreshStatuses()
         }
 
+        /** The service while it exists, so a status change can redraw its notification. */
+        @Volatile
+        private var instance: TailcatService? = null
+
         fun refreshStatuses() {
             val json = runCatching { Appctr.tailcatStatusJSON() }.getOrDefault("{}")
             running.value = runCatching { AppJson.decodeFromString<Map<String, TailcatStatus>>(json) }.getOrDefault(emptyMap())
@@ -121,6 +124,9 @@ class TailcatService : Service() {
             serverRunning.value = if (server == "{}") null
                 else runCatching { AppJson.decodeFromString<TailcatServerStatus>(server) }.getOrNull()
             publish()
+            // The notification says how each connection is doing ("direct 12 ms"): it follows
+            // the bridge's reports, not only the commands, or it keeps saying "starting".
+            instance?.statusChanged()
         }
 
         /** Switches a connection on: it starts now, and with the core from then on. */
@@ -194,8 +200,20 @@ class TailcatService : Service() {
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "tailcat-worker") }
     /** Commands handed to [worker] and not yet applied; the service stays while any is queued. */
     private val pending = AtomicInteger()
+    /**
+     * Network reports, one after another: a burst of callbacks used to start a thread each, and
+     * two of them could hand the bridge their snapshots in the wrong order. Also the only
+     * reader and writer of [lastNetwork].
+     */
+    private val networkReports = Executors.newSingleThreadExecutor { Thread(it, "tailcat-network") }
     private lateinit var connectivity: ConnectivityManager
     private var lastNetwork = ""
+
+    /** Guards [inForeground] and [shownCard]: the worker, the main thread and the bridge's listener all draw. */
+    private val notificationLock = Any()
+    /** Between startForeground and the stop: only then is there a notification to redraw. */
+    private var inForeground = false
+    private var shownCard: Card? = null
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = reportNetwork()
@@ -208,6 +226,7 @@ class TailcatService : Service() {
     override fun onCreate() {
         super.onCreate()
         connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        instance = this
         runCatching {
             Appctr.setTailcatCacheDir(File(cacheDir, "tailcat").absolutePath)
             Appctr.setTailcatListener(listener)
@@ -254,13 +273,15 @@ class TailcatService : Service() {
                 pending.decrementAndGet()
             }
             refreshStatuses()
-            refresh()
+            refresh(startId)
         }
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
+        networkReports.shutdown()
         worker.execute {
             runCatching { Appctr.tailcatStopAll() }
             runCatching { Appctr.tailcatServerStop() }
@@ -274,11 +295,13 @@ class TailcatService : Service() {
         val conn = TailcatConnections.get(this, id) ?: return
         failures.update { it - id }
         val runningIds = running.value.keys - id
+        // The reason is shown on the connection's card: in the app's language, not the service's.
+        val res = AppStrings.of(this)
         val why = when (val problem = TailcatConnections.problem(this, conn, running = runningIds)) {
-            is TailcatConnections.Problem.Address -> getString(R.string.tailcat_err_address)
-            is TailcatConnections.Problem.Ports -> getString(R.string.tailcat_err_ports, problem.detail)
-            TailcatConnections.Problem.Socks -> getString(R.string.tailcat_err_socks)
-            is TailcatConnections.Problem.Clash -> getString(R.string.tailcat_err_port_clash, problem.port, problem.name)
+            is TailcatConnections.Problem.Address -> res.getString(R.string.tailcat_err_address)
+            is TailcatConnections.Problem.Ports -> res.getString(R.string.tailcat_err_ports, problem.detail)
+            TailcatConnections.Problem.Socks -> res.getString(R.string.tailcat_err_socks)
+            is TailcatConnections.Problem.Clash -> res.getString(R.string.tailcat_err_port_clash, problem.port, problem.name)
             null -> null
         } ?: runCatching {
             Appctr.tailcatStart(
@@ -298,12 +321,13 @@ class TailcatService : Service() {
         serverFailure.value = null
         val config = TailcatServer.load(this)
         val keyFile = TailcatServer.keyFile(this)
+        val res = AppStrings.of(this)
         val why = when {
-            !keyFile.exists() -> getString(R.string.tailcat_server_err_no_address)
+            !keyFile.exists() -> res.getString(R.string.tailcat_server_err_no_address)
             else -> when (val problem = TailcatServer.problem(config)) {
-                is TailcatServer.Problem.Ports -> getString(R.string.tailcat_err_ports, problem.detail)
-                is TailcatServer.Problem.Keys -> getString(R.string.tailcat_server_err_keys, problem.detail)
-                TailcatServer.Problem.Nothing -> getString(R.string.tailcat_server_err_nothing)
+                is TailcatServer.Problem.Ports -> res.getString(R.string.tailcat_err_ports, problem.detail)
+                is TailcatServer.Problem.Keys -> res.getString(R.string.tailcat_server_err_keys, problem.detail)
+                TailcatServer.Problem.Nothing -> res.getString(R.string.tailcat_server_err_nothing)
                 null -> null
             }
         } ?: runCatching {
@@ -319,59 +343,98 @@ class TailcatService : Service() {
 
     /** Tells the bridge which interfaces there are and which carries the default route. */
     private fun reportNetwork() {
-        Thread {
-            runCatching {
-                Appctr.setDefaultRouteInterface(NetworkSnapshot.defaultRouteInterface(connectivity))
-                val json = NetworkSnapshot.interfacesJson()
-                if (json != lastNetwork) {
-                    lastNetwork = json
-                    Appctr.injectNetworkState(json)
-                }
-            }.onFailure { Log.w(TAG, "network state not reported: ${it.message}") }
-        }.start()
+        runCatching {
+            networkReports.execute {
+                runCatching {
+                    Appctr.setDefaultRouteInterface(NetworkSnapshot.defaultRouteInterface(connectivity))
+                    val json = NetworkSnapshot.interfacesJson()
+                    if (json != lastNetwork) {
+                        lastNetwork = json
+                        Appctr.injectNetworkState(json)
+                    }
+                }.onFailure { Log.w(TAG, "network state not reported: ${it.message}") }
+            }
+        }   // A callback after onDestroy finds the executor shut down: nothing left to tell.
     }
 
     /**
-     * Redraws the notification, or leaves the foreground once nothing runs and
-     * no command is queued — a start that arrives while the last connection
-     * stops must not find the service gone.
+     * Redraws the notification, or leaves the foreground once nothing runs and no command is
+     * queued — a start that arrives while the last connection stops must not find the service
+     * gone. [startId] is the start whose command was just applied: the stop is made for it
+     * (stopSelfResult), so a start the system delivered meanwhile — its command not yet run
+     * here, even its onStartCommand not yet called — keeps the service. A bare stopSelf()
+     * stopped that one too, and onDestroy then queued a stop-all behind it: the connection
+     * came up and went down at once.
      */
-    private fun refresh() {
+    private fun refresh(startId: Int) {
         if (!anyRunning() && pending.get() == 0) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            synchronized(notificationLock) {
+                if (!stopSelfResult(startId)) return@synchronized
+                inForeground = false
+                shownCard = null
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            }
         } else {
             enterForeground()
         }
     }
 
     private fun enterForeground() {
-        val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIF_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-        } else {
-            startForeground(NOTIF_ID, notification)
+        synchronized(notificationLock) {
+            val card = card()
+            val notification = buildNotification(card)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(NOTIF_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            } else {
+                startForeground(NOTIF_ID, notification)
+            }
+            inForeground = true
+            shownCard = card
         }
     }
 
-    /** One card for every connection: the running ones on the collapsed line, each on a line of its own when expanded. */
-    private fun buildNotification(): Notification {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL_ID, getString(R.string.tailcat_title), NotificationManager.IMPORTANCE_LOW))
+    /** The bridge reported a change: the notification is drawn again if it now says something else. */
+    private fun statusChanged() {
+        synchronized(notificationLock) {
+            if (!inForeground) return
+            val card = card()
+            if (card == shownCard) return
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            try {
+                nm.notify(NOTIF_ID, buildNotification(card))
+                shownCard = card
+            } catch (e: Exception) {
+                Log.w(TAG, "notify: ${e.message}")
+            }
         }
+    }
+
+    /** What the notification says, in the app's language; it is posted again only when this changes. */
+    private data class Card(val title: String, val collapsed: String, val lines: List<String>, val stopAll: String)
+
+    /** One card for every connection: the running ones on the collapsed line, each on a line of its own when expanded. */
+    private fun card(): Card {
+        val res = AppStrings.of(this)
         val statuses = running.value
         val connections = TailcatConnections.load(this).filter { it.id in statuses }
         val server = serverRunning.value
         fun ports(conn: TailcatConnection) = TailcatConnections.localPorts(conn).sorted().joinToString(",") { ":$it" }
-        val parts = connections.map { "${it.name} ${ports(it)}" } + listOfNotNull(server?.let { getString(R.string.tailcat_server_title) })
-        val collapsed = if (parts.isEmpty()) getString(R.string.tailcat_notif_starting) else parts.joinToString(" · ")
+        val parts = connections.map { "${it.name} ${ports(it)}" } + listOfNotNull(server?.let { res.getString(R.string.tailcat_server_title) })
+        val lines = connections.mapNotNull { conn -> statuses[conn.id]?.let { "${conn.name} — ${stateLine(res, it)}" } } +
+            listOfNotNull(server?.let { "${res.getString(R.string.tailcat_server_title)} — ${serverStateLine(res, it)}" })
+        return Card(
+            title = res.getString(R.string.tailcat_notif_title, connections.size + (if (server != null) 1 else 0)),
+            collapsed = if (parts.isEmpty()) res.getString(R.string.tailcat_notif_starting) else parts.joinToString(" · "),
+            lines = lines,
+            stopAll = res.getString(R.string.tailcat_stop_all)
+        )
+    }
+
+    private fun buildNotification(card: Card): Notification {
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        TransferNotifications.ensureChannel(nm, CHANNEL_ID, AppStrings.of(this).getString(R.string.tailcat_title), NotificationManager.IMPORTANCE_LOW)
         val style = NotificationCompat.InboxStyle()
-        connections.forEach { conn ->
-            val st = statuses[conn.id] ?: return@forEach
-            style.addLine("${conn.name} — ${stateLine(this, st)}")
-        }
-        server?.let { style.addLine("${getString(R.string.tailcat_server_title)} — ${serverStateLine(this, it)}") }
+        card.lines.forEach(style::addLine)
         val open = PendingIntent.getActivity(
             this, 0, ServeActivity.tailcatIntent(this),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -381,14 +444,14 @@ class TailcatService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.tailcat_notif_title, connections.size + (if (server != null) 1 else 0)))
-            .setContentText(collapsed)
+            .setContentTitle(card.title)
+            .setContentText(card.collapsed)
             .setStyle(style)
             .setSmallIcon(android.R.drawable.ic_secure)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.tailcat_stop_all), stopAll)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, card.stopAll, stopAll)
             .build()
     }
 }

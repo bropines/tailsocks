@@ -102,12 +102,27 @@ internal object DriveDocuments {
     }
 
     /**
-     * The document [id] names, asked for with [list] (a PROPFIND of the path). What the server
-     * says is the answer; a request that failed is [fromFailure]'s. Throws [FileNotFoundException]
-     * for a document that is not there or not ours to see, and nothing else.
+     * The document [id] names. Asked first with [stat] (a Depth-0 PROPFIND: the path's own
+     * entry and nothing else), and when that does not give a usable answer, with [list] (a
+     * Depth-1 PROPFIND of the path, as it always was). What the server says is the answer; a
+     * request that failed is [fromFailure]'s. Throws [FileNotFoundException] for a document
+     * that is not there or not ours to see, and nothing else.
+     *
+     * Why both: DocumentsUI and DocumentFile ask for one document all the time (DocumentFile
+     * once per attribute), and for a folder the Depth-1 answer is its whole listing, sent and
+     * parsed to read one row. Depth 0 costs the same for a folder of two thousand files as for
+     * one. But the levels above a share are answered by the daemons themselves, not a file
+     * server, and how each answers Depth 0 has not been seen on every kind of share — so any
+     * surprise (see [statEntry]) falls back to the request that is known to work.
      */
     @Throws(FileNotFoundException::class)
-    fun resolve(id: DriveDocId, list: (String) -> List<WebDavFile>, mimeOf: (String) -> String): DriveDocument {
+    fun resolve(
+        id: DriveDocId,
+        stat: (String) -> List<WebDavFile>,
+        list: (String) -> List<WebDavFile>,
+        mimeOf: (String) -> String
+    ): DriveDocument {
+        statEntry(id, stat)?.let { return fromEntry(it, mimeOf) }
         val files = try {
             list(id.path)
         } catch (e: Exception) {
@@ -116,10 +131,33 @@ internal object DriveDocuments {
         return fromListing(id, files, mimeOf) ?: throw FileNotFoundException("no such document")
     }
 
+    /**
+     * The entry a Depth-0 [stat] gives for [id]'s path, when it is one to describe the document
+     * by; null to ask the Depth-1 way. Null for a request that failed in any way — even a 404,
+     * which the Depth-1 request then confirms — for an answer without an entry whose href is
+     * the path itself, and for a file without its length: a server that answered Depth 0 with
+     * less than it would list would otherwise show a 0-byte file to a player.
+     */
+    fun statEntry(id: DriveDocId, stat: (String) -> List<WebDavFile>): WebDavFile? {
+        val files = try {
+            stat(id.path)
+        } catch (e: Exception) {
+            return null
+        }
+        val wanted = id.path.trimEnd('/')
+        val file = files.firstOrNull { it.href.trimEnd('/') == wanted } ?: return null
+        return file.takeIf { it.isDirectory || it.sized }
+    }
+
     /** The entry of [files] for the path itself, or the first one — a PROPFIND answers with the path's own entry first. */
     fun fromListing(id: DriveDocId, files: List<WebDavFile>, mimeOf: (String) -> String): DriveDocument? {
         val wanted = id.path.trimEnd('/')
         val file = files.firstOrNull { it.href.trimEnd('/') == wanted } ?: files.firstOrNull() ?: return null
+        return fromEntry(file, mimeOf)
+    }
+
+    /** The document [file] describes. */
+    private fun fromEntry(file: WebDavFile, mimeOf: (String) -> String): DriveDocument {
         val name = file.getDisplayName()
         return DriveDocument(
             name = name,

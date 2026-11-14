@@ -336,20 +336,16 @@ object GlobalSettings {
 
     /** CIDR ranges excluded from VPN routing (comma-separated, e.g. "192.168.0.0/16,10.0.0.0/8"). */
     fun getTunExcludedCIDRs(context: Context): String = getString(context, "tun_excluded_cidrs", "192.168.0.0/16,10.0.0.0/8,172.16.0.0/12")
-    fun setTunExcludedCIDRs(context: Context, cidrs: String) = setString(context, "tun_excluded_cidrs", cidrs)
 
     /** TUN interface IP address (default "10.0.0.1/8"). */
     fun getTunAddress(context: Context): String = getString(context, "tun_address", "10.0.0.1/8")
-    fun setTunAddress(context: Context, address: String) = setString(context, "tun_address", address)
 
     /** Whether to enable IPv6 routing in TUN mode. */
     /** Whether ALL IPv6 is routed through the tunnel. Off by default: see TunVpnService. */
     fun isTunIpv6Enabled(context: Context): Boolean = getBoolean(context, "tun_ipv6_enabled", false)
-    fun setTunIpv6Enabled(context: Context, enabled: Boolean) = setBoolean(context, "tun_ipv6_enabled", enabled)
 
     /** Transparent mode, [TunTransparent]: off, under Android's lockdown (the default) or always. */
     fun getTunTransparent(context: Context): String = TunTransparent.resolve(getPrefs(context).getString("tun_transparent", null))
-    fun setTunTransparent(context: Context, mode: String) = setString(context, "tun_transparent", TunTransparent.resolve(mode))
 
     /**
      * Native engine: a rebuilt device (exit node on or off, other subnet
@@ -357,7 +353,6 @@ object GlobalSettings {
      * is relaunched on it, as before the swap existed.
      */
     fun isTunSwapInPlace(context: Context): Boolean = getBoolean(context, "tun_swap_in_place", true)
-    fun setTunSwapInPlace(context: Context, on: Boolean) = setBoolean(context, "tun_swap_in_place", on)
 
     /**
      * TUN engine: "native" (tailscaled owns the VpnService device, the default)
@@ -376,7 +371,6 @@ object GlobalSettings {
      */
     fun dnsHasFallback(context: Context): Boolean =
         !isRootModeEnabled(context) && !(isTunModeEnabled(context) && getTunEngine(context) == TunVpnService.ENGINE_NATIVE)
-    fun setTunEngine(context: Context, engine: String) = setString(context, "tun_engine", engine)
 
     @Serializable
     data class ProxyPreset(
@@ -444,7 +438,6 @@ object GlobalSettings {
      * accepted route win.
      */
     fun isRootYieldLanEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_yield_lan", true)
-    fun setRootYieldLanEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_yield_lan", enabled).apply()
 
     /**
      * Whether Root Mode takes the default route and the device's port 53 even
