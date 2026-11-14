@@ -4,8 +4,40 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ## [Unreleased]
 
+### Added
+
+- Main screen: starting while the other TailSocks build (release / dev) is running and would collide with it — the same node, Root Mode with tailscale0 in both, both in TUN, or an equal SOCKS5/HTTP/DNS port — now asks first: open the other app, start anyway, or cancel.
+- Backup: after a full restore the app offers to restart itself: the connection is stopped (in Root Mode the daemon too), the restored settings are written again and the app reopens, instead of asking you to force-stop it.
+
+### Changed
+
+- Battery: the main screen stops polling the daemon while it is not on screen, and makes one status read per interval instead of three; the Logs screen reads only new lines and only while shown; the daemon computes engine statistics only while the diagnostics card is open.
+- Admin console: visual policy edits and the Review step are much faster on large policies, the console opens without waiting for the phone's own change log, and typing in the policy editor no longer redraws the dashboard under it.
+- Settings opens faster: the tailnet address and the admin profile are read only when their pages open. The excluded-apps list opens at once; icons load as you scroll and are sharp.
+- Files: switching tabs no longer reloads the inbox and the device list. Taildrive in other apps: file details load faster, and a share that just restarted is retried once instead of showing an error.
+- Root Mode: Stop takes one root shell instead of four; the DNS health check asks a fresh name each time, so a cached answer no longer hides a dead upstream; a partially applied ruleset is retried, and a tailscale0 without its address or exit-node route is reported in the ROOT log.
+- TUN: the compatibility engine no longer starts a probe process on every connect.
+
 ### Fixed
 
+- Peers, the live map and graph, the Files picker, the exit-node lists and paired devices no longer treat a status the daemon could not give as an empty tailnet: while the daemon is starting the screen keeps loading, a lasting failure is shown as an error with Retry, and data already on screen stays. Paired devices read "unknown" rather than "gone" while the daemon starts, and a Direct Share shortcut no longer silently does nothing.
+- Root Mode: two starts in quick succession no longer launch a second daemon that strips the tailnet address and exit-node routes.
+- Root Mode: the watchdog now brings the service back after the app is killed, instead of seeing the root daemon and doing nothing; DNS rules left by a daemon that died while the app was closed are removed when the app starts.
+- Root Mode: a failed daemon start leaves a notification; the hosts sync no longer unmounts another module's `/system/etc/hosts`; iptables waits for the xtables lock; switching modes and leaving Settings right away no longer leaves the service stopped.
+- After switching accounts, the new account is marked as signed in and its exit node is shown by name.
+- Rotating the screen keeps the network sync warning, open dialogs and sheets, typed account details and a running update download; the update check and the notification permission request run once per launch.
+- Backup: a full backup can no longer be saved with an empty password when the phone is rotated in the file picker; the password is asked again.
+- Admin console: typing quickly in the JSON policy editor no longer jumps the cursor to the start; the tag pickers keep their tags when the policy cannot be read; a profile switch no longer carries the old tailnet's data into the new profile.
+- Notifications: "File received", Taildrive downloads and TailCat now use the app's language, not the system's.
+- Taildrop: two files with the same name can be sent at once, an interrupted send no longer leaves a copy in the cache, and sharing many files no longer freezes the screen while they open. A file sent to a managing device no longer hangs in "sending" when the device stops receiving.
+- Taildrive: a download started just as another finished gets its progress notification; stopping the WebDAV proxy, or changing its credentials, ends transfers still running through it.
+- TailCat: switching connections quickly no longer stops the one just started.
+- Console: a command that does not end by itself is stopped after two minutes and shows its output, and closing the console stops a command that is still running.
+- Netcheck no longer writes the tailnet's status to the system log, and its Start refuses an empty SOCKS5 address, like the main screen.
+- TUN: a SOCKS5 password containing a quote no longer breaks the compatibility engine.
+- The connection to the daemon recovers in seconds after a late drop, not 30 s.
+- Automation: switching accounts through an assistant restarts the connection the same way Tasker does.
+- About: the open-source licenses screen no longer lists OkHttp, Okio and DocumentFile, which the app never shipped.
 - Language: the one chosen in the app now reaches Android 13+'s own per-app language setting, and TailSocks is listed on that system page (Settings → Apps → TailSocks → Language). A language picked there is taken over by the app, and "System default" there resets it. Before, the choice never left the app: the call used for it works only from a kind of screen this app does not have.
 
 ## [6.1.0] - 2026-11-14
