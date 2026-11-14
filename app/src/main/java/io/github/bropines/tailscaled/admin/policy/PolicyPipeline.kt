@@ -14,7 +14,7 @@ import io.github.bropines.tailscaled.admin.safety.PlannedChange
 import io.github.bropines.tailscaled.admin.safety.PolicyEvidence
 import io.github.bropines.tailscaled.admin.safety.PolicyGate
 import io.github.bropines.tailscaled.admin.safety.TargetType
-import kotlinx.coroutines.CancellationException
+import io.github.bropines.tailscaled.admin.console.attempt
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -199,15 +199,6 @@ object PolicyPipeline {
             } else null
             AccessProbe(type, what, bp, ap, b.exceptionOrNull() ?: a.exceptionOrNull(), resolved)
         })
-    }
-
-    /** runCatching that lets cancellation through. */
-    private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
-        Result.success(block())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(e)
     }
 }
 

@@ -14,13 +14,13 @@ import io.github.bropines.tailscaled.admin.console.AdminConsoleViewModel
 import io.github.bropines.tailscaled.admin.console.ConsoleTab
 import io.github.bropines.tailscaled.admin.console.ConsoleText
 import io.github.bropines.tailscaled.admin.console.Loadable
+import io.github.bropines.tailscaled.admin.console.attempt
 import io.github.bropines.tailscaled.admin.policy.templates.TemplateSources
 import io.github.bropines.tailscaled.admin.policy.visual.PolicyPath
 import io.github.bropines.tailscaled.admin.policy.visual.VisualLaunch
 import io.github.bropines.tailscaled.admin.policy.visual.VisualSection
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.safety.ChangeOutcome
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -448,14 +448,6 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
             ),
             warnings = warnings,
         )
-    }
-
-    private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
-        Result.success(block())
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: Exception) {
-        Result.failure(e)
     }
 
     companion object {
