@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.LruCache
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -32,6 +33,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,6 +57,7 @@ import kotlinx.coroutines.withContext
 data class AppItem(
     val packageName: String,
     val label: String,
+    /** An icon given up front (a preview's); the installed apps come without and load theirs per row. */
     val icon: ImageBitmap?,
     /** False for a package that is on the exclusion list but no longer on the phone. */
     val installed: Boolean = true,
@@ -158,6 +162,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
     }
 
     val window = rememberWindowLayout()
+    val icons = rememberAppIcons()
 
     PredictiveBackContainer(
         onBack = { saveAndExit() },
@@ -256,7 +261,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
                                 contentPadding = PaddingValues(bottom = 16.dp)
                             ) {
                                 items(filteredApps, key = { it.packageName }) { app ->
-                                    AppExclusionCard(
+                                    AppExclusionCard(icons = icons,
                                         app = app,
                                         isExcluded = app.packageName in excluded.value,
                                         onToggle = { toggle(app) }
@@ -303,7 +308,7 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
                                 contentPadding = PaddingValues(top = 4.dp, bottom = 16.dp)
                             ) {
                                 gridItems(filteredApps, key = { it.packageName }) { app ->
-                                    AppExclusionCard(
+                                    AppExclusionCard(icons = icons,
                                         app = app,
                                         isExcluded = app.packageName in excluded.value,
                                         onToggle = { toggle(app) }
@@ -321,8 +326,66 @@ fun TunExcludedAppsScreen(onBack: () -> Unit, initialApps: List<AppItem>? = null
 /** The narrowest column of app rows: an icon, a name and a switch. */
 private val AppColumnWidth = 320.dp
 
+/** The size an app's icon is drawn at in its row. */
+private val AppIconSize = 40.dp
+
+/**
+ * App icons for the rows, loaded one row at a time as rows are composed, off the main thread,
+ * at the pixel size of [AppIconSize] — they used to be rasterised at 48 px for all apps before
+ * the list could show, and then drawn upscaled at 40 dp. A screen-scoped LRU, bounded in bytes,
+ * keeps the icons scrolled past so scrolling back does not decode them again; a package whose
+ * icon could not be loaded is remembered too and not asked again.
+ */
+private class AppIcons(private val pm: PackageManager, val px: Int) {
+    private val cache = object : LruCache<String, ImageBitmap>(ICON_CACHE_BYTES) {
+        override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
+    }
+    private val failed = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+
+    fun cached(packageName: String): ImageBitmap? = cache.get(packageName)
+
+    /** Decodes the icon; null when the package has none to give. Blocks: call it on IO. */
+    fun load(packageName: String): ImageBitmap? {
+        cache.get(packageName)?.let { return it }
+        if (packageName in failed) return null
+        return try {
+            pm.getApplicationIcon(packageName).toBitmap(px, px).asImageBitmap().also { cache.put(packageName, it) }
+        } catch (_: Exception) {
+            failed += packageName
+            null
+        }
+    }
+
+    private companion object {
+        /** About a hundred icons at 140 px (40 dp on a 3.5x screen); more than a screen or two. */
+        const val ICON_CACHE_BYTES = 8 * 1024 * 1024
+    }
+}
+
 @Composable
-private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> Unit) {
+private fun rememberAppIcons(): AppIcons {
+    val context = LocalContext.current
+    val px = with(LocalDensity.current) { AppIconSize.roundToPx() }
+    return remember(context, px) { AppIcons(context.packageManager, px) }
+}
+
+/**
+ * The row's icon: the one [app] came with (a preview's), else the cached or lazily loaded one,
+ * null while it loads or when there is none (the row shows the label's first letter then).
+ */
+@Composable
+private fun rowIcon(app: AppItem, icons: AppIcons): ImageBitmap? {
+    app.icon?.let { return it }
+    if (!app.installed || LocalInspectionMode.current) return null
+    val icon by produceState(icons.cached(app.packageName), app.packageName, icons) {
+        if (value == null) value = withContext(Dispatchers.IO) { icons.load(app.packageName) }
+    }
+    return icon
+}
+
+@Composable
+private fun AppExclusionCard(icons: AppIcons, app: AppItem, isExcluded: Boolean, onToggle: () -> Unit) {
+    val icon = rowIcon(app, icons)
     Card(
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
@@ -343,18 +406,18 @@ private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (app.icon != null) {
+            if (icon != null) {
                 Image(
-                    bitmap = app.icon,
+                    bitmap = icon,
                     contentDescription = null,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(AppIconSize)
                         .clip(MaterialTheme.shapes.small)
                 )
             } else {
                 Box(
                     Modifier
-                        .size(40.dp)
+                        .size(AppIconSize)
                         .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
@@ -396,21 +459,22 @@ private fun AppExclusionCard(app: AppItem, isExcluded: Boolean, onToggle: () -> 
     }
 }
 
+/**
+ * The apps to choose from, by label only: the icons are loaded per row as the list scrolls
+ * ([AppIcons]), so the list shows once the labels are read. A system package is listed only
+ * when it can be launched; the launch-intent lookup is asked of system packages alone.
+ */
 private fun loadInstalledApps(context: Context): List<AppItem> {
     val pm = context.packageManager
-    return pm.getInstalledApplications(PackageManager.GET_META_DATA)
+    return pm.getInstalledApplications(0)
         .filter { info ->
             val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-            val hasLaunchIntent = pm.getLaunchIntentForPackage(info.packageName) != null
             val isTailSocks = info.packageName.startsWith("io.github.bropines.tailscaled")
-            (!isSystem || hasLaunchIntent) && !isTailSocks
+            !isTailSocks && (!isSystem || pm.getLaunchIntentForPackage(info.packageName) != null)
         }
         .map { info ->
             val label = try { pm.getApplicationLabel(info).toString() } catch (_: Exception) { info.packageName }
-            val icon = try {
-                pm.getApplicationIcon(info.packageName).toBitmap(48, 48).asImageBitmap()
-            } catch (_: Exception) { null }
-            AppItem(info.packageName, label, icon)
+            AppItem(info.packageName, label, icon = null)
         }
         .sortedBy { it.label.lowercase() }
 }
