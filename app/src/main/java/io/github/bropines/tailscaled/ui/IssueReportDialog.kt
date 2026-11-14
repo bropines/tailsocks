@@ -1,11 +1,8 @@
 package io.github.bropines.tailscaled.ui
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -137,7 +134,7 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
                     // Half a dialog each, so the label is kept on one line and the icon
                     // small: "Копировать" broke across two lines mid-word at this width.
                     if (copyOffered) OutlinedButton(
-                        onClick = { report?.let { copyToClipboard(context, it, copied) } },
+                        onClick = { report?.let { copyToClipboard(context, "TailSocks diagnostics", it, copied) } },
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
                     ) {
@@ -183,12 +180,6 @@ fun IssueReportDialog(onDismiss: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(close) } }
     )
-}
-
-private fun copyToClipboard(context: Context, text: String, confirmation: String) {
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks diagnostics", text))
-    Toast.makeText(context, confirmation, Toast.LENGTH_SHORT).show()
 }
 
 private fun shareIntent(subject: String, text: String): Intent = Intent(Intent.ACTION_SEND).apply {

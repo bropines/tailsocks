@@ -391,8 +391,20 @@ fun ConsoleScreen(initialCmd: String, onBack: () -> Unit) {
         }
     }
 
+    val hostActivity = remember(context) {
+        generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }
+            .filterIsInstance<android.app.Activity>()
+            .firstOrNull()
+    }
     if (demo == null) DisposableEffect(Unit) {
         onDispose {
+            // Closing the console stops a command still running: its output has nowhere to
+            // go any more, and the bridge would otherwise let it run to its own two-minute
+            // limit. Only when the screen is really leaving — a rotation recreates it and the
+            // command's side effects (a certificate, a login) should not be cut short by that.
+            if (isExecuting && hostActivity?.isFinishing == true) {
+                runCatching { Appctr.cancelTailscaleCmd() }
+            }
             // onDispose runs on main; snapshot here and persist off it. The write
             // is wrapped NonCancellable so it still completes if the composition
             // scope is cancelled mid-write during disposal.

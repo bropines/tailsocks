@@ -6,7 +6,6 @@ import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.models.PeerData
-import kotlinx.coroutines.runBlocking
 
 /**
  * The Tailscale version a peer runs, from the only place that knows it.
@@ -28,9 +27,11 @@ import kotlinx.coroutines.runBlocking
  *    by FQDN only when one side has no key to offer: a key that is there and does not match
  *    is a different device, not a reason to guess by name.
  *
- * Read-only: it lists devices and nothing else, so it needs no unlock. Blocking, so call it
- * off the main thread. Safe from several threads at once: callers that arrive during a fetch
- * wait for that same fetch, and no lock is held while the network answers.
+ * Read-only: it lists devices and nothing else, so it needs no unlock. Suspending, and it reads
+ * the admin profiles from disk, so call it from an IO coroutine. Safe from several callers at
+ * once: callers that arrive during a fetch wait for that same fetch, and no lock is held while
+ * the network answers. The wait is cancellable — a screen that closes stops waiting at once —
+ * while the fetch itself runs on in its own scope and serves the next caller.
  */
 object PeerVersionSource {
     private const val TAG = "PeerVersionSource"
@@ -43,7 +44,7 @@ object PeerVersionSource {
      * absent. One profile lookup and one look at the cache for the whole list — this is what
      * a list screen should call, once per load. Empty for "no data" of any kind.
      */
-    fun versionsFor(context: Context, peers: Collection<PeerData>): Map<String, String> = try {
+    suspend fun versionsFor(context: Context, peers: Collection<PeerData>): Map<String, String> = try {
         val devices = devices(context, suffixOf(peers))
         if (devices.isNullOrEmpty()) emptyMap()
         else buildMap {
@@ -53,6 +54,8 @@ object PeerVersionSource {
             }
         }
     } catch (e: Exception) {
+        // A caller that went away is not a failed lookup.
+        if (e is kotlinx.coroutines.CancellationException) throw e
         // Nothing here is worth an error on screen; the sheet just has no version row.
         Log.w(TAG, "Version lookup failed: ${e.javaClass.simpleName}")
         emptyMap()
@@ -64,7 +67,7 @@ object PeerVersionSource {
      * the versions — what tells which node a peer relay's address belongs to. Peers without a
      * match or without endpoints are absent; empty for "no data" of any kind.
      */
-    fun endpointsFor(context: Context, peers: Collection<PeerData>): Map<String, List<String>> = try {
+    suspend fun endpointsFor(context: Context, peers: Collection<PeerData>): Map<String, List<String>> = try {
         val devices = devices(context, suffixOf(peers))
         if (devices.isNullOrEmpty()) emptyMap()
         else buildMap {
@@ -74,6 +77,7 @@ object PeerVersionSource {
             }
         }
     } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         Log.w(TAG, "Endpoint lookup failed: ${e.javaClass.simpleName}")
         emptyMap()
     }
@@ -107,12 +111,11 @@ object PeerVersionSource {
      * Callers that arrive while a fetch is under way wait for that one ([SharedFetch]); none of
      * them holds a lock while the network answers, so a dead API pins no thread behind another.
      */
-    private fun devices(context: Context, suffix: String?): List<ApiDevice>? {
+    private suspend fun devices(context: Context, suffix: String?): List<ApiDevice>? {
         val profile = AdminProfiles.forTailnet(context, suffix) ?: return null
         if (!AdminProfiles.hasCredential(context, profile)) return null
         val app = context.applicationContext
-        // The callers are blocking (PeersActivity, PeerPath, both off the main thread).
-        return runBlocking { lists(app).get(profile) }
+        return lists(app).get(profile)
     }
 
     /** Made on first use, with the application context; an edited profile is another key, fetched again. */
