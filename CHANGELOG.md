@@ -43,6 +43,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Share: the file count on the share sheet reads "1 file", not "1 files".
 - Taildrive: a device that shares no folders shows as empty instead of "Not found".
 - Netcheck: right after Start it shows "Connecting" until the coordination server confirms this device, instead of "Offline".
+- Root Mode: switching a running connection from VPN or Proxy to Root no longer ends with "The daemon stopped on its own" and no connection.
+- Root Mode: routing rules removed from outside the app (for example by the system) are noticed within a minute and put back, instead of staying gone until Stop and Start.
+- Accounts: the "Add account" dialog scrolls on a phone held sideways; the "Report the real OS" checkbox no longer sits over the auth key field with its label hidden.
+- Netcheck: relay latency uses the translated unit; Russian spelling made consistent in a few settings labels.
 
 ## [6.1.0] - 2026-11-14
 
