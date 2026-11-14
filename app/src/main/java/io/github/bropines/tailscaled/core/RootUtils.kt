@@ -1754,6 +1754,23 @@ object RootUtils {
 
     /** Removes every rule this app installs, including those from older versions. */
     fun cleanupTailscale0Routing(): Boolean {
+        val res = runSu("routing-cleanup", routingCleanupScript())
+        if (res.ok) noteRoutingRemoved()
+        return res.ok
+    }
+
+    /** What a finished routing cleanup records, whichever shell ran it. */
+    private fun noteRoutingRemoved() {
+        noteDnsHookState(false, "the Root Mode ruleset was removed")
+        rootLog("INFO", "tailscale0 routing removed")
+    }
+
+    /**
+     * The routing cleanup as a script: run on its own by [cleanupTailscale0Routing],
+     * and in the same shell as the kill by [stopRootDaemon]. No `exit` in it, so
+     * it can be followed by more commands.
+     */
+    internal fun routingCleanupScript(): String {
         val sb = StringBuilder()
         sb.append(dnsChainTeardown())
         sb.append(bypassChainTeardown("iptables"))
@@ -1812,13 +1829,7 @@ object RootUtils {
 
         sb.append(legacyRuleCleanup())
         sb.append("umount /system/etc/hosts 2>/dev/null || true\n")
-
-        val res = runSu("routing-cleanup", sb.toString())
-        if (res.ok) {
-            noteDnsHookState(false, "the Root Mode ruleset was removed")
-            rootLog("INFO", "tailscale0 routing removed")
-        }
-        return res.ok
+        return sb.toString()
     }
 
     /** Detaches and drops our nat chain; safe to run when it does not exist. */
@@ -2909,31 +2920,69 @@ object RootUtils {
         return res.ok
     }
 
-    fun stopRootDaemon(socketPath: String = ""): Boolean {
-        cleanupTailscale0Routing()
-        // Match only our own daemon by its --socket argument, which contains this
-        // app's private data path. `pkill -f libtailscale.so` matched the full
-        // command line of every process on the device, so a second profile, a
-        // Termux tailscaled, or any unrelated app shipping that library was
-        // killed as root too.
+    /** Printed by the stop shell once each part has run, so one shell can report three results. */
+    private const val STOP_CLEANUP_DONE = "TAILSOCKS_STOP: routing cleanup done"
+    private const val STOP_HANDBACK_DONE = "TAILSOCKS_STOP: state handed back"
+
+    /**
+     * Removes the routing, terminates the root daemon and, given [handBackTo],
+     * hands its state back to the app — in one root shell.
+     *
+     * The stop used to spend four: the caller's cleanup, the same cleanup again
+     * as this function's first line, the kill, and the chown — about ninety
+     * delete loops run twice, and a fixed one-second sleep between SIGTERM and
+     * SIGKILL. The commands and their order are what they were; the second
+     * cleanup pass is gone, and the sleep is a poll that ends as soon as the
+     * daemon has exited, still SIGKILL after one second at the latest.
+     *
+     * Always true, as before: no caller can do anything with a failed stop.
+     */
+    fun stopRootDaemon(socketPath: String = "", handBackTo: Context? = null): Boolean {
+        val handBack = handBackTo?.let { stateHandBackScript(it) }
         val script = buildString {
-            if (socketPath.isNotEmpty()) {
-                val pat = shQuote("--socket=$socketPath")
-                append("pkill -15 -f -- $pat 2>/dev/null || true\n")
-                append("sleep 1\n")
-                append("pkill -9 -f -- $pat 2>/dev/null || true\n")
-                append("rm -f ${shQuote(socketPath)}\n")
-            } else {
-                // No socket path to scope by; fall back to the exact process name.
-                append("killall -15 libtailscale.so 2>/dev/null || true\n")
-                append("sleep 1\n")
-                append("killall -9 libtailscale.so 2>/dev/null || true\n")
+            append(routingCleanupScript())
+            append("echo '$STOP_CLEANUP_DONE'\n")
+            append(daemonKillScript(socketPath))
+            if (handBack != null) {
+                append(handBack)
+                append("echo '$STOP_HANDBACK_DONE'\n")
             }
         }
-        val res = runSu("daemon-stop", script)
+        val res = runSu("daemon-stop", script, timeoutMs = 30_000L, quiet = true)
         Log.d(TAG, "Root daemon stopped exitCode=${res.exitCode}")
+        val other = res.output.lineSequence()
+            .filter { it.isNotBlank() && it != STOP_CLEANUP_DONE && it != STOP_HANDBACK_DONE }
+            .joinToString("\n")
+        if (res.ok && other.isNotEmpty()) rootLog("INFO", "daemon-stop: $other")
+        if (res.output.contains(STOP_CLEANUP_DONE)) noteRoutingRemoved()
         rootLog("INFO", "Root daemon stopped")
+        if (handBack != null && !res.output.contains(STOP_HANDBACK_DONE)) {
+            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
+        }
         return true
+    }
+
+    /**
+     * SIGTERM, up to a second for the daemon to exit, then SIGKILL, for the
+     * daemon matched by its `--socket=` argument and nothing else. That argument
+     * contains this app's private data path. `pkill -f libtailscale.so` matched
+     * the full command line of every process on the device, so a second profile,
+     * a Termux tailscaled, or any unrelated app shipping that library was killed
+     * as root too.
+     */
+    internal fun daemonKillScript(socketPath: String): String = buildString {
+        if (socketPath.isNotEmpty()) {
+            val pat = shQuote("--socket=$socketPath")
+            append("pkill -15 -f -- $pat 2>/dev/null || true\n")
+            append("i=0; while [ \$i -lt 10 ] && pgrep -f -- $pat >/dev/null 2>&1; do sleep 0.1; i=\$((i+1)); done\n")
+            append("pkill -9 -f -- $pat 2>/dev/null || true\n")
+            append("rm -f ${shQuote(socketPath)}\n")
+        } else {
+            // No socket path to scope by; fall back to the exact process name.
+            append("killall -15 libtailscale.so 2>/dev/null || true\n")
+            append("i=0; while [ \$i -lt 10 ] && pidof libtailscale.so >/dev/null 2>&1; do sleep 0.1; i=\$((i+1)); done\n")
+            append("killall -9 libtailscale.so 2>/dev/null || true\n")
+        }
     }
 
     /**
@@ -2951,6 +3000,16 @@ object RootUtils {
      * is guaranteed to be available.
      */
     fun handStateBackToApp(context: Context): Boolean {
+        val script = (stateHandBackScript(context) ?: return true) + "exit 0\n"
+        val res = runSu("state-chown", script, timeoutMs = 15_000L)
+        if (!res.ok) {
+            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
+        }
+        return res.ok
+    }
+
+    /** [handStateBackToApp]'s commands, without the `exit`; null when there is nothing to hand back. */
+    private fun stateHandBackScript(context: Context): String? {
         val uid = context.applicationInfo.uid
         val dir = File(context.filesDir, "states").absolutePath
         // Received Taildrop files: the root daemon writes them into files/taildrop/<account>
@@ -2959,22 +3018,18 @@ object RootUtils {
         // this hands over ownership once root is about to go away, so a later non-root
         // session can rename or rewrite them too. Ownership only — modes are left alone.
         val taildrop = File(context.filesDir, "taildrop").absolutePath
-        if (!File(dir).exists() && !File(taildrop).exists()) return true
-        val script = buildString {
-            append("if [ -d ${shQuote(dir)} ]; then\n")
-            append("  chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
-            // Ownership is what matters; keep the modes the daemon expects.
-            append("  find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
-            append("  find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
-            append("fi\n")
-            append("[ -d ${shQuote(taildrop)} ] && chown -R $uid:$uid ${shQuote(taildrop)} 2>/dev/null\n")
-            append("exit 0\n")
-        }
-        val res = runSu("state-chown", script, timeoutMs = 15_000L)
-        if (!res.ok) {
-            rootLog("WARN", "could not hand the daemon state back to the app; a non-root start may ask you to log in again")
-        }
-        return res.ok
+        if (!File(dir).exists() && !File(taildrop).exists()) return null
+        return stateHandBackScript(uid, dir, taildrop)
+    }
+
+    internal fun stateHandBackScript(uid: Int, dir: String, taildrop: String): String = buildString {
+        append("if [ -d ${shQuote(dir)} ]; then\n")
+        append("  chown -R $uid:$uid ${shQuote(dir)} 2>/dev/null || true\n")
+        // Ownership is what matters; keep the modes the daemon expects.
+        append("  find ${shQuote(dir)} -type d -exec chmod 700 {} + 2>/dev/null || true\n")
+        append("  find ${shQuote(dir)} -type f -exec chmod 600 {} + 2>/dev/null || true\n")
+        append("fi\n")
+        append("[ -d ${shQuote(taildrop)} ] && chown -R $uid:$uid ${shQuote(taildrop)} 2>/dev/null\n")
     }
 
     fun setServiceScriptInstalled(context: Context, install: Boolean): Boolean {

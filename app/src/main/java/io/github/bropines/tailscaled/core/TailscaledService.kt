@@ -2091,8 +2091,7 @@ class TailscaledService : Service() {
                         // it is killed before another is started beside it.
                         if (adoption == RootAdoption.Step.GIVE_UP || socketFile.exists()) {
                             Log.w(TAG, "Root daemon is gone or did not answer ($adoption). Stopping what is left of it and restarting.")
-                            RootUtils.stopRootDaemon(options.socketPath)
-                            RootUtils.handStateBackToApp(this@TailscaledService)
+                            RootUtils.stopRootDaemon(options.socketPath, handBackTo = this@TailscaledService)
                         }
                         val ok = RootUtils.startRootDaemon(this@TailscaledService, rootDaemonSpec(options))
 
@@ -2549,7 +2548,19 @@ class TailscaledService : Service() {
         // it installed, instead of recording rules this teardown is deleting.
         rootRoutingGeneration.incrementAndGet()
 
-        if (installed) {
+        if (killDaemon) {
+            // One root shell for all of it: stopRootDaemon removes the routing
+            // first (always, recorded or not — the boot script installs T1
+            // without recording it), then kills the daemon and hands its state
+            // back. This used to be four shells, the routing cleanup run twice.
+            rootCleanupInFlight = installed
+            try {
+                RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock", handBackTo = this@TailscaledService)
+                if (installed) GlobalSettings.setRootRoutingInstalled(this, false)
+            } finally {
+                rootCleanupInFlight = false
+            }
+        } else if (installed) {
             rootCleanupInFlight = true
             try {
                 RootUtils.cleanupTailscale0Routing()
@@ -2557,10 +2568,6 @@ class TailscaledService : Service() {
             } finally {
                 rootCleanupInFlight = false
             }
-        }
-        if (killDaemon) {
-            RootUtils.stopRootDaemon("${filesDir.absolutePath}/tailscaled.sock")
-            RootUtils.handStateBackToApp(this@TailscaledService)
         }
     }
     
