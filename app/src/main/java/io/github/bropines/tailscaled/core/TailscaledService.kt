@@ -1245,6 +1245,7 @@ class TailscaledService : Service() {
     private fun standDownAfterCrash() {
         if (teardownStarted) return
         teardownStarted = true
+        stopGeneration.incrementAndGet()
         refreshHandler.removeCallbacks(refreshRunnable)
         try {
             stopTunMode()
@@ -1942,6 +1943,10 @@ class TailscaledService : Service() {
             // swallowed by stopMe()'s teardownStarted guard.
             val gen = lifecycleGeneration.incrementAndGet()
             teardownStarted = false
+            // The restart tears the daemon down before starting it again, so a
+            // start still in flight is superseded as it is by a stop; the
+            // restart's own startTailscale() captures the new value.
+            stopGeneration.incrementAndGet()
             ServiceWatchdog.schedule(this)
             refreshHandler.removeCallbacks(refreshRunnable)
             // An account switch comes this way: the old account's devices leave the share sheet.
@@ -2020,7 +2025,22 @@ class TailscaledService : Service() {
         // here: a second START_ACTION during an in-flight start (tile double-tap,
         // swipe from Recents, watchdog, Tasker) would make the first start kill
         // the daemon it had just launched while the service kept showing Active.
-        fun stale() = teardownStarted
+        //
+        // The flag alone is not enough either: Stop then Start clears it again,
+        // and a start thread that did not happen to sample it while it was set
+        // (it sleeps 400 ms between adoption probes, and su can take seconds)
+        // carried on beside the start queued behind the stop — two threads
+        // starting and attaching the same daemon while the stop killed it.
+        // [stopGeneration] is bumped by every stop and by nothing that only
+        // starts, so a stop at any point since this start began supersedes it,
+        // whatever came after.
+        val stopGen = stopGeneration.get()
+        fun stale() = teardownStarted || stopGen != stopGeneration.get()
+        // A superseded start tears down what it launched only while the stop is
+        // still the latest command. Once a newer start owns the service (Stop
+        // then Start), that start adopts whatever is running; tearing it down
+        // here would take the newer start's daemon with it.
+        fun ownsCleanup() = teardownStarted
 
         Thread {
             // buildStartOptions does file IO, preference writes, a ServerSocket
@@ -2031,7 +2051,7 @@ class TailscaledService : Service() {
                     // buildStartOptions may already have started ByeDPI; the stop
                     // that superseded us ran before that, so clean up here.
                     Log.i(TAG, "Start abandoned: stopped before the daemon was launched")
-                    shutdownDaemon()
+                    if (ownsCleanup()) shutdownDaemon()
                     return@Thread
                 }
                 applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
@@ -2086,7 +2106,7 @@ class TailscaledService : Service() {
                             // A stop landed while su was bringing the daemon up; its
                             // teardown ran before the daemon existed, so take it down here.
                             Log.i(TAG, "Start abandoned after the root daemon launched, shutting it down again")
-                            shutdownDaemon()
+                            if (ownsCleanup()) shutdownDaemon()
                             return@Thread
                         }
                         runningRootSpec = rootDaemonSpec(options)
@@ -2102,7 +2122,7 @@ class TailscaledService : Service() {
                     }
                     if (stale()) {
                         Log.i(TAG, "Start abandoned before launching the daemon")
-                        shutdownDaemon()
+                        if (ownsCleanup()) shutdownDaemon()
                         return@Thread
                     }
                     // Native TUN engine: when the node's addresses are known from the
@@ -2130,9 +2150,11 @@ class TailscaledService : Service() {
                     // process asynchronously, so give it a moment to appear before
                     // taking it down, or it would be left running under no service.
                     Log.i(TAG, "Start abandoned after the daemon launched, shutting it down again")
-                    var waited = 0
-                    while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
-                    shutdownDaemon()
+                    if (ownsCleanup()) {
+                        var waited = 0
+                        while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
+                        shutdownDaemon()
+                    }
                     return@Thread
                 }
                 // Not "connected" yet: the daemon has only been launched. The card
@@ -2144,7 +2166,7 @@ class TailscaledService : Service() {
                 if (waitForDaemonReady()) {
                     if (stale()) {
                         Log.i(TAG, "Start abandoned after the daemon became ready, shutting it down again")
-                        shutdownDaemon()
+                        if (ownsCleanup()) shutdownDaemon()
                         return@Thread
                     }
                     Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
@@ -2376,13 +2398,23 @@ class TailscaledService : Service() {
 
     /**
      * Bumped by every stop and every start. The deferred completion of a stop
-     * (stopSelf and friends) only runs if no start superseded it meanwhile,
-     * and a start thread abandons its work once a stop superseded it. Without
+     * (stopSelf and friends) only runs if no start superseded it meanwhile;
+     * a start thread abandons its work once a stop superseded it, which it
+     * reads from [stopGeneration] rather than from this. Without
      * this, STOP followed by a quick START left the service dead with
      * desired_running=true (so the watchdog "revived it by itself" later), and
      * STOP during a slow start left a daemon running under no service.
      */
     private val lifecycleGeneration = java.util.concurrent.atomic.AtomicInteger()
+
+    /**
+     * Bumped by every stop (stopMe, the crash stand-down, onDestroy) and by the
+     * teardown half of RESTART, and by nothing that only starts. A start thread
+     * captures it and abandons its work once it moves: unlike [teardownStarted],
+     * which the next START clears again, a stop cannot be missed by a thread
+     * that was asleep while it happened. See startTailscale.
+     */
+    private val stopGeneration = java.util.concurrent.atomic.AtomicInteger()
 
     /** Teardown thread of the most recent stop, while it is still running. */
     @Volatile private var shutdownInFlight: Thread? = null
@@ -2408,6 +2440,7 @@ class TailscaledService : Service() {
     private fun stopMe() {
         if (teardownStarted) return
         teardownStarted = true
+        stopGeneration.incrementAndGet()
 
         // Record the user's decision before anything that can fail. If the
         // teardown below crashes the process, desired_running must already be
@@ -2810,6 +2843,7 @@ class TailscaledService : Service() {
         // case where the system tore the service down without going through it.
         if (!teardownStarted) {
             teardownStarted = true
+            stopGeneration.incrementAndGet()
             // The system destroyed us without stopMe(): the TUN tunnel would
             // otherwise stay up, forwarding into a SOCKS proxy that is gone.
             stopTunMode()
