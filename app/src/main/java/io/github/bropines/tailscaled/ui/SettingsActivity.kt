@@ -364,8 +364,8 @@ fun SettingsScreen(
     var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
     var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
     var serviceWatchdog by remember { mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context)) }
-    var showProxyDialog by remember { mutableStateOf(false) }
-    var isProxyEnabled by remember { mutableStateOf(GlobalSettings.isCPProxyEnabled(context)) }
+    // The control proxy: its row on the Censorship bypass page, its dialog over the screen.
+    val bypass = remember { SettingsBypassState(context) }
     
     var socks5 by remember { mutableStateOf(GlobalSettings.getString(context, "socks5", "127.0.0.1:48115")) }
     var socks5User by remember { mutableStateOf(GlobalSettings.getString(context, "socks5_user", "")) }
@@ -2014,127 +2014,6 @@ fun SettingsScreen(
         }
     }
 
-    // E. Censorship bypass
-    val sectionBypass: @Composable () -> Unit = {
-        var byedpiEnabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiEnabled(context)) }
-        var byedpiFlags by remember { mutableStateOf(GlobalSettings.getCPByeDpiFlags(context)) }
-        var byedpiIpv6Disabled by remember { mutableStateOf(GlobalSettings.isCPByeDpiIpv6Disabled(context)) }
-        // Observed, not read once: the proxy starts after the switch is drawn,
-        // and a start that fails does so a moment later still.
-        val bypassStatus by ByeDpiProxy.status.collectAsState()
-
-        SettingsCard(title = stringResource(R.string.settings_sect_control_proxy)) {
-            val isByeDpi = GlobalSettings.isCPByeDpiEnabled(context)
-            val statusText = if (isProxyEnabled) {
-                if (isByeDpi) "ByeDPI (DPI Bypass)" else stringResource(R.string.settings_control_proxy_enabled_format, GlobalSettings.getCPField(context, "type"))
-            } else {
-                stringResource(R.string.settings_control_proxy_disabled)
-            }
-            SettingsClickableItem(
-                stringResource(R.string.settings_control_proxy_title), 
-                statusText,
-                Icons.Default.Shield
-            ) { showProxyDialog = true }
-        }
-
-        SettingsCardGap()
-
-        SettingsCard(title = stringResource(R.string.settings_tab_byedpi)) {
-            HelpText(
-                stringResource(R.string.settings_byedpi_desc),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
-                        shape = MaterialTheme.shapes.small
-                    )
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.settings_byedpi_warning_override),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-
-            SettingsSwitchItem(
-                title = stringResource(R.string.settings_byedpi_enable),
-                // The proxy as it is, not as the switch stands: it starts with
-                // the service, and automation can turn it on behind this screen.
-                subtitle = when (val status = bypassStatus) {
-                    is ByeDpiStatus.Active -> {
-                        val address = "${status.address.first}:${status.address.second}"
-                        // What runs is not always what the field below holds.
-                        when {
-                            status.ignored.isEmpty() -> stringResource(R.string.settings_byedpi_status_active, address)
-                            status.builtIn -> stringResource(R.string.settings_byedpi_status_builtin, address)
-                            else -> stringResource(R.string.settings_byedpi_status_ignored, address, status.ignored.joinToString(" "))
-                        }
-                    }
-                    is ByeDpiStatus.Failed -> stringResource(R.string.settings_byedpi_status_failed, status.code)
-                    ByeDpiStatus.Stopped -> stringResource(R.string.settings_byedpi_status_stopped)
-                },
-                icon = Icons.Default.Shield,
-                checked = byedpiEnabled
-            ) {
-                byedpiEnabled = it
-                GlobalSettings.setCPByeDpiEnabled(context, it)
-                context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SettingsEditItem(
-                title = stringResource(R.string.settings_byedpi_flags),
-                value = byedpiFlags,
-                icon = Icons.Default.Code,
-                // What an empty field runs.
-                placeholder = ByeDpiFlags.DEFAULT
-            ) {
-                byedpiFlags = it
-                GlobalSettings.setCPByeDpiFlags(context, it)
-                context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SettingsSwitchItem(
-                title = stringResource(R.string.settings_byedpi_ipv6_disabled),
-                subtitle = stringResource(R.string.settings_byedpi_ipv6_disabled_desc),
-                icon = Icons.Default.Dns,
-                checked = byedpiIpv6Disabled
-            ) {
-                byedpiIpv6Disabled = it
-                GlobalSettings.setCPByeDpiIpv6Disabled(context, it)
-                context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
-            }
-        }
-
-        SettingsCardGap()
-
-        // Which port the control connection uses (ControlPortCard.kt).
-        ControlPortCard()
-
-        SettingsCardGap()
-
-        // What gets the tailnet up while control is out of reach (NetmapCacheCard.kt).
-        NetmapCacheCard()
-    }
-
     // F. Sharing & access
     val sectionSharing: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_storage)) {
@@ -3081,7 +2960,7 @@ fun SettingsScreen(
                         rootPage.id -> sectionTunnel(true)
                         "proxies" -> sectionProxies()
                         "dns" -> sectionDns()
-                        "bypass" -> sectionBypass()
+                        "bypass" -> SettingsBypassPage(context, bypass)
                         "sharing" -> sectionSharing()
                         "background" -> sectionBackground()
                         "appearance" -> sectionAppearance()
@@ -3283,15 +3162,7 @@ fun SettingsScreen(
     }
     }
 
-    if (showProxyDialog) {
-        ControlProxyDialog(
-            onDismiss = { showProxyDialog = false },
-            onApply = { 
-                isProxyEnabled = GlobalSettings.isCPProxyEnabled(context)
-                context.startService(Intent(context, TailscaledService::class.java).apply { action = "APPLY_SETTINGS" })
-            }
-        )
-    }
+    SettingsControlProxyDialog(context, bypass)
 
     if (showBackupPasswordDialog) {
         var tempPassword by remember { mutableStateOf("") }
