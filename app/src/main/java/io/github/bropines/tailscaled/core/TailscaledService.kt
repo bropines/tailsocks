@@ -283,7 +283,8 @@ class TailscaledService : Service() {
     private val maxMagicDnsFailures = 3
 
     private val refreshHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    @Volatile private var refreshTickRunning = false
+    /** One refresh tick at a time; a pass asked for meanwhile runs right after. */
+    private val tickGate = TickGate()
 
     /** Delayed "network is back" notification refresh. Held as a named Runnable
      *  posted on refreshHandler so onDestroy can cancel it — a throwaway Handler's
@@ -327,25 +328,25 @@ class TailscaledService : Service() {
 
     /**
      * The tick queries the daemon over its socket, so it runs off the main
-     * thread and only re-schedules itself once it is done.
+     * thread and only re-schedules itself once it is done. A pass asked for
+     * while one is running (reevaluateRootRouting, Doze ending) is not dropped:
+     * [tickGate] remembers it and the next tick starts the moment this one ends.
      */
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            if (refreshTickRunning) return
-            refreshTickRunning = true
+            if (!tickGate.tryBegin()) return
             Thread {
                 val interval = try {
                     runRefreshTick()
                 } catch (e: Exception) {
                     Log.w(TAG, "Refresh tick failed: ${e.message}")
                     15000L
-                } finally {
-                    refreshTickRunning = false
                 }
                 refreshHandler.post {
+                    val again = tickGate.end()
                     if (!teardownStarted) {
                         refreshHandler.removeCallbacks(this)
-                        refreshHandler.postDelayed(this, interval)
+                        refreshHandler.postDelayed(this, if (again) 0L else interval)
                     }
                 }
             }.start()
