@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The same on a television: a screen of its own -->
+    <string name="tv_signin_title">從你的手機上登入</string>
+    <string name="signin_other_device">使用另一台設備登入</string>
+</resources>

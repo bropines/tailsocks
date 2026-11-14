@@ -30,4 +30,5 @@
     <string name="diag_live_listening">監聽中</string>
     <string name="diag_live_not_listening">未在監聽</string>
     <string name="diag_live_recheck">重新檢查</string>
+    <string name="diag_live_checked">檢查於 %1$s°前</string>
 </resources>
