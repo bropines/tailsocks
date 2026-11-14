@@ -3,5 +3,5 @@
     <!-- Long press on the status card. Decoration; nothing reads these back. -->
     <string name="settings_root_yield_lan_title">로컬 네트워크 우선</string>
     <string name="settings_root_yield_lan_desc">수락한 tailnet 서브넷 경로가 이 기기의 네트워크와 겹치면 시스템 라우팅을 우선합니다. 끄면 수락한 경로가 우선합니다.</string>
-    <string name="search_kw_root_yield_lan">로컬 네트워크, LAN, 서브넷, 경로, 충돌, 회피</string>
+    <string name="search_kw_root_yield_lan">로컬 네트워크, 서브넷, 경로, 충돌, 회피</string>
 </resources>

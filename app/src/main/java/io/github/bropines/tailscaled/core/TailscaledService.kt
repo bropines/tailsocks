@@ -1678,6 +1678,7 @@ class TailscaledService : Service() {
     private val rootRulePrefKeys = setOf(
         "tun_excluded_apps",
         "tun_excluded_cidrs",
+        "root_yield_lan",
         "root_dns_redirect",
         "root_take_device_anyway",
         "accept_dns",

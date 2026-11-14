@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Root Mode: **Keep the local network** (on by default, in the Root Mode card). When a peer advertises the same subnet this device is on — a `192.168.1.0/24` at home and on the tailnet's router — the exit-node catch-all no longer pulls the local network into the tunnel: the device's own prefixes are handed back to Android's routing by priority-150 rules, rebuilt when the network changes. Off lets the accepted route win, as before. Check Routing lists the rules. Thanks to [@minortex](https://github.com/minortex) ([#26](https://github.com/bropines/tailsocks/pull/26)).
+
 ## [6.0.4] - 2026-11-13
 
 ### Changed

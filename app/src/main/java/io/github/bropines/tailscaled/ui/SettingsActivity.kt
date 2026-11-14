@@ -1707,11 +1707,12 @@ fun SettingsScreen(
                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
                 }
 
-                // The same list TUN mode uses: Root Mode turns these prefixes
-                // into rules that hand them back to the platform
-                // (RootUtils.localReturnRulesInstall), so they stay on the real
-                // network while an exit node is on. The service watches the key
-                // and re-applies the ruleset by itself.
+                // Two ways the LAN stays on the real network while an exit node is
+                // on. The switch: the prefixes this device sits on become rules
+                // that hand them back to the platform (RootUtils.localReturnRulesInstall).
+                // The list, the same one TUN mode uses: throw routes in the daemon's
+                // table (RootUtils.localBypassRoutes), where a more specific accepted
+                // route still wins. The service watches both keys and re-applies.
                 AnimatedVisibility(visible = rootTunEnabled) {
                     Column {
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))

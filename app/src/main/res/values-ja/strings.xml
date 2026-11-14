@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Long press on the status card. Decoration; nothing reads these back. -->
-    <string name="settings_root_yield_lan_title">ローカルネットワークを優先</string>
-    <string name="settings_root_yield_lan_desc">受け入れた tailnet サブネットルートがこの端末のネットワークと重なる場合、システム側のルーティングを優先します。オフにすると受け入れたルートが優先されます。</string>
-    <string name="search_kw_root_yield_lan">ローカルネットワーク, LAN, サブネット, ルート, 競合, 回避</string>
 </resources>

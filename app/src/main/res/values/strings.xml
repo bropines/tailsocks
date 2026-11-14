@@ -979,7 +979,7 @@
     <string name="settings_root_tun_desc_proxy">Runs the daemon in SOCKS5/proxy mode via su (uses the Local proxies settings).</string>
     <string name="settings_root_yield_lan_title">Keep the local network</string>
     <string name="settings_root_yield_lan_desc">When an accepted tailnet subnet route covers the network this device is on, the platform keeps routing it. Off lets the accepted route win.</string>
-    <string name="search_kw_root_yield_lan">local network, lan, subnet, route, conflict, yield</string>
+    <string name="search_kw_root_yield_lan">local network, home network, subnet, route, conflict, overlap</string>
     <!-- 4.0 settings restructure: stage 3 row moves -->
     <string name="settings_advertise_exit_node_title">Run as exit node</string>
     <string name="settings_advertise_exit_node_desc">Offer this device to the tailnet as an exit node for other devices\' internet traffic.</string>
