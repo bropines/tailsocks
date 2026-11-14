@@ -11,7 +11,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
-- Battery: the main screen stops polling the daemon while it is not on screen, and makes one status read per interval instead of three; the Logs screen reads only new lines and only while shown; the daemon computes engine statistics only while the diagnostics card is open.
+- Battery: the main screen no longer polls the daemon: it updates the moment the connection, health, settings or devices change, and otherwise checks once every 30 seconds, and not at all while it is off screen; the Logs screen reads only new lines and only while shown; the daemon computes engine statistics only while the diagnostics card is open.
 - Admin console: visual policy edits and the Review step are much faster on large policies, the console opens without waiting for the phone's own change log, and typing in the policy editor no longer redraws the dashboard under it.
 - Settings opens faster: the tailnet address and the admin profile are read only when their pages open. The excluded-apps list opens at once; icons load as you scroll and are sharp.
 - Files: switching tabs no longer reloads the inbox and the device list. Taildrive in other apps: file details load faster, and a share that just restarted is retried once instead of showing an error.
