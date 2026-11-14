@@ -720,7 +720,8 @@ class TaildriveBrowse(private val retryDelayMs: Long = RETRY_DELAY_MS, private v
      *
      * A "bad gateway" from a device or below is asked again once, quietly: the first request
      * after the other device's daemon restarted goes to a connection that died with it, and
-     * the next one is the one that works.
+     * the next one is the one that works. A 404 for a device's own root is a device that shares
+     * nothing ([sharesNothing]) and lists as empty.
      */
     fun list(location: DriveLocation, showHidden: Boolean = false): DriveResult<DriveListing> {
         var retried = false
@@ -743,6 +744,8 @@ class TaildriveBrowse(private val retryDelayMs: Long = RETRY_DELAY_MS, private v
                     Log.i(TAG, "listing at depth ${here.depth} got a stale gateway, asking again")
                     continue
                 }
+                // A device that shares nothing: its page is the empty one, not an error.
+                if (sharesNothing(e, here.depth)) return DriveResult.Ok(DriveListing(here, emptyList()))
                 val error = DriveError.from(e, here.depth)
                 // The class and the status, never the message: it may name an address.
                 Log.w(TAG, "listing at depth ${here.depth} failed: ${e.javaClass.simpleName} -> $error")
@@ -774,6 +777,17 @@ class TaildriveBrowse(private val retryDelayMs: Long = RETRY_DELAY_MS, private v
          */
         internal fun isStale(e: Exception, depth: Int): Boolean =
             e is WebDavHttpException && (e.code == 502 || e.code == 503) && depth >= DriveError.DEVICE_DEPTH
+
+        /**
+         * Whether [e], from listing the place at [depth], says "this device shares nothing" rather
+         * than "not found". A device's root (`/<tailnet>/<device>`, [DriveError.DEVICE_DEPTH]) is
+         * not a place that can disappear: a node that has Taildrive but no share — seen with a
+         * peer whose app shares nothing — answers its root listing with 404, and that is an empty
+         * device, shown as one. Inside a share or a folder a 404 keeps its meaning: what was there
+         * is gone ([DriveError.NotFound]). The documents provider asks the same question.
+         */
+        internal fun sharesNothing(e: Exception, depth: Int): Boolean =
+            e is WebDavHttpException && e.code == 404 && depth == DriveError.DEVICE_DEPTH
 
         /**
          * [request], at [depth], asked again once after [delayMs] when it fails with what a

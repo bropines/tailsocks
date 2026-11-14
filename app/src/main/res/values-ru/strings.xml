@@ -664,7 +664,12 @@
     <string name="settings_exit_node_select">Выберите выходной узел</string>
     <string name="settings_exit_node_empty">Нет доступных выходных узлов</string>
     <string name="share_title">Отправить…</string>
-    <string name="share_files_count_format">Файлов: %1$d</string>
+    <plurals name="share_files_count_format">
+        <item quantity="one">%1$d файл</item>
+        <item quantity="few">%1$d файла</item>
+        <item quantity="many">%1$d файлов</item>
+        <item quantity="other">%1$d файла</item>
+    </plurals>
     <!-- Taildrive Screen -->
     <string name="taildrive_title">Общие папки Taildrive</string>
     <string name="taildrive_cd_add">Добавить папку</string>

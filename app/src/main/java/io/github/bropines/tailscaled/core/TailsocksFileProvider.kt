@@ -288,6 +288,14 @@ class TailsocksFileProvider : DocumentsProvider() {
 
                 for (file in entries) addDriveRow(result, accId, file, summaries[file.href.trimEnd('/')])
             } catch (e: Exception) {
+                // A device that shares nothing answers its root with 404: an empty device, as in
+                // the app's own browser (TaildriveBrowse.sharesNothing), not "not found".
+                if (TaildriveBrowse.sharesNothing(e, depthOf(parentPath))) {
+                    emptyInfo(context, depthOf(parentPath))?.let { info ->
+                        result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_INFO, info) }
+                    }
+                    return result
+                }
                 android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.javaClass.simpleName}")
                 val name = parentPath.trimEnd('/').substringAfterLast("/")
                 result.extras = Bundle().apply {

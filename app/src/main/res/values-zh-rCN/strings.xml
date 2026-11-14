@@ -656,7 +656,9 @@
     <string name="settings_exit_node_select">选择出口节点</string>
     <string name="settings_exit_node_empty">没有可用的出口节点</string>
     <string name="share_title">发送到…</string>
-    <string name="share_files_count_format">%1$d 个文件</string>
+    <plurals name="share_files_count_format">
+        <item quantity="other">%1$d 个文件</item>
+    </plurals>
 
     <!-- Taildrive -->
     <string name="taildrive_title">Taildrive 共享</string>
