@@ -308,7 +308,7 @@ class TailscaledService : Service() {
     /** What the root daemon this service started or adopted runs with; null outside Root Mode. */
     @Volatile private var runningRootSpec: RootUtils.RootDaemonSpec? = null
 
-    /** The refresh tick's last reading, for [NetTrace]'s snapshots (dev builds). */
+    /** The refresh tick's last backend state and the last card read's warnings, for [NetTrace]'s snapshots (dev builds). */
     @Volatile private var traceBackend = ""
     @Volatile private var traceHealth = ""
 
@@ -336,14 +336,16 @@ class TailscaledService : Service() {
      *  read from the daemon rather than set to "connected": a network coming
      *  back says nothing about whether the relays are reachable again. */
     private val networkNotifyRunnable = Runnable {
-        Thread { refreshLiveCard() }.start()
+        // Through the event refresher's card worker while it runs, so the read
+        // never doubles one already in flight.
+        if (!eventRefresher.requestCard()) Thread { refreshLiveCard() }.start()
     }
 
     /**
      * No default network since the last onLost. The card says so instead of
      * reading the daemon, which keeps reporting Running for a while after the
      * link is gone — the old card said "Waiting for network…" until the network
-     * returned, and the tick must not talk over that.
+     * returned, and a card read must not talk over that.
      */
     @Volatile private var waitingForNetwork = false
 
@@ -354,8 +356,10 @@ class TailscaledService : Service() {
     /**
      * The exit node's name for the "Connected" line, by address. Resolving it
      * takes the status with every peer in it, which is not something to pull
-     * on every tick, so it is looked up once per exit node — again only if the
-     * last lookup found no name, and then at most once a minute.
+     * on every card read, so it is looked up once per exit node — again only if
+     * the last lookup found no name, and then at most once a minute, or sooner
+     * when the daemon's events say the prefs or the netmap changed
+     * (forgetExitNodeName).
      */
     @Volatile private var exitNodeNameCache: Pair<String, String?>? = null
     @Volatile private var exitNodeNameFetchedAt = 0L
@@ -368,6 +372,66 @@ class TailscaledService : Service() {
      *  own — the check talks to the daemon over its socket. */
     private val rootRoutingReapplyRunnable = Runnable {
         Thread { reevaluateRootRouting() }.start()
+    }
+
+    /**
+     * The daemon-facing refreshes, driven by the daemon's change events instead of
+     * the tick: the card (and the coordinator's OS refusal), the share sheet's
+     * devices, the widgets, the exit node's name. Started where the tick is
+     * started and stopped where it is cancelled ([scheduleRefreshTick],
+     * [cancelRefreshTick]); see ServiceEventRefresher.
+     */
+    private val eventRefresher = ServiceEventRefresher(object : ServiceEventRefresher.Actions {
+        override fun live() = !teardownStarted
+
+        override fun interactive() =
+            runCatching { (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive }.getOrDefault(false)
+
+        override fun refreshCard(current: () -> Boolean): Long {
+            val reading = readAndPublishCard(current)
+            if (reading.settlesAtWallMs == 0L) return 0L
+            // The warnings' clock is the wall clock; the refresher's is monotonic.
+            return android.os.SystemClock.elapsedRealtime() + (reading.settlesAtWallMs - System.currentTimeMillis())
+        }
+
+        override fun forgetExitNodeName(onlyUnresolved: Boolean) = this@TailscaledService.forgetExitNodeName(onlyUnresolved)
+
+        override fun syncShareTargets(allowRead: Boolean, current: () -> Boolean): ServiceEventRefresher.ShareSync {
+            val running = runCatching { Appctr.isRunning() && Appctr.getBackendState() == "Running" }.getOrDefault(false)
+            if (!current()) return ServiceEventRefresher.ShareSync.DONE
+            // Taking them down reads nothing: never held back by the gap.
+            if (!running || !GlobalSettings.isShareTargetsEnabled(this@TailscaledService)) {
+                ShareTargets.sync(this@TailscaledService, false)
+                return ServiceEventRefresher.ShareSync.DONE
+            }
+            if (!allowRead) return ServiceEventRefresher.ShareSync.WANTS_READ
+            // The refresher spaces the reads out (SHARE_TARGETS_GAP_MS) and carries the
+            // last ask of a burst out when the gap ends; ShareTargets' own interval
+            // would drop that ask instead.
+            ShareTargets.invalidate()
+            ShareTargets.sync(this@TailscaledService, true)
+            return ServiceEventRefresher.ShareSync.READ
+        }
+
+        override fun requestWidgets() = WidgetUpdates.request(this@TailscaledService)
+    })
+
+    /**
+     * (Re)schedules the tick [delayMs] from now and makes sure the event refresher
+     * runs beside it — a new run reads everything at once; one already going reads
+     * the card again, as the tick used to after a start, a second START or an
+     * apply. Main thread, like every lifecycle command; never after a teardown began.
+     */
+    private fun scheduleRefreshTick(delayMs: Long) {
+        refreshHandler.removeCallbacks(refreshRunnable)
+        refreshHandler.postDelayed(refreshRunnable, delayMs)
+        if (!teardownStarted && !eventRefresher.start()) eventRefresher.requestCard()
+    }
+
+    /** Cancels the tick and stops the event refresher. Main thread, after teardownStarted was set. */
+    private fun cancelRefreshTick() {
+        refreshHandler.removeCallbacks(refreshRunnable)
+        eventRefresher.stop()
     }
 
     /**
@@ -397,26 +461,33 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * The timer's share of the service: what counts ticks or looks at the device.
+     *
+     * The Root Mode routing re-checks and what they feed (the other-VPN probe, the
+     * DNS health gate and its three misses), the auto-reconnect check and its three
+     * unhealthy ticks, the exit-node guard, the TUN rebuild check, Taildrive's
+     * first-Running registration and the timeline's heartbeat. The card, the share
+     * sheet's devices, the widgets and the exit node's name are not read here any
+     * more: the daemon's change events drive them ([eventRefresher],
+     * ServiceRefreshPlan.kt), with a 30-second safety net of their own.
+     */
     private fun runRefreshTick(): Long {
         // No longer need to manually check and reset Exit Nodes here,
         // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
         // 15 s. A per-profile "refresh_interval" was read here on every tick, but
-        // nothing has ever written it.
+        // nothing has ever written it. The thresholds below are counted in ticks
+        // (three unhealthy, two not Running, three DNS misses), so this stays.
         var interval = 15000L
 
         val isRunning = Appctr.isRunning()
         val backendState = if (isRunning) {
             try { Appctr.getBackendState() } catch (e: Exception) { "" }
         } else ""
-        // An in-memory copy of the bus snapshot, so reading it every tick is free.
-        val healthWarnings = readHealthWarnings(isRunning)
         if (NetTrace.enabled) {
             traceBackend = backendState
-            traceHealth = healthWarnings.joinToString(",") { it.code }.ifEmpty { "none" }
             NetTrace.heartbeat(this@TailscaledService)
         }
-
-        checkCoordinatorOsRefusal(isRunning, backendState, healthWarnings)
 
         // First Running state of every run of the daemon: the netmap (and with it
         // drive:share) is in, so register Taildrive shares now if the start deferred
@@ -494,7 +565,9 @@ class TailscaledService : Service() {
                     interval = 2000L
                 }
             }
-            checkMagicDnsHealth(healthWarnings)
+            // An in-memory copy of the bus snapshot; read here only for the gate,
+            // whose three misses are counted in ticks.
+            checkMagicDnsHealth(readHealthWarnings(isRunning))
         }
 
         // Lets the timeline tell a process that died from a connection that held.
@@ -515,20 +588,8 @@ class TailscaledService : Service() {
             }
         }
 
-        // The system share sheet's devices follow the netmap, and go once it is not Running.
-        ShareTargets.sync(this@TailscaledService, isRunning && backendState == "Running")
-
         if (checkConnectionHealth(isRunning, backendState)) {
             interval = 5000L
-        }
-
-        // After the health check: a recovery it just started owns the card.
-        publishLiveCard(isRunning, backendState, healthWarnings)
-
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        // Nearly free while nothing changed: a widget is repainted only when what it shows did.
-        if (isRunning && powerManager.isInteractive) {
-            WidgetUpdates.request(this@TailscaledService)
         }
 
         if (System.currentTimeMillis() < settleUntil) interval = minOf(interval, SETTLE_TICK_MS)
@@ -991,14 +1052,33 @@ class TailscaledService : Service() {
      * exit node's name a status fetch. Returns what the card now says, or
      * null when there was nothing to read yet or the card was not ours to set.
      */
-    private fun refreshLiveCard(): CardState? {
+    private fun refreshLiveCard(): CardState? = readAndPublishCard { true }.state
+
+    /** What one card read found: the state the card now says, and when a hidden warning comes of age. */
+    private class CardReading(val state: CardState?, val settlesAtWallMs: Long)
+
+    /** One card read at a time: the event refresher, the start follow-up and "network is back". */
+    private val cardReadLock = Any()
+
+    /**
+     * The card's read: backend state and health warnings (both the bridge's memory
+     * of the IPN bus), the coordinator's OS refusal, then the card itself — published
+     * only while [current] holds, so a read that a stop overtook puts nothing back.
+     * Serialized, so two callers never read and post side by side.
+     */
+    private fun readAndPublishCard(current: () -> Boolean): CardReading = synchronized(cardReadLock) {
         val isRunning = runCatching { Appctr.isRunning() }.getOrDefault(false)
         val backendState = if (isRunning) runCatching { Appctr.getBackendState() }.getOrDefault("") else ""
-        return publishLiveCard(isRunning, backendState, readHealthWarnings(isRunning))
+        val warnings = readHealthWarnings(isRunning)
+        if (NetTrace.enabled) traceHealth = warnings.joinToString(",") { it.code }.ifEmpty { "none" }
+        if (!current()) return@synchronized CardReading(null, 0L)
+        checkCoordinatorOsRefusal(isRunning, backendState, warnings)
+        val state = publishLiveCard(isRunning, backendState, warnings)
+        CardReading(state, warningSettlesAtMs(warnings, System.currentTimeMillis()))
     }
 
     /**
-     * The card for what the tick just read — the main screen's states, from
+     * The card for what a card read just found — the main screen's states, from
      * the same backend state and the same settled warnings.
      *
      * Nothing is read while the daemon is not up: a start that has not
@@ -1036,9 +1116,11 @@ class TailscaledService : Service() {
 
     /**
      * Re-reads the card every 1.5 s for the first half-minute of a start. The
-     * tick runs every 15 s by default, and "Connecting…" held that long over a
-     * tailnet the main screen already calls connected reads as a fault. It
-     * stops the moment the card leaves Connecting, and costs nothing after.
+     * card once followed a 15 s tick, and "Connecting…" held that long over a
+     * tailnet the main screen already calls connected reads as a fault; the
+     * daemon's state events now usually move it first, and this stays as the
+     * backstop for a start whose events arrive before the refresher collects.
+     * It stops the moment the card leaves Connecting, and costs nothing after.
      */
     private fun followCardAfterStart() {
         cardFollowUntil = System.currentTimeMillis() + 30_000L
@@ -1144,6 +1226,18 @@ class TailscaledService : Service() {
         }.getOrNull()
         exitNodeNameCache = ip to name
         return name
+    }
+
+    /**
+     * Drops the exit node's cached name so the next card read resolves it again
+     * (the event refresher: the prefs changed, or the netmap did while the name
+     * was not found). A found name survives a netmap event; see exitNodeNameRetryDue.
+     */
+    private fun forgetExitNodeName(onlyUnresolved: Boolean): Boolean {
+        val cached = exitNodeNameCache ?: return false
+        if (onlyUnresolved && !exitNodeNameRetryDue(cached.second != null, System.currentTimeMillis(), exitNodeNameFetchedAt)) return false
+        exitNodeNameCache = null
+        return true
     }
 
     /** The banner's title for a warning (healthTitle), outside a composition. */
@@ -1298,7 +1392,7 @@ class TailscaledService : Service() {
         if (teardownStarted) return
         teardownStarted = true
         stopGeneration.incrementAndGet()
-        refreshHandler.removeCallbacks(refreshRunnable)
+        cancelRefreshTick()
         try {
             stopTunMode()
         } catch (t: Throwable) {
@@ -1716,6 +1810,8 @@ class TailscaledService : Service() {
             Log.i(TAG, "Device left Doze, re-checking connection")
             refreshHandler.removeCallbacks(refreshRunnable)
             refreshHandler.post(refreshRunnable)
+            // The card is the event refresher's: read it now too, as the tick used to.
+            eventRefresher.requestCard()
         }
     }
 
@@ -1748,11 +1844,14 @@ class TailscaledService : Service() {
             if (key != null && key in rootRulePrefKeys) {
                 scheduleRootRoutingReapply("a setting the rules are built from changed ($key)")
             }
+            // The share sheet's switch turned on: the tick that used to publish the
+            // devices next is the event refresher now, which no event would wake.
+            if (key == "share_targets") eventRefresher.requestShareTargets()
         }
 
     /**
-     * The widget tick is skipped while the screen is off, so whatever changed meanwhile is
-     * painted the moment it wakes rather than up to a tick later.
+     * The event refresher leaves the widgets alone while the screen is off, so whatever
+     * changed meanwhile is painted the moment it wakes.
      */
     private val screenOnReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -1902,7 +2001,7 @@ class TailscaledService : Service() {
 
         if (action == "REFRESH_ACTION" || action == ACTION_APPLY_SETTINGS) {
             // A settings change says nothing about the tailnet: keep what the
-            // card says, and let the tick change it if the change did.
+            // card says, and let the daemon's events change it if the change did.
             enterForeground(currentCardOrConnecting())
             if (!ProxyState.isActualRunning(this)) {
                 // Nothing is running and the daemon is genuinely gone. Do not run
@@ -1931,8 +2030,7 @@ class TailscaledService : Service() {
                 Log.i(TAG, "Apply requested while detached, attaching to running daemon first")
                 ProxyState.setUserState(this, true)
                 startTailscale()
-                refreshHandler.removeCallbacks(refreshRunnable)
-                refreshHandler.postDelayed(refreshRunnable, 1000)
+                scheduleRefreshTick(1000)
                 return START_STICKY
             }
             Thread {
@@ -1982,10 +2080,7 @@ class TailscaledService : Service() {
                 // server above all — would wait for the next 15-second tick, or the
                 // one after it. Tick closely until the relaunch has settled.
                 settleUntil = System.currentTimeMillis() + SETTLE_WINDOW_MS
-                refreshHandler.post {
-                    refreshHandler.removeCallbacks(refreshRunnable)
-                    refreshHandler.postDelayed(refreshRunnable, SETTLE_TICK_MS)
-                }
+                refreshHandler.post { scheduleRefreshTick(SETTLE_TICK_MS) }
                 // The DNS, per-app and coexistence settings all change what the
                 // Root Mode ruleset should look like, and this path never used to
                 // touch it. The re-check compares the inputs and does nothing when
@@ -2012,7 +2107,7 @@ class TailscaledService : Service() {
             // restart's own startTailscale() captures the new value.
             stopGeneration.incrementAndGet()
             ServiceWatchdog.schedule(this)
-            refreshHandler.removeCallbacks(refreshRunnable)
+            cancelRefreshTick()
             // An account switch comes this way: the old account's devices leave the share sheet.
             ShareTargets.clear(this)
             // Published as the in-flight teardown so a START arriving meanwhile
@@ -2030,10 +2125,7 @@ class TailscaledService : Service() {
                 }
                 teardownStarted = false
                 startTailscale()
-                refreshHandler.post {
-                    refreshHandler.removeCallbacks(refreshRunnable)
-                    refreshHandler.postDelayed(refreshRunnable, 1000)
-                }
+                refreshHandler.post { scheduleRefreshTick(1000) }
             }.also { it.start() }
             return START_STICKY
         }
@@ -2066,12 +2158,11 @@ class TailscaledService : Service() {
             startTailscale()
         } else {
             // Already up (a second tap, the watchdog): the card stands, and the
-            // tick a second from now reads the daemon again.
+            // event refresher reads it again (at once, if it was not running).
             enterForeground(currentCardOrConnecting())
         }
         
-        refreshHandler.removeCallbacks(refreshRunnable)
-        refreshHandler.postDelayed(refreshRunnable, 1000)
+        scheduleRefreshTick(1000)
         return START_STICKY
     }
 
@@ -2552,9 +2643,10 @@ class TailscaledService : Service() {
         TailcatService.suspend(this)
         // The user asked for this one, so there is no outage left to report.
         ServiceWatchdog.clearRevivalRefused(this)
+        // Before the share sheet is cleared: no refresh may publish behind it.
+        cancelRefreshTick()
         ShareTargets.clear(this)
         ExitNodeGuard.onStopped(this)
-        refreshHandler.removeCallbacks(refreshRunnable)
 
         try {
             stopTunMode()
@@ -2943,7 +3035,7 @@ class TailscaledService : Service() {
     }
 
     override fun onDestroy() {
-        refreshHandler.removeCallbacks(refreshRunnable)
+        cancelRefreshTick()
         refreshHandler.removeCallbacks(networkNotifyRunnable)
         refreshHandler.removeCallbacks(rootRoutingReapplyRunnable)
         // stopMe() already ran the teardown (or is running it); only handle the
