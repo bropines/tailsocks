@@ -23,6 +23,22 @@ class RootBootScriptDriftTest {
     }
 
     @Test
+    fun `the boot script's tailnet tier is the app's, line for line`() {
+        // docs/ROOT.md §4, T1: the boot script installs this tier and nothing else.
+        assertAllInScript("T1 IPv4 route", RootUtils.tailnetRouteV4())
+        assertAllInScript("T1 IPv4 rules", RootUtils.tailnetRulesV4())
+        assertAllInScript("T1 IPv6", RootUtils.tailnetTierV6())
+        assertAllInScript("pre-3.6 rule cleanup", RootUtils.legacyRuleCleanup())
+    }
+
+    @Test
+    fun `the boot script installs no device-wide tier`() {
+        assertTrue(scriptLines.none { it.contains("lookup 52") || it.contains("priority 200") })
+        assertTrue(scriptLines.none { !it.startsWith("#") && it.contains("TAILSOCKS_DNS") })
+        assertTrue(scriptLines.none { !it.startsWith("#") && it.contains("priority 190") })
+    }
+
+    @Test
     fun `the app's log trim is the boot script's`() {
         // The script names the file "$LOG_FILE"; the app quotes the real path.
         val kotlin = RootUtils.logTrimScript("@LOG@")

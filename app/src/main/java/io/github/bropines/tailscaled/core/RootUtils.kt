@@ -1263,35 +1263,10 @@ object RootUtils {
         sb.append(routeTableTeardown(LEGACY_ROUTE_TABLE, ourThrows = false))
 
         // --- IPv4 policy routing ---
-        sb.append("ip route replace $CGNAT_V4 dev tailscale0 table $ROUTE_TABLE metric 1\n")
+        sb.append(tailnetRouteV4())
         // Immediately after the /10, because these are the holes in it.
         sb.append(cgnatGuardRoutes(cgnatGuard.map { it.second }))
-        sb.append("ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100\n")
-        // A destination rule as well as the fwmark one: the mark is applied in
-        // mangle OUTPUT, AFTER the kernel has already picked the source address
-        // from the default (Wi-Fi/cellular) table. A root-owned socket — the
-        // daemon's own DNS forwarder talking to a split-DNS resolver on a peer —
-        // therefore left tailscale0 with the Wi-Fi address as source and never
-        // got an answer. Matching on destination makes the first lookup land in
-        // our own table, so the source is the tailnet address.
-        //
-        // `iif lo` scopes it to locally generated packets: without it we also
-        // claimed packets being forwarded through this device (a subnet router,
-        // a tethered client) and answered them with our own source address.
-        // No fwmark selector here on purpose — that very DNS forwarder socket is
-        // unmarked, and a marked-only rule would send it back to the physical
-        // table, which is the bug this rule exists to fix.
-        sb.append("while ip rule del to $CGNAT_V4 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("ip rule add to $CGNAT_V4 iif lo table $ROUTE_TABLE priority 100\n")
-
-        sb.append("iptables -w -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -F $CHAIN_MARK\n")
-        sb.append("iptables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
-        sb.append("iptables -w -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
-
-        sb.append("iptables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -o tailscale0 -j ACCEPT\n")
-        sb.append("iptables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -i tailscale0 -j ACCEPT\n")
+        sb.append(tailnetRulesV4())
 
         // --- Per-app exclusions: uid rules, both families in one call ---
         // The teardown runs whatever we install: it clears the rules of an
@@ -1325,21 +1300,7 @@ object RootUtils {
         }
 
         // --- IPv6 policy routing ---
-        sb.append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
-        sb.append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
-        sb.append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
-        // `iif lo` for the same reason as the v4 twin above, and no fwmark
-        // selector for the same reason either.
-        sb.append("while ip -6 rule del to $TAILNET_V6 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
-        sb.append("ip -6 rule add to $TAILNET_V6 iif lo table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
-
-        sb.append("ip6tables -w -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -F $CHAIN_MARK\n")
-        sb.append("ip6tables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
-        sb.append("ip6tables -w -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
-
-        sb.append("ip6tables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
-        sb.append("ip6tables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+        sb.append(tailnetTierV6())
 
         // --- Per-app exclusions (IPv6): the v6 uid rules are emitted above ---
         sb.append(bypassChainTeardown("ip6tables -w"))
@@ -1558,6 +1519,61 @@ object RootUtils {
         )
     }
 
+    /**
+     * The tailnet tier's (T1) IPv4 route into table 53. Written by the boot
+     * script too, line for line ([RootBootScriptDriftTest] checks the two).
+     */
+    internal fun tailnetRouteV4(): String = "ip route replace $CGNAT_V4 dev tailscale0 table $ROUTE_TABLE metric 1\n"
+
+    /** T1's IPv4 rules and chains: the two priority-100 rules, TAILSOCKS_MARK, the FORWARD pair. The boot script writes them too. */
+    internal fun tailnetRulesV4(): String = buildString {
+        append("ip rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
+        append("ip rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100\n")
+        // A destination rule as well as the fwmark one: the mark is applied in
+        // mangle OUTPUT, AFTER the kernel has already picked the source address
+        // from the default (Wi-Fi/cellular) table. A root-owned socket — the
+        // daemon's own DNS forwarder talking to a split-DNS resolver on a peer —
+        // therefore left tailscale0 with the Wi-Fi address as source and never
+        // got an answer. Matching on destination makes the first lookup land in
+        // our own table, so the source is the tailnet address.
+        //
+        // `iif lo` scopes it to locally generated packets: without it we also
+        // claimed packets being forwarded through this device (a subnet router,
+        // a tethered client) and answered them with our own source address.
+        // No fwmark selector here on purpose — that very DNS forwarder socket is
+        // unmarked, and a marked-only rule would send it back to the physical
+        // table, which is the bug this rule exists to fix.
+        append("while ip rule del to $CGNAT_V4 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("ip rule add to $CGNAT_V4 iif lo table $ROUTE_TABLE priority 100\n")
+
+        append("iptables -w -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -F $CHAIN_MARK\n")
+        append("iptables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
+        append("iptables -w -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
+
+        append("iptables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -o tailscale0 -j ACCEPT\n")
+        append("iptables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -i tailscale0 -j ACCEPT\n")
+    }
+
+    /** T1's IPv6 half: route, rules, chain and FORWARD pair, all best-effort. The boot script writes them too. */
+    internal fun tailnetTierV6(): String = buildString {
+        append("ip -6 route replace $TAILNET_V6 dev tailscale0 table $ROUTE_TABLE metric 1 2>/dev/null || true\n")
+        append("ip -6 rule del fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE 2>/dev/null || true\n")
+        append("ip -6 rule add fwmark $MARK_BIT/$MARK_MASK table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+        // `iif lo` for the same reason as the v4 twin above, and no fwmark
+        // selector for the same reason either.
+        append("while ip -6 rule del to $TAILNET_V6 iif lo table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
+        append("ip -6 rule add to $TAILNET_V6 iif lo table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
+
+        append("ip6tables -w -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -F $CHAIN_MARK\n")
+        append("ip6tables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
+        append("ip6tables -w -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
+
+        append("ip6tables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
+        append("ip6tables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+    }
+
     /** Outcome of the root-side coexistence probe: [present] is the gate, [reason] is what the ROOT log and Check Routing show. */
     /**
      * @param memberRanges uid ranges the other tunnel claims, exactly as netd
@@ -1613,14 +1629,13 @@ object RootUtils {
      * and would keep [foreignBypassGaps] from ever returning empty, so the full
      * yield could never be reached. Android knows who these apps are; we ask it.
      */
-    private fun vpnClientUids(context: Context): Set<Long> {
-        return runCatching {
-            context.packageManager
-                .queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
-                .mapNotNull { it.serviceInfo?.applicationInfo?.uid?.toLong() }
-                .toSet()
-        }.getOrDefault(emptySet())
-    }
+    private fun vpnClientUids(vpnServices: List<android.content.pm.ResolveInfo>?): Set<Long> =
+        vpnServices?.mapNotNull { it.serviceInfo?.applicationInfo?.uid?.toLong() }?.toSet() ?: emptySet()
+
+    /** Every app's `VpnService`, asked once per apply for both uses below; null when the query failed. */
+    private fun vpnServices(context: Context): List<android.content.pm.ResolveInfo>? = runCatching {
+        context.packageManager.queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+    }.getOrNull()
 
     /**
      * uids we are willing to carry: installed applications that are not VPN
@@ -1633,11 +1648,11 @@ object RootUtils {
      * there too. Measured on the device: uid 20354 sat in a gap with no package
      * behind it, and carrying it wrote a rule that could never match anything.
      */
-    private fun carryableUids(context: Context): Set<Long>? {
+    private fun carryableUids(context: Context, vpnServices: List<android.content.pm.ResolveInfo>?): Set<Long>? {
         val pm = context.packageManager
+        vpnServices ?: return null
         return runCatching {
-            val vpnPackages = pm
-                .queryIntentServices(Intent("android.net.VpnService"), PackageManager.MATCH_ALL)
+            val vpnPackages = vpnServices
                 .mapNotNull { it.serviceInfo?.packageName }
                 .toSet()
             val selfUid = context.applicationInfo?.uid?.toLong()
@@ -1691,8 +1706,9 @@ object RootUtils {
     private fun carryableGaps(ranges: List<LongRange>, selfUid: Long?, context: Context): List<LongRange> {
         val raw = foreignBypassGaps(ranges)
         if (raw.isEmpty()) return raw
-        val vpnUids = vpnClientUids(context) + listOfNotNull(selfUid)
-        val carryable = carryableUids(context)
+        val services = vpnServices(context)
+        val vpnUids = vpnClientUids(services) + listOfNotNull(selfUid)
+        val carryable = carryableUids(context, services)
         return raw.flatMap { g ->
             val span = g.last - g.first + 1
             when {
@@ -2203,7 +2219,7 @@ object RootUtils {
      * Those were appended directly to OUTPUT/FORWARD and piled up on every
      * restart, so they are drained here until none are left.
      */
-    private fun legacyRuleCleanup(): String = buildString {
+    internal fun legacyRuleCleanup(): String = buildString {
         append("while iptables -w -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
         append("while ip6tables -w -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
         append("while ip rule del fwmark $LEGACY_MARK table $LEGACY_ROUTE_TABLE 2>/dev/null; do :; done\n")
