@@ -541,6 +541,14 @@ type remoteRig struct {
 
 func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 	t.Helper()
+	return newRemoteRigOn(t, nil, tune...)
+}
+
+// newRemoteRigOn is newRemoteRig with the daemon's LocalAPI wrapped by api
+// (nil: the fake daemon itself). The wrap goes in before the manager starts:
+// swapping m.api afterwards raced the goroutines the start launched.
+func newRemoteRigOn(t *testing.T, api func(*remoteFakeDaemon) remoteLocalAPI, tune ...func(*remotePolicy)) *remoteRig {
+	t.Helper()
 	policy := remoteDefaultPolicy()
 	for _, f := range tune {
 		f(&policy)
@@ -552,7 +560,11 @@ func newRemoteRig(t *testing.T, tune ...func(*remotePolicy)) *remoteRig {
 		app:   newRemoteFakeApp(),
 		store: filepath.Join(t.TempDir(), "remote", "1760000000000.json"),
 	}
-	r.m = newRemoteManager(policy, r.clock, r.d)
+	var local remoteLocalAPI = r.d
+	if api != nil {
+		local = api(r.d)
+	}
+	r.m = newRemoteManager(policy, r.clock, local)
 	// The rates have a test of their own; everywhere else they would only
 	// make the outcome depend on how fast the machine is.
 	r.m.global = newRemoteLimiter(1e6, 1e6)
@@ -617,7 +629,7 @@ func (r *remoteRig) restart() {
 	r.t.Helper()
 	r.m.configure(false, "")
 	policy := r.m.policy
-	m := newRemoteManager(policy, r.clock, r.d)
+	m := newRemoteManager(policy, r.clock, r.m.api)
 	m.global, m.perNode, m.pairs, m.asks = r.m.global, r.m.perNode, r.m.pairs, r.m.asks
 	m.taildropDir = r.m.taildropDir
 	m.delegateWait, m.delegateAnswer = r.m.delegateWait, r.m.delegateAnswer

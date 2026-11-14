@@ -95,9 +95,11 @@ func TestRemoteInbound(t *testing.T) {
 // The screen's document follows the daemon on a real TUN: reachable while it
 // keeps the port, and the moment it stops — the switch — not reachable.
 func TestRemoteStateOnATUN(t *testing.T) {
-	r := newRemoteRig(t)
-	d := &remoteForwardingDaemon{remoteFakeDaemon: r.d, answer: remoteForwardAnswer(RemotePort, true)}
-	r.m.api = d
+	var d *remoteForwardingDaemon
+	r := newRemoteRigOn(t, func(fake *remoteFakeDaemon) remoteLocalAPI {
+		d = &remoteForwardingDaemon{remoteFakeDaemon: fake, answer: remoteForwardAnswer(RemotePort, true)}
+		return d
+	})
 	r.d.set(func(d *remoteFakeDaemon) { d.tun = true })
 	r.forgetSelf()
 
