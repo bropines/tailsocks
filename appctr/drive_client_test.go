@@ -315,3 +315,26 @@ func TestDriveRangeSlowButMoving(t *testing.T) {
 		t.Fatalf("a slow body: fail %q, %d bytes", r.Fail, len(r.Body))
 	}
 }
+
+// A piece read reuses the stream's buffer and timer: it used to allocate the
+// whole size asked for, and a timer, on every call.
+func TestDriveStreamReadReusesItsBuffer(t *testing.T) {
+	newFakeShare(t, 4<<20)
+	s := NewDriveCall().Open("/t/d/s/f.bin", 5000)
+	defer s.Close()
+	if s.Result.Fail != "" {
+		t.Fatalf("open: %+v", s.Result)
+	}
+	if _, err := s.Read(256 << 10); err != nil {
+		t.Fatal(err)
+	}
+	allocs := testing.AllocsPerRun(8, func() {
+		if _, err := s.Read(256 << 10); err != nil {
+			t.Fatal(err)
+		}
+	})
+	// Measured: 2 before (the buffer and the timer), 0 after.
+	if allocs >= 1 {
+		t.Errorf("%.0f allocations per piece, want next to none", allocs)
+	}
+}

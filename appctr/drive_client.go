@@ -300,6 +300,13 @@ type DriveStream struct {
 	call   *DriveCall
 	body   io.ReadCloser
 	cancel context.CancelFunc
+	// buf and idle are Read's, kept from one call to the next: a piece cost a
+	// make of the whole size asked for (256 KiB from TaildriveBridge) and a
+	// timer, however few bytes the read brought back. Reusing buf is safe
+	// because gobind copies a returned []byte into a Java array before the
+	// call returns, and a stream has one reader (BridgeInputStream).
+	buf  []byte
+	idle *time.Timer
 }
 
 // Open sends a GET of path and returns its body to Read. The deadline,
@@ -337,10 +344,17 @@ func (s *DriveStream) Read(max int) ([]byte, error) {
 	if s.body == nil {
 		return nil, nil
 	}
-	buf := make([]byte, max)
-	idle := time.AfterFunc(driveIdle, s.cancel)
+	if cap(s.buf) < max {
+		s.buf = make([]byte, max)
+	}
+	buf := s.buf[:max]
+	if s.idle == nil {
+		s.idle = time.AfterFunc(driveIdle, s.cancel)
+	} else {
+		s.idle.Reset(driveIdle)
+	}
 	n, err := io.ReadAtLeast(s.body, buf, 1)
-	if !idle.Stop() && n == 0 {
+	if !s.idle.Stop() && n == 0 {
 		return nil, errors.New("Taildrive: " + DriveFailTimeout)
 	}
 	if err == io.EOF {
