@@ -141,6 +141,16 @@ object ServiceWatchdog {
     }
 
     /**
+     * The root daemon did not come up on a start, and the service stopped.
+     * The service's own card cannot carry this: it goes away with the service.
+     * A tap starts again, through the same path as the other notifications
+     * here; nothing latches, and the next start or stop takes it down.
+     */
+    fun noteRootStartFailed(context: Context) {
+        postReviveNotification(context, R.string.notif_root_failed, R.string.notif_root_failed_text)
+    }
+
+    /**
      * The coordination server refused the node because its reported OS changed
      * since registration ("Report the real OS" turned on for a node registered
      * as Linux). Nothing latches; the START path cancels it like the others.

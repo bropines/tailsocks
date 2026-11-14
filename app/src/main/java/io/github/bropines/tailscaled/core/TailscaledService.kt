@@ -2111,7 +2111,19 @@ class TailscaledService : Service() {
                             // Do not report "Active" for a daemon that never came up.
                             Log.e(TAG, "Root daemon failed to start, aborting service start")
                             updateNotification(CardState.ROOT_FAILED)
-                            stopMe()
+                            // The card dies with the service: stopMe() shows
+                            // "Stopping" and its completion removes the
+                            // notification, so ROOT_FAILED was on screen for the
+                            // gap between two calls. What stays is a dismissible
+                            // notification that says so — posted after stopMe(),
+                            // which cancels that notification id on its way. On
+                            // the main thread, like every other stop, so stopMe's
+                            // guard is not raced by a STOP_ACTION.
+                            refreshHandler.post {
+                                if (stale()) return@post
+                                stopMe()
+                                ServiceWatchdog.noteRootStartFailed(this@TailscaledService)
+                            }
                             return@Thread
                         }
                         if (stale()) {

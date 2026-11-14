@@ -36,4 +36,5 @@
     <string name="notif_connection_lost">Connection lost</string>
     <string name="notif_connection_lost_text">The daemon stopped unexpectedly</string>
     <string name="notif_root_failed">Root daemon failed to start</string>
+    <string name="notif_root_failed_text">Root Mode could not start its daemon, and the connection stayed off. The ROOT tab in Logs says why.</string>
 </resources>
