@@ -49,6 +49,23 @@ cd ..
 ./gradlew app:assembleDebug
 ```
 
+#### Одна ABI на время разработки
+Обычный `assembleDebug` пишет и подписывает пять APK (по одному на ABI и universal, вместе около 450 МБ, один universal — ~145 МБ). Для устройства под рукой собирайте только его ABI; `appctr/build.sh` принимает тот же выбор через `TS_ABIS`:
+```bash
+(cd appctr && TS_ABIS=arm64-v8a bash build.sh)
+./gradlew app:assembleDebug -PtargetAbi=arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+```
+Gradle тогда делает два APK этой одной ABI (`app-arm64-v8a-debug.apk` и universal с той же ABI — universal APK собирается всегда, ради воспроизводимости релиза). Без `-PtargetAbi` ничего не меняется: все четыре ABI и universal APK — так собирают релиз и F-Droid. В ядре, собранном с `TS_ABIS`, нет остальных ABI, поэтому перед полной сборкой запустите `build.sh` ещё раз без него.
+
+#### Тесты
+JVM-тесты и, на Linux, Go-тесты моста (им нужно пропатченное дерево, которое `build.sh` оставляет в `appctr/tailscale_src`; на macOS мост не собирается под хост — `netmon.WakePollingMonitors` из патча 21 не собирается для darwin, — запускайте их в Linux-контейнере, например в образе `golang`, или оставьте CI):
+```bash
+./gradlew app:testDebugUnitTest
+(cd appctr && go test -count=1 .)
+```
+CI запускает и те и другие — вместе с быстрыми тестами пропатченных пакетов Tailscale, debug APK одной ABI и lint-проверкой NewApi — на каждый push в `main` и каждый pull request (`.github/workflows/ci.yml`), а релизный workflow — перед публикацией тега. Вызов API выше `minSdk` роняет любую релизную сборку (`lintVital`, см. `app/build.gradle.kts`).
+
 #### Release APK (нужен собственный keystore):
 С версии 4.0.0 сборка **отказывается подписывать релиз debug-ключом**: такой APK ставится один раз, а потом его нельзя обновить нормально подписанной сборкой (Android отвергает обновление с другим сертификатом, и остаётся только удалять приложение вместе с данными). Задайте все четыре переменные, иначе задача `packageRelease` завершится с понятной ошибкой:
 ```bash
@@ -71,6 +88,8 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
 ## 📱 Установка и Запуск через ADB
 
 Включены ABI-сплиты, поэтому каждая сборка даёт universal APK и по одному на архитектуру (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) в `app/build/outputs/apk/<debug|release>/`.
+
+Для одного устройства APK его ABI вдвое меньше universal (см. «Одна ABI на время разработки» выше).
 
 ```bash
 # Debug-сборка
