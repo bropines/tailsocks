@@ -1,8 +1,8 @@
 name: Android CI Chain
 
-# Releases only: a tag builds, signs and publishes. A push to main or a pull
-# request no longer spends a full Go and Gradle build each — the tag that
-# follows them builds the same tree anyway. Anything in between is a manual run.
+# Releases only: a tag builds, tests, signs and publishes. A push to main or a
+# pull request is checked by ci.yml — one ABI, a debug build, the same tests —
+# not by a full four-ABI release build each. Anything else is a manual run.
 # A beta tag (v5.1.0-beta.1) is built exactly as a release tag is; only the
 # last job tells them apart, and publishes a beta as a pre-release.
 on:
@@ -198,7 +198,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Decode Keystore
-        if: github.ref_type == 'tag' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' || github.event_name == 'push'
+        if: github.ref_type == 'tag' || github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all'
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > app/release.jks
           if [ ! -s app/release.jks ]; then
@@ -208,22 +208,18 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
+      # Two ways in (see on: above): a tag builds the release; a manual run
+      # builds what it was asked for. Pushes to main and pull requests are
+      # ci.yml's.
       - name: Determine Gradle command
         id: gradle_command
         run: |
           if [ "${{ github.ref_type }}" == "tag" ]; then
             echo "command=app:assembleRelease" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            # No signing secrets on PRs; a release build would fail the keystore
-            # guard. Debug only.
-            echo "command=app:assembleDebug" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" == "push" ]; then
-            echo "command=app:assembleDebug app:assembleRelease" >> "$GITHUB_OUTPUT"
           else
             case "${{ github.event.inputs.build_type }}" in
               "debug") echo "command=app:assembleDebug" >> "$GITHUB_OUTPUT";;
               "release") echo "command=app:assembleRelease" >> "$GITHUB_OUTPUT";;
-              "all") echo "command=app:assembleDebug app:assembleRelease" >> "$GITHUB_OUTPUT";;
               *) echo "command=app:assembleDebug app:assembleRelease" >> "$GITHUB_OUTPUT";;
             esac
           fi
