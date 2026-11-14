@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dialog before a start while the other build of the app runs (ui/SiblingDialog.kt). -->
+    <string name="sibling_title_dev">TailSocks dev is already running</string>
+    <string name="sibling_title_release">TailSocks is already running</string>
+    <string name="sibling_text_same_node">It is signed in as this same device — a backup restored from one into the other. Two apps with one device identity knock each other off the tailnet.</string>
+    <string name="sibling_text_root_tun">Both use Root Mode with the tailscale0 interface. They share its routes and rules, and each start breaks the other\'s.</string>
+    <string name="sibling_text_vpn_slot">It holds the VPN connection, and Android has only one. Starting here takes it away from the other app.</string>
+    <string name="sibling_text_ports">It already listens on the same SOCKS5, HTTP or DNS proxy port, so this start cannot take it. Change the ports in one of them.</string>
+    <string name="sibling_action_open">Open it</string>
+    <string name="sibling_action_start_anyway">Start anyway</string>
+</resources>

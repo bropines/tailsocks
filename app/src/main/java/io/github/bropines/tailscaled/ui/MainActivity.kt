@@ -771,6 +771,11 @@ fun MainScreen(
     fun requestStop() {
         if (tv) confirmStop = true else stopNow()
     }
+    var siblingFound by remember { mutableStateOf<SiblingBuild.Found?>(null) }
+    fun startNow() {
+        isProcessing = true
+        ContextCompat.startForegroundService(context, Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" })
+    }
 
     var showExitNodeSheet by rememberSaveable { mutableStateOf(false) }
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
@@ -1801,8 +1806,13 @@ fun MainScreen(
                     }
 
                     isProcessing = true
-                    val intent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
-                    ContextCompat.startForegroundService(context, intent)
+                    // The other build of the app, when it runs and would collide with
+                    // this start, is asked about first (core/SiblingBuild.kt); within a
+                    // short budget, and any failure starts as before.
+                    scope.launch {
+                        val found = SiblingBuild.check(context)
+                        if (found == null) startNow() else { isProcessing = false; siblingFound = found }
+                    }
                 }
             }
 
@@ -2239,6 +2249,18 @@ fun MainScreen(
             dismissButton = {
                 TextButton(onClick = { confirmStop = false }, modifier = Modifier.tvInitialFocus()) { Text(dlgCancel) }
             }
+        )
+    }
+
+    siblingFound?.let { found ->
+        SiblingDialog(
+            found = found,
+            onOpen = {
+                siblingFound = null
+                SiblingBuild.launchIntent(context, found.packageName)?.let { runCatching { context.startActivity(it) } }
+            },
+            onStartAnyway = { siblingFound = null; startNow() },
+            onDismiss = { siblingFound = null },
         )
     }
 
