@@ -356,10 +356,9 @@ class TailscaledService : Service() {
     private fun runRefreshTick(): Long {
         // No longer need to manually check and reset Exit Nodes here,
         // as LocalAPI synchronization in ApplySettings handles profile-dependent settings.
-        val activeAccount = AccountManager.getActiveAccount(this@TailscaledService)
-        val profilePrefs = getSharedPreferences("appctr_${activeAccount.id}", Context.MODE_PRIVATE)
-        val defaultInterval = profilePrefs.getString("refresh_interval", "15000")?.toLongOrNull() ?: 15000L
-        var interval = defaultInterval
+        // 15 s. A per-profile "refresh_interval" was read here on every tick, but
+        // nothing has ever written it.
+        var interval = 15000L
 
         val isRunning = Appctr.isRunning()
         val backendState = if (isRunning) {
@@ -590,12 +589,9 @@ class TailscaledService : Service() {
                 }
 
                 Log.i(TAG, "Applying Root tailscale0 routing ($reason)")
-                // Pass the Context so the SO_MARK check reads the daemon log
-                // by its canonical path. Without it the check falls back to
-                // the log of a daemon this process launched, which is unset
-                // when the app attached to one the boot script had already
-                // started — and the exit-node catch-all would then never be
-                // installed after a reboot.
+                // The Context lets the SO_MARK check read the daemon log by its
+                // canonical path — also for a daemon the boot script started,
+                // which this process never launched.
                 val result = RootUtils.applyTailscale0Routing(
                     dnsRedirect,
                     bypass,
@@ -1517,12 +1513,6 @@ class TailscaledService : Service() {
     }
 
     /**
-     * Backstop for a callback registration the system refused — both of ours are
-     * registered inside a catch that swallows the failure, so nothing else would
-     * notice. One cheap ConnectivityManager scan per refresh tick.
-     */
-    @Suppress("DEPRECATION")
-    /**
      * Notices another tunnel coming or going, without polling anything expensive.
      *
      * Two reasons this exists rather than leaning on the ConnectivityManager
@@ -1635,6 +1625,11 @@ class TailscaledService : Service() {
         }
     }
 
+    /**
+     * Backstop for a callback registration the system refused — both of ours are
+     * registered inside a catch that swallows the failure, so nothing else would
+     * notice. One cheap ConnectivityManager scan per refresh tick.
+     */
     // allNetworks is deprecated for callbacks, which this service has as well;
     // this is the one-off scan that seeds and re-checks what they report.
     @Suppress("DEPRECATION")
@@ -1849,7 +1844,7 @@ class TailscaledService : Service() {
             return START_NOT_STICKY
         }
 
-        if (action == "REFRESH_ACTION" || action == "APPLY_SETTINGS" || action == ACTION_APPLY_SETTINGS) {
+        if (action == "REFRESH_ACTION" || action == ACTION_APPLY_SETTINGS) {
             // A settings change says nothing about the tailnet: keep what the
             // card says, and let the tick change it if the change did.
             enterForeground(currentCardOrConnecting())
@@ -2093,10 +2088,11 @@ class TailscaledService : Service() {
                         // env file that script reads next boot is brought up to date
                         // now, so a settings change made while attached is not lost
                         // to the next reboot.
-                        RootUtils.writeRootEnvFile(this@TailscaledService, rootDaemonSpec(options))
+                        val spec = rootDaemonSpec(options)
+                        RootUtils.writeRootEnvFile(this@TailscaledService, spec)
                         // What it was really started with is not known; taken to be
                         // this, so that only a change made from here on restarts it.
-                        runningRootSpec = rootDaemonSpec(options)
+                        runningRootSpec = spec
                         Appctr.attachExternal(options)
                     } else {
                         // GIVE_UP: a daemon that never answered, socket or not —
@@ -2105,7 +2101,8 @@ class TailscaledService : Service() {
                             Log.w(TAG, "Root daemon is gone or did not answer ($adoption). Stopping what is left of it and restarting.")
                             RootUtils.stopRootDaemon(options.socketPath, handBackTo = this@TailscaledService)
                         }
-                        val ok = RootUtils.startRootDaemon(this@TailscaledService, rootDaemonSpec(options))
+                        val spec = rootDaemonSpec(options)
+                        val ok = RootUtils.startRootDaemon(this@TailscaledService, spec)
 
                         if (!ok) {
                             // Do not report "Active" for a daemon that never came up.
@@ -2133,7 +2130,7 @@ class TailscaledService : Service() {
                             if (ownsCleanup()) shutdownDaemon()
                             return@Thread
                         }
-                        runningRootSpec = rootDaemonSpec(options)
+                        runningRootSpec = spec
                         Appctr.attachExternal(options)
                     }
                 } else {
