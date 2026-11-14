@@ -691,7 +691,9 @@ class TunVpnService : VpnService() {
         // Always exclude all TailSocks packages to avoid routing loops.
         val pm = packageManager
         try {
-            pm.getInstalledApplications(PackageManager.GET_META_DATA).forEach { info ->
+            // No flags: only the package names are read. GET_META_DATA made every
+            // tunnel (re)build carry each installed app's metadata over binder.
+            pm.getInstalledApplications(0).forEach { info ->
                 if (info.packageName.startsWith("io.github.bropines.tailscaled")) {
                     try {
                         builder.addDisallowedApplication(info.packageName)
