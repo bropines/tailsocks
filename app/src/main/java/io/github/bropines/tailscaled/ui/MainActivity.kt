@@ -535,7 +535,7 @@ fun MainScreen(
     // Which account cannot be deleted; read again whenever the list changes.
     var primaryId by remember(accounts.value) { mutableStateOf(AccountManager.getPrimaryId(context)) }
     
-    var showAddAccountDialog by remember { mutableStateOf(false) }
+    var showAddAccountDialog by rememberSaveable { mutableStateOf(false) }
     var showRenameAccountDialog by remember { mutableStateOf(false) }
     var showSwitchConfirmDialog by remember { mutableStateOf<TailscaleAccount?>(null) }
     var accountToDeleteConfirm by remember { mutableStateOf<TailscaleAccount?>(null) }
@@ -552,12 +552,12 @@ fun MainScreen(
         statusAside = null
     }
     
-    var newAccountName by remember { mutableStateOf("") }
+    var newAccountName by rememberSaveable { mutableStateOf("") }
     // "Report the real OS" for the profile about to be created: decided here,
     // before its first login, because the coordinator binds a node to the OS
     // it registered with (ProfileHostinfo).
     // A new profile reports the real OS unless the box is cleared (ProfileHostinfo).
-    var newAccountHonest by remember { mutableStateOf(true) }
+    var newAccountHonest by rememberSaveable { mutableStateOf(true) }
     LaunchedEffect(addAccountRequest.value) {
         addAccountRequest.value?.let { honest ->
             newAccountHonest = honest
@@ -565,8 +565,13 @@ fun MainScreen(
             addAccountRequest.value = null
         }
     }
-    var accountMenuExpanded by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    // Saveable, like the dialogs and sheets below that hold nothing but a flag or a draft that
+    // is not a secret: neither activity handles configuration changes, so a rotation recreates
+    // the screen and used to close whatever was open, with what had been typed in it.
+    var accountMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
+    // Read when the screen is resumed (the observer below): it changes only in the system's
+    // settings, and coming back from there resumes this screen. It was a binder call every 2 s.
     var isBatteryOptimizationsIgnored by remember { mutableStateOf(true) }
     // Read from preferences on every composition of this screen, so a recreation
     // (a language change, a rotation) and a process restart both bring the ask
@@ -709,7 +714,9 @@ fun MainScreen(
     }
     var isProcessing by remember { mutableStateOf(false) }
     var loginUrl by remember { mutableStateOf<String?>(null) }
-    var show410Warning by remember { mutableStateOf(false) }
+    // Saveable: the bridge's last error is cleared by the read that found it (getLastError), so
+    // a rotation or a recreate() for a language or scale change lost the banner for good.
+    var show410Warning by rememberSaveable { mutableStateOf(false) }
 
     // A television cannot fill in a login form: it signs in with a code on its own screen
     // (ui/SignIn.kt), which opens by itself whenever the daemon turns out to want a login
@@ -744,7 +751,7 @@ fun MainScreen(
             if (!tv) editing = true
         }
     }
-    var confirmStop by remember { mutableStateOf(false) }
+    var confirmStop by rememberSaveable { mutableStateOf(false) }
     fun stopNow() {
         isProcessing = true
         context.startService(Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" })
@@ -753,7 +760,7 @@ fun MainScreen(
         if (tv) confirmStop = true else stopNow()
     }
 
-    var showExitNodeSheet by remember { mutableStateOf(false) }
+    var showExitNodeSheet by rememberSaveable { mutableStateOf(false) }
     var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
     var isExitNodesLoading by remember { mutableStateOf(false) }
     fun openExitNodeSheet() {
@@ -776,6 +783,10 @@ fun MainScreen(
             exitNodeRequest.value = false
             openExitNodeSheet()
         }
+    }
+    // A sheet that was open before a rotation comes back open, with its list still to read.
+    LaunchedEffect(Unit) {
+        if (showExitNodeSheet && exitNodes.isEmpty() && !isExitNodesLoading) openExitNodeSheet()
     }
     // The QR scanner, from the top bar and tailsocks://scan: an app link opens
     // as if tapped, a TailCat address in a new connection's editor; any other
@@ -1069,7 +1080,8 @@ fun MainScreen(
     }
 
     if (showAddAccountDialog) {
-        var newAccountServer by remember { mutableStateOf("") }
+        var newAccountServer by rememberSaveable { mutableStateOf("") }
+        // A secret: never in the saved state, which the system writes out with the task.
         var newAccountAuthKey by remember { mutableStateOf("") }
         // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
         val dlgTitle = stringResource(R.string.main_add_account_title)
