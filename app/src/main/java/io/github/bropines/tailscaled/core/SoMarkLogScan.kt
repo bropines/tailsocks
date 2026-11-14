@@ -7,7 +7,7 @@ import java.io.RandomAccessFile
  * The daemon-log witness of the SO_MARK gate (docs/ROOT.md §4, T2): has the
  * root daemon's *current run* logged that it marks its own sockets?
  *
- * The rules are [RootUtils.soMarkVerdict]'s and unchanged: the file is read
+ * The rules are [SoMarkGate.soMarkVerdict]'s and unchanged: the file is read
  * backwards from its end; the last daemon line containing
  * [RootUtils.SO_MARK_LINE] is the candidate verdict and counts only once a run
  * start ([RootUtils.RUN_MARKER], [RootUtils.DAEMON_START_LINE], or the launch

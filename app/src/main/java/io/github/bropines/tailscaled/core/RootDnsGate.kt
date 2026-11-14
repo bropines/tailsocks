@@ -234,7 +234,7 @@ internal object RootDnsGate {
     /**
      * One blocking GET against the daemon's localapi, bounded in time.
      *
-     * [LocalApiClient] speaks the same protocol, but it is suspend-only and sets
+     * The removed LocalApiClient spoke the same protocol, but it is suspend-only and sets
      * no read timeout; this runs on the routing thread, where a daemon that
      * accepts the connection and then says nothing must not park it forever.
      * Returns the response body, or null when anything at all went wrong — the

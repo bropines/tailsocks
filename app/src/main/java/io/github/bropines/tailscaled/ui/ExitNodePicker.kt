@@ -588,7 +588,7 @@ private const val FIRST_SCREEN_ROWS = 4
 
 // ---------------------------------------------------------------------------------------------
 // Exit-node latency chips. The measurement and its parsing are the peer sheet's own —
-// pingPeer() and pingStateOf() in UIComponents.kt — so the two cannot read a pong differently.
+// pingPeer() and pingStateOf() in PeerPing.kt — so the two cannot read a pong differently.
 
 /** Strings the chip shows or announces, resolved by the parent — see wrapContextWithLocale(). */
 internal data class ExitNodePingStrings(

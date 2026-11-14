@@ -128,7 +128,7 @@ share the daemon and the local proxies and nothing else, and it is easy to
 * Proxy mode must keep working with no VPN permission and no root. It is the
   reason this app exists; do not make any shared path depend on a `VpnService`
   or on `su`.
-* Root Mode routing lives in `core/RootUtils.kt`, and almost all of it is
+* Root Mode routing lives in `core/RootUtils.kt` and the `core/Root*.kt` files it delegates to, and almost all of it is
   *policy routing* written with `ip rule` / `ip route`, not iptables: the tailnet
   rules into table `53` at priority 100, the catch-all into the daemon's table
   `52` at priority 200, the per-app `uidrange … goto` exclusions at priority 190,

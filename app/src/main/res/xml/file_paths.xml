@@ -15,7 +15,7 @@
                   keeps in its external directory — the update APK below.
       Download/ - the APK the in-app updater downloads into
                   getExternalFilesDir(DIRECTORY_DOWNLOADS) and hands to the
-                  package installer (ui/MainActivity.kt launchApkInstaller).
+                  package installer (ui/UpdateInstall.kt launchApkInstaller).
       exports/  - the Taildrop history as CSV, shared from the Files screen
                   (core/TaildropHistory.kt exportCsv). cache/exports holds
                   nothing but the latest export.
