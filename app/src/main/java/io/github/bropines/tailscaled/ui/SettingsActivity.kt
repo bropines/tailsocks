@@ -356,14 +356,12 @@ fun SettingsScreen(
     val env = SettingsPageEnv(context, scope, activeAccount, profilePrefs, ::place, ::open)
 
     // Global Settings
-    // Where received Taildrop files go (core/TaildropFolder.kt): a folder of the system's
-    // picker, as on every phone, or a directory chosen in the app's own browser where the
-    // system has no picker — a television, which starts with one of its own in Downloads.
-    var taildropFolder by remember { mutableStateOf(TaildropFolder.get(context)) }
-    val taildropFolderChooser = rememberReceiveFolderChooser { taildropFolder = it }
+    // The Sharing page's values, and the chooser of its Taildrop folder: registered here,
+    // where it is composed whichever page is open, for the system's picker to answer.
+    val sharing = remember { SettingsSharingState(context, profilePrefs) }
+    val taildropFolderChooser = rememberReceiveFolderChooser { sharing.taildropFolder = it }
     var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
     var hideFromRecents by remember { mutableStateOf(GlobalSettings.isHideFromRecents(context)) }
-    var shareTargets by remember { mutableStateOf(GlobalSettings.isShareTargetsEnabled(context)) }
     var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
     var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
     var serviceWatchdog by remember { mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context)) }
@@ -404,8 +402,6 @@ fun SettingsScreen(
     var hostname by remember { mutableStateOf(profilePrefs.getString("hostname", "") ?: "") }
     var exitNodeIp by remember { mutableStateOf(profilePrefs.getString("exit_node_ip", "") ?: "") }
     var exitNodeId by remember { mutableStateOf(profilePrefs.getString("exit_node_id", "") ?: "") }
-    var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
-    var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
     var advertiseExitNode by remember { mutableStateOf(profilePrefs.getBoolean("advertise_exit_node", false)) }
@@ -1929,64 +1925,6 @@ fun SettingsScreen(
         }
     }
 
-    // F. Sharing & access
-    val sectionSharing: @Composable () -> Unit = {
-        SettingsCard(title = stringResource(R.string.settings_sect_storage)) {
-            // The folder by the name the user knows it: a path on the device's storage
-            // straight from the URI or the directory, any other provider's folder name
-            // asked of it.
-            val folder = taildropFolder
-            val folderLabel by produceState(folder?.let(TaildropFolder::quickLabel), folder) {
-                value = folder?.let { TaildropFolder.quickLabel(it) ?: withContext(Dispatchers.IO) { TaildropFolder.label(context, it) } }
-            }
-            SettingsClickableItem(
-                stringResource(R.string.settings_taildrop_folder_title),
-                if (folder == null) stringResource(R.string.settings_taildrop_folder_none)
-                else stringResource(R.string.settings_taildrop_folder_set_format, folderLabel ?: "…"),
-                Icons.Default.Folder
-            ) { taildropFolderChooser.choose() }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            TaildriveDownloadFolderRow(taildropFolder)
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            TaildriveParallelRow()
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            TaildriveSeekRow()
-        }
-
-        SettingsCardGap()
-
-        SettingsCard(title = stringResource(R.string.settings_sect_share_links)) {
-            SettingsSwitchItem(stringResource(R.string.settings_share_targets_title), stringResource(R.string.settings_share_targets_desc), Icons.Default.Devices, shareTargets) {
-                GlobalSettings.setShareTargetsEnabled(context, it)
-                shareTargets = it
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsClickableItem(
-                stringResource(R.string.taildrive_title),
-                stringResource(R.string.settings_link_taildrive_desc),
-                Icons.Default.FolderShared
-            ) { context.startActivity(Intent(context, TaildriveActivity::class.java)) }
-            if (place(Feature.SERVE_EDIT) == Availability.OFFERED) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsClickableItem(
-                    stringResource(R.string.serve_title),
-                    stringResource(R.string.settings_link_serve_desc),
-                    Icons.Default.Public
-                ) { context.startActivity(Intent(context, ServeActivity::class.java)) }
-            }
-        }
-
-        SettingsCardGap()
-
-        SettingsCard(title = stringResource(R.string.settings_sect_web)) {
-            SettingsSwitchItem(stringResource(R.string.settings_web_enable_title), stringResource(R.string.settings_web_enable_desc), Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
-            if (enableWebUI) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsEditItem(stringResource(R.string.settings_web_address_title), webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
-            }
-        }
-    }
-
     // G. Background & permissions
     val sectionBackground: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_service_perms)) {
@@ -2750,7 +2688,7 @@ fun SettingsScreen(
                         "proxies" -> sectionProxies()
                         "dns" -> SettingsDnsPage(env, dns)
                         "bypass" -> SettingsBypassPage(context, bypass)
-                        "sharing" -> sectionSharing()
+                        "sharing" -> SettingsSharingPage(env, sharing, taildropFolderChooser)
                         "background" -> sectionBackground()
                         "appearance" -> sectionAppearance()
                         themePage.id -> sectionTheme()
