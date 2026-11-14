@@ -105,7 +105,7 @@ KEY_ALIAS=... KEY_PASSWORD=... ./gradlew app:assembleRelease
   - Colors, shapes, and typography must dynamically adapt via `TailSocksTheme`, which supports multiple presets, AMOLED pure black mode, and dynamic color (`dynamicLightColorScheme` / `dynamicDarkColorScheme`). Use semantic colors (e.g., `MaterialTheme.colorScheme.surfaceContainerHigh`) rather than hardcoded hex values.
 
 * **High-Density 2×4 Grid Dashboard**:
-  - The main dashboard ([`MainActivity.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainActivity.kt)) utilizes a dense, scroll-free vertical layout encapsulated in a `Column`.
+  - The main dashboard ([`MainScreen.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainScreen.kt), window layouts in [`MainWindows.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainWindows.kt)) utilizes a dense, scroll-free vertical layout encapsulated in a `Column`.
   - Core control is a large `StatusCard` ([`MainStatusCard.kt`](app/src/main/java/io/github/bropines/tailscaled/ui/MainStatusCard.kt)) with `MaterialTheme.shapes.extraLarge` (28.dp) corners serving as the primary connection toggle.
   - Sub-menus are arranged in a 2×4 grid using `Row` components where each `MenuCard` uses `Modifier.weight(1f)` for a precise 2-column distribution.
 

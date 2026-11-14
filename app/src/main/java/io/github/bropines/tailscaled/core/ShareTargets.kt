@@ -48,7 +48,7 @@ internal fun recentRecipients(history: List<TaildropHistoryEntry>): List<String>
  * the `<share-target>` of res/xml/shortcuts.xml; older versions asked a ChooserTargetService,
  * which this app does not ship).
  *
- * Dynamic sharing shortcuts, one per device, published from the service's refresh tick while
+ * Dynamic sharing shortcuts, one per device, published by the service's event refresher (ServiceEventRefresher) while
  * the daemon is Running and taken down whenever it is not, the switch is off, or the service
  * stops. An id names the account as well as the device ([shortcutId]), and [ShareActivity]
  * checks both against the current netmap before sending: a shortcut the system still shows
@@ -81,7 +81,7 @@ object ShareTargets {
         return rest.takeIf { it.startsWith(prefix) }?.removePrefix(prefix)?.takeIf { it.isNotEmpty() }
     }
 
-    /** From the refresh tick, off the main thread. [running]: the daemon is Running. */
+    /** From the event refresher, off the main thread. [running]: the daemon is Running. */
     fun sync(context: Context, running: Boolean) {
         if (!supported) return
         if (!running || !GlobalSettings.isShareTargetsEnabled(context)) {
@@ -110,7 +110,7 @@ object ShareTargets {
         }
     }
 
-    /** The next tick publishes again, without waiting out the interval (the switch turned on). */
+    /** The next refresh publishes again, without waiting out the interval (the switch turned on). */
     fun invalidate() {
         lastSyncAt = 0L
     }

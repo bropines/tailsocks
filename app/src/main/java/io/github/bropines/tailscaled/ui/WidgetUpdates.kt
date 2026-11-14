@@ -37,11 +37,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * A pass builds each widget's model once (WidgetModels.kt) and repaints an instance only when
  * its serialized model differs from what it shows: Glance itself republishes identical
- * output on every update, so this comparison is what makes the service's 15-second tick
+ * output on every update, so this comparison is what makes the service's event-driven refresh
  * nearly free. Passes are serialized, and requests that arrive while one is queued fold into
- * it, so the tick, the service's state changes, receivers and taps never interleave.
+ * it, so the refresh, the service's state changes, receivers and taps never interleave.
  *
- * Triggers: the service's tick (screen on) and its state changes (start, stop, the card),
+ * Triggers: the service's daemon events and safety-net read (screen on) and its state changes (start, stop, the card),
  * waking the screen while it runs, an exit-node choice, a profile switch or rename, a
  * language change, and the system's own update (placement, the 30-minute period, a locale
  * change), which repaints from the cache without asking the daemon.
