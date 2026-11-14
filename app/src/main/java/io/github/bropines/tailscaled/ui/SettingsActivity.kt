@@ -1230,27 +1230,29 @@ fun SettingsScreen(
             val hadScript = serviceScriptInstalled
             serviceScriptInstalled = false
             Toast.makeText(context, context.getString(R.string.settings_root_mode_disabled_toast), Toast.LENGTH_SHORT).show()
-            scope.launch(Dispatchers.IO) {
-                if (hadScript) RootUtils.setServiceScriptInstalled(context, false)
+            // The application context: the work outlives this screen (settingsWork).
+            val app = context.applicationContext
+            settingsWork.launch {
+                if (hadScript) RootUtils.setServiceScriptInstalled(app, false)
                 // Take the system rules and the daemon down here rather
                 // than hoping a later stop does it: nothing else knows
                 // Root Mode was ever on once the setting is cleared.
+                // One root shell removes the routing, kills the daemon and
+                // hands its state back to the app (it used to be three).
+                RootUtils.stopRootDaemon("${app.filesDir.absolutePath}/tailscaled.sock", handBackTo = app)
                 if (hadRouting) {
-                    RootUtils.cleanupTailscale0Routing()
-                    GlobalSettings.setRootRoutingInstalled(context, false)
-                    GlobalSettings.setRootRoutingYielded(context, false)
-                    GlobalSettings.setRootRoutingShared(context, false)
+                    GlobalSettings.setRootRoutingInstalled(app, false)
+                    GlobalSettings.setRootRoutingYielded(app, false)
+                    GlobalSettings.setRootRoutingShared(app, false)
                 }
                 // Whether the user wants a connection, not whether this process
                 // happens to own a daemon: in Root Mode the daemon is a separate
                 // root process the app only attaches to, so Appctr.isRunning()
                 // reported false here and switching modes quietly did nothing
-                // until the service was toggled by hand.
-                if (ProxyState.isUserLetRunning(context)) {
-                    withContext(Dispatchers.Main) {
-                        val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                        context.startService(intent)
-                    }
+                // until the service was toggled by hand. startService needs no
+                // main thread, and no suspension point is left to cancel it.
+                if (ProxyState.isUserLetRunning(app)) {
+                    app.startService(Intent(app, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                 }
             }
         }
@@ -1306,8 +1308,6 @@ fun SettingsScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
-                RootUtils.handStateBackToApp(context)
                             imageVector = Icons.Default.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
@@ -1610,21 +1610,20 @@ fun SettingsScreen(
                     rootTunEnabled = enabled
                     val hadRouting = GlobalSettings.isRootRoutingInstalled(context)
                     GlobalSettings.setRootTunEnabled(context, enabled)
-                    scope.launch(Dispatchers.IO) {
+                    // Finishes even if Settings is left meanwhile (settingsWork).
+                    val app = context.applicationContext
+                    settingsWork.launch {
                         // Leaving native TUN drops tailscale0, so its policy
                         // routing has to go with it — the refresh loop no longer
                         // looks at Root Mode routing once this is off.
                         if (!enabled && hadRouting) {
                             RootUtils.cleanupTailscale0Routing()
-                            GlobalSettings.setRootRoutingInstalled(context, false)
-                            GlobalSettings.setRootRoutingYielded(context, false)
-                            GlobalSettings.setRootRoutingShared(context, false)
+                            GlobalSettings.setRootRoutingInstalled(app, false)
+                            GlobalSettings.setRootRoutingYielded(app, false)
+                            GlobalSettings.setRootRoutingShared(app, false)
                         }
-                        if (ProxyState.isUserLetRunning(context)) {
-                            withContext(Dispatchers.Main) {
-                                val intent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
-                                context.startService(intent)
-                            }
+                        if (ProxyState.isUserLetRunning(app)) {
+                            app.startService(Intent(app, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                         }
                     }
                 }
