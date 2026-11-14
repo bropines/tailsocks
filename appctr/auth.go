@@ -3,6 +3,7 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -51,6 +52,50 @@ func RunTailscaleCmd(commandStr string) string {
 	return RunTailscaleArgs(strings.Fields(commandStr)...)
 }
 
+// cliDeadline bounds one console command. The console passes free text, and
+// a command that does not end by itself — `debug watch-ipn`, `ping --c 0`,
+// `up` waiting for a login — used to block the JNI call and its thread for
+// good, show nothing (the output is returned at exit) and leave a `tailscale`
+// child alive until the daemon stopped. Generous, for the legitimately slow
+// ones (a certificate through the CLI). cliWaitDelay is how long the output
+// pipe may stay open after the kill. Variables so a test can shorten them.
+var (
+	cliDeadline  = 2 * time.Minute
+	cliWaitDelay = 5 * time.Second
+)
+
+// cliRuns are the cancels of the console commands running now, for
+// CancelTailscaleCmd.
+var (
+	cliRunsMu sync.Mutex
+	cliRuns   = map[int]context.CancelFunc{}
+	cliRunSeq int
+)
+
+func trackCLIRun(cancel context.CancelFunc) (untrack func()) {
+	cliRunsMu.Lock()
+	cliRunSeq++
+	id := cliRunSeq
+	cliRuns[id] = cancel
+	cliRunsMu.Unlock()
+	return func() {
+		cliRunsMu.Lock()
+		delete(cliRuns, id)
+		cliRunsMu.Unlock()
+	}
+}
+
+// CancelTailscaleCmd stops every console command still running; each returns
+// what it printed so far and a "[stopped]" line. For the console to call when
+// it closes, so a command left running does not outlive the screen.
+func CancelTailscaleCmd() {
+	cliRunsMu.Lock()
+	defer cliRunsMu.Unlock()
+	for _, cancel := range cliRuns {
+		cancel()
+	}
+}
+
 func RunTailscaleArgs(parts ...string) string {
 	if !IsRunning() {
 		return "Error: " + errNotRunning.Error()
@@ -62,7 +107,14 @@ func RunTailscaleArgs(parts ...string) string {
 		return netcheckText()
 	}
 	pc := getPC()
-	c := cliCommand(pc, append([]string{"--socket", pc.Socket()}, parts...)...)
+	ctx, cancel := context.WithTimeout(context.Background(), cliDeadline)
+	defer cancel()
+	stop := trackCLIRun(cancel)
+	defer stop()
+	c := cliCommandContext(ctx, pc, append([]string{"--socket", pc.Socket()}, parts...)...)
+	// A child the CLI leaves behind holding the output pipe must not keep
+	// the call waiting after the CLI itself was killed.
+	c.WaitDelay = cliWaitDelay
 
 	isRoutineCheck := len(parts) > 0 && (parts[0] == "status" || parts[0] == "dns" || parts[0] == "netcheck" || parts[0] == "ping")
 
@@ -72,6 +124,12 @@ func RunTailscaleArgs(parts ...string) string {
 
 	output, err := c.CombinedOutput()
 	outStr := string(output)
+	switch ctx.Err() {
+	case context.DeadlineExceeded:
+		outStr += fmt.Sprintf("\n[stopped after %v: the command did not end by itself]\n", cliDeadline)
+	case context.Canceled:
+		outStr += "\n[stopped]\n"
+	}
 
 	if strings.Contains(outStr, "http 410") {
 		lastErrMu.Lock()

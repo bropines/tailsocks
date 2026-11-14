@@ -78,11 +78,16 @@ const cliArgv0 = "tailscale"
 // shell-out failed) the binary is run directly, still with argv[0]
 // "tailscale" — without that name it would start a second daemon.
 func cliCommand(p pathControl, args ...string) *exec.Cmd {
+	return cliCommandContext(context.Background(), p, args...)
+}
+
+// cliCommandContext is cliCommand killed when ctx is done.
+func cliCommandContext(ctx context.Context, p pathControl, args ...string) *exec.Cmd {
 	path := p.Tailscale()
 	if _, err := os.Stat(path); err != nil {
 		path = p.TailscaledSo()
 	}
-	c := exec.Command(path, args...)
+	c := exec.CommandContext(ctx, path, args...)
 	c.Args[0] = cliArgv0
 	return c
 }
