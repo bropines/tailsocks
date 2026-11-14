@@ -1131,18 +1131,6 @@
      ]
     },
     {
-     "name": "androidx.documentfile",
-     "version": "1.0.1",
-     "url": "http://developer.android.com/tools/extras/support-library.html",
-     "license": "Apache-2.0",
-     "texts": [
-      "c71d239df917"
-     ],
-     "includes": [
-      "documentfile 1.0.1"
-     ]
-    },
-    {
      "name": "androidx.drawerlayout",
      "version": "1.1.1",
      "url": "https://developer.android.com/jetpack/androidx",
@@ -1597,30 +1585,6 @@
      ]
     },
     {
-     "name": "com.squareup.okhttp3",
-     "version": "4.12.0",
-     "url": "https://square.github.io/okhttp/",
-     "license": "Apache-2.0",
-     "texts": [
-      "c71d239df917"
-     ],
-     "includes": [
-      "okhttp 4.12.0"
-     ]
-    },
-    {
-     "name": "com.squareup.okio",
-     "version": "3.6.0",
-     "url": "https://github.com/square/okio/",
-     "license": "Apache-2.0",
-     "texts": [
-      "c71d239df917"
-     ],
-     "includes": [
-      "okio-jvm 3.6.0"
-     ]
-    },
-    {
      "name": "io.nayuki",
      "version": "1.8.0",
      "url": "https://www.nayuki.io/page/qr-code-generator-library",
@@ -1691,8 +1655,8 @@
      ],
      "includes": [
       "kotlin-stdlib 2.2.21",
-      "kotlin-stdlib-jdk7 1.9.10",
-      "kotlin-stdlib-jdk8 1.9.10"
+      "kotlin-stdlib-jdk7 1.8.22",
+      "kotlin-stdlib-jdk8 1.8.22"
      ]
     },
     {

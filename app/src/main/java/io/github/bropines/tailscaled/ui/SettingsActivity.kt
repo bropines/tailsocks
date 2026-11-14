@@ -7,7 +7,6 @@ import io.github.bropines.tailscaled.admin.profile.AdminProfiles
 import io.github.bropines.tailscaled.admin.profile.AuthType
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items

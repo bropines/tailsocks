@@ -288,7 +288,6 @@ androidComponents {
 dependencies {
     implementation(project(":appctr"))
     implementation(libs.kotlinx.serialization.json)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation(libs.androidx.appcompat)
     
@@ -305,9 +304,13 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.documentfile)
     // Custom Tabs: the login page opens over the app (ui/LoginTab.kt).
     implementation(libs.androidx.browser)
+    // Nothing navigates with it: it is here for what it brings along,
+    // lifecycle-viewmodel-compose, whose viewModel() the admin console's
+    // screens call (AdminApiActivity, DevicesTab, DeviceDetailSheet). Swapping
+    // it for that artifact declared directly would drop only classes R8
+    // already removes.
     implementation(libs.navigation.compose)
     
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
