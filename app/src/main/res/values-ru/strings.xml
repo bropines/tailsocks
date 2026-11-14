@@ -918,6 +918,9 @@
     <string name="settings_root_tun_title">Нативный Linux TUN (tailscale0)</string>
     <string name="settings_root_tun_desc_native">Создаёт через su настоящий интерфейс ядра Linux tailscale0. Слот Android VpnService остаётся полностью свободным.</string>
     <string name="settings_root_tun_desc_proxy">Запускает демон через su в режиме SOCKS5/прокси (берёт настройки из «Локальных прокси»).</string>
+    <string name="settings_root_yield_lan_title">Не захватывать локальную сеть</string>
+    <string name="settings_root_yield_lan_desc">Если принятый маршрут подсети tailnet совпадает с сетью, в которой находится это устройство, трафик остаётся у системы. Выключено — побеждает принятый маршрут.</string>
+    <string name="search_kw_root_yield_lan">локальная сеть, lan, подсеть, маршрут, конфликт, обход</string>
     <!-- 4.0 settings restructure: stage 3 row moves -->
     <string name="settings_advertise_exit_node_title">Быть выходным узлом</string>
     <string name="settings_advertise_exit_node_desc">Предлагать это устройство сети как выходной узел для интернет-трафика других устройств.</string>

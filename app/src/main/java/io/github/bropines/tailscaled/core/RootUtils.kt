@@ -121,6 +121,14 @@ object RootUtils {
      */
     private const val EXCLUDE_PRIO = "190"
 
+    /**
+     * Priority of the rules that hand a local prefix back to the platform.
+     * Above [EXCLUDE_PRIO] and [CATCH_ALL_PRIO], below the tailnet rules at 100.
+     * The daemon installs no rules on Android and netd's start at
+     * [NETD_RULE_MIN], so this priority belongs to one purpose only.
+     */
+    private const val LAN_RETURN_PRIO = "150"
+
     /** Android's protectedFromVpn bit; a socket carrying it is routed by the physical network. */
     private const val PROTECT_MARK = "0x20000"
 
@@ -154,6 +162,9 @@ object RootUtils {
      */
     private const val LINK_LOCAL_V4 = "169.254.0.0/16"
     private const val LINK_LOCAL_V6 = "fe80::/10"
+
+    /** Interface name prefixes that are tunnels or bridges, never the LAN this device sits on. */
+    private val NON_LAN_INTERFACES = listOf("tailscale", "tun", "ppp", "wg", "ipsec", "docker", "veth", "clat", "dummy")
 
     /** Accepts only a bare CIDR — the list comes from a user-editable setting. */
     private val CIDR_V4 = Regex("^\\d{1,3}(\\.\\d{1,3}){3}/\\d{1,2}$")
@@ -1149,10 +1160,14 @@ object RootUtils {
         // opt-out and are resolved fresh on every apply (an app can be
         // installed, removed or reinstalled with another uid between runs).
         val bypassUids = excludedUids(context)
-        // Resolved once: the same list installs the throw routes and, when we
-        // yield, removes exactly the ones we wrote — never the daemon's own.
-        val localV4 = localExclusions(context, v6 = false)
-        val localV6 = localExclusions(context, v6 = true)
+        // Manual exclusions become throws in table 52, where longest-prefix
+        // match still lets a more specific accepted route win; the prefixes the
+        // device itself is on become pref-150 rules, which the daemon's
+        // RouteReplace cannot overwrite.
+        val manualV4 = manualExclusions(context, v6 = false)
+        val manualV6 = manualExclusions(context, v6 = true)
+        val autoV4 = autoLanExclusions(context, v6 = false)
+        val autoV6 = autoLanExclusions(context, v6 = true)
         // Read from Java rather than from the shell: this is a property of the
         // device's own interfaces, and the walk is the one upstream does.
         val cgnatGuard = cgnatInterfacePrefixes()
@@ -1216,8 +1231,10 @@ object RootUtils {
         // --- Exit-node catch-all (IPv4): unmarked local traffic → daemon's table 52 ---
         sb.append(staleDaemonRulePurge("ip"))
         if (installCatchAll) {
+            sb.append(localBypassRoutes("ip", manualV4))
+            sb.append(localReturnRulesRemove("ip"))
+            sb.append(localReturnRulesInstall("ip", autoV4))
             sb.append(catchAllInstall("ip", V4_CATCH_ALL_MISSING, bestEffort = false, scope = gaps))
-            sb.append(localBypassRoutes("ip", localV4))
             sb.append(rpFilterLoosen())
         } else {
             // Skipping the install removes nothing: the delete loop lives inside
@@ -1225,7 +1242,8 @@ object RootUtils {
             // script (which has no VPN check at all) would survive untouched and
             // keep capturing the other tunnel's apps.
             sb.append(catchAllTeardown("ip"))
-            sb.append(localBypassRoutesRemove("ip", localV4))
+            sb.append(localBypassRoutesRemove("ip", manualV4))
+            sb.append(localReturnRulesRemove("ip"))
             // Loose reverse-path filtering exists only because table 52 is
             // consulted for unmarked lookups. With the catch-all gone it is a
             // gratuitous system-wide change, so it goes back.
@@ -1258,15 +1276,18 @@ object RootUtils {
         // marker would raise a false alarm each time.
         sb.append(staleDaemonRulePurge("ip -6"))
         if (installCatchAll) {
+            sb.append(localBypassRoutes("ip -6", manualV6))
+            sb.append(localReturnRulesRemove("ip -6"))
             sb.append("if [ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ]; then\n")
+            sb.append(localReturnRulesInstall("ip -6", autoV6))
             sb.append(catchAllInstall("ip -6", V6_CATCH_ALL_MISSING, bestEffort = true, scope = gaps))
-            sb.append(localBypassRoutes("ip -6", localV6))
             sb.append("fi\n")
         } else {
             // No IPv6 guard on the removal: a rule can only be there if IPv6 was
             // up when it was installed, and deleting what is not there is free.
             sb.append(catchAllTeardown("ip -6"))
-            sb.append(localBypassRoutesRemove("ip -6", localV6))
+            sb.append(localBypassRoutesRemove("ip -6", manualV6))
+            sb.append(localReturnRulesRemove("ip -6"))
         }
 
         // --- System-wide DNS redirect ---
@@ -1762,10 +1783,13 @@ object RootUtils {
         // deletes its throw routes and the kernel drops the rest with tailscale0.
         sb.append(catchAllTeardown("ip"))
         sb.append(catchAllTeardown("ip -6"))
-        // The local-network bypass we wrote into the daemon's table. Everything
-        // except the daemon's own loopback throw goes; a range the daemon threw
-        // for its own reasons would be re-added at its next Reconfig, and with
-        // the pref-$CATCH_ALL_PRIO rule gone nothing consults this table anyway.
+        sb.append(localReturnRulesRemove("ip"))
+        sb.append(localReturnRulesRemove("ip -6"))
+        // Throws an older build wrote into the daemon's table for the same
+        // purpose. Everything except the daemon's own loopback throw goes; a
+        // range the daemon threw for its own reasons is re-added at its next
+        // Reconfig, and with the pref-$CATCH_ALL_PRIO rule gone nothing
+        // consults this table anyway.
         sb.append(
             "ip route show table $DAEMON_TABLE 2>/dev/null | while read t c rest; do\n" +
                 "    [ \"\$t\" = throw ] || continue\n" +
@@ -2133,12 +2157,13 @@ object RootUtils {
      * the pattern accepts both.
      */
     /**
-     * The user's TUN exclusions plus link-local, filtered to plain CIDRs of the
-     * right family. A Context is needed to read the setting; without one only
-     * link-local is excluded, which keeps the shell script valid but leaves the
-     * LAN inside the tunnel — callers pass a Context.
+     * The user's own exclusions plus link-local, filtered to plain CIDRs of the
+     * right family. These are written as `throw` routes in the daemon's table,
+     * where longest-prefix match lets a more specific accepted subnet route win
+     * over a broader exclusion. A Context is needed to read the setting; without
+     * one only link-local is excluded, which keeps the boot path's script valid.
      */
-    private fun localExclusions(context: Context?, v6: Boolean): List<String> {
+    private fun manualExclusions(context: Context?, v6: Boolean): List<String> {
         val fromSettings = context?.let { GlobalSettings.getTunExcludedCIDRs(it) } ?: ""
         val all = (fromSettings.split(',', ';', ' ', '\n') + listOf(LINK_LOCAL_V4, LINK_LOCAL_V6))
             .map { it.trim() }
@@ -2151,6 +2176,65 @@ object RootUtils {
         }
         return valid.distinct()
     }
+
+    /**
+     * Prefixes this device actually sits on, when the avoidance setting is on.
+     * These are written as pref-[LAN_RETURN_PRIO] rules instead of throws: the
+     * conflict they exist for is an accepted route with the *same* prefix, which
+     * the daemon's RouteReplace would overwrite in table 52.
+     */
+    private fun autoLanExclusions(context: Context?, v6: Boolean): List<String> =
+        if (context != null && GlobalSettings.isRootYieldLanEnabled(context)) ownLanPrefixes(v6) else emptyList()
+
+    /**
+     * Prefixes this device holds on a real interface: the LAN the platform
+     * routes on its own. CGNAT and link-local are dropped (the first belongs to
+     * [cgnatInterfacePrefixes], the second to nothing), and so is every
+     * interface that is a tunnel rather than a link.
+     */
+    private fun ownLanPrefixes(v6: Boolean): List<String> {
+        val found = mutableListOf<String>()
+        val interfaces =
+            try {
+                java.net.NetworkInterface.getNetworkInterfaces()?.toList().orEmpty()
+            } catch (e: Exception) {
+                return emptyList()
+            }
+        for (nif in interfaces) {
+            val name = nif.name ?: continue
+            if (runCatching { nif.isLoopback }.getOrDefault(true)) continue
+            if (!runCatching { nif.isUp }.getOrDefault(false)) continue
+            if (NON_LAN_INTERFACES.any { name.startsWith(it) }) continue
+            for (ia in nif.interfaceAddresses.orEmpty()) {
+                val addr = ia.address ?: continue
+                val len = ia.networkPrefixLength.toInt()
+                if (!v6 && addr is java.net.Inet4Address && len in 1..32) {
+                    val bytes = addr.address
+                    val value = bytes.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+                    if (value in 0x64400000L..0x647fffffL) continue
+                    if (value in 0xa9fe0000L..0xa9feffffL) continue
+                    if (value in 0x7f000000L..0x7fffffffL) continue
+                    val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
+                    val network = value and mask
+                    val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
+                    found.add("$dotted/$len")
+                } else if (v6 && addr is java.net.Inet6Address && len in 1..128) {
+                    if (addr.isLinkLocalAddress || addr.isLoopbackAddress) continue
+                    val bytes = addr.address
+                    val network = ByteArray(bytes.size) { i ->
+                        val keep = (len - i * 8).coerceIn(0, 8)
+                        if (keep == 0) 0 else (bytes[i].toInt() and (0xff shl (8 - keep))).toByte()
+                    }
+                    val masked = java.net.InetAddress.getByAddress(network) as java.net.Inet6Address
+                    found.add("${masked.hostAddress}/$len")
+                }
+            }
+        }
+        return found.distinct()
+    }
+
+    /** Signature for the routing-apply gate: a changed LAN prefix must re-apply the rules. */
+    fun localLanSignature(): String = (ownLanPrefixes(false) + ownLanPrefixes(v6 = true)).sorted().joinToString(",")
 
     /**
      * The user's excluded apps as uids, resolved at apply time.
@@ -2286,9 +2370,13 @@ object RootUtils {
     }
 
     /**
-     * `throw` routes survive the daemon's own Reconfig — verified on the APatch
-     * phone by toggling the exit node with them installed — so they are written
-     * once here rather than being refreshed on every netmap change.
+     * The user's own exclusions, as `throw` routes in the daemon's table.
+     *
+     * Table 52 is searched with longest-prefix match, so a broad exclusion
+     * (`192.168.0.0/16`) still lets a more specific accepted route
+     * (`192.168.1.0/24`) win — which is what a user asking for the tailnet's
+     * `/24` expects. A pref-150 rule cannot express that: it matches the
+     * destination before table 52 is consulted at all.
      */
     private fun localBypassRoutes(ip: String, cidrs: List<String>): String = buildString {
         for (c in cidrs) {
@@ -2296,19 +2384,51 @@ object RootUtils {
         }
     }
 
-    /**
-     * Removes exactly the throws [localBypassRoutes] writes, by prefix.
-     *
-     * The cleanup path sweeps every throw out of table 52 instead, which is
-     * fine at teardown (the daemon is going away, and it re-adds its own at the
-     * next Reconfig) but far too blunt while the daemon keeps running: it would
-     * churn the LAN throws the daemon wrote for its own reasons on every apply.
-     */
+    /** Removes exactly the throws [localBypassRoutes] writes, by prefix. */
     private fun localBypassRoutesRemove(ip: String, cidrs: List<String>): String = buildString {
         for (c in cidrs) {
             append("$ip route del throw ${shQuote(c)} table $DAEMON_TABLE 2>/dev/null || true\n")
         }
     }
+
+    /**
+     * Hands [prefixes] back to Android's own routing instead of the daemon's
+     * table.
+     *
+     * A `throw` route in table 52 cannot do this: the daemon installs its subnet
+     * routes with netlink RouteReplace, so the next netmap update overwrites a
+     * same-prefix throw. A rule is not touched by the router at all, and `goto`
+     * lands on the platform's own rules exactly as if the pref-[CATCH_ALL_PRIO]
+     * catch-all did not match the destination.
+     *
+     * The priority belongs to this purpose alone: the daemon installs no rules
+     * on Android, netd's start at [NETD_RULE_MIN], and this app's other rules
+     * use 100, [EXCLUDE_PRIO] and [CATCH_ALL_PRIO].
+     */
+    private fun localReturnRulesInstall(ip: String, prefixes: List<String>): String = buildString {
+        if (prefixes.isEmpty()) return@buildString
+        val v6 = ip == "ip -6"
+        val probe = if (v6) "2001:4860:4860::8888" else "1.1.1.1"
+        append("GOTO_LAN=$($ip rule show 2>/dev/null | while read -r p rest; do\n")
+        append("    p=\${p%:}\n")
+        append("    case \"\$p\" in ''|*[!0-9]*) continue;; esac\n")
+        append("    [ \"\$p\" -ge $NETD_RULE_MIN ] && { echo \"\$p\"; break; }\n")
+        append("done)\n")
+        append("PHYS_LAN=$($ip route get $probe mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
+        for (c in prefixes) {
+            append(
+                "{ [ -n \"\$GOTO_LAN\" ] && $ip rule add to ${shQuote(c)} iif lo goto \"\$GOTO_LAN\" priority $LAN_RETURN_PRIO 2>/dev/null; } || true\n"
+            )
+            append(
+                "$ip rule show 2>/dev/null | grep -q '^$LAN_RETURN_PRIO:.*to $c' || " +
+                    "{ [ -n \"\$PHYS_LAN\" ] && $ip rule add to ${shQuote(c)} iif lo lookup \"\$PHYS_LAN\" priority $LAN_RETURN_PRIO 2>/dev/null; } || true\n"
+            )
+        }
+    }
+
+    /** Removes every pref-[LAN_RETURN_PRIO] rule; nothing else on the device writes that priority. */
+    private fun localReturnRulesRemove(ip: String): String =
+        "while $ip rule del priority $LAN_RETURN_PRIO 2>/dev/null; do :; done\n"
 
     /**
      * Prefixes inside 100.64.0.0/10 that belong to an interface which is not
@@ -2675,7 +2795,7 @@ object RootUtils {
         val uids = excludedUids(context)
         // A route lookup needs an address, not a prefix; the network address of
         // the first exclusion is enough to show which way the LAN goes.
-        val lanProbe = localExclusions(context, v6 = false).firstOrNull()?.substringBefore('/')
+        val lanProbe = manualExclusions(context, v6 = false).firstOrNull()?.substringBefore('/')
         // Its own root shell, so it runs before the dump script is assembled and
         // its verdict is printed as part of the dump rather than out of band.
         val coexist = detectForeignVpn()
@@ -2685,6 +2805,8 @@ object RootUtils {
             append("ip rule show 2>/dev/null || echo '(ip rule show failed)'\n")
             append("echo '--- ip -6 rule ---'\n")
             append("ip -6 rule show 2>/dev/null || echo '(ip -6 rule show failed)'\n")
+            append("echo '--- local prefixes returned to the platform (pref $LAN_RETURN_PRIO; empty when nothing overlaps) ---'\n")
+            append("{ ip rule show 2>/dev/null | grep '^$LAN_RETURN_PRIO:'; ip -6 rule show 2>/dev/null | grep '^$LAN_RETURN_PRIO:'; } | grep . || echo '(none)'\n")
             append("echo '--- other tunnels ---'\n")
             append("ip -o link show 2>/dev/null | grep -Eo '(tun[0-9]+|ppp[0-9]+|wg[0-9]+)' | grep -v tailscale0 | sort -u || echo '(none)'\n")
             append("echo '--- table $ROUTE_TABLE (app: the tailnet prefix, and a throw per foreign CGNAT prefix) ---'\n")

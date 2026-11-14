@@ -932,6 +932,9 @@
     <string name="settings_root_tun_title">原生 Linux TUN（tailscale0）</string>
     <string name="settings_root_tun_desc_native">通过 su 创建原生 Linux 内核接口 tailscale0。Android 的 VpnService 槽位 100% 空闲。</string>
     <string name="settings_root_tun_desc_proxy">通过 su 以 SOCKS5/代理模式运行守护进程（使用「本地代理」设置）。</string>
+    <string name="settings_root_yield_lan_title">本地网段自动避让</string>
+    <string name="settings_root_yield_lan_desc">当接受的 tailnet 子网路由与本机所在网段重叠时，让系统继续路由本地网络；关闭则接受的路由优先。</string>
+    <string name="search_kw_root_yield_lan">本地网络, 局域网, 子网, 路由, 冲突, 避让</string>
     <string name="settings_advertise_exit_node_title">作为出口节点运行</string>
     <string name="settings_advertise_exit_node_desc">把本设备作为出口节点提供给 tailnet 中的其他设备使用其互联网流量。</string>
     <string name="settings_sect_troubleshooting">故障排查</string>

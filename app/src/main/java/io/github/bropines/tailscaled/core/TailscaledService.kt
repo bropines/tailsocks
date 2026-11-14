@@ -536,6 +536,9 @@ class TailscaledService : Service() {
         // carrier's own subnet inside the tunnel until something unrelated
         // happened to change.
         val cgnatGuard = RootUtils.cgnatGuardSignature()
+        // The LAN this device sits on, when the avoidance setting is on: a new
+        // prefix has to re-apply the rules, not wait for an unrelated change.
+        val lanReturn = if (GlobalSettings.isRootYieldLanEnabled(this)) RootUtils.localLanSignature() else ""
 
         // Everything the apply reads without a root shell. The failure budget is
         // spent against this: a budget spent on one ruleset says nothing about a
@@ -551,6 +554,7 @@ class TailscaledService : Service() {
             takeDeviceAnyway.toString(),
             vpnSlotTaken.toString(),
             cgnatGuard,
+            lanReturn,
             lastForeignShape ?: ""
         ).joinToString("|")
         if (inputs != failedRootRoutingInputs) {

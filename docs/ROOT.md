@@ -12,7 +12,7 @@ TailSocks supports advanced **Root Mode** for Android devices running root solut
 * **State directory:** the active profile the app recorded in the env file below (`TAILSOCKS_STATE_DIR`); on an install that never started Root Mode from the app it falls back to `files/states/default`, then to the first `tailscaled.state` it finds, then to `states/root`. With several profiles only the recorded one is unambiguous.
 * **Socket, state and log modes:** `/data/data/io.github.bropines.tailscaled/files/tailscaled.sock` is `0666` (the TailSocks safesocket patch, and the script sets the same), the state directory `0700`, the log `0644` — the same modes the app sets when it starts the daemon itself. Up to 4.1.0 the script left them at `777`/`777`/`666` until the app next started the daemon. Log rotation (`tailscaled.log`) happens when the file exceeds 2 MB.
 * **The same daemon the app would start:** the script reads the root-owned file `/data/adb/tailsocks/control_proxy.env`, which the app writes through `su` on every Root Mode start — its own launch and the attach to a daemon this script started — with the control proxy (`ALL_PROXY`, `HTTP_PROXY`, `HTTPS_PROXY`, pre-resolved `TS_STATIC_HOSTS`), the daemon variables (`TS_DNS_FALLBACK`, `TS_VPN_BYPASS`, `TS_SOCKS5_USER`/`TS_SOCKS5_PASS`, `TS_TAILDROP_DIR`, the Hostinfo switch, `TS_USE_CACHED_NETMAP=false` when the netmap cache is switched off) and what the command line needs: the state directory, the SOCKS5/HTTP listen addresses and the tunnel mode (`tailscale0` or `userspace-networking`). Up to 4.1.0 a boot-started daemon had no proxy listeners at all, so Taildrive in the Files app and LAN clients were dead until a manual restart. The script only accepts `export NAME='value'` lines — an unquoted line is dropped, which is how *Ignore other VPNs* used to revert after every reboot — and never executes anything from the app's own data directory, which the app (or a restored backup) could write to.
-* **Boot-time routing:** Once `tailscale0` appears, the script installs tier T1 and nothing else (section 4): the tailnet rules — masked fwmark `0x1000000/0x1000000` → table `53`, the destination rules for the tailnet ranges, the `TAILSOCKS_MARK` chain and the `tailscale0` FORWARD pair, IPv4 and IPv6 — plus the removal of leftovers from 3.5.x (bare mark `1099`, direct `OUTPUT` entries). It installs **no** exit-node catch-all and **no** system-wide DNS redirect, because it cannot install what makes those two safe: the LAN `throw` routes and the per-app exclusions need packages resolved to uids, there is no `PackageManager` at `late_start`, and no other VPN client has started yet either, so a coexistence check made here would answer "the device is free" every time. A claim without its exemptions is worse than no claim — that is how a reboot with an exit node selected used to take the local network and the user's excluded apps with it. The app installs both device-wide tiers, with their exemptions and after the coexistence check, on its first `Running` tick (sections 4 and 5). **The cost:** with **Auto-start on Boot** off, the app is not started at boot at all, so after a reboot there is no exit node and no system-wide MagicDNS until you open TailSocks — the node is up and the tailnet is reachable, but nothing else on the device is routed through it. The `service.d` copy of the script is refreshed automatically on app update (section 3).
+* **Boot-time routing:** Once `tailscale0` appears, the script installs tier T1 and nothing else (section 4): the tailnet rules — masked fwmark `0x1000000/0x1000000` → table `53`, the destination rules for the tailnet ranges, the `TAILSOCKS_MARK` chain and the `tailscale0` FORWARD pair, IPv4 and IPv6 — plus the removal of leftovers from 3.5.x (bare mark `1099`, direct `OUTPUT` entries). It installs **no** exit-node catch-all and **no** system-wide DNS redirect, because it cannot install what makes those two safe: the LAN return rules and the per-app exclusions need packages resolved to uids, there is no `PackageManager` at `late_start`, and no other VPN client has started yet either, so a coexistence check made here would answer "the device is free" every time. A claim without its exemptions is worse than no claim — that is how a reboot with an exit node selected used to take the local network and the user's excluded apps with it. The app installs both device-wide tiers, with their exemptions and after the coexistence check, on its first `Running` tick (sections 4 and 5). **The cost:** with **Auto-start on Boot** off, the app is not started at boot at all, so after a reboot there is no exit node and no system-wide MagicDNS until you open TailSocks — the node is up and the tailnet is reachable, but nothing else on the device is routed through it. The `service.d` copy of the script is refreshed automatically on app update (section 3).
 * **Version line:** the installed script's second line is `# tailsocks-boot-script: <version> <build>`, the version being the first 12 hex digits of SHA-256 over the script as that build writes it (template, package, daemon path and env file), so it moves with every change of the template and with every move of the install directory. Settings reads it through `su` and marks a copy whose version is not the one this build would write — or that has no such line, as every copy before 5.0.0 — as outdated, next to the Reinstall button. The env file carries a comment line naming the package and build that wrote it; it has no format version, since the script only takes `export NAME='value'` lines.
 
 ### 2. Tailscale CLI Integration (`tailscale_cli.sh`)
@@ -41,7 +41,7 @@ each one claims:
 | Tier | What it is | What it claims |
 |---|---|---|
 | **T1 — tailnet reachability** | table `53` with the CGNAT guard, the two priority-100 rules, the `TAILSOCKS_MARK` chain, the `tailscale0` FORWARD pair, the `/etc/hosts` publication and the loopback SOCKS5/HTTP proxies | only packets this device sends to a tailnet address |
-| **T2 — default-route capture** | the priority-200 catch-all into the daemon's table `52`, the `throw` routes for **Excluded IP Ranges**, the `rp_filter` loosening, and the priority-190 per-app exclusions that punch holes in it | everything this device sends, whenever an exit node is selected |
+| **T2 — default-route capture** | the priority-200 catch-all into the daemon's table `52`, `throw` routes for **Excluded IP Ranges**, the priority-150 rules for the local LAN, the `rp_filter` loosening, and the priority-190 per-app exclusions that punch holes in it | everything this device sends, whenever an exit node is selected |
 | **T3 — device-wide DNS** | the `TAILSOCKS_DNS` chain and its two `nat OUTPUT` hooks | every port-53 packet on the device |
 
 T1 coexists with anything, by construction. T2 and T3 claim the whole device and
@@ -51,8 +51,8 @@ client bypasses. Section 5 has the three states and how the line between them is
 drawn.
 
 All three tiers are installed by the app, on its first `Running` tick. The boot
-script installs T1 only: the softeners that make T2 and T3 safe — the LAN
-`throw` routes, the per-app exclusions, the per-uid DNS carve-outs — all need
+script installs T1 only: the softeners that make T2 and T3 safe — the LAN return
+rules, the per-app exclusions, the per-uid DNS carve-outs — all need
 packages resolved to uids, and there is no `PackageManager` at `late_start`
 (section 1).
 
@@ -144,8 +144,8 @@ Everything only the daemon knows goes into its own table `52`: peer `/32`s,
 accepted subnet routes, `100.100.100.100/32`, `default dev tailscale0` while an
 exit node is selected, and `throw` routes for the LAN prefixes when *allow LAN
 access* is on. The app adds one rule next to the priority-100 ones, and with it
-its own `throw` routes for **Excluded IP Ranges** (below); otherwise it leaves
-the table to the daemon:
+the `throw` routes for **Excluded IP Ranges** and the priority-150 rules for the
+local LAN (below); otherwise it leaves the table to the daemon:
 
 ```
 200: from all fwmark 0x0/0x2020000 iif lo lookup 52
@@ -231,38 +231,54 @@ kernels, which is where the old `router config failed` health warning came
 from. Root Mode is client-only: this device cannot act as an exit node or
 subnet router while in Root Mode.
 
-**Excluded IP Ranges.** Together with the catch-all, every prefix in **Excluded
-IP Ranges** gets a `throw` route in table `52`, so those subnets stay on the
-real network while an exit node is on.
+**Excluded IP Ranges.** Together with the catch-all, the prefixes in **Excluded
+IP Ranges** keep their `throw` routes in table `52`, and the prefixes this
+device is actually on get priority-150 rules that hand them back to the
+platform, so the LAN stays local while an exit node is on.
 
 <details>
-<summary>Excluded IP Ranges in Root Mode</summary>
+<summary>Excluded IP Ranges and the local LAN in Root Mode</summary>
 
 - **Where it is set.** Settings → Tunnel mode → the Root Mode card, under
   **Excluded Apps**, while **Native Linux TUN (tailscale0)** is on — the same
   list (`tun_excluded_cidrs`) as the VPN (TUN) card's, by default
   `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` and
-  `fe80::/10`, is always added (`RootUtils.localExclusions`).
-- **What is written.** `ip route replace throw <prefix> table 52` for every
-  plain CIDR in the list: IPv4 always, IPv6 only where IPv6 is enabled on the
-  device. A throw ends the lookup in table 52 and hands it to netd's rules, so
-  traffic to that prefix leaves on Wi-Fi/cellular instead of the exit node.
-  Entries may be separated by commas, semicolons, spaces or new lines; one that
-  is not a plain CIDR is dropped and named in the ROOT log (`exit-node
-  exclusions ignored, not plain CIDRs: …`).
+  `fe80::/10`, is always added (`RootUtils.manualExclusions`).
+- **Two mechanisms, for two different conflicts.** The user's list is written as
+  `ip route replace throw <prefix> table 52`: table 52 is searched with
+  longest-prefix match, so a broad exclusion such as `192.168.0.0/16` still lets
+  a more specific accepted route (`192.168.1.0/24`) win, and only the rest of the
+  `/16` stays local. A pref-150 rule could not express that — it matches the
+  destination before table 52 is consulted at all. The network the device is
+  *sitting on* is a different case: there the accepted route has exactly the same
+  prefix, and the daemon's `netlink.RouteReplace` would overwrite a throw on the
+  next network-map update, so those prefixes become rules instead.
+- **The local LAN is handled automatically.** With **Keep the local network** on
+  (the default, `root_yield_lan`), every prefix of every non-tunnel interface is
+  written as `ip rule add to <prefix> iif lo goto <netd priority> priority 150`,
+  falling back to `lookup <physical table>`. `goto` lands on Android's own rules,
+  so traffic to that prefix leaves on Wi-Fi/cellular. Off lets an accepted route
+  for the same prefix win. IPv4 always, IPv6 only where IPv6 is enabled.
+  Entries in the user's list may be separated by commas, semicolons, spaces or
+  new lines; one that is not a plain CIDR is dropped and named in the ROOT log
+  (`exit-node exclusions ignored, not plain CIDRs: …`).
 - **No Android 13 limit here.** The "Needs Android 13+" note under the setting
   is about VPN mode, which excludes routes through `VpnService.Builder`; Root
-  Mode writes kernel routes.
+  Mode writes kernel routes and rules.
 - **When.** Only together with the priority-200 catch-all, device-wide or scoped
-  to a partial yield. The throws survive the daemon's own reconfiguration, so
-  they are written once per apply, not on every network-map change.
-- **Removed** when T2 is yielded — exactly the prefixes from the list, never a
-  throw the daemon wrote for itself (its *allow LAN access* throws live in the
-  same table). When Root Mode stops, every IPv4 throw in table 52 except the
-  daemon's `127.0.0.0/8`, and every IPv6 throw, is removed.
-- **Seen** with `su -c ip route show table 52`, and in Check Routing, whose
-  route check for the first excluded prefix answers `tailscale0` if the LAN is
-  going through the exit node.
+  to a partial yield. Both forms are rebuilt on every apply, so a changed LAN
+  prefix and a changed exclusion list take effect without a restart.
+  Priority 150 belongs to this purpose alone: this app's other rules sit at
+  100, 190 and 200, the daemon installs none on Android and netd's start at
+  10000.
+- **Removed** when T2 is yielded and when Root Mode stops:
+  `RootUtils.localBypassRoutesRemove` drops the user's throws by prefix,
+  `RootUtils.localReturnRulesRemove` drops every pref-150 rule, and the teardown
+  also sweeps throws an older build left in table 52.
+- **Seen** with `su -c ip route show table 52` (the user's throws) and
+  `su -c ip rule show | grep '^150:'` (the local prefixes); Check Routing lists
+  both, and its route check for the first excluded prefix answers
+  `tailscale0` if the LAN is going through the exit node.
 
 </details>
 
@@ -559,8 +575,9 @@ traffic carries netId 0 in the mark, and it was measured directly —
 which is why the scope has to be expressed as uids.
 
 What is *not* installed is also actively **removed**: an earlier apply's
-catch-all — device-wide or scoped — the **Excluded IP Ranges** `throw` routes we wrote into table
-52, the `rp_filter` change, the per-app exclusion rules and both DNS hooks are
+catch-all — device-wide or scoped — the **Excluded IP Ranges** throws, the
+priority-150 local rules, the `rp_filter` change, the per-app exclusion rules
+and both DNS hooks are
 taken down when the tier is yielded, and the scoped rules are likewise replaced
 as a unit whenever the other tunnel changes which apps it bypasses. Skipping an
 install would remove nothing, and these rules can be there from an earlier apply
@@ -679,8 +696,9 @@ exit-node egress — while it keeps the device and everything else keeps working
   `ip -6 rule` lists (our priority-100 rules, the priority-200 catch-all when it
   is installed, the priority-190 exclusions, and any stale `52xx` rules); other
   tunnel interfaces present on the device; table 53 (the tailnet prefix and a
-  `throw` per foreign CGNAT prefix), table 1099, table 52 for IPv4 and IPv6 (with
-  the **Excluded IP Ranges** throws) and every `tailscale0` route; the number of
+  `throw` per foreign CGNAT prefix), table 1099, table 52 for IPv4 and IPv6 and
+  every `tailscale0` route; the priority-150 rules that hand the local LAN back to the
+  platform; the number of
   default routes in table 53 (expected 0 — one means the device was captured); the route decision for `8.8.8.8` with and without the
   daemon's bypass mark, **per excluded uid** (a `tailscale0` answer there means
   that app is not excluded after all) and for the first excluded local prefix (a
@@ -812,16 +830,17 @@ su -c ps -ef | grep tailscaled
 # Verify socket permissions
 su -c ls -la /data/data/io.github.bropines.tailscaled/files/tailscaled.sock
 
-# Inspect the rules TailSocks owns (100: tailnet; 190: excluded apps; 200: exit-node
-# catch-all — device-wide when nothing else holds the VPN slot, one rule per carried
-# uid range in a partial yield, absent in a full one; no 52xx expected)
+# Inspect the rules TailSocks owns (100: tailnet; 150: the local LAN; 190: excluded
+# apps; 200: exit-node catch-all — device-wide when nothing else holds the VPN slot,
+# one rule per carried uid range in a partial yield, absent in a full one; no 52xx
+# expected)
 su -c ip rule show
 su -c ip route show table 53                 # the tailnet /10, plus a throw per foreign CGNAT prefix
 su -c iptables -t mangle -S TAILSOCKS_MARK
 su -c iptables -t nat -S TAILSOCKS_DNS
 
 # The daemon's table and the exit-node decision
-su -c ip route show table 52                 # peers, subnet routes, 'default dev tailscale0' with an exit node, throws for excluded ranges
+su -c ip route show table 52                 # peers, subnet routes, 'default dev tailscale0' with an exit node, the daemon's own throws
 su -c ip route get 8.8.8.8                   # tailscale0 with an exit node and the device ours, Wi-Fi/cellular otherwise
 su -c ip rule show | grep '^200:'            # empty is correct while another VPN holds the device
 su -c ip route get 8.8.8.8 mark 0x2000000    # the daemon's own path: always the physical network

@@ -1216,6 +1216,7 @@ fun SettingsScreen(
     val sectionTunnel: @Composable (Boolean) -> Unit = { withRoot ->
         var rootModeEnabled by remember { mutableStateOf(GlobalSettings.isRootModeEnabled(context)) }
         var rootTunEnabled by remember { mutableStateOf(GlobalSettings.isRootTunEnabled(context)) }
+        var rootYieldLan by remember { mutableStateOf(GlobalSettings.isRootYieldLanEnabled(context)) }
         var serviceScriptInstalled by remember { mutableStateOf(false) }
         // Whether the installed copy is the one this build writes (RootBootScript).
         var serviceScript by remember { mutableStateOf(RootBootScript.State(RootBootScript.Status.ABSENT)) }
@@ -1706,12 +1707,23 @@ fun SettingsScreen(
                     excludedAppsLauncher.launch(Intent(context, TunExcludedAppsActivity::class.java))
                 }
 
-                // VPN mode's list again: with tailscale0 the app writes these ranges
-                // as throw routes into the daemon's table, so they stay on the real
-                // network while an exit node is on (RootUtils.localBypassRoutes). The
-                // service watches the key and re-applies the ruleset by itself.
+                // The same list TUN mode uses: Root Mode turns these prefixes
+                // into rules that hand them back to the platform
+                // (RootUtils.localReturnRulesInstall), so they stay on the real
+                // network while an exit node is on. The service watches the key
+                // and re-applies the ruleset by itself.
                 AnimatedVisibility(visible = rootTunEnabled) {
                     Column {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                        SettingsSwitchItem(
+                            title = stringResource(R.string.settings_root_yield_lan_title),
+                            subtitle = stringResource(R.string.settings_root_yield_lan_desc),
+                            icon = Icons.Default.Router,
+                            checked = rootYieldLan
+                        ) { enabled ->
+                            rootYieldLan = enabled
+                            saveGlobalPref("root_yield_lan", enabled)
+                        }
                         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                         SettingsEditItem(
                             title = stringResource(R.string.settings_tun_excluded_cidrs_title),

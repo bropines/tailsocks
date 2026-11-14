@@ -230,6 +230,7 @@ object SettingsCatalog {
         row("tun_excluded_apps", SettingsPage.TUNNEL, R.string.settings_tun_excluded_apps_title, R.string.search_sum_tun_excluded_apps, R.string.search_kw_tun_excluded_apps, needs = Need.TUN_OR_ROOT)
         val rootCard = R.string.settings_root_sect_title
         row("root_tun", SettingsPage.TUNNEL, R.string.settings_root_tun_title, R.string.settings_root_tun_desc_native, R.string.search_kw_root_tun, rootCard, feature = root, aside = SettingsPage.ROOT, needs = Need.ROOT_MODE)
+        row("root_yield_lan", SettingsPage.TUNNEL, R.string.settings_root_yield_lan_title, R.string.settings_root_yield_lan_desc, R.string.search_kw_root_yield_lan, rootCard, feature = root, aside = SettingsPage.ROOT, needs = Need.ROOT_MODE)
         row("root_service", SettingsPage.TUNNEL, R.string.settings_root_service_title, R.string.settings_root_service_desc, R.string.search_kw_root_service, rootCard, feature = root, aside = SettingsPage.ROOT, needs = Need.ROOT_MODE)
         row("root_cli", SettingsPage.TUNNEL, R.string.settings_root_cli_title, R.string.settings_root_cli_desc, R.string.search_kw_root_cli, rootCard, feature = root, aside = SettingsPage.ROOT, needs = Need.ROOT_MODE)
         row("root_vpn_bypass", SettingsPage.TUNNEL, R.string.settings_root_vpn_bypass_title, R.string.settings_root_vpn_bypass_desc, R.string.search_kw_root_vpn_bypass, rootCard, feature = root, aside = SettingsPage.ROOT, needs = Need.ROOT_MODE)
