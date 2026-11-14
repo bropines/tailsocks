@@ -162,9 +162,21 @@ export GOTOOLCHAIN=${GOTOOLCHAIN:-auto}
 # tidy alone would take whatever anet release is newest on build day, so two
 # builds of one commit could differ. It is pinned to the version appctr/go.mod
 # already requires; `go get` verifies it against sum.golang.org.
+#
+# Both depend only on the patched tree, the pinned anet version and the Go
+# that runs them, so they run when one of those changed — a freshly patched
+# tree has no stamp — and not on every build, where they also rewrote go.mod
+# and go.sum (and so their mtimes, which the daemon check below reads).
 ANET_VERSION=$(awk '$1 == "github.com/wlynxg/anet" { print $2 }' ../go.mod)
-go get "github.com/wlynxg/anet@${ANET_VERSION:?appctr/go.mod names no anet version}"
-go mod tidy
+GO_VERSION=$(go version)
+MOD_STAMP="${ANET_VERSION:?appctr/go.mod names no anet version} ${GO_VERSION}"
+if [ "$(cat .mod_stamp 2>/dev/null)" != "$MOD_STAMP" ]; then
+    go get "github.com/wlynxg/anet@${ANET_VERSION}"
+    go mod tidy
+    echo "$MOD_STAMP" > .mod_stamp
+else
+    echo "-> Module graph already settled for this tree; skipping go get / go mod tidy."
+fi
 
 TAGS="ts_omit_systray,ts_omit_kube,ts_omit_aws,ts_omit_bird,ts_omit_qrcodes,ts_omit_desktop_sessions,ts_omit_dbus,ts_omit_networkmanager,ts_omit_resolved,ts_omit_sdnotify,ts_omit_tpm,ts_omit_logtail,ts_omit_synology,ts_omit_syspolicy,ts_omit_iptables,ts_omit_tap,ts_omit_linuxdnsfight,ts_omit_captiveportal,ts_omit_completion,ts_omit_completion_scripts,ts_omit_oauthkey,ts_omit_syslog,ts_omit_clientupdate,ts_omit_portlist,ts_omit_capture,ts_omit_debugportmapper,ts_omit_wakeonlan,ts_omit_serviceclientprefs,ts_omit_androidbin,ts_omit_androiddns,ts_omit_connreject"
 
@@ -204,13 +216,34 @@ for ABI in $TS_ABIS; do
     # upstream's own mechanism, cmd/tailscaled/with_cli.go. The two used to be
     # built separately: 39-43 MB per ABI on the device, against 27-30 MB for
     # the one (measured 2026-10-12, 1.104).
+    #
+    # `go build` cannot tell that the binary is up to date: -buildid= strips the
+    # ID it compares, so every run re-linked all four (compilation is cached,
+    # the link of a 30 MB binary is not). The stamp is everything the command
+    # is given — the patch set, the module graph, the Go and the C compiler,
+    # the flags, the version stamps (this repo's commit among them, so a new
+    # commit relinks, as reproducibility needs) — and a file of the tree newer
+    # than the binary (an edit made in tailscale_src by hand, before the
+    # patches are regenerated) rebuilds too. --clean starts from nothing.
+    OUT="tmp/libtailscale_${SUFFIX}.so"
+    STAMP_FILE="tmp/libtailscale_${SUFFIX}.stamp"
+    DAEMON_LDFLAGS="-s -w -buildid= -checklinkname=0 ${VERSION_LDFLAGS}"
+    DAEMON_STAMP=$(printf '%s\n' "$PATCH_STAMP" "$MOD_STAMP" "$GO_VERSION" "$GOFLAGS" "$GOARCH_ABI" "${GOARM:-}" \
+        "$CC" "$("$CC" --version 2>/dev/null | head -n 1)" "$TAGS,ts_include_cli" "$DAEMON_LDFLAGS" | sha256sum | cut -d" " -f1)
+    if [ -f "$OUT" ] && [ "$(cat "$STAMP_FILE" 2>/dev/null)" = "$DAEMON_STAMP" ] &&
+        [ -z "$(find . -path ./tmp -prune -o -type f -newer "$OUT" -print -quit)" ]; then
+        echo "-> tailscaled [$ABI] is up to date (same sources, compilers and flags); not relinked."
+        continue
+    fi
+    rm -f "$STAMP_FILE"
     echo "-> Compiling tailscaled with the CLI [$ABI]..."
     GOOS=android GOARCH=$GOARCH_ABI go build -v \
         -buildmode=pie \
         -trimpath \
         -tags "$TAGS,ts_include_cli" \
-        -ldflags="-s -w -buildid= -checklinkname=0 ${VERSION_LDFLAGS}" \
-        -o "tmp/libtailscale_${SUFFIX}.so" "./cmd/tailscaled"
+        -ldflags="$DAEMON_LDFLAGS" \
+        -o "$OUT" "./cmd/tailscaled"
+    echo "$DAEMON_STAMP" > "$STAMP_FILE"
 done
 
 cd ..
