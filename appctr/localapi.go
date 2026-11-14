@@ -53,10 +53,22 @@ func probeSocket(path string) bool {
 	return ok
 }
 
-// socketAlive is probeSocket with a short result cache.
+// socketAlive is probeSocket with a short result cache, and no probe at all
+// while the bus listener holds a stream open from that very socket.
+//
+// IsRunning guards almost every bridge call, so in Root Mode a screen that
+// polls turned into a connect, an accept (with patch 30's caller check) and a
+// close on the root daemon every half second. The stream already proves what
+// the probe would: it is open only while the daemon's end is, and it ends the
+// moment the daemon goes — faster than the next probe would notice. The probe
+// stays for when there is no stream: start-up, after a drop, a socket that
+// changed.
 func socketAlive(path string) bool {
 	if path == "" {
 		return false
+	}
+	if s := busStreamSocket.Load(); s != nil && *s == path {
+		return true
 	}
 	probeMu.Lock()
 	if probePath == path && time.Since(probeAt) < socketProbeTTL {

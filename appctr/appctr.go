@@ -318,7 +318,9 @@ func SetExternalSocketPath(path string) {
 //
 // For an externally managed (root) daemon the socket is probed for real: a
 // leftover socket file from a killed daemon must not be reported as running,
-// otherwise every LocalAPI caller keeps hammering a dead socket.
+// otherwise every LocalAPI caller keeps hammering a dead socket. The bus
+// stream from that socket, while it is open, is that proof without a probe
+// (socketAlive).
 func IsRunning() bool {
 	stateMu.Lock()
 	ext := externalSocketPath

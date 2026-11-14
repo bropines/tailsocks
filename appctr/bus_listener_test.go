@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -113,5 +114,57 @@ func TestBusListenerBackoffResetsAfterAServedStream(t *testing.T) {
 		if gap := at[i].Sub(at[i-1]); gap > 400*time.Millisecond {
 			t.Errorf("gap %d = %v, want about the base delay", i, gap)
 		}
+	}
+}
+
+// While the listener holds a stream from the root daemon's socket, IsRunning
+// takes it as proof of life instead of dialling the socket every half second;
+// once the stream is gone the probe is back.
+func TestSocketAliveTrustsTheOpenBusStream(t *testing.T) {
+	sock := serveFakeBus(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}))
+	resetProbe := func() {
+		probeMu.Lock()
+		probePath, probeAt, probeOK = "", time.Time{}, false
+		probeMu.Unlock()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { listenToBus(ctx, busTestTransport()); close(done) }()
+	deadline := time.Now().Add(2 * time.Second)
+	for busStreamSocket.Load() == nil {
+		if time.Now().After(deadline) {
+			t.Fatal("the stream never opened")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if got := *busStreamSocket.Load(); got != sock {
+		t.Fatalf("stream socket = %q, want %q", got, sock)
+	}
+
+	// A probe would fail now: there is no socket file left to stat.
+	if err := os.Remove(sock); err != nil {
+		t.Fatal(err)
+	}
+	resetProbe()
+	if !socketAlive(sock) {
+		t.Error("an open stream from the socket did not count as alive")
+	}
+	if socketAlive(sock + ".other") {
+		t.Error("the stream vouched for a socket it does not come from")
+	}
+
+	cancel()
+	<-done
+	if busStreamSocket.Load() != nil || busConnected.Load() {
+		t.Fatal("the stream's end left it recorded")
+	}
+	resetProbe()
+	if socketAlive(sock) {
+		t.Error("without a stream the probe should decide, and it has no socket")
 	}
 }

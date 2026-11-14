@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"slices"
 	"sort"
 	"strconv"
@@ -505,6 +506,13 @@ var (
 	busRetryMax  = 30 * time.Second
 )
 
+// busStreamSocket is the socket path of the stream the listener holds open,
+// nil while it holds none: busConnected with its address. An open stream from
+// the socket IsRunning asks about is proof that the daemon behind it is
+// alive — its end closes, and the stream with it, the moment the daemon goes
+// — so socketAlive need not dial the socket to find out (see there).
+var busStreamSocket atomic.Pointer[string]
+
 // busRefusedError is a watch-ipn-bus request the daemon answered with
 // something other than 200: its status and what it said, which is the only
 // place the reason for a refusal is written.
@@ -533,7 +541,15 @@ const busWatchMask = 1<<0 | 1<<1 | 1<<2 | 1<<4 | 1<<5 | 1<<6 | 1<<7 | 1<<9 | 1<<
 func listenToBus(ctx context.Context, tr *http.Transport) (connected bool, err error) {
 	client := http.Client{Transport: tr}
 
-	req, _ := http.NewRequestWithContext(ctx, "GET",
+	// The address of the connection the stream arrives on: the dial reads the
+	// socket path when it happens, and the path can change under it.
+	var sock string
+	trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+		if a := info.Conn.RemoteAddr(); a != nil {
+			sock = a.String()
+		}
+	}}
+	req, _ := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, trace), "GET",
 		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask="+strconv.Itoa(busWatchMask), nil)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -548,7 +564,13 @@ func listenToBus(ctx context.Context, tr *http.Transport) (connected bool, err e
 		return false, &busRefusedError{code: resp.StatusCode, body: strings.TrimSpace(string(body))}
 	}
 	busConnected.Store(true)
-	defer busConnected.Store(false)
+	if sock != "" {
+		busStreamSocket.Store(&sock)
+	}
+	defer func() {
+		busStreamSocket.Store(nil)
+		busConnected.Store(false)
+	}()
 
 	dec := json.NewDecoder(resp.Body)
 	for {
