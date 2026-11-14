@@ -75,9 +75,27 @@ object TaildropInbox {
      * The received entry a file in the inbox came with, for its sender line: by path, else by
      * name — but not one the default folder took, whose file left the inbox under that name.
      */
-    fun receivedEntryOf(file: TaildropFile, history: List<TaildropHistoryEntry>): TaildropHistoryEntry? {
-        val live = history.filter { it.direction == TaildropDirection.RECEIVED && it.deletedAt == null }
-        return live.firstOrNull { it.path == file.Path } ?: live.firstOrNull { it.name == file.Name && it.savedUri == null }
+    fun receivedEntryOf(file: TaildropFile, history: List<TaildropHistoryEntry>): TaildropHistoryEntry? =
+        ReceivedIndex(history).of(file)
+
+    /**
+     * [receivedEntryOf] for many files against one history: the live received entries indexed
+     * once, by path and by name, instead of the whole history filtered again for every file.
+     */
+    class ReceivedIndex(history: List<TaildropHistoryEntry>) {
+        private val byPath = HashMap<String, TaildropHistoryEntry>()
+        private val byName = HashMap<String, TaildropHistoryEntry>()
+
+        init {
+            for (e in history) {
+                if (e.direction != TaildropDirection.RECEIVED || e.deletedAt != null) continue
+                // The first in the history's order wins, as a search from the top would find it.
+                e.path?.let { byPath.putIfAbsent(it, e) }
+                if (e.savedUri == null) byName.putIfAbsent(e.name, e)
+            }
+        }
+
+        fun of(file: TaildropFile): TaildropHistoryEntry? = byPath[file.Path] ?: byName[file.Name]
     }
 
     /**
@@ -85,14 +103,16 @@ object TaildropInbox {
      * every card read "1 Jan, 03:00"; where it is missing, the arrival logged in the history
      * stands in, then the file's own modification time. Reads the disk.
      */
-    fun withReceivedTimes(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropFile> =
-        files.map { f ->
+    fun withReceivedTimes(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropFile> {
+        val index by lazy { ReceivedIndex(history) }
+        return files.map { f ->
             if (f.ModTime > 0) f
             else {
-                val millis = receivedEntryOf(f, history)?.timestamp ?: File(f.Path).lastModified()
+                val millis = index.of(f)?.timestamp ?: File(f.Path).lastModified()
                 if (millis > 0) f.copy(ModTime = millis / 1000) else f
             }
         }
+    }
 
     /**
      * Received files the default folder took, for the inbox: saved there (they have a document
@@ -100,7 +120,9 @@ object TaildropInbox {
      * folder took whose original could not be removed is listed once, as a waiting file.
      */
     fun savedEntries(files: List<TaildropFile>, history: List<TaildropHistoryEntry>): List<TaildropHistoryEntry> {
-        val waiting = files.mapNotNullTo(HashSet()) { receivedEntryOf(it, history) }
+        val index = ReceivedIndex(history)
+        val waiting = files.mapNotNullTo(HashSet()) { index.of(it) }
+
         return history.asSequence()
             .filter {
                 it.direction == TaildropDirection.RECEIVED && it.savedUri != null &&

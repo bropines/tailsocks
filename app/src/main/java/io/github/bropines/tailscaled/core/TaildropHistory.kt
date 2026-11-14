@@ -22,11 +22,12 @@ import java.util.Locale
  * sheet, a peer's sheet), arrived or not, and every file received, with what later became
  * of it (saved, deleted). Newest first, at most [MAX_ENTRIES].
  *
- * One JSON file, read and rewritten whole under one lock: the writers are a send on an IO
- * coroutine, the receive thread of [TaildropEvents] and the Files screen, and two of them
- * at once must not each write back the list as it was before the other. The write goes
- * through a temporary file and a rename, so a reader never sees half a list. Blocking I/O
- * throughout — never call it on the main thread.
+ * One JSON file, read and rewritten whole under one lock ([HistoryFile]): the writers are a
+ * send on an IO coroutine, the receive thread of [TaildropEvents] and the Files screen, and
+ * two of them at once must not each write back the list as it was before the other. The
+ * write goes through a temporary file and a rename, so a reader never sees half a list. The
+ * decoded list is kept in memory between reads. Blocking I/O throughout — never call it on
+ * the main thread.
  */
 object TaildropHistory {
     private const val TAG = "TaildropHistory"
@@ -41,9 +42,13 @@ object TaildropHistory {
     /** Where an export is written: the FileProvider's "exports" root (res/xml/file_paths.xml). */
     private const val EXPORT_DIR = "exports"
 
-    private val lock = Any()
+    @Volatile
+    private var store: HistoryFile? = null
 
-    private fun file(context: Context) = File(context.filesDir, FILE_NAME)
+    /** The process's one [HistoryFile]: the lock and the cache are only worth anything shared. */
+    private fun store(context: Context): HistoryFile = store ?: synchronized(this) {
+        store ?: HistoryFile(File(context.filesDir, FILE_NAME)).also { store = it }
+    }
 
     /** The history as a list, newest first; empty when there is none or it is unreadable. */
     fun decode(text: String): List<TaildropHistoryEntry> =
@@ -52,14 +57,17 @@ object TaildropHistory {
             .onFailure { Log.w(TAG, "History unreadable: ${it.message}") }
             .getOrDefault(emptyList())
 
-    fun read(context: Context): List<TaildropHistoryEntry> = synchronized(lock) { readLocked(context) }
+    fun read(context: Context): List<TaildropHistoryEntry> = store(context).read()
+
+    /** Adds one transfer; see [recordInto]. */
+    fun record(context: Context, entry: TaildropHistoryEntry) = edit(context) { list -> recordInto(list, entry) }
 
     /**
-     * Adds one transfer. A send gets its attempt number here, where the earlier attempts
-     * are: the same file name to the same device, started within [RETRY_WINDOW_MS] of the
-     * previous attempt's end.
+     * Adds [entry] to [list] in its place by time. A send gets its attempt number here, where
+     * the earlier attempts are: the same file name to the same device, started within
+     * [RETRY_WINDOW_MS] of the previous attempt's end.
      */
-    fun record(context: Context, entry: TaildropHistoryEntry) = edit(context) { list ->
+    internal fun recordInto(list: MutableList<TaildropHistoryEntry>, entry: TaildropHistoryEntry) {
         val numbered = if (entry.direction != TaildropDirection.SENT) entry else {
             val startedAt = entry.timestamp - (entry.durationMs ?: 0L)
             val previous = list.firstOrNull {
@@ -203,7 +211,7 @@ object TaildropHistory {
      * that a spreadsheet would run as a formula — a file name is whatever the sending peer
      * chose — is prefixed with an apostrophe, which spreadsheets read as "this is text".
      */
-    private fun csvCell(value: String?): String {
+    internal fun csvCell(value: String?): String {
         if (value.isNullOrEmpty()) return ""
         val safe = if (value[0] in "=+-@\t\r") "'$value" else value
         return if (safe.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"" + safe.replace("\"", "\"\"") + "\"" else safe
@@ -213,7 +221,7 @@ object TaildropHistory {
         if (a.peerId != null && b.peerId != null) a.peerId == b.peerId else a.peerName == b.peerName
 
     /** Keeps the list newest first: a file saved long after it came in is logged under its arrival. */
-    private fun insertByTime(list: MutableList<TaildropHistoryEntry>, entry: TaildropHistoryEntry) {
+    internal fun insertByTime(list: MutableList<TaildropHistoryEntry>, entry: TaildropHistoryEntry) {
         val at = list.indexOfFirst { it.timestamp <= entry.timestamp }
         if (at < 0) list.add(entry) else list.add(at, entry)
     }
@@ -223,7 +231,7 @@ object TaildropHistory {
      * moved with the pre-4.0 directory migration — by name. A file that has no entry (it
      * came in before received files were logged) gets one from what the inbox knows.
      */
-    private fun updateReceived(
+    internal fun updateReceived(
         list: MutableList<TaildropHistoryEntry>,
         file: TaildropFile,
         change: (TaildropHistoryEntry) -> TaildropHistoryEntry
@@ -248,30 +256,61 @@ object TaildropHistory {
         }
     }
 
-    private fun readLocked(context: Context): List<TaildropHistoryEntry> {
-        val f = file(context)
-        return if (f.exists()) decode(f.readText()) else emptyList()
+    private fun edit(context: Context, change: (MutableList<TaildropHistoryEntry>) -> Unit) = store(context).edit(change)
+}
+
+/**
+ * The history's file and, between reads, its decoded list: a remote device's status poll
+ * (every few seconds while its page is open on the managing phone) and every refresh of the
+ * Files page read the history, up to [TaildropHistory.MAX_ENTRIES] entries of JSON each time.
+ *
+ * The list in memory is good while the file is the one it was read from — same modification
+ * time, same length. A write here updates both; a file replaced from outside (a backup being
+ * restored) changes them, and the next read decodes it afresh. Every read and write holds the
+ * one lock, as before.
+ */
+internal class HistoryFile(private val file: File) {
+    private val lock = Any()
+    private var cached: List<TaildropHistoryEntry>? = null
+    private var stamp: Pair<Long, Long>? = null
+
+    private fun stampOf(): Pair<Long, Long>? = if (file.exists()) file.lastModified() to file.length() else null
+
+    fun read(): List<TaildropHistoryEntry> = synchronized(lock) { readLocked() }
+
+    private fun readLocked(): List<TaildropHistoryEntry> {
+        val now = stampOf() ?: return emptyList<TaildropHistoryEntry>().also { cached = null; stamp = null }
+        cached?.let { if (stamp == now) return it }
+        val list = TaildropHistory.decode(file.readText())
+        cached = list
+        stamp = now
+        return list
     }
 
-    private fun edit(context: Context, change: (MutableList<TaildropHistoryEntry>) -> Unit) {
+    fun edit(change: (MutableList<TaildropHistoryEntry>) -> Unit) {
         synchronized(lock) {
             try {
-                val list = readLocked(context).toMutableList()
+                val list = readLocked().toMutableList()
                 change(list)
-                while (list.size > MAX_ENTRIES) list.removeAt(list.lastIndex)
-                val target = file(context)
-                val tmp = File(target.parentFile, "$FILE_NAME.tmp")
+                while (list.size > TaildropHistory.MAX_ENTRIES) list.removeAt(list.lastIndex)
+                val tmp = File(file.parentFile, file.name + ".tmp")
                 tmp.writeText(AppJson.encodeToString<List<TaildropHistoryEntry>>(list))
-                if (!tmp.renameTo(target)) {
-                    target.writeText(tmp.readText())
+                if (!tmp.renameTo(file)) {
+                    file.writeText(tmp.readText())
                     tmp.delete()
                 }
+                cached = list.toList()
+                stamp = stampOf()
             } catch (e: Exception) {
-                Log.w(TAG, "History not written: ${e.message}")
+                // What is on disk is the truth now: read it again next time.
+                cached = null
+                stamp = null
+                Log.w("TaildropHistory", "History not written: ${e.message}")
             }
         }
     }
 }
+
 
 /** A MIME type from a file name's extension, for the history; null when the name has none. */
 fun mimeTypeOf(name: String): String? {
