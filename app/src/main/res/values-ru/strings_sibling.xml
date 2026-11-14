@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dialog before a start while the other build of the app runs (ui/SiblingDialog.kt). -->
+    <string name="sibling_title_dev">TailSocks dev уже работает</string>
+    <string name="sibling_title_release">TailSocks уже работает</string>
+    <string name="sibling_text_same_node">Он вошёл как это же устройство — в одно приложение восстановлена резервная копия другого. Два приложения с одним устройством выбивают друг друга из сети.</string>
+    <string name="sibling_text_root_tun">Оба используют Root-режим с интерфейсом tailscale0. У них общие маршруты и правила, и каждый запуск ломает другой.</string>
+    <string name="sibling_text_vpn_slot">Он держит VPN-подключение, а в Android оно одно. Запуск здесь отберёт его у другого приложения.</string>
+    <string name="sibling_text_ports">Он уже слушает тот же порт SOCKS5, HTTP или DNS-прокси, и этот запуск не сможет его занять. Смените порты в одном из них.</string>
+    <string name="sibling_action_open">Открыть его</string>
+    <string name="sibling_action_start_anyway">Всё равно запустить</string>
+</resources>
