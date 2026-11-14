@@ -85,110 +85,14 @@ import java.io.File
 import appctr.Appctr
 import java.net.URLEncoder
 
-/**
- * One row of the settings hub. [id] is what `openSection` stores, so it is a
- * stable string and must survive a `recreate()` — never reorder-sensitive.
- */
-private data class SettingsCategory(
-    val id: String,
-    val titleRes: Int,
-    val descRes: Int,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    /**
-     * How many cards the section's page holds, which decides whether a tablet
-     * stands them in columns: from two beside the categories, from three on a
-     * medium window showing the page alone. One block — a card, or the tunnel
-     * modes with what each one opens — stays a single readable column.
-     */
-    val cards: Int = 1,
-    /** One long card whose rows split into two columns instead (see [LocalSettingsColumns]). */
-    val splits: Boolean = false,
-    /**
-     * The feature the whole page is, where it is one (core/DeviceProfile.kt). A device that
-     * is offered it finds the page in the hub; one that keeps it for the advanced settings —
-     * a television — finds it on the Advanced page instead.
-     */
-    val feature: Feature? = null,
-)
-
-/** The 11 categories of the target structure, in their A..K order. */
-private val settingsCategories = listOf(
-    SettingsCategory("appearance", R.string.settings_cat_appearance, R.string.settings_cat_appearance_desc, Icons.Default.Palette, cards = 2, splits = true),
-    SettingsCategory("account", R.string.settings_cat_account, R.string.settings_cat_account_desc, Icons.Default.AccountCircle, cards = 3),
-    SettingsCategory("tunnel", R.string.settings_cat_tunnel, R.string.settings_cat_tunnel_desc, Icons.Default.VpnLock),
-    SettingsCategory("proxies", R.string.settings_cat_proxies, R.string.settings_cat_proxies_desc, Icons.Default.Lan, cards = 3),
-    SettingsCategory("dns", R.string.settings_cat_dns, R.string.settings_cat_dns_desc, Icons.Default.Dns, cards = 3),
-    SettingsCategory("bypass", R.string.settings_cat_bypass, R.string.settings_cat_bypass_desc, Icons.Default.Shield, cards = 3),
-    SettingsCategory("sharing", R.string.settings_cat_sharing, R.string.settings_cat_sharing_desc, Icons.Default.Share, cards = 3),
-    SettingsCategory("background", R.string.settings_cat_background, R.string.settings_cat_background_desc, Icons.Default.Bolt),
-    SettingsCategory("backup", R.string.settings_cat_backup, R.string.settings_cat_backup_desc, Icons.Default.Backup, feature = Feature.BACKUP_RESTORE),
-    SettingsCategory("automation", R.string.settings_cat_automation, R.string.settings_cat_automation_desc, Icons.Default.SmartButton, cards = 2, feature = Feature.AUTOMATION),
-    SettingsCategory("diagnostics", R.string.settings_cat_diagnostics, R.string.settings_cat_diagnostics_desc, Icons.Default.BugReport, cards = 4, feature = Feature.DIAGNOSTICS)
-)
-
-/**
- * The hub's last row and the page behind it. On a device that keeps some features for its
- * advanced settings — a television — the page lists the pages and the screens of those
- * features, and under them what is still an experiment. A handheld is offered everything
- * else in its usual place, so there the experiments are the whole page
- * ([experimentalCategory]).
- */
-private val advancedCategory =
-    SettingsCategory("advanced", R.string.tv_settings_advanced, R.string.tv_settings_advanced_desc, Icons.Default.Tune, cards = 2)
-
-/** [advancedCategory] on a handheld: the same row and page, said for the two cards they hold there. */
-private val experimentalCategory =
-    advancedCategory.copy(descRes = R.string.exposure_advanced_desc, cards = 2)
-
 /** The Advanced page's row for remote management, as the row the remote comes back to. */
 private const val REMOTE_ROW = "remote"
 
 /** And its row for what this device exposes (ExposureScreen). */
 private const val EXPOSURE_ROW = "exposure"
 
-/**
- * Two parts of a category that are features of their own, as pages for the Advanced page:
- * the theme and the icon out of Appearance, and Tunnel mode with Root among its modes.
- */
-private val themePage =
-    SettingsCategory("theme", R.string.tv_settings_theme, R.string.tv_settings_theme_desc, Icons.Default.Palette, feature = Feature.THEME_AND_ICON)
-private val rootPage =
-    SettingsCategory("root", R.string.tv_settings_root, R.string.tv_settings_root_desc, Icons.Default.Security, feature = Feature.ROOT_MODE)
-
-/** Every page Settings can show, for a page's title and layout. */
-private val settingsPages = settingsCategories + themePage + rootPage + advancedCategory
-
-/** The pages the Advanced page may list, in its order: [SettingsCategory.feature] decides which it does. */
-private val advancedPageCandidates = listOf(themePage, rootPage) + settingsCategories.filter { it.feature != null }
-
-/** A screen of its own that the Advanced page links to where its [feature] is kept for the advanced settings. */
-private class AdvancedTool(val feature: Feature, val titleRes: Int, val descRes: Int, val icon: ImageVector, val screen: Class<*>)
-
-private val advancedTools = listOf(
-    AdvancedTool(Feature.LOGS, R.string.logs_title, R.string.settings_link_logs_desc, Icons.AutoMirrored.Filled.List, LogsActivity::class.java),
-    AdvancedTool(Feature.CONSOLE, R.string.console_title, R.string.settings_link_console_desc, Icons.Default.Terminal, ConsoleActivity::class.java),
-    AdvancedTool(Feature.DNS_SCREEN, R.string.dns_title, R.string.settings_link_dns_desc, Icons.Default.Troubleshoot, DnsActivity::class.java),
-    // The screen itself; what may be changed on it is the screen's own question.
-    AdvancedTool(Feature.SERVE_EDIT, R.string.serve_title, R.string.settings_link_serve_desc, Icons.Default.Public, ServeActivity::class.java),
-)
-
 /** What the remote is sent to after Settings changes what it shows; see `focus` in [SettingsScreen]. */
 private enum class SettingsFocus { HUB, PAGE, ROW }
-
-/**
- * The page [section] names, as a device has it: [hub] are the pages its list shows and
- * [advanced] the ones its Advanced page does. A link (ui/DeepLinks.kt) or a caller may name
- * any page Settings knows. A device that keeps the theme inside Appearance and Root among
- * the tunnel modes — a handheld — opens those for their names; a name it has no page for
- * opens the list.
- */
-internal fun settingsLanding(section: String?, hub: List<String>, advanced: List<String>): String? = when (section) {
-    null -> null
-    in hub, in advanced -> section
-    themePage.id -> "appearance".takeIf { it in hub }
-    rootPage.id -> "tunnel".takeIf { it in hub }
-    else -> null
-}
 
 /** A backup or a restore waiting for its file, where the app's own browser picks it. */
 private enum class BackupFile { FULL_BACKUP, FULL_RESTORE, PROFILE_EXPORT, PROFILE_IMPORT }
@@ -293,40 +197,6 @@ class SettingsActivity : ComponentActivity() {
         }
     }
 }
-
-/** The SOCKS5 login and password it makes are credentials: from the system's secure source, not kotlin.random. */
-fun generateRandomString(length: Int = 12): String = generateSecureToken(length)
-
-/**
- * Cryptographically random token for the automation secret. URL-safe alphabet
- * without the look-alike characters (0/O, 1/l/I) so it survives being retyped.
- */
-fun generateSecureToken(length: Int = 32): String {
-    val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
-    val random = java.security.SecureRandom()
-    return buildString(length) {
-        repeat(length) { append(alphabet[random.nextInt(alphabet.length)]) }
-    }
-}
-
-/** Reduces a device name to what a DNS label may contain. */
-fun sanitizeHostnameInput(raw: String): String =
-    raw.trim()
-        .replace(" ", "-")
-        .lowercase()
-        .replace(Regex("[^a-z0-9-]"), "")
-        .trim('-')
-        .take(63)
-
-fun generateRandomLoopbackAddress(): String {
-    val x = (1..254).random()
-    val y = (1..254).random()
-    val z = (1..254).random()
-    val port = (1024..65535).random()
-    return "127.$x.$y.$z:$port"
-}
-
-data class PresetItem(val id: String, val color: Color, val name: String)
 
 /**
  * Where a settings list was left. Deliberately not snapshot state: it is read once, when a
@@ -3586,70 +3456,3 @@ fun SettingsScreen(
     }
 }
 
-/**
- * The listeners' addresses while LAN access is on: one block per network
- * (Wi-Fi/LAN, tailnet) with the host on its own line and a chip per port.
- * Tapping the host copies it, tapping a chip copies host:port. Without
- * [copies] — a device with no clipboard to speak of — the same presses hand
- * the address to [onCopy] to be shown, and the copy icons are not drawn.
- */
-@Composable
-private fun LanEndpoints(
-    networks: List<Pair<String, String?>>,
-    ports: List<Pair<String, Int>>,
-    copies: Boolean = true,
-    onCopy: (String) -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        for ((label, host) in networks) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            ) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (host == null) {
-                        Text(
-                            stringResource(R.string.settings_lan_endpoint_none),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { onCopy(host) },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                host,
-                                fontFamily = FontFamily.Monospace,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f).padding(vertical = 2.dp)
-                            )
-                            if (copies) Icon(
-                                Icons.Default.ContentCopy, contentDescription = stringResource(R.string.action_copy),
-                                modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            for ((name, port) in ports) {
-                                AssistChip(
-                                    onClick = { onCopy("$host:$port") },
-                                    label = { Text("$name  :$port", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.labelMedium) },
-                                    trailingIcon = if (copies) { { Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp)) } } else null
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
