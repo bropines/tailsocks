@@ -87,8 +87,44 @@ private data class DerpMetaEntry(
 
 // --- In-memory report holders for the Compose UI ---
 
+/**
+ * What the overview card says about this device. [CONFIRMING] is the moment right after a start:
+ * the backend is Running and the tailnet answers, but the coordination server has not yet marked
+ * this node online (`Self.Online` is false). Calling that OFFLINE was wrong — a re-run seconds
+ * later said CONNECTED.
+ */
+enum class NetcheckVerdict { CONNECTED, CONFIRMING, OFFLINE }
+
+/** How long after the daemon's start a node not yet marked online counts as being confirmed. */
+internal const val NETCHECK_CONFIRM_GRACE_MS = 20_000L
+
+/** How long a run that ended in [NetcheckVerdict.CONFIRMING] waits before it reads the status once more. */
+internal const val NETCHECK_CONFIRM_REREAD_MS = 4_000L
+
+/**
+ * The verdict, from the status fields it rests on. Online in the coordination server's eyes is
+ * connected, whatever else. Not online is offline when the backend is not Running; when it is,
+ * the node is still being confirmed while the daemon is younger than [NETCHECK_CONFIRM_GRACE_MS]
+ * ([daemonAgeMs], null when unknown) or while the same status shows the tailnet working — peers
+ * marked online come from a network map, a home relay from a live DERP connection. With neither,
+ * past the grace time, it is offline. Pure, so the table has a test.
+ */
+internal fun netcheckVerdict(
+    selfOnline: Boolean,
+    backendRunning: Boolean,
+    onlinePeers: Int,
+    hasHomeRelay: Boolean,
+    daemonAgeMs: Long?
+): NetcheckVerdict = when {
+    selfOnline -> NetcheckVerdict.CONNECTED
+    !backendRunning -> NetcheckVerdict.OFFLINE
+    daemonAgeMs != null && daemonAgeMs in 0 until NETCHECK_CONFIRM_GRACE_MS -> NetcheckVerdict.CONFIRMING
+    onlinePeers > 0 || hasHomeRelay -> NetcheckVerdict.CONFIRMING
+    else -> NetcheckVerdict.OFFLINE
+}
+
 data class ConnectionStatus(
-    val online: Boolean,
+    val verdict: NetcheckVerdict,
     val tailscaleIp: String,
     /**
      * The home DERP region as "Name (code)", empty when the node has none.
@@ -101,7 +137,9 @@ data class ConnectionStatus(
     val homeDerp: String,
     /** This run's latency to [homeDerp], when that region answered the probes. */
     val homeDerpLatencyMs: Double?
-)
+) {
+    val online: Boolean get() = verdict == NetcheckVerdict.CONNECTED
+}
 
 data class DiagnosticsReport(
     val udpWorking: Boolean,
@@ -167,12 +205,16 @@ internal fun decodeNetcheckStatus(rawStatus: String): StatusResponse = when (val
  * screen shows. The live run and a preview's LocalDemo both come through here,
  * so a render cannot show something the app would read differently. [link] is the
  * link MTU read beside the netcheck, which the daemon knows nothing about.
+ * [backendRunning] and [daemonAgeMs] feed [netcheckVerdict]; a preview passes neither and
+ * gets the plain online/offline verdict.
  */
 internal fun parseNetcheck(
     context: Context,
     status: StatusResponse,
     rawNetcheck: String,
-    link: LinkMtuReading? = null
+    link: LinkMtuReading? = null,
+    backendRunning: Boolean = false,
+    daemonAgeMs: Long? = null
 ): NetcheckResult {
     val netcheckResp = if (rawNetcheck.isBlank()) null
         else runCatching { AppJson.decodeFromString<NetcheckResponse>(rawNetcheck) }.getOrNull()
@@ -220,6 +262,17 @@ internal fun parseNetcheck(
     }
     val homeLatency = homeId?.let { id -> latencyList.firstOrNull { it.regionId == id }?.latencyMs }
 
+    val peers = status.peers
+    val peerCount = peers?.size ?: 0
+    val onlinePeers = peers?.values?.count { it.online == true } ?: 0
+    val verdict = netcheckVerdict(
+        selfOnline = online,
+        backendRunning = backendRunning,
+        onlinePeers = onlinePeers,
+        hasHomeRelay = homeCode.isNotEmpty(),
+        daemonAgeMs = daemonAgeMs
+    )
+
     val udp = netcheck.udp
     val ipv4 = netcheck.ipv4
     val ipv6 = netcheck.ipv6
@@ -230,7 +283,11 @@ internal fun parseNetcheck(
     // Build text report for copying
     val healthOutput = StringBuilder()
     healthOutput.append(context.getString(R.string.netcheck_connection_health))
-    healthOutput.append(context.getString(R.string.netcheck_status, if (online) "🟢 ONLINE" else "🔴 OFFLINE"))
+    healthOutput.append(context.getString(R.string.netcheck_status, when (verdict) {
+        NetcheckVerdict.CONNECTED -> "🟢 ONLINE"
+        NetcheckVerdict.CONFIRMING -> "🟡 CONNECTING (not confirmed by the coordination server yet)"
+        NetcheckVerdict.OFFLINE -> "🔴 OFFLINE"
+    }))
     healthOutput.append(context.getString(R.string.netcheck_tailscale_ip, tailscaleIp))
     healthOutput.append(
         when {
@@ -258,19 +315,14 @@ internal fun parseNetcheck(
     }
 
     healthOutput.append(context.getString(R.string.netcheck_peer_summary))
-    val peers = status.peers
-    var peerCount = 0
-    var onlinePeers = 0
     if (peers != null) {
-        peerCount = peers.size
-        onlinePeers = peers.values.count { it.online == true }
         healthOutput.append(context.getString(R.string.netcheck_total_peers, peerCount))
         healthOutput.append(context.getString(R.string.netcheck_online_peers, onlinePeers))
     }
 
     return NetcheckResult(
         connection = ConnectionStatus(
-            online = online,
+            verdict = verdict,
             tailscaleIp = tailscaleIp,
             homeDerp = homeDerp,
             homeDerpLatencyMs = homeLatency
@@ -395,7 +447,11 @@ fun NetcheckScreen(onBack: () -> Unit) {
         copyToClipboard(context, "Netcheck Report", text, context.getString(R.string.netcheck_report_copied))
     }
 
+    // Which run is the latest: the status re-read of an older one must not draw over a newer run.
+    var runSeq by remember { mutableStateOf(0) }
+
     fun runDiagnostics() {
+        val thisRun = ++runSeq
         isRunning = true
         errorMessage = null
         scope.launch(Dispatchers.IO) {
@@ -405,18 +461,44 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 // with its addresses, and this process's logcat can end up in a saved log file.
                 val status = decodeNetcheckStatus(Appctr.getStatusFromAPI())
                 val rawNetcheck = Appctr.getNetcheckFromAPI()
-                val fresh = parseNetcheck(context, status, rawNetcheck, LinkMtu.read(context))
+                val link = LinkMtu.read(context)
+                // The backend state and the daemon's age tell "not confirmed yet" from offline
+                // (netcheckVerdict). The start time is in Unix seconds; a daemon that never
+                // started has none.
+                fun verdictInputs(): Pair<Boolean, Long?> {
+                    val running = runCatching { Appctr.getBackendState() }.getOrDefault("") == "Running"
+                    val age = currentDaemonStart.takeIf { it > 0 }?.let { System.currentTimeMillis() - it * 1000 }
+                    return running to age
+                }
+                val (running, age) = verdictInputs()
+                val fresh = parseNetcheck(context, status, rawNetcheck, link, running, age)
 
-                withContext(Dispatchers.Main) {
-                    // Update cache
+                fun publish(shown: NetcheckResult) {
                     NetcheckCache.lastReportTime = System.currentTimeMillis()
                     NetcheckCache.daemonStartTime = currentDaemonStart
-                    NetcheckCache.result = fresh
+                    NetcheckCache.result = shown
                     NetcheckCache.errorMessage = null
-
-                    result = fresh
+                    result = shown
                     errorMessage = null
+                }
+
+                withContext(Dispatchers.Main) {
+                    publish(fresh)
                     isRunning = false
+                }
+
+                // Run while the coordination server has not confirmed this node yet: read the
+                // status once more a few seconds later and redraw the verdict from it (the
+                // netcheck itself is not asked again — the relays have not moved). Once only:
+                // a node still unconfirmed then keeps saying so until the user runs it again.
+                // A failed re-read changes nothing: the first verdict stays.
+                if (fresh.connection.verdict == NetcheckVerdict.CONFIRMING) {
+                    delay(NETCHECK_CONFIRM_REREAD_MS)
+                    val reread = runCatching {
+                        val (runningNow, ageNow) = verdictInputs()
+                        parseNetcheck(context, decodeNetcheckStatus(Appctr.getStatusFromAPI()), rawNetcheck, link, runningNow, ageNow)
+                    }.getOrNull()
+                    if (reread != null) withContext(Dispatchers.Main) { if (runSeq == thisRun && !isRunning) publish(reread) }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("Netcheck", "Error: ${e.message}", e)
@@ -665,7 +747,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
 
 
 /**
- * The verdict: online or not, this node's address, its home relay. [fill] stretches its
+ * The verdict — connected, not confirmed yet, or offline — this node's address, its home relay. [fill] stretches its
  * content to the card's height, for a card that stands beside a taller one.
  */
 @Composable
@@ -673,7 +755,10 @@ private fun NetcheckOverviewCard(status: ConnectionStatus, modifier: Modifier = 
     val homeMissing = status.homeDerp.isEmpty()
     // Online without a home relay is connected in name only for every
     // peer it has no direct path to, so it gets a warning, not a tick.
+    val confirming = status.verdict == NetcheckVerdict.CONFIRMING
     val (statusIcon, statusTint) = when {
+        // Not an error yet: the coordination server has not answered for this node.
+        confirming -> Icons.Default.HourglassTop to MaterialTheme.colorScheme.tertiary
         !status.online -> Icons.Default.Cancel to MaterialTheme.colorScheme.error
         homeMissing -> Icons.Default.Warning to MaterialTheme.colorScheme.error
         else -> Icons.Default.CheckCircle to MaterialTheme.colorScheme.primary
@@ -684,8 +769,11 @@ private fun NetcheckOverviewCard(status: ConnectionStatus, modifier: Modifier = 
     // through it, a grey cast over the whole card in a light theme.
     ElevatedCard(
         colors = CardDefaults.elevatedCardColors(
-            containerColor = (if (status.online) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                             else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f))
+            containerColor = (when {
+                status.online -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                confirming -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+                else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+            })
                 .compositeOver(MaterialTheme.colorScheme.background)
         ),
         shape = MaterialTheme.shapes.large,
@@ -715,12 +803,28 @@ private fun NetcheckOverviewCard(status: ConnectionStatus, modifier: Modifier = 
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (status.online) stringResource(R.string.netcheck_connected) else stringResource(R.string.netcheck_offline),
+                    text = stringResource(
+                        when (status.verdict) {
+                            NetcheckVerdict.CONNECTED -> R.string.netcheck_connected
+                            NetcheckVerdict.CONFIRMING -> R.string.netcheck_confirming
+                            NetcheckVerdict.OFFLINE -> R.string.netcheck_offline
+                        }
+                    ),
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (status.online) MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onErrorContainer
+                    color = when (status.verdict) {
+                        NetcheckVerdict.CONNECTED -> MaterialTheme.colorScheme.onPrimaryContainer
+                        NetcheckVerdict.CONFIRMING -> MaterialTheme.colorScheme.onTertiaryContainer
+                        NetcheckVerdict.OFFLINE -> MaterialTheme.colorScheme.onErrorContainer
+                    }
                 )
+                if (confirming) {
+                    Text(
+                        text = stringResource(R.string.netcheck_confirming_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     text = stringResource(R.string.netcheck_ip_label, status.tailscaleIp),
                     style = MaterialTheme.typography.bodyMedium,
