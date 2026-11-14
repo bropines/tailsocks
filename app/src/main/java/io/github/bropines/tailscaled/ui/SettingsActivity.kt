@@ -512,19 +512,8 @@ fun SettingsScreen(
     var httpProxy by remember { mutableStateOf(GlobalSettings.getString(context, "httpproxy", "")) }
     var dnsProxy by remember { mutableStateOf(GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")) }
     var lanAccessEnabled by remember { mutableStateOf(GlobalSettings.isLanAccessEnabled(context)) }
-    // Where the listeners can be reached from outside this device: the Wi-Fi
-    // address (none on mobile data) and this node's tailnet address — in
-    // userspace mode the daemon's netstack hands connections to that address to
-    // local listeners (measured 2026-09-08 from another tailnet node).
-    val lanIp = remember { NetAddr.lanIpv4() }
-    var tailnetIp by remember { mutableStateOf<String?>(null) }
     // The local proxies opened to the tailnet (Local proxies → Reachable from the tailnet).
     var tailnetOpen by remember { mutableStateOf(TailnetReach.opened(context)) }
-    LaunchedEffect(Unit) {
-        tailnetIp = withContext(Dispatchers.IO) {
-            DaemonStatus.readOrNull()?.self?.tailscaleIPs?.firstOrNull { ':' !in it }
-        }
-    }
     var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
     var dohUrl by remember { mutableStateOf(GlobalSettings.getString(context, "doh_url", "https://1.1.1.1/dns-query")) }
     var loginServer by remember { mutableStateOf(profilePrefs.getString("login_server", "") ?: "") }
@@ -545,9 +534,6 @@ fun SettingsScreen(
     var tunSwapInPlace by remember { mutableStateOf(GlobalSettings.isTunSwapInPlace(context)) }
     var tunTransparent by remember { mutableStateOf(GlobalSettings.getTunTransparent(context)) }
 
-    LaunchedEffect(Unit) {
-        tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
-    }
     val excludedAppsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         tunExcludedApps = GlobalSettings.getTunExcludedApps(context)
     }
@@ -559,26 +545,6 @@ fun SettingsScreen(
     var exitNodeId by remember { mutableStateOf(profilePrefs.getString("exit_node_id", "") ?: "") }
     var enableWebUI by remember { mutableStateOf(profilePrefs.getBoolean("enable_webui", false)) }
     var webUIAddr by remember { mutableStateOf(profilePrefs.getString("webui_addr", "127.0.0.1:8080") ?: "127.0.0.1:8080") }
-    // The admin console's active profile, for the row that opens it. Read off the main thread:
-    // the first read migrates the old plain-text credentials into the Keystore-sealed vault.
-    // No secret is ever read here, let alone shown.
-    var adminSummary by remember { mutableStateOf("") }
-    val adminInPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-    LaunchedEffect(Unit) {
-        if (adminInPreview) return@LaunchedEffect
-        adminSummary = withContext(Dispatchers.IO) {
-            runCatching {
-                AdminProfiles.store(context).active()?.let { p ->
-                    listOfNotNull(
-                        p.displayName,
-                        context.getString(if (p.authType == AuthType.OAUTH_CLIENT) R.string.admin_setup_tab_oauth else R.string.admin_setup_tab_token),
-                        context.getString(R.string.admin2_profile_read_only_badge).takeIf { p.readOnly },
-                    ).joinToString(" · ")
-                }
-            }.getOrNull() ?: context.getString(R.string.admin2_settings_none)
-        }
-    }
-
     var advertiseTags by remember { mutableStateOf(profilePrefs.getString("advertise_tags", "") ?: "") }
     var advertiseRoutes by remember { mutableStateOf(profilePrefs.getString("advertise_routes", "") ?: "") }
     var advertiseExitNode by remember { mutableStateOf(profilePrefs.getBoolean("advertise_exit_node", false)) }
@@ -1866,6 +1832,20 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
+        // Where the listeners can be reached from outside this device: the Wi-Fi
+        // address (none on mobile data) and this node's tailnet address — in
+        // userspace mode the daemon's netstack hands connections to that address to
+        // local listeners (measured 2026-09-08 from another tailnet node). Read when
+        // this page opens, off the main thread, not on every open of Settings: the
+        // interfaces are enumerated, and the tailnet address comes from the bridge's
+        // bus snapshot rather than a full status with every peer decoded.
+        val lanIp by produceState<String?>(null) { value = withContext(Dispatchers.IO) { NetAddr.lanIpv4() } }
+        val tailnetIp by produceState<String?>(null) {
+            value = withContext(Dispatchers.IO) {
+                runCatching { Appctr.getSelfIPs() }.getOrDefault("")
+                    .split(',').map { it.trim() }.firstOrNull { it.isNotEmpty() && ':' !in it }
+            }
+        }
                             imageVector = Icons.Default.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
@@ -2839,6 +2819,25 @@ fun SettingsScreen(
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Backup, null, modifier = Modifier.size(18.dp))
+        // The admin console's active profile, for the row that opens it. Read when this page
+        // opens and off the main thread: the first read migrates the old plain-text
+        // credentials into the Keystore-sealed vault, which no other page of Settings needs.
+        // No secret is ever read here, let alone shown.
+        val adminInPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+        val adminSummary by produceState("") {
+            if (adminInPreview) return@produceState
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    AdminProfiles.store(context).active()?.let { p ->
+                        listOfNotNull(
+                            p.displayName,
+                            context.getString(if (p.authType == AuthType.OAUTH_CLIENT) R.string.admin_setup_tab_oauth else R.string.admin_setup_tab_token),
+                            context.getString(R.string.admin2_profile_read_only_badge).takeIf { p.readOnly },
+                        ).joinToString(" · ")
+                    }
+                }.getOrNull() ?: context.getString(R.string.admin2_settings_none)
+            }
+        }
                     Spacer(Modifier.width(6.dp))
                     Text(
                         stringResource(R.string.settings_profile_export_title),
