@@ -444,4 +444,7 @@
     <string name="perm_autostart_title">自動重啟</string>
     <string name="perm_battery_title">電池最佳化</string>
     <string name="perm_notifications_title">通知</string>
+    <string name="settings_root_yield_lan_title">本機網段自動避讓</string>
+    <string name="settings_root_yield_lan_desc">當接受的 tailnet 子網路路由與本機所在網段重疊時，讓系統繼續路由本機網路；關閉則以接受的路由為準。</string>
+    <string name="search_kw_root_yield_lan">本機網路, 區域網路, 子網路, 路由, 衝突, 避讓</string>
 </resources>

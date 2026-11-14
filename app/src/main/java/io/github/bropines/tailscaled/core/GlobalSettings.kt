@@ -435,6 +435,18 @@ object GlobalSettings {
     fun setRootDnsRedirectEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_dns_redirect", enabled).apply()
 
     /**
+     * Whether Root Mode hands a local interface's own prefix back to the
+     * platform when an accepted subnet route covers the same prefix.
+     *
+     * On by default: the pref-200 catch-all sends every locally generated
+     * packet through the daemon's table, so a peer advertising the network this
+     * device is sitting on would otherwise take the LAN with it. Off lets the
+     * accepted route win.
+     */
+    fun isRootYieldLanEnabled(context: Context): Boolean = getPrefs(context).getBoolean("root_yield_lan", true)
+    fun setRootYieldLanEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean("root_yield_lan", enabled).apply()
+
+    /**
      * Whether Root Mode takes the default route and the device's port 53 even
      * while another VPN client holds the phone.
      *
@@ -624,7 +636,7 @@ object GlobalSettings {
         // take-the-device override is the one coexistence switch that stays
         // behind — see above.
         "root_mode_enabled", "root_tun_enabled", "root_kill_daemon_on_stop", "root_dns_redirect",
-        "root_vpn_bypass",
+        "root_vpn_bypass", "root_yield_lan",
         // The devices in the system share sheet.
         KEY_SHARE_TARGETS,
         // Taildrive downloads: how many at once. Where they go stays behind — it names a place on this device.
