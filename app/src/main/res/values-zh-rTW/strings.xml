@@ -243,7 +243,6 @@
     <string name="summary_relay">經 %1$s 中繼</string>
     <string name="action_edit">編輯</string>
     <string name="accounts_done">完成</string>
-    <string name="action_stop">斷開連線</string>
     <string name="action_cancel">取消</string>
     <string name="action_save">儲存</string>
     <string name="action_delete">刪除</string>
@@ -456,7 +455,6 @@
     <string name="dns_cd_copy_ip">複製 IP</string>
     <string name="issue_report_share">分享</string>
     <string name="share_title">發送至…</string>
-    <string name="share_sending">正在發送…</string>
     <string name="main_about_credits">致謝</string>
     <string name="issue_list_action">新開議題</string>
     <string name="main_dev_app">應用開發者： Bropines</string>

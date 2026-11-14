@@ -82,7 +82,6 @@
     <string name="taildrop_duration_seconds_format">%1$.1f s</string>
     <string name="taildrop_duration_minutes_format">%1$d min %2$d s</string>
     <string name="taildrop_speed_format">%1$s/s</string>
-    <string name="taildrop_value_with_time_format" translatable="false">%1$s · %2$s</string>
 
     <!-- A send that could not even start. -->
     <string name="taildrop_error_unreadable">The file could not be read</string>

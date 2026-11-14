@@ -76,7 +76,6 @@
 
     <!-- The managing device: the entry in a peer's details, pairing, the management sheet -->
     <string name="remote_manage_button">Manage this device</string>
-    <string name="remote_manage_title">Manage %1$s</string>
     <string name="remote_loading">Asking %1$s…</string>
     <string name="remote_pair_enter">Type the six digits shown on %1$s.</string>
     <string name="remote_pair_where">No code there yet? On that device open Settings → Advanced → Remote management and show a pairing code.</string>
@@ -111,7 +110,6 @@
     <string name="remote_problem_refused_why">%1$s refused the change: %2$s.</string>
     <string name="remote_problem_slow">Too many requests. Wait a few seconds.</string>
     <string name="remote_problem_busy">TailSocks on %1$s is busy. Nothing was changed.</string>
-    <string name="remote_problem_pending">%1$s has not answered yet. The change may still be applied.</string>
     <string name="remote_problem_failed">%1$s answered with an error.</string>
     <string name="remote_action_pair_again">Pair again</string>
     <string name="remote_action_ok">OK</string>
@@ -123,7 +121,6 @@
     <string name="remote_state_starting">Starting</string>
     <string name="remote_state_stopped">Stopped</string>
     <string name="remote_status_version">Tailscale %1$s</string>
-    <string name="remote_status_version_app">Tailscale %1$s · TailSocks %2$s</string>
     <string name="remote_status_health_ok">No problems reported</string>
     <string name="remote_exit_node">Exit node</string>
     <string name="remote_exit_none">None</string>
@@ -135,7 +132,6 @@
     <string name="remote_setting_accept_routes">Accept subnet routes</string>
     <string name="remote_setting_lan">LAN access with an exit node</string>
     <string name="remote_setting_unknown">The device did not say</string>
-    <string name="remote_guest_note">A guest can look and pick the exit node. Switches, Reconnect and deleting files are the owner\'s.</string>
     <string name="remote_guest_left">Guest · %1$s left</string>
     <string name="remote_reconnect">Reconnect</string>
     <string name="remote_reconnecting">Reconnecting. %1$s will be out of reach for a few seconds.</string>

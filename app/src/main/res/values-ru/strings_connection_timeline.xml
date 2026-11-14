@@ -30,6 +30,4 @@
     <string name="connection_timeline_summary_empty">Истории пока нет. Она копится, пока сервис работает.</string>
     <string name="connection_timeline_hint">Выберите участок полосы, чтобы узнать подробности</string>
 
-    <string name="settings_connection_timeline_title">История соединения</string>
-    <string name="settings_connection_timeline_desc">Показывать шкалу соединения на главном экране</string>
 </resources>

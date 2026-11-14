@@ -33,6 +33,27 @@ cd ..
 ./gradlew app:assembleDebug
 ```
 
+*One ABI while developing* — a plain `assembleDebug` writes and signs five APKs (one per ABI plus the universal one, about 450 MB together, the universal one alone ~145 MB). For a device in hand, build its ABI only; `appctr/build.sh` takes the same choice through `TS_ABIS`:
+```bash
+(cd appctr && TS_ABIS=arm64-v8a bash build.sh)
+./gradlew app:assembleDebug -PtargetAbi=arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+```
+Gradle then makes two APKs of that one ABI (`app-arm64-v8a-debug.apk` and a universal one holding the same ABI — the universal APK is always built, for the release's reproducibility). Without `-PtargetAbi` nothing changes: all four ABIs and the universal APK, which is what a release and F-Droid build. A core built with `TS_ABIS` lacks the other ABIs, so run `build.sh` without it again before a full build.
+
+*Configuration cache* — the build is clean under Gradle's configuration cache (debug, unit tests and a release build were checked), which saves the configuration phase on every repeated command. It is not switched on in the repository's `gradle.properties`, because that file is also what F-Droid builds with, and a cache problem there would fail their build for a gain they do not need. Switch it on for yourself in `~/.gradle/gradle.properties`:
+```properties
+org.gradle.configuration-cache=true
+```
+`scripts/licenses/generate.py` passes `--no-configuration-cache` for its own init script.
+
+*Tests* — the JVM unit tests, and the bridge's Go tests on Linux (they need the patched tree `build.sh` leaves in `appctr/tailscale_src`; on macOS the bridge does not compile for the host, since patch 21's `netmon.WakePollingMonitors` is not built for darwin — use a Linux container, e.g. the `golang` image, or leave them to CI):
+```bash
+./gradlew app:testDebugUnitTest
+(cd appctr && go test -count=1 .)
+```
+CI runs both — with the patched Tailscale packages' quick tests, a debug APK of one ABI and the NewApi lint — on every push to `main` and every pull request (`.github/workflows/ci.yml`), and the release workflow runs them before a tag is published. A call above `minSdk` fails every release build (`lintVital`, see `app/build.gradle.kts`).
+
 *Release build* — **requires your own signing keystore**. Since 4.0.0 the build refuses to fall back to the debug key: a release APK signed with a throwaway key installs once and can then never be updated by a properly signed build (Android rejects any update whose certificate differs, so the only way out is uninstalling and losing the app state). Provide all four variables, otherwise `packageRelease` fails with an explanatory error:
 ```bash
 KEYSTORE_FILE="$PWD/tailsocks.jks" KEYSTORE_PASSWORD=... \
@@ -50,6 +71,8 @@ Create a keystore with `keytool -genkeypair -v -keystore tailsocks.jks -alias ta
 ## Installing via ADB
 
 ABI splits are enabled, so each build produces a universal APK plus one per ABI (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) under `app/build/outputs/apk/<debug|release>/`.
+
+For a single device, the APK of its ABI is half the size of the universal one (see *One ABI while developing* above).
 
 ```bash
 # Debug build

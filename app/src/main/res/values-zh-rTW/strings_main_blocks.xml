@@ -19,7 +19,6 @@
     <string name="main_layout_narrow_cd">%1$s：恢復為一格</string>
     <string name="main_layout_move_earlier">上移</string>
     <string name="main_layout_move_later">下移</string>
-    <string name="main_layout_always">一律顯示</string>
     <string name="main_layout_when_connected">連線後顯示</string>
     <string name="main_layout_palette_title">新增至主畫面</string>
     <string name="main_layout_palette_empty">所有內容都已在主畫面上</string>
@@ -36,7 +35,6 @@
     <string name="main_block_speed_graph_desc">最近一分鐘的下載與上傳，以及誰在使用</string>
     <string name="main_block_timeline">連線時間軸</string>
     <string name="main_block_timeline_desc">最近幾小時內連線正常、恢復中或等待網路的時段</string>
-    <string name="main_block_tailnet_map">Tailnet 地圖</string>
     <string name="main_block_tailnet_map_desc">即時地圖：本裝置、各節點以及到達每個節點的方式</string>
     <string name="tile_console_desc">執行 tailscale 指令</string>
     <string name="tile_peers_desc">你的 tailnet 中的裝置</string>

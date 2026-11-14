@@ -61,7 +61,6 @@
     <string name="admin_pv_issue_duplicate">Поле записано дважды; действует только последнее.</string>
     <string name="admin_pv_issue_case">Поле написано не так, как в документации.</string>
     <string name="admin_pv_issue_legacy">Часть написана устаревшими полями (users, ports или allow).</string>
-    <string name="admin_pv_server_error">Сервер это отклонил</string>
     <string name="admin_pv_section_access">Доступ</string>
     <string name="admin_pv_section_ssh">SSH</string>
     <string name="admin_pv_section_approvers">Автоодобрение</string>

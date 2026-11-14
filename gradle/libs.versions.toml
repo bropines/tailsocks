@@ -9,7 +9,6 @@ kotlin = "2.2.21"
 core-ktx = "1.17.0"
 appcompat = "1.7.1"
 material = "1.13.0"
-gson = "2.10.1"
 compose-bom = "2026.08.00"
 # Material 3 Expressive proper: the components (LoadingIndicator, ButtonGroup,
 # SplitButton, MaterialShapes) and MaterialTheme.motionScheme are not public in
@@ -18,7 +17,6 @@ material3 = "1.5.0-alpha27"
 activity-compose = "1.8.2"
 lifecycle-runtime-ktx = "2.7.0"
 navigation = "2.9.6"
-documentfile = "1.0.1"
 browser = "1.10.0"
 glance = "1.1.1"
 ksp = "2.2.21-2.0.4"
@@ -56,9 +54,7 @@ androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
-androidx-documentfile = { group = "androidx.documentfile", name = "documentfile", version.ref = "documentfile" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
-gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
 androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }

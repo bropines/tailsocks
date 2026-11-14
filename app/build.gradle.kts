@@ -80,10 +80,22 @@ android {
     // NDK; otherwise AGP takes its own default and CI took whichever it found.
     ndkVersion = "28.2.13676358"
 
+    // A call above minSdk is fatal, not merely an error: lintVital — the lint
+    // pass every release build runs (assembleRelease, unless -PskipReleaseLint)
+    // — checks only fatal issues, so this is what makes a release fail on one.
+    // Android 10 users met three such crashes in 4.4.3 that this check reports.
+    // It used to be a separate `lintDebug -PlintNewApiOnly` in the release
+    // workflow, which compiled the whole debug variant (5 minutes) for one check
+    // the release build can run on the code it already compiled. Lint never
+    // changes the APK.
+    lint {
+        fatal += "NewApi"
+    }
+
     // ./gradlew lintDebug -PlintNewApiOnly: fail on nothing but a call above
-    // minSdk. CI runs this on every build. Android 10 users met three such
-    // crashes in 4.4.3 that this check reports; the full lint run still has
-    // hundreds of style findings and is not a gate.
+    // minSdk, for a debug build (which has no lintVital pass) — the CI workflow
+    // on main and pull requests runs it; the full lint run still has hundreds
+    // of style findings and is not a gate.
     if (project.hasProperty("lintNewApiOnly")) {
         lint {
             checkOnly += "NewApi"
@@ -276,7 +288,6 @@ androidComponents {
 dependencies {
     implementation(project(":appctr"))
     implementation(libs.kotlinx.serialization.json)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation(libs.androidx.appcompat)
     
@@ -293,9 +304,13 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.documentfile)
     // Custom Tabs: the login page opens over the app (ui/LoginTab.kt).
     implementation(libs.androidx.browser)
+    // Nothing navigates with it: it is here for what it brings along,
+    // lifecycle-viewmodel-compose, whose viewModel() the admin console's
+    // screens call (AdminApiActivity, DevicesTab, DeviceDetailSheet). Swapping
+    // it for that artifact declared directly would drop only classes R8
+    // already removes.
     implementation(libs.navigation.compose)
     
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
@@ -498,8 +513,14 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 // ordinary build still cannot slip out unsigned.
 val allowUnsignedRelease = project.hasProperty("allowUnsignedRelease")
 tasks.matching { it.name.startsWith("package") && it.name.endsWith("Release") }.configureEach {
+    // Locals, not the script's own values and file(): an action that reaches
+    // into the build script cannot be stored by Gradle's configuration cache
+    // ("cannot serialize Gradle script object references"), so a release built
+    // with --configuration-cache failed here. Same checks, same messages.
+    val allowUnsigned = allowUnsignedRelease
+    val appDir = layout.projectDirectory.asFile
     doFirst {
-        if (allowUnsignedRelease) return@doFirst
+        if (allowUnsigned) return@doFirst
         val path = System.getenv("KEYSTORE_FILE")
             ?: throw GradleException(
                 """
@@ -515,7 +536,7 @@ tasks.matching { it.name.startsWith("package") && it.name.endsWith("Release") }.
                 """.trimIndent()
             )
 
-        if (!file(path).exists()) {
+        if (!appDir.resolve(path).exists()) {
             throw GradleException("KEYSTORE_FILE points at a missing file: $path")
         }
         for (v in listOf("KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")) {

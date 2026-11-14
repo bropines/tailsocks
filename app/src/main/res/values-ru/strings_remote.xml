@@ -80,7 +80,6 @@
 
     <!-- The managing device: the entry in a peer's details, pairing, the management sheet -->
     <string name="remote_manage_button">Управлять устройством</string>
-    <string name="remote_manage_title">Управление: %1$s</string>
     <string name="remote_loading">Спрашиваю %1$s…</string>
     <string name="remote_pair_enter">Введите шесть цифр с экрана %1$s.</string>
     <string name="remote_pair_where">Кода ещё нет? На том устройстве откройте Настройки → Дополнительно → Удалённое управление и покажите код сопряжения.</string>
@@ -117,7 +116,6 @@
     <string name="remote_problem_refused_why">%1$s отклонил изменение: %2$s.</string>
     <string name="remote_problem_slow">Слишком много запросов. Подождите несколько секунд.</string>
     <string name="remote_problem_busy">TailSocks на %1$s занят. Ничего не изменено.</string>
-    <string name="remote_problem_pending">%1$s пока не ответил. Изменение ещё может примениться.</string>
     <string name="remote_problem_failed">%1$s ответил ошибкой.</string>
     <string name="remote_action_pair_again">Сопрячь заново</string>
     <string name="remote_action_ok">Понятно</string>
@@ -129,7 +127,6 @@
     <string name="remote_state_starting">Запускается</string>
     <string name="remote_state_stopped">Остановлено</string>
     <string name="remote_status_version">Tailscale %1$s</string>
-    <string name="remote_status_version_app">Tailscale %1$s · TailSocks %2$s</string>
     <string name="remote_status_health_ok">Проблем не обнаружено</string>
     <string name="remote_exit_node">Выходной узел</string>
     <string name="remote_exit_none">Нет</string>
@@ -141,7 +138,6 @@
     <string name="remote_setting_accept_routes">Принимать маршруты подсетей</string>
     <string name="remote_setting_lan">Локальная сеть при выходном узле</string>
     <string name="remote_setting_unknown">Устройство не сообщило</string>
-    <string name="remote_guest_note">Гость может смотреть и выбирать выходной узел. Переключатели, переподключение и удаление файлов — только владельцу.</string>
     <string name="remote_guest_left">Гость · осталось %1$s</string>
     <string name="remote_reconnect">Переподключить</string>
     <string name="remote_reconnecting">Переподключается. %1$s будет недоступно несколько секунд.</string>

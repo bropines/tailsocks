@@ -6,7 +6,6 @@
     <!-- Main screen -->
     <string name="status_stopped">Остановлено</string>
     <string name="status_running">Работает</string>
-    <string name="action_stop">Отключить</string>
     <string name="tap_to_start">Нажмите для запуска</string>
     <!-- Settings Items -->
 
@@ -308,10 +307,8 @@
     <string name="files_hub_title">Файлы</string>
     <string name="files_empty_inbox">Нет входящих файлов</string>
     <string name="files_empty_history">История пуста</string>
-    <string name="files_sending">Отправка…</string>
     <string name="files_auto_save_failed">Автосохранение не удалось: %1$s</string>
     <string name="files_save_error">Ошибка сохранения: %1$s</string>
-    <string name="files_sent">Отправлено!</string>
     <string name="files_peer_no_id">Демон вернул %1$s без ID ноды — файл некому адресовать. Обновите список и попробуйте ещё раз</string>
     <string name="share_failed_format">Не удалось отправить %1$s: %2$s</string>
     <!-- Уведомление «Файл получен» (TaildropEvents): канал, заголовок и текст «имя от устройства» -->
@@ -423,9 +420,6 @@
     <!-- ======================== Peers / Network Devices ======================== -->
     <string name="peers_title">Узлы</string>
     <string name="peers_search_placeholder">Поиск по имени, IP или ОС…</string>
-    <string name="peers_sending">Отправка…</string>
-    <string name="peers_sent">Отправлено!</string>
-    <string name="peers_failed_format">Ошибка: %1$s</string>
     <string name="peers_daemon_not_running">Служба не запущена</string>
     <string name="peers_network_error">Ошибка сети</string>
     <string name="peers_status_failed">Служба не ответила: %1$s</string>
@@ -672,7 +666,6 @@
     <string name="settings_exit_node_empty">Нет доступных выходных узлов</string>
     <string name="share_title">Отправить…</string>
     <string name="share_files_count_format">Файлов: %1$d</string>
-    <string name="share_sending">Отправка…</string>
     <!-- Taildrive Screen -->
     <string name="taildrive_title">Общие папки Taildrive</string>
     <string name="taildrive_cd_add">Добавить папку</string>
