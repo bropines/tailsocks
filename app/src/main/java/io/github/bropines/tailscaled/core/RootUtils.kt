@@ -792,6 +792,15 @@ object RootUtils {
     }
 
     private fun writeRootEnvFile(env: String, dataDir: String): Boolean {
+        val ok = runSu("control-proxy-env", rootEnvFileScript(env, dataDir)).ok
+        if (!ok) {
+            Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start with stale or no settings")
+        }
+        return ok
+    }
+
+    /** The env file write as a script; [startRootDaemon] runs it in its launch shell. */
+    private fun rootEnvFileScript(env: String, dataDir: String): String {
         val envScript = StringBuilder()
             .append("mkdir -p ").append(paths.envDir).append(" && chmod 700 ").append(paths.envDir).append('\n')
             .append("cat > ").append(paths.envFile).append(" <<'TAILSOCKS_ENV_EOF'\n")
@@ -804,11 +813,7 @@ object RootUtils {
             .append("TAILSOCKS_ENV_EOF\n")
             .append("chmod 600 ").append(paths.envFile).append('\n')
             .append("rm -f ").append(shQuote("$dataDir/files/control_proxy.env")).append('\n')
-        val ok = runSu("control-proxy-env", envScript.toString()).ok
-        if (!ok) {
-            Log.w(TAG, "Failed to write the root-owned control_proxy.env; the boot script will start with stale or no settings")
-        }
-        return ok
+        return envScript.toString()
     }
 
     fun startRootDaemon(context: Context, spec: RootDaemonSpec): Boolean {
@@ -829,7 +834,6 @@ object RootUtils {
             socketFile.parentFile?.mkdirs()
 
             val env = rootDaemonEnv(context, spec, logsDir)
-            writeRootEnvFile(env, dataDir)
 
             // Every argument is quoted: the listen addresses come from free-text
             // settings fields and are interpolated into a root shell.
@@ -850,7 +854,11 @@ object RootUtils {
                 }
             }.joinToString(" ")
 
-            val sb = StringBuilder(env)
+            // The env file the boot script reads next boot, then the same
+            // variables exported for this launch — one root shell for both; they
+            // used to be two, in this order.
+            val sb = StringBuilder(rootEnvFileScript(env, dataDir))
+            sb.append(env)
             // The boot script's trim, before the marker so the marker survives it.
             sb.append(logTrimScript(logFile))
             // Run marker first: everything the daemon prints in this run follows
@@ -890,6 +898,9 @@ object RootUtils {
 
             val res = runSu("daemon-start", sb.toString(), timeoutMs = 30_000L)
             Log.d(TAG, "Root daemon launch result exitCode=${res.exitCode}")
+            if (!res.ok) {
+                Log.w(TAG, "The daemon-start shell failed; the root-owned control_proxy.env may not have been written")
+            }
 
             // Verify the daemon really came up rather than trusting the exit code.
             var attempts = 0
@@ -3168,6 +3179,30 @@ object RootUtils {
             RootBootScript.expectedVersion(bootScriptTemplate(context), context.packageName, bootScriptDaemonBin(context))
         }.getOrDefault("")
         return RootBootScript.state(head, expected)
+    }
+
+    /**
+     * [serviceScriptState] and [isTailscaleCliInstalled] in one root shell, for
+     * the boot receiver, which used to spend four (check and reinstall, twice)
+     * inside its broadcast budget.
+     */
+    fun rootIntegrationState(context: Context): Pair<RootBootScript.State, Boolean> {
+        val present = "TAILSOCKS_SCRIPT_PRESENT"
+        val end = "TAILSOCKS_SCRIPT_END"
+        val cli = "TAILSOCKS_CLI_PRESENT"
+        val res = runSu(
+            "root-integration-check",
+            "[ -f \"${paths.serviceScript}\" ] && { echo '$present'; head -n ${RootBootScript.HEADER_SEARCH_LINES} \"${paths.serviceScript}\"; echo '$end'; }\n" +
+                "{ ${paths.cliCheckScript()}; } | grep -q exists && echo '$cli'\n" +
+                "true\n",
+            timeoutMs = 10_000L,
+            quiet = true
+        )
+        val head = if (res.ok && res.output.contains(present)) res.output.substringAfter(present).substringBefore(end) else null
+        val expected = runCatching {
+            RootBootScript.expectedVersion(bootScriptTemplate(context), context.packageName, bootScriptDaemonBin(context))
+        }.getOrDefault("")
+        return RootBootScript.state(head, expected) to (res.ok && res.output.contains(cli))
     }
 
     fun setTailscaleCliInstalled(context: Context, install: Boolean): Boolean {

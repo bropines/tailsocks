@@ -63,10 +63,17 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread {
             try {
-                if (RootUtils.isServiceScriptInstalled()) {
+                // One shell asks about both. A boot script whose version line
+                // matches what this build would write is left alone (the version
+                // covers the template and the daemon path baked into it); an
+                // outdated one is rewritten. The CLI wrapper carries no version,
+                // so an installed one is always rewritten — the daemon path in it
+                // moves with every update.
+                val (script, cliInstalled) = RootUtils.rootIntegrationState(context)
+                if (script.status == RootBootScript.Status.OUTDATED) {
                     RootUtils.setServiceScriptInstalled(context, true)
                 }
-                if (RootUtils.isTailscaleCliInstalled()) {
+                if (cliInstalled) {
                     RootUtils.setTailscaleCliInstalled(context, true)
                 }
             } catch (e: Exception) {
