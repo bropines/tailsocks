@@ -19,6 +19,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.PeerTrafficSampler
 import io.github.bropines.tailscaled.core.TrafficPoint
 import io.github.bropines.tailscaled.core.TrafficRate
@@ -113,15 +114,15 @@ internal object LiveTraffic {
             sampler.reset()
             return LiveTrafficState(loaded = true, running = false).also { latest = it }
         }
-        val status = try {
-            val json = Appctr.getStatusFromAPI()
-            if (json.isNullOrBlank() || json.startsWith("Error")) null
-            else AppJson.decodeFromString<StatusResponse>(json)
-        } catch (e: Exception) {
-            Log.w(TAG, "status: ${e.javaClass.simpleName}")
-            null
+        val status = when (val r = DaemonStatus.read()) {
+            is DaemonStatus.Read.Ok -> r.status
+            is DaemonStatus.Read.Failed -> {
+                Log.w(TAG, "status: ${r.error}")
+                null
+            }
         }
-        // A daemon that is starting, or busy: what was on screen stays, without a new point.
+        // A daemon that is starting, or busy: what was on screen stays, without a new point —
+        // the bridge's {"Error": …} included, which must not pass for an empty tailnet.
         if (status == null) return latest.copy(loaded = true, running = true).also { latest = it }
         // elapsedRealtime, not the wall clock: a time sync must not look like a pause.
         val traffic = sampler.add(SystemClock.elapsedRealtime(), status)

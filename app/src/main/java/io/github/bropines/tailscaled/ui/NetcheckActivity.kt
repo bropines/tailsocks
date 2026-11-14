@@ -63,11 +63,6 @@ import kotlin.math.roundToInt
 // --- Typed models for the daemon's raw status / netcheck JSON ---
 
 @Serializable
-private data class NetcheckStatusError(
-    @SerialName("Error") val error: String? = null
-)
-
-@Serializable
 private data class NetcheckResponse(
     @SerialName("Report") val report: NetcheckReport? = null,
     @SerialName("DERPMeta") val derpMeta: Map<String, DerpMetaEntry>? = null,
@@ -163,11 +158,9 @@ object NetcheckCache {
  * before the netcheck is started: that takes seconds and is pointless once the
  * daemon has said it is not running.
  */
-internal fun decodeNetcheckStatus(rawStatus: String): StatusResponse {
-    if (rawStatus.isBlank()) throw Exception("Status API returned null")
-    val statusError = runCatching { AppJson.decodeFromString<NetcheckStatusError>(rawStatus) }.getOrNull()?.error
-    if (!statusError.isNullOrEmpty()) throw Exception(statusError)
-    return AppJson.decodeFromString<StatusResponse>(rawStatus)
+internal fun decodeNetcheckStatus(rawStatus: String): StatusResponse = when (val read = DaemonStatus.parse(rawStatus)) {
+    is DaemonStatus.Read.Ok -> read.status
+    is DaemonStatus.Read.Failed -> throw Exception(read.error)
 }
 
 /**

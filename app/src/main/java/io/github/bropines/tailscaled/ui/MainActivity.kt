@@ -755,9 +755,9 @@ fun MainScreen(
         isExitNodesLoading = true
         scope.launch(Dispatchers.IO) {
             try {
-                val pJson = appctr.Appctr.getStatusFromAPI()
-                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
-                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
+                // A failed read keeps the list the sheet already has.
+                val status = DaemonStatus.readOrNull()
+                if (status != null) {
                     val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
                     withContext(Dispatchers.Main) { exitNodes = nodes }
                 }
@@ -901,11 +901,7 @@ fun MainScreen(
                     lastSummaryAt = summaryNow
                     val ipForExit = exitNodeIp
                     scope.launch(Dispatchers.IO) {
-                        val status = runCatching {
-                            val json = appctr.Appctr.getStatusFromAPI()
-                            if (json.isBlank() || json.startsWith("Error")) null
-                            else AppJson.decodeFromString<StatusResponse>(json)
-                        }.getOrNull()
+                        val status = DaemonStatus.readOrNull()
                         val built = status?.let { runCatching { summarize(it, ipForExit) }.getOrNull() }
                         val peers = status?.let { runCatching { listablePeers(it) }.getOrNull() }
                         withContext(Dispatchers.Main) {
@@ -924,9 +920,8 @@ fun MainScreen(
                     lastAvatarSync = now
                     scope.launch(Dispatchers.IO) {
                         try {
-                            val pJson = appctr.Appctr.getStatusFromAPI()
-                            if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
-                                val status = AppJson.decodeFromString<StatusResponse>(pJson)
+                            val status = DaemonStatus.readOrNull()
+                            if (status != null) {
                                 val selfUserId = status.self?.userID
                                 val selfUser = status.users?.get(selfUserId?.toString()) ?: status.users?.values?.firstOrNull()
                                 val picUrl = selfUser?.profilePicUrl
@@ -1269,9 +1264,7 @@ fun MainScreen(
             if (proxyState != "ACTIVE") { activeLiveLine = null; return@LaunchedEffect }
             val line = withContext(Dispatchers.IO) {
                 runCatching {
-                    val json = appctr.Appctr.getStatusFromAPI()
-                    if (json.isBlank() || json.startsWith("Error")) return@runCatching null
-                    val st = AppJson.decodeFromString<StatusResponse>(json)
+                    val st = DaemonStatus.readOrNull() ?: return@runCatching null
                     val self = st.self ?: return@runCatching null
                     // The tailnet, not the node's full name: which tailnet this
                     // account is in is what tells it apart from the others, and

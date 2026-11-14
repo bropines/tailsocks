@@ -815,10 +815,7 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                 }
                 return@launch
             }
-            val statusJson = runCatching { Appctr.getStatusFromAPI() }.getOrDefault("")
-            val newCaps = if (statusJson.isNotBlank() && !statusJson.contains("\"Error\""))
-                runCatching { capabilitiesOf(AppJson.decodeFromString<StatusResponse>(statusJson)) }.getOrNull()
-            else null
+            val newCaps = DaemonStatus.readOrNull()?.let { runCatching { capabilitiesOf(it) }.getOrNull() }
             val json = runCatching { Appctr.getServeConfig() }.getOrDefault("")
             val newConfig = if (json.isNotBlank() && !json.contains("\"Error\""))
                 runCatching { AppJson.decodeFromString<ServeConfig>(json) }.getOrNull()
