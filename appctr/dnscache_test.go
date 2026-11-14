@@ -173,3 +173,50 @@ func TestDNSCacheEvictsWhenFull(t *testing.T) {
 		t.Errorf("cache grew to %d, cap is %d", n, dnsCacheMaxItems)
 	}
 }
+
+// The one parse the proxy now does per query carries what the cache and the
+// OPT check need.
+func TestParseDNSQuery(t *testing.T) {
+	plain := testQuery(t, 7, "NAS.tail1.ts.net.", dnsmessage.TypeA)
+	d := parseDNSQuery(plain)
+	if !d.ok || d.opt || d.hdr.ID != 7 || d.key.name != "nas.tail1.ts.net" || d.q.Name.String() != "NAS.tail1.ts.net." {
+		t.Errorf("plain query: %+v", d)
+	}
+
+	m := dnsmessage.Message{
+		Header:    dnsmessage.Header{ID: 8, RecursionDesired: true},
+		Questions: []dnsmessage.Question{{Name: mustName(t, "example.com."), Type: dnsmessage.TypeAAAA, Class: dnsmessage.ClassINET}},
+	}
+	var opt dnsmessage.ResourceHeader
+	if err := opt.SetEDNS0(1232, dnsmessage.RCodeSuccess, false); err != nil {
+		t.Fatal(err)
+	}
+	m.Additionals = []dnsmessage.Resource{{Header: opt, Body: &dnsmessage.OPTResource{}}}
+	withOPT, err := m.Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := parseDNSQuery(withOPT); !d.ok || !d.opt || d.key.qtype != dnsmessage.TypeAAAA {
+		t.Errorf("query with OPT: %+v", d)
+	}
+
+	if d := parseDNSQuery(testAnswer(t, plain, 60, dnsmessage.RCodeSuccess, true)); d.ok {
+		t.Error("a response was taken for a query")
+	}
+	if d := parseDNSQuery([]byte{1, 2, 3}); d.ok {
+		t.Error("garbage was taken for a query")
+	}
+}
+
+func BenchmarkDNSCacheHit(b *testing.B) {
+	t := &testing.T{}
+	q := testQuery(t, 1, "nas.tail1.ts.net.", dnsmessage.TypeA)
+	dnsCacheStore(q, testAnswer(t, q, 300, dnsmessage.RCodeSuccess, true))
+	b.ReportAllocs()
+	for b.Loop() {
+		d := parseDNSQuery(q)
+		if _, ok := dnsCacheLookupParsed(d); !ok {
+			b.Fatal("miss")
+		}
+	}
+}

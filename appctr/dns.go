@@ -5,6 +5,7 @@ package appctr
 // IPN Bus state (caches, listener) lives in bus.go.
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -115,20 +116,32 @@ func startDNSProxy(ctx context.Context, listenAddr string, fallbacks []string, d
 		go func(q []byte, cAddr net.Addr, dst net.IP) {
 			defer func() { <-inFlight }()
 			started := time.Now()
-			resp, cached := dnsCacheLookup(q)
+			parsed := parseDNSQuery(q)
+			resp, cached := dnsCacheLookupParsed(parsed)
 			if !cached {
 				resp = processDNSQuery(q, fallbacks, dohUrl)
 				if resp != nil {
-					dnsCacheStore(q, resp)
+					dnsCacheStoreParsed(parsed, resp)
 				}
 			}
-			name, qtype := dnsQuestion(q)
-			to := "kernel default"
-			if dst != nil {
-				to = dst.String()
+			// The line is off unless the detailed log is on, and slog
+			// evaluates its arguments before it asks: the name, the two
+			// addresses and the elapsed time were worked out per query for
+			// nothing.
+			if slog.Default().Enabled(ctx, slog.LevelDebug) {
+				var name, qtype string
+				if parsed.ok {
+					name, qtype = dnsQuestionName(parsed.q)
+				} else {
+					name, qtype = dnsQuestion(q)
+				}
+				to := "kernel default"
+				if dst != nil {
+					to = dst.String()
+				}
+				slog.Debug("DNS query", "name", name, "type", qtype, "from", cAddr.String(), "to", to,
+					"answered", resp != nil, "cached", cached, "ms", time.Since(started).Milliseconds())
 			}
-			slog.Debug("DNS query", "name", name, "type", qtype, "from", cAddr.String(), "to", to,
-				"answered", resp != nil, "cached", cached, "ms", time.Since(started).Milliseconds())
 			if resp == nil {
 				return
 			}
@@ -151,6 +164,11 @@ func dnsQuestion(msg []byte) (name, qtype string) {
 	if err != nil {
 		return "?", "?"
 	}
+	return dnsQuestionName(q)
+}
+
+// dnsQuestionName is q's name and type as the log writes them.
+func dnsQuestionName(q dnsmessage.Question) (name, qtype string) {
 	return strings.TrimSuffix(q.Name.String(), "."), strings.TrimPrefix(q.Type.String(), "Type")
 }
 
@@ -496,7 +514,11 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	if _, err := conn.Write(query); err != nil {
 		return nil, err
 	}
-	buf := make([]byte, 65535)
+	// The largest datagram a reply can be, from a pool: a fresh 64 KiB per
+	// attempt for answers of a few hundred bytes. The answer is copied out.
+	bp := dnsUDPBufs.Get().(*[]byte)
+	defer dnsUDPBufs.Put(bp)
+	buf := *bp
 	n, err := conn.Read(buf)
 	if err != nil {
 		return nil, err
@@ -507,8 +529,13 @@ func forwardDNSviaUDP(query []byte, server string) ([]byte, error) {
 	if n < 2 || len(query) < 2 || buf[0] != query[0] || buf[1] != query[1] {
 		return nil, fmt.Errorf("dns udp: transaction ID mismatch")
 	}
-	return buf[:n], nil
+	return bytes.Clone(buf[:n]), nil
 }
+
+var dnsUDPBufs = sync.Pool{New: func() any {
+	b := make([]byte, 65535)
+	return &b
+}}
 
 // dohClient is the cached DoH http.Client, keyed by the SOCKS configuration it
 // dials through. Building a transport per query parked every DoH connection in

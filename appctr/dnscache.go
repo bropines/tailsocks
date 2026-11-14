@@ -60,6 +60,30 @@ func dnsCacheLen() int {
 	return len(dnsRespCache.m)
 }
 
+// dnsQuery is a raw query parsed once for the cache and the log: the proxy's
+// per-query goroutine used to parse the same packet in the lookup, again in
+// the store, again for the OPT check and again for the log line.
+type dnsQuery struct {
+	hdr dnsmessage.Header
+	q   dnsmessage.Question
+	key dnsCacheKey
+	// ok is false for anything but a plain single-question query, which the
+	// cache leaves alone.
+	ok bool
+	// opt is whether the query carries an EDNS0 OPT record.
+	opt bool
+}
+
+// parseDNSQuery parses query far enough to key the cache.
+func parseDNSQuery(query []byte) dnsQuery {
+	var d dnsQuery
+	d.hdr, d.q, d.key, d.ok = dnsQueryKey(query)
+	if d.ok {
+		d.opt = hasOPT(query)
+	}
+	return d
+}
+
 // dnsQueryKey parses a raw query far enough to key the cache. ok is false for
 // anything but a plain single-question query.
 func dnsQueryKey(query []byte) (hdr dnsmessage.Header, q dnsmessage.Question, key dnsCacheKey, ok bool) {
@@ -85,10 +109,15 @@ func dnsQueryKey(query []byte) (hdr dnsmessage.Header, q dnsmessage.Question, ke
 
 // dnsCacheLookup answers query from the cache. ok is false on a miss.
 func dnsCacheLookup(query []byte) (resp []byte, ok bool) {
-	hdr, q, key, ok := dnsQueryKey(query)
-	if !ok {
+	return dnsCacheLookupParsed(parseDNSQuery(query))
+}
+
+// dnsCacheLookupParsed is dnsCacheLookup for a query already parsed.
+func dnsCacheLookupParsed(d dnsQuery) (resp []byte, ok bool) {
+	if !d.ok {
 		return nil, false
 	}
+	hdr, q, key := d.hdr, d.q, d.key
 	now := dnsCacheNow()
 
 	dnsRespCache.Lock()
@@ -117,7 +146,7 @@ func dnsCacheLookup(query []byte) (resp []byte, ok bool) {
 	countDown(msg.Answers, elapsed)
 	countDown(msg.Authorities, elapsed)
 	countDown(msg.Additionals, elapsed)
-	if !hasOPT(query) {
+	if !d.opt {
 		msg.Additionals = withoutOPT(msg.Additionals)
 	}
 	packed, err := msg.Pack()
@@ -130,10 +159,15 @@ func dnsCacheLookup(query []byte) (resp []byte, ok bool) {
 // dnsCacheStore remembers resp as the answer to query when it is cacheable:
 // a complete, untruncated NOERROR or NXDOMAIN response to that same question.
 func dnsCacheStore(query, resp []byte) {
-	_, q, key, ok := dnsQueryKey(query)
-	if !ok {
+	dnsCacheStoreParsed(parseDNSQuery(query), resp)
+}
+
+// dnsCacheStoreParsed is dnsCacheStore for a query already parsed.
+func dnsCacheStoreParsed(d dnsQuery, resp []byte) {
+	if !d.ok {
 		return
 	}
+	q, key := d.q, d.key
 	var msg dnsmessage.Message
 	if err := msg.Unpack(resp); err != nil {
 		return
