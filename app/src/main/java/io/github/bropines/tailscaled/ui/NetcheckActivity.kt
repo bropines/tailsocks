@@ -9,12 +9,10 @@ import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
 import android.content.BroadcastReceiver
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.*
@@ -307,8 +305,14 @@ internal fun parseNetcheck(
  * map, which it holds only once the backend is Running, so the wait goes on
  * until it is, or settles somewhere no waiting helps (logged out). A daemon that
  * is already up is not started again — the service would announce nothing.
+ *
+ * Null when the start was refused before anything was started: the SOCKS5 address
+ * is empty and the shared refusal has said so in a toast (ServiceStart.kt). The
+ * start and the wait are the shared ones; only the receiver is Netcheck's own,
+ * because it has to hear a start given up (STOP).
  */
-private suspend fun startServiceAndWait(context: Context): Boolean {
+private suspend fun startServiceAndWait(context: Context): Boolean? {
+    if (refuseEmptySocks5(context)) return null
     val alreadyUp = withContext(Dispatchers.IO) { runCatching { Appctr.isRunning() }.getOrDefault(false) }
     if (!alreadyUp) {
         val heard = CompletableDeferred<String?>()
@@ -322,10 +326,8 @@ private suspend fun startServiceAndWait(context: Context): Boolean {
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
         try {
-            ContextCompat.startForegroundService(
-                context,
-                Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
-            )
+            // Refused only if the address was cleared since the check above.
+            if (!startTailSocks(context)) return null
             // A Root Mode start goes through su and can take a while. Past this the
             // diagnostics run anyway and say for themselves what is wrong.
             if (withTimeoutOrNull(45_000) { heard.await() } == "STOP") return false
@@ -333,13 +335,7 @@ private suspend fun startServiceAndWait(context: Context): Boolean {
             runCatching { context.unregisterReceiver(receiver) }
         }
     }
-    withContext(Dispatchers.IO) {
-        withTimeoutOrNull(15_000) {
-            while (runCatching { Appctr.getBackendState() }.getOrDefault("") in setOf("", "NoState", "Starting", "Error")) {
-                delay(500)
-            }
-        }
-    }
+    awaitDaemonAnswering()
     return true
 }
 
@@ -394,12 +390,9 @@ fun NetcheckScreen(onBack: () -> Unit) {
 
     val scope = rememberCoroutineScope()
 
-    fun copyToClipboard(text: String) {
+    fun copyReport(text: String) {
         if (text.isEmpty()) return
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = android.content.ClipData.newPlainText("Netcheck Report", text)
-        clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, context.getString(R.string.netcheck_report_copied), Toast.LENGTH_SHORT).show()
+        copyToClipboard(context, "Netcheck Report", text, context.getString(R.string.netcheck_report_copied))
     }
 
     fun runDiagnostics() {
@@ -457,11 +450,14 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 return@launch
             }
             startingService = false
-            if (cameUp) {
-                runDiagnostics()
-            } else {
-                NetcheckCache.errorMessage = context.getString(R.string.netcheck_service_stopped)
-                errorMessage = NetcheckCache.errorMessage
+            when (cameUp) {
+                true -> runDiagnostics()
+                false -> {
+                    NetcheckCache.errorMessage = context.getString(R.string.netcheck_service_stopped)
+                    errorMessage = NetcheckCache.errorMessage
+                }
+                // Refused with its own toast: nothing was started, there is no error to show.
+                null -> Unit
             }
         }
     }
@@ -501,7 +497,7 @@ fun NetcheckScreen(onBack: () -> Unit) {
                 actions = {
                     // Nothing to paste into on a television: the report is read off the screen.
                     result?.takeIf { clipboardOffered }?.let { shown ->
-                        IconButton(onClick = { copyToClipboard(shown.textReport) }) {
+                        IconButton(onClick = { copyReport(shown.textReport) }) {
                             Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.netcheck_cd_copy_report))
                         }
                     }

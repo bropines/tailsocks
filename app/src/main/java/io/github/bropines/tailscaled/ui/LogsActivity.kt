@@ -7,8 +7,6 @@ import io.github.bropines.tailscaled.admin.*
 import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -810,17 +808,12 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                                 coroutineScope.launch(Dispatchers.IO) {
                                     val (text, truncated) = buildClipboardLogString(context)
                                     withContext(Dispatchers.Main) {
-                                        try {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks Logs", text))
-                                            if (truncated) {
-                                                Toast.makeText(context, context.getString(R.string.logs_copied_tail), Toast.LENGTH_LONG).show()
-                                            } else {
-                                                Toast.makeText(context, context.getString(R.string.logs_copied), Toast.LENGTH_SHORT).show()
-                                            }
-                                        } catch (e: Exception) {
-                                            Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
-                                        }
+                                        // The helper catches a clip the binder refuses as too large.
+                                        copyToClipboard(
+                                            context, "TailSocks Logs", text,
+                                            context.getString(if (truncated) R.string.logs_copied_tail else R.string.logs_copied),
+                                            longToast = truncated
+                                        )
                                     }
                                 }
                                 Unit

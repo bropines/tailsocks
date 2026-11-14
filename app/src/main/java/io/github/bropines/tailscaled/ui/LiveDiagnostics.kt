@@ -1,10 +1,7 @@
 package io.github.bropines.tailscaled.ui
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.text.format.Formatter
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -132,9 +129,7 @@ fun LiveDiagnosticsCard(modifier: Modifier = Modifier, fillHeight: Boolean = fal
                 // A fresh read with the log lines, rather than the snapshot on screen:
                 // its error lines may be up to ten seconds old.
                 val text = withContext(Dispatchers.IO) { Diagnostics.liveClip(context, Diagnostics.live(context, state)) }
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("TailSocks live state", text))
-                Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
+                copyToClipboard(context, "TailSocks live state", text, copied)
             }
         },
         onRecheck = { recheck.trySend(Unit) },
