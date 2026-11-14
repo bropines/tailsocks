@@ -1884,22 +1884,34 @@ class TailscaledService : Service() {
                 refreshHandler.postDelayed(refreshRunnable, 1000)
                 return START_STICKY
             }
-            // The root daemon reads its listeners, credentials and switches at start,
-            // from what RootUtils launched it with. The bridge cannot restart a daemon
-            // it did not launch: asked to apply such a change it started a second one
-            // of its own beside the root daemon, which died on the taken SOCKS5 port
-            // and took Root Mode down with it — one switch in Settings, and the
-            // phone was offline until the next manual start.
-            if (GlobalSettings.isRootModeEnabled(this)) {
-                val wanted = rootDaemonSpec(buildStartOptions())
-                val running = runningRootSpec
-                if (running != null && running != wanted) {
-                    Log.i(TAG, "A setting the root daemon reads at start changed; restarting it")
-                    return onStartCommand(Intent(this, TailscaledService::class.java).setAction("RESTART_ACTION"), flags, startId)
-                }
-            }
             Thread {
-                Appctr.applySettings(buildStartOptions())
+                // buildStartOptions is not a getter: it may restart ByeDPI (with a
+                // 200 ms sleep), writes preferences, touches files and the package
+                // manager and makes a JNI call — so it runs here, once, and not on
+                // the main thread as the restart check below used to.
+                val options = buildStartOptions()
+                // The root daemon reads its listeners, credentials and switches at start,
+                // from what RootUtils launched it with. The bridge cannot restart a daemon
+                // it did not launch: asked to apply such a change it started a second one
+                // of its own beside the root daemon, which died on the taken SOCKS5 port
+                // and took Root Mode down with it — one switch in Settings, and the
+                // phone was offline until the next manual start.
+                if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                    val wanted = rootDaemonSpec(options)
+                    val running = runningRootSpec
+                    if (running != null && running != wanted) {
+                        Log.i(TAG, "A setting the root daemon reads at start changed; restarting it")
+                        // Lifecycle commands run on the main thread. A stop that
+                        // landed meanwhile wins: RESTART would clear its guard.
+                        refreshHandler.post {
+                            if (!teardownStarted && ProxyState.isUserLetRunning(this@TailscaledService)) {
+                                onStartCommand(Intent(this@TailscaledService, TailscaledService::class.java).setAction("RESTART_ACTION"), flags, startId)
+                            }
+                        }
+                        return@Thread
+                    }
+                }
+                Appctr.applySettings(options)
                 try { Thread.sleep(1500) } catch (e: Exception) {}
                 applyTagsAndRoutes(this@TailscaledService)
                 applyTaildrive(this@TailscaledService)
