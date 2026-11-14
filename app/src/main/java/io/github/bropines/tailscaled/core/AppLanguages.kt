@@ -8,8 +8,9 @@ import java.util.Locale
  * English is the source and Russian is kept alongside it; every other language comes from
  * Weblate and is offered once someone has translated at least one string of it. A language
  * Weblate has only opened — empty files, as Japanese on 2026-10-28 — waits: picking it would
- * change nothing. AppLanguagesTest fails when `res/values-*` and this list disagree, so a
- * language Weblate brings is added here before a release.
+ * change nothing. AppLanguagesTest fails when `res/values-*`, `res/xml/locales_config.xml`
+ * and this list disagree, so a language Weblate brings is added here (and there) before a
+ * release.
  *
  * Tags are BCP 47, the form `app_locale` stores and Locale.forLanguageTag reads:
  * `values-zh-rTW` answers `zh-TW`.
@@ -37,6 +38,24 @@ object AppLanguages {
         val locale = Locale.forLanguageTag(tag)
         val name = locale.getDisplayName(reader).replaceFirstChar { it.titlecase(reader) }
         return name.takeIf { it.isNotBlank() && it != nativeName(tag) && it != tag }
+    }
+
+    /**
+     * The `app_locale` value for a language the platform holds for the app (Android 13+'s
+     * per-app language, set in the system's settings): the tag of [TAGS] it names; for
+     * Chinese the one of its script (`zh-Hant-*`, Taiwan, Hong Kong, Macau → zh-TW, the rest
+     * → zh-CN); the one of its language when only that matches (`ru-RU` → `ru`); or itself.
+     */
+    fun fromPlatform(tag: String): String {
+        TAGS.firstOrNull { it.equals(tag, ignoreCase = true) }?.let { return it }
+        val locale = Locale.forLanguageTag(tag)
+        if (locale.language == "zh") {
+            val traditional = locale.script.equals("Hant", ignoreCase = true) ||
+                (locale.script.isEmpty() && locale.country in setOf("TW", "HK", "MO"))
+            val wanted = if (traditional) "zh-TW" else "zh-CN"
+            if (wanted in TAGS) return wanted
+        }
+        return TAGS.firstOrNull { Locale.forLanguageTag(it).language == locale.language } ?: tag
     }
 
     private val NATIVE = mapOf(

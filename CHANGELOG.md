@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Language: the one chosen in the app now reaches Android 13+'s own per-app language setting, and TailSocks is listed on that system page (Settings → Apps → TailSocks → Language). A language picked there is taken over by the app, and "System default" there resets it. Before, the choice never left the app: the call used for it works only from a kind of screen this app does not have.
+
 ## [6.1.0] - 2026-11-14
 
 ### Added

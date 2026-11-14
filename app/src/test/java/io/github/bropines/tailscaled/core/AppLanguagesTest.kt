@@ -35,6 +35,24 @@ class AppLanguagesTest {
     }
 
     @Test
+    fun androidOffersTheSameLanguages() {
+        val config = File(res, "xml/locales_config.xml").readText()
+        val listed = Regex("""<locale\s+android:name="([^"]+)"""").findAll(config).map { it.groupValues[1] }.toList()
+        assertEquals("res/xml/locales_config.xml must list exactly AppLanguages.TAGS", AppLanguages.TAGS.sorted(), listed.sorted())
+    }
+
+    @Test
+    fun aPlatformTagFindsItsLanguage() {
+        assertEquals("ru", AppLanguages.fromPlatform("ru-RU"))
+        assertEquals("zh-TW", AppLanguages.fromPlatform("zh-Hant-TW"))
+        assertEquals("zh-TW", AppLanguages.fromPlatform("zh-HK"))
+        assertEquals("zh-CN", AppLanguages.fromPlatform("zh-Hans-CN"))
+        assertEquals("zh-CN", AppLanguages.fromPlatform("zh"))
+        assertEquals("ko", AppLanguages.fromPlatform("ko-KR"))
+        assertEquals("de-DE", AppLanguages.fromPlatform("de-DE"))
+    }
+
+    @Test
     fun namesAreTheLanguagesOwn() {
         assertEquals("Русский", AppLanguages.nativeName("ru"))
         assertEquals("繁體中文", AppLanguages.nativeName("zh-TW"))

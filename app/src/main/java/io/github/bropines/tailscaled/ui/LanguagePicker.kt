@@ -1,6 +1,5 @@
 package io.github.bropines.tailscaled.ui
 
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,9 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.os.LocaleListCompat
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AppLanguages
+import io.github.bropines.tailscaled.core.AppLocale
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.ui.theme.findActivity
 
@@ -119,11 +118,9 @@ internal fun languageOptions(): List<PickerOption<String>> {
     }
 }
 
-/** Stores [tag] as `app_locale`, hands it to the framework and recreates the screen. */
+/** Stores [tag] as `app_locale`, hands it to Android 13+'s per-app language (AppLocale) and recreates the screen. */
 internal fun applyAppLanguage(context: android.content.Context, tag: String) {
-    GlobalSettings.setString(context, "app_locale", tag)
-    val locales = if (tag == AppLanguages.SYSTEM) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(tag)
-    AppCompatDelegate.setApplicationLocales(locales)
+    AppLocale.set(context, tag)
     // The widgets' words are resolved in this process: they repaint in the new language.
     WidgetUpdates.request(context)
     context.findActivity()?.recreate()

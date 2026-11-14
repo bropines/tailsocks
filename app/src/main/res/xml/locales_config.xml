@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The languages Android 13+ offers for TailSocks in its own per-app language
+    settings. The same list as core/AppLanguages.TAGS; AppLanguagesTest fails
+    when the two, or the res/values-* directories, disagree.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="ru" />
+    <locale android:name="zh-CN" />
+    <locale android:name="zh-TW" />
+    <locale android:name="ko" />
+</locale-config>
