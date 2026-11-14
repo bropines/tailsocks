@@ -1,5 +1,5 @@
---- orig/ipn/ipnstate/ipnstate.go	2026-11-03 00:52:02
-+++ tailscale_src/ipn/ipnstate/ipnstate.go	2026-11-08 22:32:28
+--- orig/ipn/ipnstate/ipnstate.go
++++ tailscale_src/ipn/ipnstate/ipnstate.go
 @@ -247,6 +247,12 @@
  	OS      string // HostInfo.OS
  	UserID  tailcfg.UserID
@@ -23,8 +23,8 @@
  	}
  	if v := st.SSH_HostKeys; v != nil {
  		e.SSH_HostKeys = v
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/ipn/ipnstate/tailsocks_app_test.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/ipn/ipnstate/tailsocks_app_test.go
 @@ -0,0 +1,33 @@
 +package ipnstate
 +

@@ -1,5 +1,5 @@
---- orig/net/tstun/wrap.go	2026-11-03 00:52:02
-+++ tailscale_src/net/tstun/wrap.go	2026-11-08 22:32:28
+--- orig/net/tstun/wrap.go
++++ tailscale_src/net/tstun/wrap.go
 @@ -463,6 +463,20 @@
  
  func (t *Wrapper) File() *os.File {
@@ -21,8 +21,8 @@
  }
  
  func (t *Wrapper) MTU() (int, error) {
---- orig/wgengine/netstack/netstack.go	2026-11-03 00:52:02
-+++ tailscale_src/wgengine/netstack/netstack.go	2026-11-08 22:32:28
+--- orig/wgengine/netstack/netstack.go
++++ tailscale_src/wgengine/netstack/netstack.go
 @@ -221,6 +221,17 @@
  	// It can only be set before calling Start.
  	ProcessSubnets bool
@@ -238,8 +238,8 @@
  	if isLocal && ns.CheckLocalTransportEndpoints {
  		// Handle packets to registered listeners and replies to outbound
  		// connections by checking if gVisor has a registered endpoint.
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/wgengine/netstack/own_flow_test.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/wgengine/netstack/own_flow_test.go
 @@ -0,0 +1,174 @@
 +package netstack
 +

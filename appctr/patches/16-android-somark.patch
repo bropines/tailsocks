@@ -1,5 +1,5 @@
---- orig/net/netns/netns_android.go	2026-11-03 00:52:02
-+++ tailscale_src/net/netns/netns_android.go	2026-11-08 22:32:28
+--- orig/net/netns/netns_android.go
++++ tailscale_src/net/netns/netns_android.go
 @@ -7,9 +7,14 @@
  
  import (

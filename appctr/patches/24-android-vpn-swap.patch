@@ -1,5 +1,5 @@
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/net/androidvpn/swap.go	2026-11-12 06:53:40
+--- /dev/null
++++ tailscale_src/net/androidvpn/swap.go
 @@ -0,0 +1,273 @@
 +// Package androidvpn lets TailSocks's daemon move to a new Android VPN
 +// interface without a restart.
@@ -274,8 +274,8 @@
 +	close(s.events)
 +	return err
 +}
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/net/androidvpn/swap_test.go	2026-11-12 06:53:51
+--- /dev/null
++++ tailscale_src/net/androidvpn/swap_test.go
 @@ -0,0 +1,349 @@
 +package androidvpn
 +
@@ -626,8 +626,8 @@
 +		<-done
 +	}
 +}
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/net/androidvpn/handoff.go	2026-11-12 04:58:32
+--- /dev/null
++++ tailscale_src/net/androidvpn/handoff.go
 @@ -0,0 +1,207 @@
 +//go:build linux
 +
@@ -836,8 +836,8 @@
 +	}
 +	return r.Name, nil
 +}
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/net/androidvpn/handoff_other.go	2026-11-12 04:58:32
+--- /dev/null
++++ tailscale_src/net/androidvpn/handoff_other.go
 @@ -0,0 +1,27 @@
 +//go:build !linux
 +
@@ -866,8 +866,8 @@
 +func Send(string, *os.File, bool, time.Duration) (string, error) {
 +	return "", errNotLinux
 +}
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/net/androidvpn/handoff_test.go	2026-11-12 04:58:32
+--- /dev/null
++++ tailscale_src/net/androidvpn/handoff_test.go
 @@ -0,0 +1,160 @@
 +//go:build linux
 +
@@ -1029,8 +1029,8 @@
 +		t.Fatal("Send to a closed socket succeeded")
 +	}
 +}
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/net/androidvpn/realtun_test.go	2026-11-12 04:58:32
+--- /dev/null
++++ tailscale_src/net/androidvpn/realtun_test.go
 @@ -0,0 +1,202 @@
 +//go:build linux
 +
@@ -1234,8 +1234,8 @@
 +		t.Logf("links after the swap:\n%s", out)
 +	}
 +}
---- /dev/null	2026-11-12 06:57:36
-+++ tailscale_src/cmd/tailscaled/android_vpn_swap.go	2026-11-12 04:58:32
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/android_vpn_swap.go
 @@ -0,0 +1,62 @@
 +//go:build linux
 +

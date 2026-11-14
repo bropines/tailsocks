@@ -14,12 +14,58 @@ TS_VERSION=$(cat TAILSCALE_VERSION 2>/dev/null || cat tailscale_src/VERSION.txt 
 TS_VERSION="${TS_VERSION#v}"
 echo "-> Target Tailscale version: v$TS_VERSION"
 
-# Ensure orig directory exists
+# Ensure orig directory exists. The archive is checked against
+# TAILSCALE_SHA256 as build.sh checks its own: these are the sources every
+# patch is computed against, and `curl | tar` took whatever arrived.
 if [ ! -d "orig" ]; then
     echo "-> Downloading clean sources to orig/..."
-    curl -sL "https://github.com/tailscale/tailscale/archive/refs/tags/v${TS_VERSION}.tar.gz" | tar -xz
+    TARBALL="tailscale-v${TS_VERSION}.tar.gz"
+    curl -fsSL -o "$TARBALL" "https://github.com/tailscale/tailscale/archive/refs/tags/v${TS_VERSION}.tar.gz"
+    ACTUAL_SHA=$(sha256sum "$TARBALL" | cut -d" " -f1)
+    EXPECTED_SHA=$(awk -v v="v${TS_VERSION}" '!/^#/ && $2 == v { print $1 }' TAILSCALE_SHA256 2>/dev/null)
+    if [ -z "$EXPECTED_SHA" ] || [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+        rm -f "$TARBALL"
+        echo "❌ The v${TS_VERSION} archive does not match appctr/TAILSCALE_SHA256 (expected '${EXPECTED_SHA:-none}', got $ACTUAL_SHA)." >&2
+        echo "   build.sh records the hash of a new version; run it first." >&2
+        exit 1
+    fi
+    tar -xzf "$TARBALL"
+    rm -f "$TARBALL"
     mv tailscale-${TS_VERSION} orig
 fi
+
+# d A B: the unified diff of one file, A being orig/<path> or /dev/null (a
+# file the patch creates). The headers carry the names alone: diff writes
+# each file's mtime after them, so a regenerate after a fresh download
+# rewrote every patch — and PATCH_STAMP with it — when no hunk had moved.
+# Exit status 1 is "they differ"; 2 is trouble (a file that is not there, a
+# target that moved upstream), which `|| true` used to swallow together with
+# 1: in a multi-file patch the lost file simply vanished from it, and the
+# patch was not empty, so the empty-patch guard below could not see it.
+d() {
+    local rc=0
+    diff -u --label "$1" --label "$2" "$1" "$2" || rc=$?
+    if [ "$rc" -gt 1 ]; then
+        echo "❌ diff failed (status $rc): $1 $2" >&2
+        exit 1
+    fi
+}
+
+# dr A B: the same for two directories, files created on either side
+# included. --label cannot name every file of a recursive diff, so the
+# timestamp is cut from the two header lines that follow each "diff" line.
+dr() {
+    local rc=0 out
+    out=$(mktemp)
+    diff -N -r -u -x "*.orig" -x "*.rej" "$1" "$2" > "$out" || rc=$?
+    if [ "$rc" -gt 1 ]; then
+        rm -f "$out"
+        echo "❌ diff failed (status $rc): $1 $2" >&2
+        exit 1
+    fi
+    awk '/^diff /{ h = 2; print; next } h > 0 && /^(---|\+\+\+) /{ sub(/\t.*/, ""); h--; print; next } { h = 0; print }' "$out"
+    rm -f "$out"
+}
 
 # Clean old patch files
 echo "-> Cleaning old patches..."
@@ -30,35 +76,35 @@ echo "-> Generating atomic patches..."
 
 # 01-enable-socks-android.patch (net/netns/socks.go and netns.go)
 {
-    diff -u orig/net/netns/socks.go tailscale_src/net/netns/socks.go || true
-    diff -u orig/net/netns/netns.go tailscale_src/net/netns/netns.go || true
+    d orig/net/netns/socks.go tailscale_src/net/netns/socks.go
+    d orig/net/netns/netns.go tailscale_src/net/netns/netns.go
 } > patches/01-enable-socks-android.patch
 
 # 02-socks5-auth.patch (cmd/tailscaled/proxy.go)
-diff -u orig/cmd/tailscaled/proxy.go tailscale_src/cmd/tailscaled/proxy.go > patches/02-socks5-auth.patch || true
+d orig/cmd/tailscaled/proxy.go tailscale_src/cmd/tailscaled/proxy.go > patches/02-socks5-auth.patch
 
 # 03-taildrop-monolithic-fs.patch (feature/taildrop)
 # Includes send.go: the receiver counts the bytes it writes again, so
 # Notify.IncomingFiles reports progress (upstream 1.84+ copies past the counter).
-diff -N -r -u -x "*.orig" -x "*.rej" orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-monolithic-fs.patch || true
+dr orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-monolithic-fs.patch
 
 # 04-vip-services.patch (ipn/ipnlocal)
 {
-    diff -u orig/ipn/ipnlocal/local.go tailscale_src/ipn/ipnlocal/local.go || true
-    diff -u orig/ipn/ipnlocal/serve.go tailscale_src/ipn/ipnlocal/serve.go || true
+    d orig/ipn/ipnlocal/local.go tailscale_src/ipn/ipnlocal/local.go
+    d orig/ipn/ipnlocal/serve.go tailscale_src/ipn/ipnlocal/serve.go
 } > patches/04-vip-services.patch
 
 # 05-localapi-cert.patch (ipn/localapi)
 {
-    diff -u orig/ipn/localapi/cert.go tailscale_src/ipn/localapi/cert.go || true
-    diff -u orig/ipn/localapi/disabled_stubs.go tailscale_src/ipn/localapi/disabled_stubs.go || true
+    d orig/ipn/localapi/cert.go tailscale_src/ipn/localapi/cert.go
+    d orig/ipn/localapi/disabled_stubs.go tailscale_src/ipn/localapi/disabled_stubs.go
 } > patches/05-localapi-cert.patch
 
 # 06-android-netmon.patch (creates cmd/tailscaled/fix_android_netmon.go)
-diff -N -u /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patches/06-android-netmon.patch || true
+d /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patches/06-android-netmon.patch
 
 # 07-taildrive-android.patch (drive)
-diff -N -r -u -x "*.orig" -x "*.rej" orig/drive tailscale_src/drive > patches/07-taildrive-android.patch || true
+dr orig/drive tailscale_src/drive > patches/07-taildrive-android.patch
 
 # 08-netstack-cgnat.patch (cmd/tailscaled/tailscaled.go)
 # NOTE: in Tailscale v1.102.1 the UseNetstackForIP hook moved out of
@@ -66,7 +112,7 @@ diff -N -r -u -x "*.orig" -x "*.rej" orig/drive tailscale_src/drive > patches/07
 # file produced an empty patch that `|| true` swallowed, silently dropping the
 # TailscaleServiceIP netstack route (Taildrive/WebDAV). Keep this pointed at
 # whichever file currently defines the hook.
-diff -u orig/cmd/tailscaled/tailscaled.go tailscale_src/cmd/tailscaled/tailscaled.go > patches/08-netstack-cgnat.patch || true
+d orig/cmd/tailscaled/tailscaled.go tailscale_src/cmd/tailscaled/tailscaled.go > patches/08-netstack-cgnat.patch
 
 # 09-netstack-loopback.patch (net/tstun/wrap.go and wgengine/netstack/netstack.go,
 # and creates wgengine/netstack/own_flow_test.go)
@@ -74,40 +120,40 @@ diff -u orig/cmd/tailscaled/tailscaled.go tailscale_src/cmd/tailscaled/tailscale
 # networking, and on Android's VPN for the daemon's own connections to the
 # service IP (SOCKS5 to Taildrive and MagicDNS).
 {
-    diff -u orig/net/tstun/wrap.go tailscale_src/net/tstun/wrap.go || true
-    diff -u orig/wgengine/netstack/netstack.go tailscale_src/wgengine/netstack/netstack.go || true
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/own_flow_test.go || true
+    d orig/net/tstun/wrap.go tailscale_src/net/tstun/wrap.go
+    d orig/wgengine/netstack/netstack.go tailscale_src/wgengine/netstack/netstack.go
+    d /dev/null tailscale_src/wgengine/netstack/own_flow_test.go
 } > patches/09-netstack-loopback.patch
 
 # 10-taildrive-userspace-dial.patch (cmd/tailscaled and tests)
 {
-    diff -u orig/cmd/tailscaled/tailscaled_drive.go tailscale_src/cmd/tailscaled/tailscaled_drive.go || true
-    diff -u orig/cmd/tailscaled/tailscaled_windows.go tailscale_src/cmd/tailscaled/tailscaled_windows.go || true
-    diff -u orig/ipn/ipnlocal/local_test.go tailscale_src/ipn/ipnlocal/local_test.go || true
+    d orig/cmd/tailscaled/tailscaled_drive.go tailscale_src/cmd/tailscaled/tailscaled_drive.go
+    d orig/cmd/tailscaled/tailscaled_windows.go tailscale_src/cmd/tailscaled/tailscaled_windows.go
+    d orig/ipn/ipnlocal/local_test.go tailscale_src/ipn/ipnlocal/local_test.go
 } > patches/10-taildrive-userspace-dial.patch
 
 # 11-noop-dns-fallback.patch (net/dns/noop.go)
-diff -u orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns-fallback.patch || true
+d orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns-fallback.patch
 
 # 12-socket-permissions.patch (safesocket/unixsocket.go)
-diff -u orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > patches/12-socket-permissions.patch || true
+d orig/safesocket/unixsocket.go tailscale_src/safesocket/unixsocket.go > patches/12-socket-permissions.patch
 
 # 13-android-osrouter.patch (wgengine/router/osrouter/router_linux.go, net/netmon/netmon_linux.go, and net/netmon/netmon_polling.go)
 # router_linux.go: build tag flip plus the Root Mode gates (isAndroid): no
 # netfilter runner, no 52xx ip rules (stale ones purged at Up), routes always
 # into table 52. The app supplies the pref-200 rule that consults table 52.
 {
-    diff -u orig/wgengine/router/osrouter/router_linux.go tailscale_src/wgengine/router/osrouter/router_linux.go || true
-    diff -u orig/net/netmon/netmon_linux.go tailscale_src/net/netmon/netmon_linux.go || true
-    diff -u orig/net/netmon/netmon_polling.go tailscale_src/net/netmon/netmon_polling.go || true
-} > patches/13-android-osrouter.patch || true
+    d orig/wgengine/router/osrouter/router_linux.go tailscale_src/wgengine/router/osrouter/router_linux.go
+    d orig/net/netmon/netmon_linux.go tailscale_src/net/netmon/netmon_linux.go
+    d orig/net/netmon/netmon_polling.go tailscale_src/net/netmon/netmon_polling.go
+} > patches/13-android-osrouter.patch
 
 # 16-android-somark.patch (net/netns/netns_android.go) — companion of 13.
 # Root Mode: tailscaled marks its own sockets with SO_MARK 0x2000000
 # (netns.TailsocksBypassMark, must equal RootUtils.kt BYPASS_MARK) so the app's
 # 'fwmark 0x0/0x2020000 iif lo lookup 52' rule at pref 200 exempts the tunnel's
 # own WireGuard/DERP/control traffic from the exit-node default route.
-diff -u orig/net/netns/netns_android.go tailscale_src/net/netns/netns_android.go > patches/16-android-somark.patch || true
+d orig/net/netns/netns_android.go tailscale_src/net/netns/netns_android.go > patches/16-android-somark.patch
 
 # 14-dns-forwarder-netstack.patch (net/dns/resolver/forwarder.go)
 # Two fixes in the same file:
@@ -117,45 +163,45 @@ diff -u orig/net/netns/netns_android.go tailscale_src/net/netns/netns_android.go
 #    query that took the default route fails, retry it once against the OS base
 #    config (TS_DNS_FALLBACK) instead of handing the device SERVFAIL. Keeps the
 #    phone resolving while an exit node's peerapi DoH endpoint answers 403.
-diff -u orig/net/dns/resolver/forwarder.go tailscale_src/net/dns/resolver/forwarder.go > patches/14-dns-forwarder-netstack.patch || true
+d orig/net/dns/resolver/forwarder.go tailscale_src/net/dns/resolver/forwarder.go > patches/14-dns-forwarder-netstack.patch
 
 # 15-dnscache-static-hosts.patch (net/dnscache/dnscache.go)
 # TS_STATIC_HOSTS lets the control host's pinned resolver answer for the
 # control-proxy hostname (the app pre-resolves it); it was set by the app for
 # years but nothing in the daemon ever read it.
-diff -u orig/net/dnscache/dnscache.go tailscale_src/net/dnscache/dnscache.go > patches/15-dnscache-static-hosts.patch || true
+d orig/net/dnscache/dnscache.go tailscale_src/net/dnscache/dnscache.go > patches/15-dnscache-static-hosts.patch
 
 # 17-android-tunfd-probe.patch (creates cmd/tailscaled/android_tunfd_probe.go)
 # Native-TUN experiment: TS_TUN_FD_PROBE=<fd> makes tailscaled report what it
 # can do with an inherited VpnService TUN fd (TUNGETIFF, SIOCGIFMTU) and exit.
-diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_tunfd_probe.go > patches/17-android-tunfd-probe.patch || true
+d /dev/null tailscale_src/cmd/tailscaled/android_tunfd_probe.go > patches/17-android-tunfd-probe.patch
 
 # 18-android-vpn-tun.patch (creates cmd/tailscaled/android_vpn.go)
 # Native TUN: --tun=android-vpn builds the wireguard-go device from the
 # VpnService fd in TS_TUN_FD; the matching tryEngine/getLocalBackend edits in
 # tailscaled.go travel in 08 (whole-file diff).
-diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn.go > patches/18-android-vpn-tun.patch || true
+d /dev/null tailscale_src/cmd/tailscaled/android_vpn.go > patches/18-android-vpn-tun.patch
 
 # 19-android-vpn-netstack.patch (cmd/tailscaled/netstack.go)
 # Native TUN: in android-vpn mode the host stack owns inbound traffic to the
 # node's address (ProcessLocalIPs stays false) while gVisor claims replies to
 # its own dials (CheckLocalTransportEndpoints), and the daemon dials peers
 # through netstack because its UID is excluded from the VPN.
-diff -u orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/19-android-vpn-netstack.patch || true
+d orig/cmd/tailscaled/netstack.go tailscale_src/cmd/tailscaled/netstack.go > patches/19-android-vpn-netstack.patch
 
 # 20-socks5-resilience.patch (net/socks5/socks5.go)
 # The served SOCKS5 proxy keeps serving: a transient accept error backs off
 # instead of ending Serve (whose return kills the daemon), the handshake has a
 # deadline so a silent client cannot hold a descriptor forever, and an outbound
 # dial gets long enough to ride out a DERP reconnect.
-diff -u orig/net/socks5/socks5.go tailscale_src/net/socks5/socks5.go > patches/20-socks5-resilience.patch || true
+d orig/net/socks5/socks5.go tailscale_src/net/socks5/socks5.go > patches/20-socks5-resilience.patch
 
 # 21-netmon-wake-pollers.patch (net/netmon/polling.go)
 # WakePollingMonitors wakes every polling monitor in the process. tailcat's
 # client runs inside the app with a monitor of its own that nothing else can
 # reach, and on Android the poll is ten minutes; the bridge calls this when the
 # network moves.
-diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches/21-netmon-wake-pollers.patch || true
+d orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches/21-netmon-wake-pollers.patch
 
 # 22-android-remote-port.patch (creates cmd/tailscaled/android_remote.go and two tests)
 # Remote management on a real TUN (--tun=android-vpn, Root Mode's tailscale0):
@@ -166,9 +212,9 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # netstack.Impl.ProcessLocalTCPPort, travels in 09 and the one call from
 # newNetstack in 19 (whole-file diffs).
 {
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_remote.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_remote_test.go || true
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/local_tcp_port_test.go || true
+    d /dev/null tailscale_src/cmd/tailscaled/android_remote.go
+    d /dev/null tailscale_src/cmd/tailscaled/android_remote_test.go
+    d /dev/null tailscale_src/wgengine/netstack/local_tcp_port_test.go
 } > patches/22-android-remote-port.patch
 
 # 23-android-loopback-guard.patch (creates wgengine/netstack/loopback_guard.go,
@@ -183,11 +229,11 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # those opened; the remote-management port follows 22's switch in both. The
 # one call from newNetstack travels in 19 (whole-file diff).
 {
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/loopback_guard.go || true
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/loopback_guard_test.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_loopback.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_loopback_test.go || true
-    diff -N -u /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks.go || true
+    d /dev/null tailscale_src/wgengine/netstack/loopback_guard.go
+    d /dev/null tailscale_src/wgengine/netstack/loopback_guard_test.go
+    d /dev/null tailscale_src/cmd/tailscaled/android_loopback.go
+    d /dev/null tailscale_src/cmd/tailscaled/android_loopback_test.go
+    d /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks.go
 } > patches/23-android-loopback-guard.patch
 
 # 24-android-vpn-swap.patch (creates net/androidvpn, its tests and
@@ -202,13 +248,13 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 #   ANDROIDVPN_REAL_TUN=1 unshare -rn go test -run RealTUN ./net/androidvpn/
 # The two calls from newAndroidVPNTUN travel in 18 (whole-file diff).
 {
-    diff -N -u /dev/null tailscale_src/net/androidvpn/swap.go || true
-    diff -N -u /dev/null tailscale_src/net/androidvpn/swap_test.go || true
-    diff -N -u /dev/null tailscale_src/net/androidvpn/handoff.go || true
-    diff -N -u /dev/null tailscale_src/net/androidvpn/handoff_other.go || true
-    diff -N -u /dev/null tailscale_src/net/androidvpn/handoff_test.go || true
-    diff -N -u /dev/null tailscale_src/net/androidvpn/realtun_test.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn_swap.go || true
+    d /dev/null tailscale_src/net/androidvpn/swap.go
+    d /dev/null tailscale_src/net/androidvpn/swap_test.go
+    d /dev/null tailscale_src/net/androidvpn/handoff.go
+    d /dev/null tailscale_src/net/androidvpn/handoff_other.go
+    d /dev/null tailscale_src/net/androidvpn/handoff_test.go
+    d /dev/null tailscale_src/net/androidvpn/realtun_test.go
+    d /dev/null tailscale_src/cmd/tailscaled/android_vpn_swap.go
 } > patches/24-android-vpn-swap.patch
 
 # 25-android-vpn-transparent.patch (creates wgengine/netstack/local_egress.go,
@@ -221,10 +267,10 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # the swap request in 24. The intercept's one call travels in 09 and the
 # attach in 19 (whole-file diffs).
 {
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/local_egress.go || true
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/local_egress_test.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_vpn_egress.go || true
-    diff -N -u /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go || true
+    d /dev/null tailscale_src/wgengine/netstack/local_egress.go
+    d /dev/null tailscale_src/wgengine/netstack/local_egress_test.go
+    d /dev/null tailscale_src/cmd/tailscaled/android_vpn_egress.go
+    d /dev/null tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go
 } > patches/25-android-vpn-transparent.patch
 
 # 26-android-drive-socket.patch (creates wgengine/netstack/taildrive_local.go
@@ -235,8 +281,8 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # is root). The app's client (calls into the bridge, appctr/drive_client.go)
 # and the bridge's WebDAV proxy dial it. The call that starts it travels in 19.
 {
-    diff -N -u /dev/null tailscale_src/wgengine/netstack/taildrive_local.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/android_drive.go || true
+    d /dev/null tailscale_src/wgengine/netstack/taildrive_local.go
+    d /dev/null tailscale_src/cmd/tailscaled/android_drive.go
 } > patches/26-android-drive-socket.patch
 
 # 27-peer-app.patch (ipn/ipnstate)
@@ -244,8 +290,8 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # run TailSocks (App "tailsocks", set in patch 06) from the official client. The
 # line that fills it is in ipn/ipnlocal/local.go, whose diff is patch 04.
 {
-    diff -u orig/ipn/ipnstate/ipnstate.go tailscale_src/ipn/ipnstate/ipnstate.go || true
-    diff -N -u /dev/null tailscale_src/ipn/ipnstate/tailsocks_app_test.go || true
+    d orig/ipn/ipnstate/ipnstate.go tailscale_src/ipn/ipnstate/ipnstate.go
+    d /dev/null tailscale_src/ipn/ipnstate/tailsocks_app_test.go
 } > patches/27-peer-app.patch
 
 # 28-android-ssh.patch (ssh/tailssh, feature/ssh, util/osuser, envknob/featureknob)
@@ -268,15 +314,15 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 {
     for f in tailssh user user_unix session sftp c2n hostkeys listen process_unix incubator \
         connmonitor fwdchild fwdmonitor monitor monitor_client monitor_rpc monitor_linux sessmonitor; do
-        diff -u orig/ssh/tailssh/$f.go tailscale_src/ssh/tailssh/$f.go || true
+        d orig/ssh/tailssh/$f.go tailscale_src/ssh/tailssh/$f.go
     done
-    diff -N -u /dev/null tailscale_src/ssh/tailssh/incubator_android.go || true
-    diff -u orig/feature/ssh/ssh.go tailscale_src/feature/ssh/ssh.go || true
-    diff -u orig/envknob/featureknob/featureknob.go tailscale_src/envknob/featureknob/featureknob.go || true
-    diff -u orig/util/osuser/user.go tailscale_src/util/osuser/user.go || true
-    diff -u orig/util/osuser/group_ids.go tailscale_src/util/osuser/group_ids.go || true
-    diff -N -u /dev/null tailscale_src/util/osuser/android.go || true
-    diff -N -u /dev/null tailscale_src/util/osuser/android_test.go || true
+    d /dev/null tailscale_src/ssh/tailssh/incubator_android.go
+    d orig/feature/ssh/ssh.go tailscale_src/feature/ssh/ssh.go
+    d orig/envknob/featureknob/featureknob.go tailscale_src/envknob/featureknob/featureknob.go
+    d orig/util/osuser/user.go tailscale_src/util/osuser/user.go
+    d orig/util/osuser/group_ids.go tailscale_src/util/osuser/group_ids.go
+    d /dev/null tailscale_src/util/osuser/android.go
+    d /dev/null tailscale_src/util/osuser/android_test.go
 } > patches/28-android-ssh.patch
 
 # 29-proxy-loopback-guard.patch (creates cmd/tailscaled/proxy_guard.go)
@@ -288,9 +334,9 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # android_loopback.go (23) to the proxies; the two calls in proxy.go travel in
 # 02 and the one in android_loopback.go in 23 (whole-file diffs).
 {
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/proxy_guard.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/proxy_guard_test.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/proxy_reach.go || true
+    d /dev/null tailscale_src/cmd/tailscaled/proxy_guard.go
+    d /dev/null tailscale_src/cmd/tailscaled/proxy_guard_test.go
+    d /dev/null tailscale_src/cmd/tailscaled/proxy_reach.go
 } > patches/29-proxy-loopback-guard.patch
 
 # 30-android-localapi-callers.patch (creates cmd/tailscaled/localapi_guard_android.go)
@@ -301,14 +347,17 @@ diff -u orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches
 # let in, as on drive.sock (26); everyone else is closed at accept. The one
 # call from startIPNServer travels in 08 (whole-file diff).
 {
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/localapi_guard_android.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/localapi_guard_android_test.go || true
-    diff -N -u /dev/null tailscale_src/cmd/tailscaled/localapi_guard_other.go || true
+    d /dev/null tailscale_src/cmd/tailscaled/localapi_guard_android.go
+    d /dev/null tailscale_src/cmd/tailscaled/localapi_guard_android_test.go
+    d /dev/null tailscale_src/cmd/tailscaled/localapi_guard_other.go
 } > patches/30-android-localapi-callers.patch
 
-# Guard: a zero-byte patch means a diff target moved or vanished and `|| true`
-# swallowed it — exactly how 08-netstack-cgnat was silently lost during the
-# v1.102.1 bump. Refuse to finish with any empty patch so it can never ship blank.
+# Guard: a zero-byte patch means its targets carry none of their changes any
+# more — the changes moved to another file, which is how 08-netstack-cgnat was
+# silently lost during the v1.102.1 bump (its old target still existed, and
+# `|| true` hid the rest). d and dr now stop on a target that is not there; a
+# target that is there with no changes is caught here. Refuse to finish with
+# any empty patch so it can never ship blank.
 empty=""
 for p in patches/*.patch; do
     [ -s "$p" ] || empty="$empty $(basename "$p")"

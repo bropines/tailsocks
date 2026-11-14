@@ -1,5 +1,5 @@
---- /dev/null	2026-11-12 04:57:03
-+++ tailscale_src/cmd/tailscaled/localapi_guard_android.go	2026-11-12 04:54:13
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/localapi_guard_android.go
 @@ -0,0 +1,103 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -104,8 +104,8 @@
 +	}
 +	return int(cred.Uid), nil
 +}
---- /dev/null	2026-11-12 04:57:03
-+++ tailscale_src/cmd/tailscaled/localapi_guard_android_test.go	2026-11-12 04:54:13
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/localapi_guard_android_test.go
 @@ -0,0 +1,25 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -132,8 +132,8 @@
 +		t.Error("an unread owner must not match an unread caller")
 +	}
 +}
---- /dev/null	2026-11-12 04:57:03
-+++ tailscale_src/cmd/tailscaled/localapi_guard_other.go	2026-11-12 04:54:13
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/localapi_guard_other.go
 @@ -0,0 +1,18 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause

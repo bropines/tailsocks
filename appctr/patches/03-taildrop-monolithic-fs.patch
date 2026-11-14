@@ -1,6 +1,6 @@
 diff -N -r -u -x *.orig -x *.rej orig/feature/taildrop/ext.go tailscale_src/feature/taildrop/ext.go
---- orig/feature/taildrop/ext.go	2026-11-03 00:52:02
-+++ tailscale_src/feature/taildrop/ext.go	2026-11-12 06:53:22
+--- orig/feature/taildrop/ext.go
++++ tailscale_src/feature/taildrop/ext.go
 @@ -9,6 +9,7 @@
  	"errors"
  	"fmt"
@@ -21,8 +21,8 @@ diff -N -r -u -x *.orig -x *.rej orig/feature/taildrop/ext.go tailscale_src/feat
  }
  
 diff -N -r -u -x *.orig -x *.rej orig/feature/taildrop/fileops_fs.go tailscale_src/feature/taildrop/fileops_fs.go
---- orig/feature/taildrop/fileops_fs.go	2026-11-03 00:52:02
-+++ tailscale_src/feature/taildrop/fileops_fs.go	2026-11-12 06:53:22
+--- orig/feature/taildrop/fileops_fs.go
++++ tailscale_src/feature/taildrop/fileops_fs.go
 @@ -1,6 +1,6 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -32,8 +32,8 @@ diff -N -r -u -x *.orig -x *.rej orig/feature/taildrop/fileops_fs.go tailscale_s
  package taildrop
  
 diff -N -r -u -x *.orig -x *.rej orig/feature/taildrop/send.go tailscale_src/feature/taildrop/send.go
---- orig/feature/taildrop/send.go	2026-11-03 00:52:02
-+++ tailscale_src/feature/taildrop/send.go	2026-11-12 04:58:32
+--- orig/feature/taildrop/send.go
++++ tailscale_src/feature/taildrop/send.go
 @@ -116,11 +116,13 @@
  		return inFile
  	})

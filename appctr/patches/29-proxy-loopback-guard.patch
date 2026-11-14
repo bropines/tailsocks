@@ -1,5 +1,5 @@
---- /dev/null	2026-11-12 04:57:02
-+++ tailscale_src/cmd/tailscaled/proxy_guard.go	2026-11-12 04:53:51
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/proxy_guard.go
 @@ -0,0 +1,133 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -134,8 +134,8 @@
 +	}
 +	return false
 +}
---- /dev/null	2026-11-12 04:57:02
-+++ tailscale_src/cmd/tailscaled/proxy_guard_test.go	2026-11-12 04:53:51
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/proxy_guard_test.go
 @@ -0,0 +1,83 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -220,8 +220,8 @@
 +		c.Close()
 +	}
 +}
---- /dev/null	2026-11-12 04:57:02
-+++ tailscale_src/cmd/tailscaled/proxy_reach.go	2026-11-12 04:53:51
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/proxy_reach.go
 @@ -0,0 +1,16 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause

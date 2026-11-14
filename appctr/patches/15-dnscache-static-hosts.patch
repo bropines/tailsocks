@@ -1,5 +1,5 @@
---- orig/net/dnscache/dnscache.go	2026-11-03 00:52:02
-+++ tailscale_src/net/dnscache/dnscache.go	2026-11-08 22:32:28
+--- orig/net/dnscache/dnscache.go
++++ tailscale_src/net/dnscache/dnscache.go
 @@ -14,8 +14,10 @@
  	"log"
  	"net"

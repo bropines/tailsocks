@@ -1,5 +1,5 @@
---- orig/cmd/tailscaled/tailscaled.go	2026-11-03 00:52:02
-+++ tailscale_src/cmd/tailscaled/tailscaled.go	2026-11-12 04:54:13
+--- orig/cmd/tailscaled/tailscaled.go
++++ tailscale_src/cmd/tailscaled/tailscaled.go
 @@ -49,6 +49,7 @@
  	"tailscale.com/net/dnsfallback"
  	"tailscale.com/net/netmon"

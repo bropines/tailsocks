@@ -1,5 +1,5 @@
---- orig/ipn/ipnlocal/local.go	2026-11-03 00:52:02
-+++ tailscale_src/ipn/ipnlocal/local.go	2026-11-12 06:56:16
+--- orig/ipn/ipnlocal/local.go
++++ tailscale_src/ipn/ipnlocal/local.go
 @@ -1567,6 +1567,11 @@
  
  	sb.MutateSelfStatus(func(ss *ipnstate.PeerStatus) {

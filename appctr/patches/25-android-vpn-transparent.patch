@@ -1,5 +1,5 @@
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/wgengine/netstack/local_egress.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/wgengine/netstack/local_egress.go
 @@ -0,0 +1,96 @@
 +package netstack
 +
@@ -97,8 +97,8 @@
 +	}
 +	return ns.isLocalIP(dst)
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/wgengine/netstack/local_egress_test.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/wgengine/netstack/local_egress_test.go
 @@ -0,0 +1,188 @@
 +package netstack
 +
@@ -288,8 +288,8 @@
 +		t.Error("MagicDNS's answer no longer goes to the host")
 +	}
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/cmd/tailscaled/android_vpn_egress.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/cmd/tailscaled/android_vpn_egress.go
 @@ -0,0 +1,49 @@
 +//go:build !ts_omit_netstack
 +
@@ -340,8 +340,8 @@
 +	ns.SetLocalEgress(on)
 +	return true
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/ipn/ipnlocal/fortest_tailsocks_egress.go
 @@ -0,0 +1,11 @@
 +package ipnlocal
 +

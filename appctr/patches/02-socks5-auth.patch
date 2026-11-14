@@ -1,5 +1,5 @@
---- orig/cmd/tailscaled/proxy.go	2026-11-03 00:52:02
-+++ tailscale_src/cmd/tailscaled/proxy.go	2026-11-12 04:53:09
+--- orig/cmd/tailscaled/proxy.go
++++ tailscale_src/cmd/tailscaled/proxy.go
 @@ -15,6 +15,7 @@
  	"net"
  	"net/http"

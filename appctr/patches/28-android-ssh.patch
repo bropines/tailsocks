@@ -1,5 +1,5 @@
---- orig/ssh/tailssh/tailssh.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/tailssh.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/tailssh.go
++++ tailscale_src/ssh/tailssh/tailssh.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -9,8 +9,8 @@
  
  // Package tailssh is an SSH server integrated into Tailscale.
  package tailssh
---- orig/ssh/tailssh/user.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/user.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/user.go
++++ tailscale_src/ssh/tailssh/user.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -20,8 +20,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/user_unix.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/user_unix.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/user_unix.go
++++ tailscale_src/ssh/tailssh/user_unix.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -41,8 +41,8 @@
  	isRoot := isRootUser(u)
  	switch distro.Get() {
  	case distro.Debian, distro.Crostini:
---- orig/ssh/tailssh/session.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/session.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/session.go
++++ tailscale_src/ssh/tailssh/session.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -52,8 +52,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/sftp.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/sftp.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/sftp.go
++++ tailscale_src/ssh/tailssh/sftp.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -63,8 +63,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/c2n.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/c2n.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/c2n.go
++++ tailscale_src/ssh/tailssh/c2n.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -94,8 +94,8 @@
  	default:
  		if hookLocalUsernames != nil {
  			names, err := hookLocalUsernames()
---- orig/ssh/tailssh/hostkeys.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/hostkeys.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/hostkeys.go
++++ tailscale_src/ssh/tailssh/hostkeys.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -105,8 +105,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/listen.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/listen.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/listen.go
++++ tailscale_src/ssh/tailssh/listen.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -116,8 +116,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/process_unix.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/process_unix.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/process_unix.go
++++ tailscale_src/ssh/tailssh/process_unix.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -127,8 +127,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/incubator.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/incubator.go	2026-11-08 22:32:28
+--- orig/ssh/tailssh/incubator.go
++++ tailscale_src/ssh/tailssh/incubator.go
 @@ -7,7 +7,7 @@
  // and groups to the specified `--uid`, `--gid` and `--groups`, and
  // then launches the requested `--cmd`.
@@ -204,8 +204,8 @@
  }
  
  // updateStringInSlice mutates ss to change the first occurrence of a
---- orig/ssh/tailssh/connmonitor.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/connmonitor.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/connmonitor.go
++++ tailscale_src/ssh/tailssh/connmonitor.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -215,8 +215,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/fwdchild.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/fwdchild.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/fwdchild.go
++++ tailscale_src/ssh/tailssh/fwdchild.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -226,8 +226,8 @@
  
  // The ssh-monitor spawns forwarding children as "tailscaled
  // be-child ssh-fwd", one per dial/listen op.
---- orig/ssh/tailssh/fwdmonitor.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/fwdmonitor.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/fwdmonitor.go
++++ tailscale_src/ssh/tailssh/fwdmonitor.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -237,8 +237,8 @@
  
  // The monitor-backed forwarding paths. On unix, all forwarded sockets are
  // dialed and bound by one-shot children of the per-connection ssh-monitor
---- orig/ssh/tailssh/monitor.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/monitor.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/monitor.go
++++ tailscale_src/ssh/tailssh/monitor.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -248,8 +248,8 @@
  
  // The per-connection privileged ssh-monitor process. tailscaled spawns
  // it, as "tailscaled be-child ssh-monitor", once a connection is
---- orig/ssh/tailssh/monitor_client.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/monitor_client.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/monitor_client.go
++++ tailscale_src/ssh/tailssh/monitor_client.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -259,8 +259,8 @@
  
  // monitorClient is tailscaled's side of the ssh-monitor RPC channel.
  // It spawns the per-connection monitor process, re-exec'ing the
---- orig/ssh/tailssh/monitor_rpc.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/monitor_rpc.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/monitor_rpc.go
++++ tailscale_src/ssh/tailssh/monitor_rpc.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -270,8 +270,8 @@
  
  // Monitor RPC wire codec.
  //
---- orig/ssh/tailssh/monitor_linux.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/monitor_linux.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/monitor_linux.go
++++ tailscale_src/ssh/tailssh/monitor_linux.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -281,8 +281,8 @@
  
  package tailssh
  
---- orig/ssh/tailssh/sessmonitor.go	2026-11-03 00:52:02
-+++ tailscale_src/ssh/tailssh/sessmonitor.go	2026-11-08 22:33:47
+--- orig/ssh/tailssh/sessmonitor.go
++++ tailscale_src/ssh/tailssh/sessmonitor.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -292,8 +292,8 @@
  
  // Session processes are launched by the connection's privileged monitor.
  // tailscaled keeps the parent I/O descriptors and passes the child's stdio
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/ssh/tailssh/incubator_android.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/ssh/tailssh/incubator_android.go
 @@ -0,0 +1,28 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -323,8 +323,8 @@
 +		return fmt.Sprintf("pts/%d", n), nil
 +	}
 +}
---- orig/feature/ssh/ssh.go	2026-11-03 00:52:02
-+++ tailscale_src/feature/ssh/ssh.go	2026-11-08 22:32:28
+--- orig/feature/ssh/ssh.go
++++ tailscale_src/feature/ssh/ssh.go
 @@ -1,7 +1,7 @@
  // Copyright (c) Tailscale Inc & contributors
  // SPDX-License-Identifier: BSD-3-Clause
@@ -334,8 +334,8 @@
  
  // Package ssh registers the Tailscale SSH feature, including host key
  // management and the SSH server.
---- orig/envknob/featureknob/featureknob.go	2026-11-03 00:52:02
-+++ tailscale_src/envknob/featureknob/featureknob.go	2026-11-08 22:32:28
+--- orig/envknob/featureknob/featureknob.go
++++ tailscale_src/envknob/featureknob/featureknob.go
 @@ -7,6 +7,7 @@
  
  import (
@@ -358,8 +358,8 @@
  	case "freebsd", "openbsd", "plan9":
  	default:
  		return errors.New("The Tailscale SSH server is not supported on " + runtime.GOOS)
---- orig/util/osuser/user.go	2026-11-03 00:52:02
-+++ tailscale_src/util/osuser/user.go	2026-11-08 22:32:28
+--- orig/util/osuser/user.go
++++ tailscale_src/util/osuser/user.go
 @@ -99,6 +99,16 @@
  			}, shell, nil
  		}
@@ -377,8 +377,8 @@
  	}
  
  	if runtime.GOOS == "plan9" {
---- orig/util/osuser/group_ids.go	2026-11-03 00:52:02
-+++ tailscale_src/util/osuser/group_ids.go	2026-11-08 22:32:28
+--- orig/util/osuser/group_ids.go
++++ tailscale_src/util/osuser/group_ids.go
 @@ -23,6 +23,11 @@
  		return nil, nil
  	}
@@ -391,8 +391,8 @@
  	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
  		return user.GroupIds()
  	}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/util/osuser/android.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/util/osuser/android.go
 @@ -0,0 +1,154 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
@@ -548,8 +548,8 @@
 +	}
 +	return nil
 +}
---- /dev/null	2026-11-08 22:34:19
-+++ tailscale_src/util/osuser/android_test.go	2026-11-08 22:32:28
+--- /dev/null
++++ tailscale_src/util/osuser/android_test.go
 @@ -0,0 +1,86 @@
 +// Copyright (c) Tailscale Inc & contributors
 +// SPDX-License-Identifier: BSD-3-Clause
