@@ -127,4 +127,25 @@ class RootUtilsPureTest {
         assertEquals(emptyList<LongRange>(), RootUtils.splitAround(5L..5L, listOf(5L)))
         assertEquals(listOf(1L..3L), RootUtils.splitAround(1L..3L, emptyList()))
     }
+
+    // --- the DNS health gate's outside probe ---
+
+    @Test
+    fun `the upstream probe asks a new name under the stable zone every time`() {
+        val names = (1..50).map { RootUtils.upstreamProbeName() }
+        assertEquals(50, names.toSet().size)
+        for (n in names) {
+            assertTrue(n, n.endsWith("." + RootUtils.UPSTREAM_PROBE_ZONE))
+            assertTrue(n, Regex("^tsprobe-[0-9a-f]{16}\\.").containsMatchIn(n))
+        }
+        // A seeded source gives the same label: the randomness is the only input.
+        assertEquals(RootUtils.upstreamProbeName(java.util.Random(7)), RootUtils.upstreamProbeName(java.util.Random(7)))
+    }
+
+    @Test
+    fun `NOERROR and NXDOMAIN are healthy, every other answer code is not`() {
+        assertTrue(RootUtils.upstreamProbeHealthy(0))
+        assertTrue(RootUtils.upstreamProbeHealthy(3))
+        for (rcode in listOf(1, 2, 4, 5, 9, -1)) assertFalse("rcode $rcode", RootUtils.upstreamProbeHealthy(rcode))
+    }
 }

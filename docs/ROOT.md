@@ -310,8 +310,11 @@ While the redirect is armed, the app checks it on every refresh tick and takes
 the two `nat OUTPUT` hooks off after three failed checks in a row, putting them
 back once MagicDNS answers again (the ROOT log says so both times). A check
 fails when the daemon cannot resolve this node's own name, when a name outside
-the tailnet (`connectivitycheck.gstatic.com`) gets SERVFAIL, REFUSED or no
+the tailnet gets SERVFAIL, REFUSED (any code but NOERROR and NXDOMAIN) or no
 answer within 6 s, or when the daemon reports **DNS unavailable**. The outside
+name is a fresh random label under `gstatic.com` on every check, so no cache on
+the way can answer it for an upstream that is dead; its normal answer is
+NXDOMAIN, which counts as healthy. The outside
 name is the one that matters for a DNS server on the tailnet: when the tunnel
 to it is down, the own name still resolves from memory while every other
 lookup on the phone fails — and the daemon's own warning is hidden behind its

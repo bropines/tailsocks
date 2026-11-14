@@ -2198,14 +2198,21 @@ object RootUtils {
      * Two questions. The node's own MagicDNS name first: a configured resolver
      * answers it from its in-memory host map without touching the network, so
      * a failure there is a broken configuration, not a flaky link. Then a name
-     * outside the tailnet, [UPSTREAM_PROBE_NAME], which the resolver has to
+     * outside the tailnet ([upstreamProbeName]), which the resolver has to
      * forward. That is the query every app on the phone makes, and the own name
      * alone could not see its path fail: when the tailnet's DNS server is a peer
      * and the tunnel is down, the own name kept passing while every lookup on
      * the device timed out — and the daemon's "DNS unavailable" warning is
      * hidden behind its network-down one, so the health bus said nothing either.
-     * Any answer the resolver got back counts, NXDOMAIN included; only SERVFAIL,
-     * REFUSED and silence mean nothing upstream is reachable.
+     *
+     * The outside name is a fresh random label under [UPSTREAM_PROBE_ZONE] on
+     * every probe. A fixed name (`connectivitycheck.gstatic.com` until now) can
+     * be answered from a cache on the way — the daemon's, the tailnet DNS
+     * server's — for as long as its TTL, while the upstream behind it is dead;
+     * a name nobody has asked before has to travel to the zone's own servers.
+     * Their answer is NXDOMAIN, which counts as healthy, as NOERROR does
+     * ([upstreamProbeHealthy]); SERVFAIL, REFUSED, any other code and silence
+     * mean nothing upstream is reachable.
      *
      * What this validates is the resolver and what it forwards to, not the
      * path to it. localapi is answered in-process, inside the daemon, and never
@@ -2226,17 +2233,30 @@ object RootUtils {
             lastMagicDnsReason = own.failure ?: "the daemon's resolver returned ${rcodeName(own.rcode)} for this node's own name $name"
             return false
         }
-        val upstream = dnsQuery(context, UPSTREAM_PROBE_NAME, UPSTREAM_PROBE_TIMEOUT_MS)
-        if (upstream.failure != null || upstream.rcode == 2 || upstream.rcode == 5) {
+        val probeName = upstreamProbeName()
+        val upstream = dnsQuery(context, probeName, UPSTREAM_PROBE_TIMEOUT_MS)
+        if (upstream.failure != null || !upstreamProbeHealthy(upstream.rcode)) {
             lastMagicDnsReason = upstream.failure?.let { "own name answered, but $it" }
                 ?: "own name answered, but the daemon's resolver returned ${rcodeName(upstream.rcode)} for " +
-                    "$UPSTREAM_PROBE_NAME: it cannot reach its upstream DNS servers"
+                    "$probeName: it cannot reach its upstream DNS servers"
             return false
         }
         lastMagicDnsReason = "the daemon's resolver answered $name (${own.answers} record(s)) and " +
-            "$UPSTREAM_PROBE_NAME (${rcodeName(upstream.rcode)})"
+            "a fresh name under $UPSTREAM_PROBE_ZONE (${rcodeName(upstream.rcode)})"
         return true
     }
+
+    /**
+     * A name under [UPSTREAM_PROBE_ZONE] that no cache can hold an answer for:
+     * a random 64-bit label, new on every call.
+     */
+    internal fun upstreamProbeName(random: java.util.Random = probeRandom): String =
+        "tsprobe-%016x.%s".format(random.nextLong(), UPSTREAM_PROBE_ZONE)
+
+    /** NOERROR and NXDOMAIN are answers from upstream; every other code is not. */
+    internal fun upstreamProbeHealthy(rcode: Int): Boolean = rcode == 0 || rcode == 3
+
+    private val probeRandom = java.security.SecureRandom()
 
     private class DnsProbe(val rcode: Int, val answers: Int, val failure: String?)
 
@@ -2260,8 +2280,11 @@ object RootUtils {
         return DnsProbe(rcode, answers, null)
     }
 
-    /** A name that exists everywhere and is never a tailnet name. */
-    private const val UPSTREAM_PROBE_NAME = "connectivitycheck.gstatic.com"
+    /**
+     * A zone that resolves everywhere, is never a tailnet name and answers a
+     * label it does not have with NXDOMAIN rather than a wildcard.
+     */
+    internal const val UPSTREAM_PROBE_ZONE = "gstatic.com"
     /** Longer than the forwarder's own retries take to end in SERVFAIL. */
     private const val UPSTREAM_PROBE_TIMEOUT_MS = 6_000
 
