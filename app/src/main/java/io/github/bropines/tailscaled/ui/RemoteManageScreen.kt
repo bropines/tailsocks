@@ -45,7 +45,7 @@ import io.github.bropines.tailscaled.BuildConfig
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.settings.rememberParentLocals
 import io.github.bropines.tailscaled.core.AccountManager
-import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.BridgeRemotePeerApi
 import io.github.bropines.tailscaled.core.Feature
 import io.github.bropines.tailscaled.core.GlobalSettings
@@ -58,7 +58,6 @@ import io.github.bropines.tailscaled.core.TailscaledService
 import io.github.bropines.tailscaled.core.sendTaildropFiles
 import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.models.PeerData
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -227,9 +226,7 @@ private val background = CoroutineScope(SupervisorJob() + Dispatchers.Main.immed
 private fun localView(peerId: String): Pair<ManagePeer, PeerData?> = runCatching {
     if (!Appctr.isRunning()) return ManagePeer(stopped = true) to null
     if (Appctr.getBackendState() != "Running") return ManagePeer() to null
-    val json = Appctr.getStatusFromAPI()
-    if (json.isBlank() || json.startsWith("Error")) return ManagePeer() to null
-    val status = AppJson.decodeFromString<StatusResponse>(json)
+    val status = DaemonStatus.readOrNull() ?: return ManagePeer() to null
     val peers = status.peers ?: return ManagePeer() to null
     val peer = peers.values.firstOrNull { it.id == peerId } ?: return ManagePeer(RemotePresence.GONE) to null
     ManagePeer(

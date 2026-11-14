@@ -13,7 +13,6 @@ import io.github.bropines.tailscaled.BuildConfig
 import io.github.bropines.tailscaled.admin.secure.KeyValueStore
 import io.github.bropines.tailscaled.admin.secure.KeystoreSecretBox
 import io.github.bropines.tailscaled.admin.secure.SecretBox
-import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -254,10 +253,8 @@ internal class AppRemoteHost(private val context: Context) : RemoteHost {
         }
     }
 
-    private fun addressOf(id: String): String? = runCatching {
-        AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI())
-            .peers?.values?.firstOrNull { it.id == id }?.tailscaleIPs?.firstOrNull()
-    }.getOrNull()
+    private fun addressOf(id: String): String? =
+        DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.id == id }?.tailscaleIPs?.firstOrNull()
 
     override fun reconnect() {
         if (!ProxyState.isUserLetRunning(context)) throw RemoteRefusal("the device is stopped")
