@@ -111,6 +111,7 @@ type BusPeer struct {
 	Active         bool            `json:"Active,omitempty"`
 	ExitNode       bool            `json:"ExitNode,omitempty"`
 	ExitNodeOption bool            `json:"ExitNodeOption,omitempty"`
+	AllowedIPs     []string        `json:"AllowedIPs,omitempty"` // a Node's exit-node offer, for the netmap signature (events.go)
 	Tags           []string        `json:"Tags,omitempty"`
 	Capabilities   []string        `json:"Capabilities,omitempty"`
 	Relay          string          `json:"Relay,omitempty"` // preferred DERP region
@@ -242,12 +243,18 @@ func GetHealthWarningsJSON() string {
 // a successor still in NoState, or a dead AuthURL that turned SetPrefs into a
 // silent no-op. With an empty snapshot those fall through to one live status
 // query and the bus listener repopulates it from there.
+//
+// The app is told what that changed (events.go): a snapshot gone empty is a
+// state, health, prefs and netmap change like any other.
 func resetBusState() {
 	busStateMu.Lock()
 	busState = busStateSnapshot{}
 	busEngineAt = time.Time{}
 	lastHealthFingerprint = ""
+	resetPeerFacts()
+	kinds := takeEventChangesLocked()
 	busStateMu.Unlock()
+	daemonEvents.publish(kinds...)
 }
 
 // ─── Shared DNS state (written here, read in dns.go) ────────────────────────
@@ -570,9 +577,15 @@ func listenToBus(ctx context.Context, tr *http.Transport) (connected bool, err e
 	if sock != "" {
 		busStreamSocket.Store(&sock)
 	}
+	// Attached and detached are state changes for the app (events.go): the
+	// stream opening is a daemon coming up or the bridge coming back to one,
+	// its end a daemon gone or restarting — in every mode, the root daemon's
+	// socket included.
+	publishBusChanges()
 	defer func() {
 		busStreamSocket.Store(nil)
 		busConnected.Store(false)
+		publishBusChanges()
 	}()
 
 	dec := json.NewDecoder(resp.Body)
@@ -594,14 +607,19 @@ func listenToBus(ctx context.Context, tr *http.Transport) (connected bool, err e
 // applyNotify merges a single Notify message into busState and DNS caches,
 // then forwards the parts other components subscribe to.
 func applyNotify(msg *BusNotify) {
-	applyNotifyLocked(msg)
-	// Outside the lock: the Kotlin listener may call back into appctr.
+	kinds := applyNotifyLocked(msg)
+	// Outside the lock: the Kotlin listeners may call back into appctr. The
+	// change events only queue here; their own goroutine delivers them.
+	daemonEvents.publish(kinds...)
 	if msg.IncomingFiles != nil {
 		notifyTaildropListener(msg.IncomingFiles)
 	}
 }
 
-func applyNotifyLocked(msg *BusNotify) {
+// applyNotifyLocked merges msg under busStateMu and returns the kinds of
+// change event it caused (events.go), for the caller to publish once the
+// lock is released.
+func applyNotifyLocked(msg *BusNotify) []eventKind {
 	busStateMu.Lock()
 	defer busStateMu.Unlock()
 
@@ -711,6 +729,7 @@ func applyNotifyLocked(msg *BusNotify) {
 	if msg.SelfChange != nil {
 		busState.Self = msg.SelfChange
 		updateNodeCacheFromPeer(msg.SelfChange)
+		setPeerFacts(msg.SelfChange)
 	}
 
 	// The baseline on connect: self, its addresses, the MagicDNS suffix and
@@ -726,6 +745,7 @@ func applyNotifyLocked(msg *BusNotify) {
 		// The status names every node there is now, so whatever the cache
 		// holds from before — peers removed while the listener was away — goes.
 		resetNodeCache()
+		resetPeerFacts()
 		nodes := 0
 		if st.Self != nil {
 			busState.Self = st.Self
@@ -733,11 +753,13 @@ func applyNotifyLocked(msg *BusNotify) {
 			if updateNodeCacheFromPeer(st.Self) {
 				nodes++
 			}
+			setPeerFacts(st.Self)
 		}
 		for _, p := range st.Peer {
 			if updateNodeCacheFromPeer(p) {
 				nodes++
 			}
+			setPeerFacts(p)
 		}
 		slog.Info("Bus: initial status", "nodes", nodes, "suffix", getMagicDNSSuffix())
 	}
@@ -748,6 +770,7 @@ func applyNotifyLocked(msg *BusNotify) {
 	if len(msg.PeersChanged) > 0 {
 		for _, p := range msg.PeersChanged {
 			updateNodeCacheFromPeer(p)
+			setPeerFacts(p)
 		}
 		slog.Info("Bus: peers upserted", "count", len(msg.PeersChanged))
 	}
@@ -757,6 +780,15 @@ func applyNotifyLocked(msg *BusNotify) {
 	for _, raw := range msg.PeersRemoved {
 		if id, err := strconv.ParseInt(string(raw), 10, 64); err == nil && id != 0 {
 			setNodeNames(id, nil)
+			removePeerFacts(id)
+		}
+	}
+
+	// Narrow patches: of what they carry, only a peer coming online or going
+	// offline is a fact the app shows (the netmap signature).
+	for _, pc := range msg.PeerChangedPatch {
+		if pc != nil && pc.Online != nil {
+			patchPeerOnline(pc.NodeID, *pc.Online)
 		}
 	}
 
@@ -772,6 +804,8 @@ func applyNotifyLocked(msg *BusNotify) {
 			}
 		}
 	}
+
+	return takeEventChangesLocked()
 }
 
 // ─── DNS cache helpers ───────────────────────────────────────────────────────

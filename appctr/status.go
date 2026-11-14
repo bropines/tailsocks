@@ -183,6 +183,7 @@ func GetBackendState() string {
 			busState.AuthURL = ""
 		}
 		busStateMu.Unlock()
+		publishBusChanges()
 		return res.BackendState
 	}
 	return bs.BackendState

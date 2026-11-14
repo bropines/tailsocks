@@ -267,6 +267,9 @@ func Stop() {
 		}(cmd.Process)
 		cmd = nil
 	}
+	// IsRunning answers false only from here on: tell the app again, after
+	// the reset inside releaseGoResources already did (events.go).
+	publishBridgeState()
 }
 
 // DetachExternal releases every Go-side resource bound to an externally managed
@@ -274,6 +277,7 @@ func Stop() {
 // service stops but the user asked the root daemon to keep running.
 func DetachExternal() {
 	releaseGoResources()
+	publishBridgeState()
 	slog.Info("Detached from external daemon")
 }
 

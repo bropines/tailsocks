@@ -447,6 +447,7 @@ func GetLoginURL() string {
 		busStateMu.Lock()
 		busState.AuthURL = s.AuthURL
 		busStateMu.Unlock()
+		publishBusChanges()
 	}
 	return s.AuthURL
 }

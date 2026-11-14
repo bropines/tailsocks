@@ -43,6 +43,7 @@ func ForceRefresh() {
 			}
 			busState.AuthURL = res.AuthURL
 			busStateMu.Unlock()
+			publishBusChanges()
 		}
 	}
 	ReUp()
@@ -135,6 +136,9 @@ func RunTailscaleArgs(parts ...string) string {
 		lastErrMu.Lock()
 		lastErrStr = "410_GONE"
 		lastErrMu.Unlock()
+		// The main screen's banner reads this with the state (GetLastError);
+		// it is no daemon event, so say it is there to be read.
+		publishBridgeState()
 	}
 
 	if err != nil {
@@ -496,6 +500,7 @@ func forgetAuthURL() {
 	busStateMu.Lock()
 	busState.AuthURL = ""
 	busStateMu.Unlock()
+	publishBusChanges()
 }
 
 // applyPreStartPrefs pushes the options the daemon has to hold *before* Start
