@@ -35,6 +35,8 @@ import kotlinx.coroutines.withContext
 class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) {
 
     private var reviewJob: Job? = null
+    /** The 412's read of their version and the merge; cancelled with the editor. */
+    private var conflictJob: Job? = null
     private val store by lazy { PolicyStore(vm.app.filesDir, KeystoreSecretBox()) }
     private val views by lazy { PolicyViewPrefs.of(vm.app) }
     private var templateJob: Job? = null
@@ -170,6 +172,7 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
 
     fun closeEditor() {
         reviewJob?.cancel()
+        conflictJob?.cancel()
         set { it.copy(editor = null, conflict = null) }
     }
 
@@ -334,12 +337,18 @@ class PolicyConsole internal constructor(private val vm: AdminConsoleViewModel) 
     /** The 412: their version fetched, my edit merged onto it where the two do not touch. */
     private fun conflict(review: PolicyReview) {
         val b = vm.backend ?: return
-        vm.viewModelScope.launch {
+        conflictJob?.cancel()
+        conflictJob = vm.viewModelScope.launch {
             val theirs = attempt { b.policyFile() }.getOrElse {
                 setEditor { e -> e.copy(sendError = vm.text.getString(R.string.admin_cfg_policy_conflict_unread, ConsoleText.error(vm.text, it))) }
                 return@launch
             }
-            val merge = LineDiff.merge3(LineDiff.lines(review.base.text), LineDiff.lines(review.candidate), LineDiff.lines(theirs.text))
+            // Two diffs of whole files: off the main thread. Closing the editor cancels this job,
+            // so no conflict is published for an editor that is gone; the state is set on main.
+            val merge = withContext(Dispatchers.Default) {
+                LineDiff.merge3(LineDiff.lines(review.base.text), LineDiff.lines(review.candidate), LineDiff.lines(theirs.text))
+            }
+            if (vm.backend !== b) return@launch
             set {
                 it.copy(
                     file = Loadable(theirs, loadedAt = System.currentTimeMillis()),

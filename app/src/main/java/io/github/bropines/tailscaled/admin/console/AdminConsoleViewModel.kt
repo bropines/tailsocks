@@ -393,7 +393,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val b = backend ?: return
         if (!force && _state.value.policyTags.isNotEmpty()) return
         viewModelScope.launch {
-            val read = attempt { b.policyTags() }
+            // Tailscale's answer is the whole policy as JSON, parsed to find the tags: not for the main thread.
+            val read = attempt { withContext(Dispatchers.Default) { b.policyTags() } }
             // Another profile's tags would land in this one's state and, through keepCopies, in
             // its copy on disk — and loadTags(force = false) would never correct them.
             if (backend !== b) return@launch
