@@ -360,11 +360,7 @@ fun SettingsScreen(
     // where it is composed whichever page is open, for the system's picker to answer.
     val sharing = remember { SettingsSharingState(context, profilePrefs) }
     val taildropFolderChooser = rememberReceiveFolderChooser { sharing.taildropFolder = it }
-    var autoStart by remember { mutableStateOf(GlobalSettings.isAutoStartEnabled(context)) }
-    var hideFromRecents by remember { mutableStateOf(GlobalSettings.isHideFromRecents(context)) }
-    var autoReconnect by remember { mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context)) }
-    var autoReconnectAttempts by remember { mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString()) }
-    var serviceWatchdog by remember { mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context)) }
+    val background = remember { SettingsBackgroundState(context) }
     // The control proxy: its row on the Censorship bypass page, its dialog over the screen.
     val bypass = remember { SettingsBypassState(context) }
     
@@ -379,7 +375,6 @@ fun SettingsScreen(
     var loginServer by remember { mutableStateOf(profilePrefs.getString("login_server", "") ?: "") }
     
     var acceptRoutes by remember { mutableStateOf(GlobalSettings.getBoolean(context, "accept_routes", false)) }
-    var forceBg by remember { mutableStateOf(GlobalSettings.getBoolean(context, "force_bg", false)) }
     var detailedLogs by remember { mutableStateOf(GlobalSettings.getBoolean(context, "detailed_logs", false)) }
     var extraArgs by remember { mutableStateOf(GlobalSettings.getString(context, "extra_args_raw", "")) }
 
@@ -1925,76 +1920,6 @@ fun SettingsScreen(
         }
     }
 
-    // G. Background & permissions
-    val sectionBackground: @Composable () -> Unit = {
-        SettingsCard(title = stringResource(R.string.settings_sect_service_perms)) {
-            SettingsClickableItem(stringResource(R.string.settings_permissions_title), stringResource(R.string.settings_permissions_desc), Icons.Default.VerifiedUser) {
-                context.startActivity(Intent(context, PermissionsActivity::class.java))
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsSwitchItem(stringResource(R.string.settings_autostart_title), stringResource(R.string.settings_autostart_desc), Icons.Default.PowerSettingsNew, autoStart) {
-                GlobalSettings.setAutoStartEnabled(context, it)
-                autoStart = it
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsSwitchItem(stringResource(R.string.settings_hide_recents_title), stringResource(R.string.settings_hide_recents_desc), Icons.Default.VisibilityOff, hideFromRecents) {
-                GlobalSettings.setHideFromRecents(context, it)
-                hideFromRecents = it
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsSwitchItem(
-                stringResource(R.string.settings_auto_reconnect_title),
-                stringResource(R.string.settings_auto_reconnect_desc),
-                Icons.Default.Autorenew,
-                autoReconnect
-            ) {
-                GlobalSettings.setAutoReconnectEnabled(context, it)
-                autoReconnect = it
-            }
-            if (autoReconnect) {
-                SettingsEditItem(
-                    title = stringResource(R.string.settings_auto_reconnect_attempts_title),
-                    value = autoReconnectAttempts,
-                    icon = Icons.Default.Repeat
-                ) {
-                    autoReconnectAttempts = it.filter { ch -> ch.isDigit() }.take(2)
-                    saveGlobalPref("auto_reconnect_attempts", autoReconnectAttempts)
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsSwitchItem(
-                stringResource(R.string.settings_watchdog_title),
-                stringResource(R.string.settings_watchdog_desc),
-                Icons.Default.MonitorHeart,
-                serviceWatchdog
-            ) {
-                GlobalSettings.setServiceWatchdogEnabled(context, it)
-                serviceWatchdog = it
-                if (it) {
-                    ServiceWatchdog.schedule(context)
-                    // Without "Alarms & reminders" the check still runs, only
-                    // later and without the exemption that lets it start the
-                    // service from the background. Ask exactly here, where the
-                    // user just said they want the feature.
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
-                        !ServiceWatchdog.canScheduleExact(context)
-                    ) {
-                        val page = Intent(
-                            android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                            android.net.Uri.parse("package:${context.packageName}")
-                        )
-                        // A device without the page, or with a placeholder in its place, is told so.
-                        if (!(context.canLaunch(page) && context.tryStartActivity(page))) {
-                            Toast.makeText(context, context.getString(R.string.settings_watchdog_exact_error), Toast.LENGTH_LONG).show()
-                        }
-                    }
-                } else ServiceWatchdog.cancel(context)
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsSwitchItem(stringResource(R.string.settings_keep_awake_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
-        }
-    }
-
     // H. Appearance & language
     //
     // The theme and the icon are a feature of their own (Feature.THEME_AND_ICON): four
@@ -2689,7 +2614,7 @@ fun SettingsScreen(
                         "dns" -> SettingsDnsPage(env, dns)
                         "bypass" -> SettingsBypassPage(context, bypass)
                         "sharing" -> SettingsSharingPage(env, sharing, taildropFolderChooser)
-                        "background" -> sectionBackground()
+                        "background" -> SettingsBackgroundPage(env, background)
                         "appearance" -> sectionAppearance()
                         themePage.id -> sectionTheme()
                         "backup" -> sectionBackup()
