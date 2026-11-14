@@ -80,10 +80,22 @@ android {
     // NDK; otherwise AGP takes its own default and CI took whichever it found.
     ndkVersion = "28.2.13676358"
 
+    // A call above minSdk is fatal, not merely an error: lintVital — the lint
+    // pass every release build runs (assembleRelease, unless -PskipReleaseLint)
+    // — checks only fatal issues, so this is what makes a release fail on one.
+    // Android 10 users met three such crashes in 4.4.3 that this check reports.
+    // It used to be a separate `lintDebug -PlintNewApiOnly` in the release
+    // workflow, which compiled the whole debug variant (5 minutes) for one check
+    // the release build can run on the code it already compiled. Lint never
+    // changes the APK.
+    lint {
+        fatal += "NewApi"
+    }
+
     // ./gradlew lintDebug -PlintNewApiOnly: fail on nothing but a call above
-    // minSdk. CI runs this on every build. Android 10 users met three such
-    // crashes in 4.4.3 that this check reports; the full lint run still has
-    // hundreds of style findings and is not a gate.
+    // minSdk, for a debug build (which has no lintVital pass) — the CI workflow
+    // on main and pull requests runs it; the full lint run still has hundreds
+    // of style findings and is not a gate.
     if (project.hasProperty("lintNewApiOnly")) {
         lint {
             checkOnly += "NewApi"

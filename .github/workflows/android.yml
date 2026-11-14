@@ -204,13 +204,10 @@ jobs:
             esac
           fi
 
-      - name: Check API levels (lint, NewApi only)
-        run: |
-          chmod +x gradlew
-          ./gradlew app:lintDebug -PlintNewApiOnly --stacktrace
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-
+      # A call above minSdk fails the release build itself: NewApi is fatal
+      # (app/build.gradle.kts), and assembleRelease runs lintVital over the
+      # release variant it compiles anyway. The separate lintDebug pass that did
+      # this compiled the debug variant for it — five of the pipeline's minutes.
       - name: Build APK
         run: |
           chmod +x gradlew
