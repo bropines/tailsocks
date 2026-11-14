@@ -2316,7 +2316,7 @@ object RootUtils {
      * tailnet addresses. Being priority-based and network-agnostic, the rule
      * needs no refresh when Wi-Fi gives way to mobile data.
      */
-    private fun excludeRulesInstall(uids: List<Int>): String {
+    internal fun excludeRulesInstall(uids: List<Int>): String {
         if (uids.isEmpty()) return ""
         return buildString {
             append("PHYS=$(ip route get 1.1.1.1 mark $PROTECT_MARK 2>/dev/null | sed -n 's/.*table \\([A-Za-z0-9_]*\\).*/\\1/p' | head -n1)\n")
@@ -2336,43 +2336,63 @@ object RootUtils {
                 append("    [ \"\$p\" -ge $NETD_RULE_MIN ] && { echo \"\$p\"; break; }\n")
                 append("done)\n")
             }
-            for (uid in uids) {
-                for ((ip, goto, phys) in listOf(
-                    Triple("ip", "\$GOTO", "\$PHYS"),
-                    Triple("ip -6", "\$GOTO6", "\$PHYS6")
-                )) {
+            // Per family, in passes over all uids rather than uid by uid: every
+            // rule is added first, then the rule list is read back once and each
+            // uid is checked against that snapshot with `case`, a shell builtin.
+            // Reading the list per uid and per check cost three `ip rule show`
+            // and five `grep` per uid and family, ~20 processes per excluded app
+            // inside every apply. The checks are the same and still run after
+            // the add they verify; only the reads are shared. The snapshots keep
+            // pref-[EXCLUDE_PRIO] lines only, which nothing but these rules
+            // uses, so a match anywhere in one is a match on one of those lines.
+            for ((v, ip) in listOf("" to "ip", "6" to "ip -6")) {
+                val goto = "\$GOTO$v"
+                val phys = "\$PHYS$v"
+                fun fallback(uid: Int) =
+                    "{ [ -n \"$phys\" ] && $ip rule add uidrange $uid-$uid iif lo lookup \"$phys\" priority $EXCLUDE_PRIO 2>/dev/null; } || true"
+                for (uid in uids) {
                     append("while $ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
                     append(
                         "{ [ -n \"$goto\" ] && $ip rule add uidrange $uid-$uid goto \"$goto\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
                     )
-                    // A goto the kernel could not resolve: the rule exists but is
-                    // never evaluated, which is worse than no rule at all.
-                    append(
-                        "if $ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:' | grep -F 'uidrange $uid-$uid' | " +
-                            "grep -qE '\\[detached\\]| unresolved'; then\n"
-                    )
+                }
+                append("EXCL$v=\$($ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:')\n")
+                // A goto the kernel could not resolve: the rule exists but is
+                // never evaluated, which is worse than no rule at all.
+                append("EXCL_DET$v=\$(echo \"\$EXCL$v\" | grep -E '\\[detached\\]| unresolved')\n")
+                for (uid in uids) {
+                    // Fallback, also taken when no rule exists in netd's band at
+                    // all: pin the uid to the physical table by hand. A detached
+                    // rule is deleted first, which leaves the uid with none.
+                    append("case \"\$EXCL_DET$v\" in *'uidrange $uid-$uid'*)\n")
                     append("    while $ip rule del uidrange $uid-$uid priority $EXCLUDE_PRIO 2>/dev/null; do :; done\n")
                     append("    echo '$GOTO_UNRESOLVED'\n")
-                    append("fi\n")
-                    // Fallback, also taken when no rule exists in netd's band at
-                    // all: pin the uid to the physical table by hand.
-                    append(
-                        "$ip rule show 2>/dev/null | grep -q '^$EXCLUDE_PRIO:.*uidrange $uid-$uid' || " +
-                            "{ [ -n \"$phys\" ] && $ip rule add uidrange $uid-$uid iif lo lookup \"$phys\" priority $EXCLUDE_PRIO 2>/dev/null; } || true\n"
-                    )
-                    // Neither form landed. On a device whose `ip` was built
-                    // without uid-range support that is what always happens, and
-                    // both attempts are silent about it: `ip rule add` fails, the
-                    // `|| true` swallows it, and the summary used to announce an
-                    // exclusion that does not exist.
-                    val present = "$ip rule show 2>/dev/null | grep -q '^$EXCLUDE_PRIO:.*uidrange $uid-$uid'"
-                    if (ip == "ip") {
-                        append("$present || echo '$UIDRANGE_MISSING_V4'\n")
-                    } else {
-                        // The trailing `|| true` keeps a device with IPv6 off
-                        // from ending a script on a non-zero test.
-                        append("[ \"\$V6UP\" = 1 ] && { $present || echo '$UIDRANGE_MISSING_V6'; } || true\n")
+                    append("    ${fallback(uid)};;\n")
+                    append("*)\n")
+                    append("    case \"\$EXCL$v\" in *'uidrange $uid-$uid'*) ;; *) ${fallback(uid)};; esac;;\n")
+                    append("esac\n")
+                }
+                // Neither form landed. On a device whose `ip` was built
+                // without uid-range support that is what always happens, and
+                // both attempts are silent about it: `ip rule add` fails, the
+                // `|| true` swallows it, and the summary used to announce an
+                // exclusion that does not exist. A second read, after the
+                // fallbacks.
+                val marker = if (v.isEmpty()) UIDRANGE_MISSING_V4 else UIDRANGE_MISSING_V6
+                val check = buildString {
+                    append("EXCL$v=\$($ip rule show 2>/dev/null | grep '^$EXCLUDE_PRIO:')\n")
+                    for (uid in uids) {
+                        append("case \"\$EXCL$v\" in *'uidrange $uid-$uid'*) ;; *) echo '$marker';; esac\n")
                     }
+                }
+                if (v.isEmpty()) {
+                    append(check)
+                } else {
+                    // Only where IPv6 is up, so a device with it off cannot
+                    // raise the alarm.
+                    append("if [ \"\$V6UP\" = 1 ]; then\n")
+                    append(check)
+                    append("fi\n")
                 }
             }
         }
