@@ -7,9 +7,7 @@ import android.util.Log
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
-import appctr.Appctr
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropDirection
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.ui.ShareActivity
@@ -17,7 +15,6 @@ import io.github.bropines.tailscaled.ui.TaildropReasonStrings
 import io.github.bropines.tailscaled.ui.TaildropStatus
 import io.github.bropines.tailscaled.ui.taildropPickerPeers
 import io.github.bropines.tailscaled.ui.taildropStatusOf
-import kotlinx.serialization.decodeFromString
 
 /** A device the system share sheet can offer: one sharing shortcut. */
 internal data class ShareCandidate(
@@ -95,7 +92,7 @@ object ShareTargets {
         if (now - lastSyncAt < SYNC_INTERVAL_MS) return
         lastSyncAt = now
         try {
-            val status = AppJson.decodeFromString<StatusResponse>(Appctr.getStatusJSON(true))
+            val status = DaemonStatus.readOrThrow()
             val profile = AccountManager.getActiveAccount(context).id
             val strings = TaildropReasonStrings.from(context)
             val candidates = taildropPickerPeers(status, strings).mapNotNull { p ->

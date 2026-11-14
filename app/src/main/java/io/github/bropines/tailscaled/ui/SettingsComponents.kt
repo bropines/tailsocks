@@ -675,9 +675,9 @@ fun SettingsExitNodeItem(
             isLoading = true
             scope.launch(Dispatchers.IO) {
                 try {
-                    val pJson = Appctr.getStatusFromAPI()
-                    if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
-                        val status = AppJson.decodeFromString<StatusResponse>(pJson)
+                    // A failed read keeps the list the dialog already has.
+                    val status = DaemonStatus.readOrNull()
+                    if (status != null) {
                         val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
                         withContext(Dispatchers.Main) { exitNodes = nodes }
                     }

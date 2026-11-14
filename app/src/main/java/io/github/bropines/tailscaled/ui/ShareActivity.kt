@@ -33,12 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import appctr.Appctr
 import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.saveable.rememberSaveable
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
-import io.github.bropines.tailscaled.core.AppJson
-import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -178,9 +175,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
         isLoadingPeers = true
         scope.launch(Dispatchers.IO) {
             try {
-                val json = Appctr.getStatusFromAPI()
-                if (json.isBlank() || json.startsWith("Error")) throw Exception(if (json.isBlank()) "Empty status" else json)
-                val status = AppJson.decodeFromString<StatusResponse>(json)
+                val status = DaemonStatus.readOrThrow()
                 // Same list and order as the Files hub picker; a peer the daemon refuses is
                 // listed disabled with the reason, so what is offered is what will be accepted.
                 peers = taildropPickerPeers(status, taildropStrings)

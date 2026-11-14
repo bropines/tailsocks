@@ -428,6 +428,7 @@
     <string name="peers_failed_format">Ошибка: %1$s</string>
     <string name="peers_daemon_not_running">Служба не запущена</string>
     <string name="peers_network_error">Ошибка сети</string>
+    <string name="peers_status_failed">Служба не ответила: %1$s</string>
     <string name="action_start_service">Запустить</string>
     <string name="action_retry">Повторить</string>
     <!-- ======================== Serve & Funnel ======================== -->

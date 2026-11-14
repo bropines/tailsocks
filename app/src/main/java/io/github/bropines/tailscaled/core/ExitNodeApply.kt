@@ -5,7 +5,6 @@ import android.content.Intent
 import android.util.Log
 import androidx.core.content.edit
 import appctr.Appctr
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.ui.WidgetUpdates
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -93,10 +92,8 @@ object ExitNodeApply {
     fun resolveId(context: Context, ip: String): String {
         if (ip.isEmpty()) return ""
         if (Appctr.isRunning()) {
-            runCatching {
-                val status = AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI())
-                status.peers?.values?.firstOrNull { it.tailscaleIPs?.contains(ip) == true }?.id
-            }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+            DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.tailscaleIPs?.contains(ip) == true }?.id
+                ?.takeIf { it.isNotEmpty() }?.let { return it }
         }
         return ExitNodeCache.idFor(profilePrefs(context.applicationContext), ip).orEmpty()
     }

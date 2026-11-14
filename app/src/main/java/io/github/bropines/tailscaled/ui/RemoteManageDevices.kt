@@ -28,11 +28,10 @@ import androidx.lifecycle.repeatOnLifecycle
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AccountManager
-import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.RemoteManage
 import io.github.bropines.tailscaled.core.RemoteTokenStore
 import io.github.bropines.tailscaled.models.PeerData
-import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -91,12 +90,17 @@ internal fun pairedDevices(tokens: RemoteTokenStore, profileId: String, peers: M
         )
     }.sortedWith(compareBy<RemoteDeviceRow> { it.presence.ordinal }.thenBy { it.name.lowercase() })
 
-/** This device's network map by StableNodeID; null when the daemon is not running or does not answer. */
+/**
+ * This device's network map by StableNodeID; null when the daemon is not running, not Running
+ * yet, or does not answer — every paired device then reads UNKNOWN, not GONE. The same guard
+ * as localView (RemoteManageScreen.kt): a daemon that is starting or waits for a sign-in lists
+ * no peers, and a peer missing from that would be taken for one that left.
+ */
 private fun localPeers(): Map<String, PeerData>? = runCatching {
     if (!Appctr.isRunning()) return null
-    val json = Appctr.getStatusFromAPI()
-    if (json.isBlank() || json.startsWith("Error")) return null
-    AppJson.decodeFromString<StatusResponse>(json).peers?.values.orEmpty().mapNotNull { peer -> peer.id?.let { it to peer } }.toMap()
+    if (Appctr.getBackendState() != "Running") return null
+    val status = DaemonStatus.readOrNull() ?: return null
+    status.peers?.values.orEmpty().mapNotNull { peer -> peer.id?.let { it to peer } }.toMap()
 }.getOrNull()
 
 /** How often the list looks again while it is on screen: a device comes and goes. */

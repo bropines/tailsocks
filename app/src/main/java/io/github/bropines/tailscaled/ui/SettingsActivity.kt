@@ -523,8 +523,7 @@ fun SettingsScreen(
     var tailnetOpen by remember { mutableStateOf(TailnetReach.opened(context)) }
     LaunchedEffect(Unit) {
         tailnetIp = withContext(Dispatchers.IO) {
-            runCatching { AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI()) }
-                .getOrNull()?.self?.tailscaleIPs?.firstOrNull { ':' !in it }
+            DaemonStatus.readOrNull()?.self?.tailscaleIPs?.firstOrNull { ':' !in it }
         }
     }
     var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
@@ -1008,9 +1007,8 @@ fun SettingsScreen(
         LaunchedEffect(activeAccount.id) {
             scope.launch(Dispatchers.IO) {
                 try {
-                    val pJson = Appctr.getStatusFromAPI()
-                    if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
-                        val status = AppJson.decodeFromString<StatusResponse>(pJson)
+                    val status = DaemonStatus.readOrNull()
+                    if (status != null) {
                         val selfTags = status.self?.tags ?: emptyList()
                         withContext(Dispatchers.Main) { appliedTags = selfTags }
 

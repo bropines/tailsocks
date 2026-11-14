@@ -3,7 +3,6 @@ package io.github.bropines.tailscaled.core
 import android.util.Log
 import appctr.Appctr
 import io.github.bropines.tailscaled.models.PeerData
-import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -97,10 +96,6 @@ object ExitNodeSuggestion {
         return Outcome.Suggested(answer.id, ip, peer.getDisplayName(), place)
     }
 
-    private fun readPeers(): Collection<PeerData> = try {
-        val json = Appctr.getStatusFromAPI()
-        AppJson.decodeFromString<StatusResponse>(json).peers?.values ?: emptyList()
-    } catch (e: Exception) {
-        emptyList()
-    }
+    private fun readPeers(): Collection<PeerData> =
+        DaemonStatus.readOrNull()?.peers?.values ?: emptyList()
 }
