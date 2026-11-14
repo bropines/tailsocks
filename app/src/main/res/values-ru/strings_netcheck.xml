@@ -10,4 +10,7 @@
     <string name="netcheck_starting_service">Запуск службы…</string>
     <string name="netcheck_starting_service_desc">Диагностика начнётся, когда служба подключится.</string>
     <string name="netcheck_service_stopped">Служба остановилась, так и не запустившись. Причина — в логах.</string>
+    <!-- The verdict right after a start: Running, but control has not marked this node online yet. -->
+    <string name="netcheck_confirming">ПОДКЛЮЧЕНИЕ</string>
+    <string name="netcheck_confirming_desc">Сервер координации ещё не подтвердил это устройство.</string>
 </resources>

@@ -211,7 +211,7 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(context.getString(R.string.share_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(context.getString(R.string.share_files_count_format, fileUris.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(context.resources.getQuantityString(R.plurals.share_files_count_format, fileUris.size, fileUris.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { loadPeers() }) {
                     Icon(Icons.Default.Refresh, contentDescription = context.getString(R.string.action_refresh))

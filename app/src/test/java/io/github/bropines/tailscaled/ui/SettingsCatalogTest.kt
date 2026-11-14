@@ -33,7 +33,7 @@ class SettingsCatalogTest {
         "SettingsExitNodeItem" to 0,
         // NodeSettings.kt: (state, field, title, …).
         "NodeSwitchRow" to 2,
-        // The tunnel modes of SettingsActivity.kt: always called by name.
+        // The tunnel modes of SettingsTunnel.kt: always called by name.
         "ModeOption" to 2,
     )
 
@@ -185,6 +185,40 @@ class SettingsCatalogTest {
             assertNotNull("the link «$title» of the Advanced page has no entry", entry)
             assertEquals(title, Feature.valueOf(feature), entry!!.feature)
             assertEquals(title, SettingsPage.ADVANCED, entry.aside)
+        }
+    }
+
+    /**
+     * Every page is drawn inside the search's row target, which is what lets a result open
+     * on a row of it (SettingsRowTarget, settingAnchor): the pages live in files of their own
+     * (ui/Settings<Page>.kt), and the screen is where each is put under that target. A page
+     * dropped from there, or drawn outside it, would open on its top with no row marked —
+     * the catalogue above would still find the row in its source and pass.
+     */
+    @Test
+    fun everyPageIsDrawnWhereASearchResultCanOpenOnItsRow() {
+        val screen = appSources.getValue("ui/SettingsActivity.kt")
+        val target = screen.indexOf("SettingsRowTarget(search, section, live) {")
+        assertTrue("the screen draws its pages inside SettingsRowTarget", target >= 0)
+        val dispatch = screen.indexOf("when (section) {", target)
+        assertTrue("the pages are chosen by section inside the target", dispatch > target)
+        // The branches of that `when`, up to the brace that closes it.
+        var depth = 0
+        var end = dispatch
+        for (i in screen.indexOf('{', dispatch) until screen.length) {
+            if (screen[i] == '{') depth++
+            if (screen[i] == '}' && --depth == 0) { end = i; break }
+        }
+        val branches = Regex("""^\s*("(\w+)"|(\w+)\.id) -> (Settings\w+Page)\(""", RegexOption.MULTILINE)
+            .findAll(screen.substring(dispatch, end)).toList()
+        val named = mapOf("rootPage" to rootPage.id, "themePage" to themePage.id, "advancedCategory" to advancedCategory.id)
+        val pages = branches.map { it.groupValues[2].ifEmpty { named.getValue(it.groupValues[3]) } }
+        assertEquals(SettingsPage.entries.map { it.id }.sorted(), pages.sorted())
+        // And each is a page of Settings, in a file the catalogue reads.
+        for (branch in branches) {
+            val page = branch.groupValues[4]
+            val files = appSources.filter { (file, source) -> file.startsWith("ui/Settings") && Regex("fun $page\\(").containsMatchIn(source) }.keys
+            assertEquals(page, 1, files.size)
         }
     }
 
