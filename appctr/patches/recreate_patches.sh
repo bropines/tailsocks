@@ -88,12 +88,6 @@ d orig/cmd/tailscaled/proxy.go tailscale_src/cmd/tailscaled/proxy.go > patches/0
 # Notify.IncomingFiles reports progress (upstream 1.84+ copies past the counter).
 dr orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-monolithic-fs.patch
 
-# 04-vip-services.patch (ipn/ipnlocal)
-{
-    d orig/ipn/ipnlocal/local.go tailscale_src/ipn/ipnlocal/local.go
-    d orig/ipn/ipnlocal/serve.go tailscale_src/ipn/ipnlocal/serve.go
-} > patches/04-vip-services.patch
-
 # 05-localapi-cert.patch (ipn/localapi)
 {
     d orig/ipn/localapi/cert.go tailscale_src/ipn/localapi/cert.go
@@ -103,8 +97,18 @@ dr orig/feature/taildrop tailscale_src/feature/taildrop > patches/03-taildrop-mo
 # 06-android-netmon.patch (creates cmd/tailscaled/fix_android_netmon.go)
 d /dev/null tailscale_src/cmd/tailscaled/fix_android_netmon.go > patches/06-android-netmon.patch
 
-# 07-taildrive-android.patch (drive)
-dr orig/drive tailscale_src/drive > patches/07-taildrive-android.patch
+# 07-taildrive-android.patch (drive, and its callers in cmd/tailscaled and a test)
+# Taildrive dials remote peers through the userspace dialer: drive/ changes
+# driveimpl.NewFileSystemForRemote's signature (and its Android build), the
+# other three files are its callers. Until 6.1 the callers were a patch of
+# their own (10-taildrive-userspace-dial), which could not be applied or
+# dropped without this one.
+{
+    dr orig/drive tailscale_src/drive
+    d orig/cmd/tailscaled/tailscaled_drive.go tailscale_src/cmd/tailscaled/tailscaled_drive.go
+    d orig/cmd/tailscaled/tailscaled_windows.go tailscale_src/cmd/tailscaled/tailscaled_windows.go
+    d orig/ipn/ipnlocal/local_test.go tailscale_src/ipn/ipnlocal/local_test.go
+} > patches/07-taildrive-android.patch
 
 # 08-netstack-cgnat.patch (cmd/tailscaled/tailscaled.go)
 # NOTE: in Tailscale v1.102.1 the UseNetstackForIP hook moved out of
@@ -124,13 +128,6 @@ d orig/cmd/tailscaled/tailscaled.go tailscale_src/cmd/tailscaled/tailscaled.go >
     d orig/wgengine/netstack/netstack.go tailscale_src/wgengine/netstack/netstack.go
     d /dev/null tailscale_src/wgengine/netstack/own_flow_test.go
 } > patches/09-netstack-loopback.patch
-
-# 10-taildrive-userspace-dial.patch (cmd/tailscaled and tests)
-{
-    d orig/cmd/tailscaled/tailscaled_drive.go tailscale_src/cmd/tailscaled/tailscaled_drive.go
-    d orig/cmd/tailscaled/tailscaled_windows.go tailscale_src/cmd/tailscaled/tailscaled_windows.go
-    d orig/ipn/ipnlocal/local_test.go tailscale_src/ipn/ipnlocal/local_test.go
-} > patches/10-taildrive-userspace-dial.patch
 
 # 11-noop-dns-fallback.patch (net/dns/noop.go)
 d orig/net/dns/noop.go tailscale_src/net/dns/noop.go > patches/11-noop-dns-fallback.patch
@@ -285,13 +282,16 @@ d orig/net/netmon/polling.go tailscale_src/net/netmon/polling.go > patches/21-ne
     d /dev/null tailscale_src/cmd/tailscaled/android_drive.go
 } > patches/26-android-drive-socket.patch
 
-# 27-peer-app.patch (ipn/ipnstate)
+# 27-peer-app.patch (ipn/ipnstate, ipn/ipnlocal/local.go)
 # PeerStatus carries the peer's Hostinfo.App, so the app can tell the peers that
-# run TailSocks (App "tailsocks", set in patch 06) from the official client. The
-# line that fills it is in ipn/ipnlocal/local.go, whose diff is patch 04.
+# run TailSocks (App "tailsocks", set in patch 06) from the official client;
+# local.go fills it, for the peers and for the node itself. Until 6.1 local.go
+# was a patch of its own (04-vip-services, named for what it did up to 5.8.1)
+# that compiled only together with this one.
 {
     d orig/ipn/ipnstate/ipnstate.go tailscale_src/ipn/ipnstate/ipnstate.go
     d /dev/null tailscale_src/ipn/ipnstate/tailsocks_app_test.go
+    d orig/ipn/ipnlocal/local.go tailscale_src/ipn/ipnlocal/local.go
 } > patches/27-peer-app.patch
 
 # 28-android-ssh.patch (ssh/tailssh, feature/ssh, util/osuser, envknob/featureknob)
