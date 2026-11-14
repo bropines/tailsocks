@@ -5,7 +5,6 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.Access
 import io.github.bropines.tailscaled.admin.api.AdminArea
@@ -47,10 +46,9 @@ import io.github.bropines.tailscaled.admin.secure.LockState
 import io.github.bropines.tailscaled.admin.secure.UnlockResult
 import io.github.bropines.tailscaled.admin.secure.ViewUnlock
 import io.github.bropines.tailscaled.admin.users.UsersController
-import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
-import io.github.bropines.tailscaled.models.StatusResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -450,7 +448,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             val self = runCatching {
                 if (!ProxyState.isActualRunning(app)) return@runCatching null
-                val status = AppJson.decodeFromString(StatusResponse.serializer(), Appctr.getStatusFromAPI())
+                // A failed read is no status (DaemonStatus), never an empty one decoded from the error.
+                val status = DaemonStatus.readOrNull() ?: return@runCatching null
                 val me = status.self ?: return@runCatching null
                 SelfIdentity(me.id, status.users?.get(me.userID?.toString())?.loginName)
             }.getOrNull() ?: return@launch

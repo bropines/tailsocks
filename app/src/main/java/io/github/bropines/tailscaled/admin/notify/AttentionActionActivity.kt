@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.admin.api.AdminApiException
 import io.github.bropines.tailscaled.admin.api.UserStatus
@@ -48,10 +47,9 @@ import io.github.bropines.tailscaled.admin.safety.SafetyHost
 import io.github.bropines.tailscaled.admin.safety.SafetyStep
 import io.github.bropines.tailscaled.admin.secure.AdminWriteGate
 import io.github.bropines.tailscaled.admin.secure.UnlockResult
-import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.wrapContextWithLocale
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -321,7 +319,7 @@ class AttentionActionViewModel(app: Application) : AndroidViewModel(app) {
         /** This phone's node id when the daemon runs: a change on it carries the "this phone" warning. */
         fun selfNodeId(app: Application): String? = runCatching {
             if (!ProxyState.isActualRunning(app)) return@runCatching null
-            AppJson.decodeFromString(StatusResponse.serializer(), Appctr.getStatusFromAPI()).self?.id
+            DaemonStatus.readOrNull()?.self?.id
         }.getOrNull()
     }
 }
