@@ -29,6 +29,9 @@ class TailSocksApp : Application() {
         // first status. Nothing else reads it, and nothing is pushed to the app. Read when the
         // bus listener connects, so it is set here, before any component can start the daemon.
         runCatching { Appctr.setEngineUpdatesOnDemand(true) }
+        // The bridge tells the screens when the daemon's state changes (DaemonEvents), so they
+        // read it then instead of asking every few seconds whether it did.
+        DaemonEvents.register()
         TaskRecents.watch(this)
         ProfileHostinfo.migrateGlobalKey(this)
         // A key sent from a phone that the last process did not live to clear (KeyHandover).

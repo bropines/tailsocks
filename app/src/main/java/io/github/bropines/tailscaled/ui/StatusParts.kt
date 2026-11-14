@@ -81,6 +81,9 @@ private val resolverCodes = setOf("dns-forward-failing")
  */
 private const val SETTLE_MS = 5_000L
 
+/** [SETTLE_MS] for the main screen, which wakes when a warning settles (warningSettlesAtMs). */
+internal const val HEALTH_SETTLE_MS = SETTLE_MS
+
 /**
  * The warnings to show, most serious first: the ones that are about the
  * connection — by kind or by the daemon's own verdict — and have settled.

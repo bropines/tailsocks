@@ -1,6 +1,8 @@
 package io.github.bropines.tailscaled.ui
 
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonEventKind
+import io.github.bropines.tailscaled.models.HealthWarning
 import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.StatusResponse
 import org.junit.Assert.assertEquals
@@ -11,96 +13,178 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The main screen watchdog's decisions (ui/MainStatusLogic.kt): the status card's state machine,
- * which slower reads a tick makes, the account picture taken off the status, what the managed
- * devices are handed and the avatar's decode size.
+ * The main screen refresh loop's decisions (ui/MainStatusLogic.kt): the status card's state
+ * machine, which events read what, when the loop wakes without one, the account picture taken
+ * off the status, what the managed devices are handed and the avatar's decode size.
  */
 class MainStatusLogicTest {
 
     // ─── nextMainState ───────────────────────────────────────────────────────────────────────
 
+    private val t0 = 1_000_000L
+
     private fun tick(
         previous: String = "ACTIVE",
         alive: Boolean = true,
         backend: String = "Running",
-        seconds: Int = 0,
+        since: Long = 0,
+        now: Long = t0,
         wasLoggedIn: Boolean = false,
         hasLoginUrl: Boolean = false,
-    ) = nextMainState(previous, alive, backend, seconds, wasLoggedIn, hasLoginUrl)
+    ) = nextMainState(previous, alive, backend, since, now, wasLoggedIn, hasLoginUrl)
 
     @Test
-    fun `no daemon is STOPPED and resets the counter`() {
-        assertEquals(MainTick("STOPPED", 0), tick(alive = false, seconds = 8))
-        assertEquals(MainTick("STOPPED", 0), tick(previous = "LOGGED_OUT", alive = false, backend = "NeedsLogin", seconds = 20))
+    fun `no daemon is STOPPED and resets the clock`() {
+        assertEquals(MainTick("STOPPED", 0), tick(alive = false, since = t0 - 8_000))
+        assertEquals(MainTick("STOPPED", 0), tick(previous = "LOGGED_OUT", alive = false, backend = "NeedsLogin", since = t0 - 20_000))
     }
 
     @Test
-    fun `a running or starting backend is ACTIVE and resets the counter`() {
-        assertEquals(MainTick("ACTIVE", 0), tick(previous = "CONNECTION_ISSUE", backend = "Running", seconds = 12))
-        assertEquals(MainTick("ACTIVE", 0), tick(previous = "STOPPED", backend = "Starting", seconds = 4))
+    fun `a running or starting backend is ACTIVE and resets the clock`() {
+        assertEquals(MainTick("ACTIVE", 0), tick(previous = "CONNECTION_ISSUE", backend = "Running", since = t0 - 12_000))
+        assertEquals(MainTick("ACTIVE", 0), tick(previous = "STOPPED", backend = "Starting", since = t0 - 4_000))
         // A failed read of the backend is not "logged out" either.
         assertEquals(MainTick("ACTIVE", 0), tick(backend = "Error"))
     }
 
     @Test
+    fun `the first read that sees NeedsLogin starts the clock`() {
+        assertEquals(MainTick("ACTIVE", t0), tick(previous = "ACTIVE", backend = "NeedsLogin", since = 0))
+    }
+
+    @Test
     fun `NeedsLogin for less than ten seconds keeps what the card showed`() {
-        assertEquals(MainTick("ACTIVE", 2), tick(previous = "ACTIVE", backend = "NeedsLogin", seconds = 0))
-        assertEquals(MainTick("LOGGED_OUT", 6), tick(previous = "LOGGED_OUT", backend = "NoState", seconds = 4))
-        // 8 seconds in: still the grace period, whatever the flags say.
-        assertEquals(MainTick("ACTIVE", 8), tick(previous = "ACTIVE", backend = "NoState", seconds = 6, wasLoggedIn = true))
+        assertEquals(MainTick("LOGGED_OUT", t0 - 6_000), tick(previous = "LOGGED_OUT", backend = "NoState", since = t0 - 6_000))
+        // 9.9 seconds in: still the grace period, whatever the flags say.
+        assertEquals(MainTick("ACTIVE", t0 - 9_999), tick(previous = "ACTIVE", backend = "NoState", since = t0 - 9_999, wasLoggedIn = true))
     }
 
     @Test
     fun `a daemon between states turns a stopped card ACTIVE during the grace period`() {
-        assertEquals(MainTick("ACTIVE", 2), tick(previous = "STOPPED", backend = "NoState", seconds = 0))
+        assertEquals(MainTick("ACTIVE", t0), tick(previous = "STOPPED", backend = "NoState", since = 0))
     }
 
     @Test
     fun `after ten seconds a node that was logged in and is offered no link is a CONNECTION_ISSUE`() {
-        assertEquals(MainTick("CONNECTION_ISSUE", 10), tick(backend = "NoState", seconds = 8, wasLoggedIn = true, hasLoginUrl = false))
-        assertEquals(MainTick("CONNECTION_ISSUE", 12), tick(backend = "NeedsLogin", seconds = 10, wasLoggedIn = true))
+        assertEquals(MainTick("CONNECTION_ISSUE", t0 - 10_000), tick(backend = "NoState", since = t0 - 10_000, wasLoggedIn = true, hasLoginUrl = false))
+        assertEquals(MainTick("CONNECTION_ISSUE", t0 - 60_000), tick(backend = "NeedsLogin", since = t0 - 60_000, wasLoggedIn = true))
     }
 
     @Test
     fun `after ten seconds anything else is LOGGED_OUT`() {
         // Never logged in.
-        assertEquals(MainTick("LOGGED_OUT", 10), tick(backend = "NeedsLogin", seconds = 8, wasLoggedIn = false))
+        assertEquals(MainTick("LOGGED_OUT", t0 - 10_000), tick(backend = "NeedsLogin", since = t0 - 10_000, wasLoggedIn = false))
         // Logged in before, but the daemon is offering a login link: it wants a login.
-        assertEquals(MainTick("LOGGED_OUT", 10), tick(backend = "NeedsLogin", seconds = 8, wasLoggedIn = true, hasLoginUrl = true))
+        assertEquals(MainTick("LOGGED_OUT", t0 - 10_000), tick(backend = "NeedsLogin", since = t0 - 10_000, wasLoggedIn = true, hasLoginUrl = true))
     }
 
     @Test
-    fun `the counter adds one tick of seconds`() {
-        assertEquals((MAIN_TICK_MS / 1000).toInt(), tick(backend = "NeedsLogin", seconds = 0).loggedOutSeconds)
+    fun `the grace period is the clock's, however few reads came in it`() {
+        // Events, not ticks: one read when NeedsLogin arrives, the next when the wake timer
+        // (mainWakeDelayMs) fires at the end of the grace period.
+        val first = tick(backend = "NeedsLogin", now = t0, wasLoggedIn = true)
+        assertEquals("ACTIVE", first.state)
+        val wake = mainWakeDelayMs(t0, lastReadAtMs = t0, processingSinceMs = 0, loggedOutSinceMs = first.loggedOutSinceMs, warningSettlesAtMs = 0)
+        assertEquals(MAIN_LOGGED_OUT_AFTER_MS, wake)
+        val second = tick(previous = first.state, backend = "NeedsLogin", since = first.loggedOutSinceMs, now = t0 + wake, wasLoggedIn = true)
+        assertEquals("CONNECTION_ISSUE", second.state)
+        // Decided: no more early wake for it.
+        assertEquals(MAIN_SAFETY_MS, mainWakeDelayMs(t0 + wake, t0 + wake, 0, second.loggedOutSinceMs, 0))
     }
 
-    // ─── mainReadsDue ────────────────────────────────────────────────────────────────────────
+    // ─── which events read what ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `nothing is read while the backend is not running`() {
-        assertEquals(MainReads(status = false, avatar = false), mainReadsDue(1_000_000, running = false, lastStatusAtMs = 0, lastAvatarAtMs = 0))
+    fun `state health and prefs read the cheap state, netmap and prefs the status`() {
+        assertTrue(mainWantsStateRead(setOf(DaemonEventKind.STATE)))
+        assertTrue(mainWantsStateRead(setOf(DaemonEventKind.HEALTH)))
+        assertTrue(mainWantsStateRead(setOf(DaemonEventKind.PREFS)))
+        assertFalse(mainWantsStateRead(setOf(DaemonEventKind.NETMAP)))
+        assertTrue(mainWantsStatusRead(setOf(DaemonEventKind.NETMAP)))
+        assertTrue(mainWantsStatusRead(setOf(DaemonEventKind.PREFS)))
+        assertFalse(mainWantsStatusRead(setOf(DaemonEventKind.STATE, DaemonEventKind.HEALTH)))
+        assertFalse(mainWantsStateRead(emptySet()))
+        assertFalse(mainWantsStatusRead(emptySet()))
+    }
+
+    // ─── avatarDue ───────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the picture on the first status read, then at most every thirty seconds`() {
+        assertTrue(avatarDue(t0, lastAvatarAtMs = 0))
+        assertFalse(avatarDue(t0 + 29_999, lastAvatarAtMs = t0))
+        assertTrue(avatarDue(t0 + 30_000, lastAvatarAtMs = t0))
+    }
+
+    // ─── mainWakeDelayMs: the safety net and the timers ──────────────────────────────────────
+
+    @Test
+    fun `idle, the loop sleeps the safety interval from its last read`() {
+        assertEquals(MAIN_SAFETY_MS, mainWakeDelayMs(t0, t0, 0, 0, 0))
+        // Woken by an event that read nothing (a status read ending): the rest of the interval.
+        assertEquals(MAIN_SAFETY_MS - 12_000, mainWakeDelayMs(t0 + 12_000, t0, 0, 0, 0))
+        // Overdue: at once.
+        assertEquals(0L, mainWakeDelayMs(t0 + 45_000, t0, 0, 0, 0))
     }
 
     @Test
-    fun `the first tick and the first after a return read the status and the picture at once`() {
-        assertEquals(MainReads(status = true, avatar = true), mainReadsDue(1_000_000, running = true, lastStatusAtMs = 0, lastAvatarAtMs = 0))
-        // Back in front (last status reset to 0), picture checked 5 s ago: only the status.
-        assertEquals(MainReads(status = true, avatar = false), mainReadsDue(1_000_000, true, 0, 995_000))
+    fun `the start watchdog looks every tick, and only for a bounded time`() {
+        assertEquals(MAIN_TICK_MS, mainWakeDelayMs(t0, t0, processingSinceMs = t0, loggedOutSinceMs = 0, warningSettlesAtMs = 0))
+        assertEquals(MAIN_TICK_MS, mainWakeDelayMs(t0 + 60_000, t0 + 60_000, t0, 0, 0))
+        // A transition that never reported back falls to the safety net.
+        val late = t0 + MAIN_START_WATCH_MS
+        assertEquals(MAIN_SAFETY_MS, mainWakeDelayMs(late, late, t0, 0, 0))
     }
 
     @Test
-    fun `the status every ten seconds, the picture from it every thirty`() {
-        val t0 = 1_000_000L
-        assertFalse(mainReadsDue(t0 + 9_000, true, t0, t0).status)
-        assertFalse(mainReadsDue(t0 + 10_000, true, t0, t0).status)
-        assertEquals(MainReads(status = true, avatar = false), mainReadsDue(t0 + 10_001, true, t0, t0))
-        assertEquals(MainReads(status = true, avatar = true), mainReadsDue(t0 + 30_001, true, t0 + 20_000, t0))
+    fun `a young warning wakes the loop when it settles`() {
+        assertEquals(3_000L, mainWakeDelayMs(t0, t0, 0, 0, warningSettlesAtMs = t0 + 3_000))
+        // Already past (read at or after it): no early wake.
+        assertEquals(MAIN_SAFETY_MS, mainWakeDelayMs(t0, t0, 0, 0, warningSettlesAtMs = t0 - 1))
     }
 
     @Test
-    fun `the picture is never checked without a status read to take it from`() {
-        // Thirty seconds since the picture, but the status was read two seconds ago.
-        assertEquals(MainReads(status = false, avatar = false), mainReadsDue(1_040_000, true, 1_038_000, 1_000_000))
+    fun `the earliest pending condition wins`() {
+        assertEquals(MAIN_TICK_MS, mainWakeDelayMs(t0, t0, t0, t0, t0 + 3_000))
+        assertEquals(3_000L, mainWakeDelayMs(t0, t0, 0, t0 - 7_000, t0 + 4_000))
+    }
+
+    /**
+     * The measurement behind the change, on the loop's own timing function: a connected screen,
+     * idle for a minute, no event at all. Before: a 2-second tick (30 cheap reads) and the full
+     * status every 10 s (6 status reads). Now: one cheap read and one status read when the screen
+     * starts, then only the safety net — 2 cheap reads in the minute, 0 status reads.
+     */
+    @Test
+    fun `connected and idle for a minute`() {
+        val minute = 60_000L
+        val before = Pair((minute / 2_000L).toInt(), (minute / 10_000L).toInt())
+        assertEquals(Pair(30, 6), before)
+
+        var now = t0
+        var lastRead = t0 // the start's read
+        var cheapReads = 0
+        while (true) {
+            now += mainWakeDelayMs(now, lastRead, 0, 0, 0)
+            if (now > t0 + minute) break
+            lastRead = now
+            cheapReads++
+        }
+        assertEquals(2, cheapReads)
+    }
+
+    @Test
+    fun `warningSettlesAtMs names the first warning still too young to show`() {
+        val now = 1_700_000_000_000L
+        fun w(code: String, since: Long, high: Boolean = true) =
+            HealthWarning(code = code, severity = if (high) "high" else "low", brokenSinceMs = since)
+        assertEquals(0L, warningSettlesAtMs(emptyList(), now))
+        // Settled already, or no time given: nothing to wait for.
+        assertEquals(0L, warningSettlesAtMs(listOf(w("a", now - 60_000), w("b", 0)), now))
+        // Two young ones: the earlier.
+        assertEquals(now - 2_000 + HEALTH_SETTLE_MS, warningSettlesAtMs(listOf(w("a", now - 1_000), w("b", now - 2_000)), now))
+        // One that would stay hidden anyway (low, not about the connection): no wake for it.
+        assertEquals(0L, warningSettlesAtMs(listOf(w("some-other", now - 1_000, high = false)), now))
     }
 
     // ─── avatarToSync ────────────────────────────────────────────────────────────────────────
