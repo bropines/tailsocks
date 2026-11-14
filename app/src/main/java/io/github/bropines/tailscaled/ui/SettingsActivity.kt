@@ -75,7 +75,10 @@ import io.github.bropines.tailscaled.ui.theme.findActivity
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -192,6 +195,30 @@ private enum class BackupFile { FULL_BACKUP, FULL_RESTORE, PROFILE_EXPORT, PROFI
 
 private const val FULL_BACKUP_NAME = "tailsocks_full_backup.enc"
 
+/**
+ * Work Settings starts that has to finish once started: a Root Mode switch and the
+ * restart after a full restore. The screen's own scope is cancelled by Back, a rotation
+ * or a language change; the blocking `su` calls of a switch ran to the end regardless,
+ * and only the service restart at its end — the one suspending step — was dropped,
+ * leaving the toggle on the new mode and no daemon behind it. Lives as long as the
+ * process. A failure is logged: with no screen to report to, it must not end the process.
+ */
+private val settingsWork = CoroutineScope(
+    SupervisorJob() + Dispatchers.IO +
+        CoroutineExceptionHandler { _, e -> android.util.Log.e("SettingsActivity", "Settings background work failed", e) }
+)
+
+/**
+ * Removes the empty file a full backup left when its password was lost under the picker
+ * and the second ask was cancelled. A document the provider will not delete stays.
+ */
+private fun discardBackupFile(context: Context, uri: Uri) {
+    runCatching {
+        if (uri.scheme == "file") uri.path?.let { File(it).delete() }
+        else android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri)
+    }
+}
+
 /** [name] in [dir], or the first "name (n).ext" that is free: a backup saved by path never overwrites another. */
 private fun freeFile(dir: File, name: String): File {
     val base = name.substringBeforeLast('.')
@@ -269,42 +296,6 @@ class SettingsActivity : ComponentActivity() {
 
 /** The SOCKS5 login and password it makes are credentials: from the system's secure source, not kotlin.random. */
 fun generateRandomString(length: Int = 12): String = generateSecureToken(length)
-
-/** Flattens a SharedPreferences snapshot into the JSON object an export carries. */
-private fun prefsToJson(values: Map<String, *>): JsonObject = buildJsonObject {
-    for ((k, v) in values) {
-        when (v) {
-            is String -> put(k, v)
-            is Boolean -> put(k, v)
-            is Int -> put(k, v)
-            is Long -> put(k, v)
-            is Float -> put(k, v)
-            is Set<*> -> putJsonArray(k) { v.forEach { add(it.toString()) } }
-            null -> {}
-            else -> put(k, v.toString())
-        }
-    }
-}
-
-/**
- * Reads back the String/Boolean entries of an exported preference object.
- *
- * Everything else is skipped: the global preference file only ever holds those
- * two types, and a value of any other shape in the file is not something this
- * build wrote.
- */
-private fun jsonToPrefValues(obj: JsonObject): Map<String, Any> {
-    val values = mutableMapOf<String, Any>()
-    obj.forEach { (key, element) ->
-        val prim = element as? JsonPrimitive ?: return@forEach
-        when {
-            // A quoted value is a string even if it reads like a bool.
-            prim.isString -> values[key] = prim.content
-            prim.booleanOrNull != null -> values[key] = prim.booleanOrNull!!
-        }
-    }
-    return values
-}
 
 /**
  * Cryptographically random token for the automation secret. URL-safe alphabet
@@ -554,12 +545,21 @@ fun SettingsScreen(
     var appliedTags by remember { mutableStateOf<List<String>>(emptyList()) }
     var availableNetworkTags by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    var backupPassword by remember { mutableStateOf("") }
-    var showBackupPasswordDialog by remember { mutableStateOf(false) }
+    // The password itself is never saved state (BackupRestore.PasswordHold keeps it in
+    // the process); the dialog's visibility and the file a lost password left without
+    // an archive are, so the question comes back after a recreation.
+    var showBackupPasswordDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingBackupUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     var restorePassword by remember { mutableStateOf("") }
     var showRestorePasswordDialog by remember { mutableStateOf(false) }
     var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
+    // After a full restore: restart now, or later. What the restart writes is held in the
+    // process, and the question follows it rather than saved state: asked again when
+    // Settings is recreated or reopened before an answer, and not at all once the
+    // process has died, which was the restart.
+    var showRestartDialog by remember { mutableStateOf(BackupRestore.PendingRestart.pending) }
+    var restarting by remember { mutableStateOf(false) }
 
 
     // Where a backup goes and where one comes from is a Uri either way: the system's picker
@@ -572,12 +572,12 @@ fun SettingsScreen(
                     val backupObj = kotlinx.serialization.json.buildJsonObject {
                         put("manifest", AppJson.encodeToJsonElement(BackupFormat.current(context)))
                         put("account", AppJson.encodeToJsonElement(activeAccount))
-                        put("settings", prefsToJson(profilePrefs.all))
+                        put("settings", BackupRestore.prefsToJson(profilePrefs.all))
                         // The app-wide settings (proxies, DPI bypass, TUN, Root
                         // Mode, recovery, appearance) used to survive only in the
                         // encrypted full backup. Secrets and device-bound entries
                         // stay out — see GlobalSettings.EXPORTED_KEYS.
-                        put("global", prefsToJson(GlobalSettings.exportable(context)))
+                        put("global", BackupRestore.prefsToJson(GlobalSettings.exportable(context)))
                     }
                     context.contentResolver.openOutputStream(uri)?.use { it.write(backupObj.toString().toByteArray()) }
                     withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_backup_saved), Toast.LENGTH_SHORT).show() }
@@ -644,7 +644,7 @@ fun SettingsScreen(
                             // their current value; keys outside the allow-list are
                             // dropped by GlobalSettings.importValues.
                             (backupData["global"] as? JsonObject)?.let { globals ->
-                                GlobalSettings.importValues(context, jsonToPrefValues(globals))
+                                GlobalSettings.importValues(context, BackupRestore.jsonToPrefValues(globals))
                             }
 
                             withContext(Dispatchers.Main) {
@@ -659,80 +659,90 @@ fun SettingsScreen(
         }
     }
 
-    fun writeFullBackup(uri: Uri?) {
-        if (uri != null) {
-            scope.launch(Dispatchers.IO) {
-                val tempStatesDir = File(context.cacheDir, "temp_states_backup")
-                var useTempStates = false
-                try {
-                    val statesDir = File(context.filesDir, "states")
-                    if (statesDir.exists() && RootUtils.isRootAvailable()) {
-                        val uid = context.applicationInfo.uid
-                        val cmd = "rm -rf \"${tempStatesDir.absolutePath}\" && " +
-                                  "mkdir -p \"${tempStatesDir.absolutePath}\" && " +
-                                  "cp -R \"${statesDir.absolutePath}/\"* \"${tempStatesDir.absolutePath}/\" && " +
-                                  "chown -R $uid:$uid \"${tempStatesDir.absolutePath}\" && " +
-                                  "chmod -R u+rwX \"${tempStatesDir.absolutePath}\""
-                        try {
-                            val process = Runtime.getRuntime().exec("su")
-                            process.outputStream.use { os ->
-                                os.write(("$cmd\nexit\n").toByteArray())
-                                os.flush()
-                            }
-                            process.waitFor()
-                            if (tempStatesDir.exists() && tempStatesDir.list()?.isNotEmpty() == true) {
-                                useTempStates = true
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("SettingsActivity", "Failed to copy states using root", e)
+    // The password comes from its dialog by way of BackupRestore.PasswordHold, or from the
+    // dialog shown again by the branch below. Without one nothing is written: the file
+    // the picker created is kept for the second answer, and the password is asked again.
+    fun writeFullBackup(uri: Uri?, password: CharArray? = BackupRestore.PasswordHold.take()) {
+        if (uri == null) {
+            BackupRestore.PasswordHold.clear()
+            return
+        }
+        if (password == null || password.isEmpty()) {
+            pendingBackupUri = uri
+            showBackupPasswordDialog = true
+            return
+        }
+        scope.launch(Dispatchers.IO) {
+            val tempStatesDir = File(context.cacheDir, "temp_states_backup")
+            var useTempStates = false
+            try {
+                val statesDir = File(context.filesDir, "states")
+                if (statesDir.exists() && RootUtils.isRootAvailable()) {
+                    val uid = context.applicationInfo.uid
+                    val cmd = "rm -rf \"${tempStatesDir.absolutePath}\" && " +
+                              "mkdir -p \"${tempStatesDir.absolutePath}\" && " +
+                              "cp -R \"${statesDir.absolutePath}/\"* \"${tempStatesDir.absolutePath}/\" && " +
+                              "chown -R $uid:$uid \"${tempStatesDir.absolutePath}\" && " +
+                              "chmod -R u+rwX \"${tempStatesDir.absolutePath}\""
+                    try {
+                        val process = Runtime.getRuntime().exec("su")
+                        process.outputStream.use { os ->
+                            os.write(("$cmd\nexit\n").toByteArray())
+                            os.flush()
                         }
+                        process.waitFor()
+                        if (tempStatesDir.exists() && tempStatesDir.list()?.isNotEmpty() == true) {
+                            useTempStates = true
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("SettingsActivity", "Failed to copy states using root", e)
                     }
+                }
 
-                    val baos = java.io.ByteArrayOutputStream()
-                    java.util.zip.ZipOutputStream(baos).use { zos ->
-                        // Written first so a restore can identify the archive
-                        // before touching anything.
-                        zos.putNextEntry(java.util.zip.ZipEntry(BackupFormat.MANIFEST_ENTRY))
-                        zos.write(BackupFormat.toJson(BackupFormat.current(context)).toByteArray())
-                        zos.closeEntry()
+                val baos = java.io.ByteArrayOutputStream()
+                java.util.zip.ZipOutputStream(baos).use { zos ->
+                    // Written first so a restore can identify the archive
+                    // before touching anything.
+                    zos.putNextEntry(java.util.zip.ZipEntry(BackupFormat.MANIFEST_ENTRY))
+                    zos.write(BackupFormat.toJson(BackupFormat.current(context)).toByteArray())
+                    zos.closeEntry()
 
-                        val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
-                        if (prefsDir.exists()) {
-                            prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                                val entryName = "shared_prefs/${file.name}"
-                                zos.putNextEntry(java.util.zip.ZipEntry(entryName))
-                                file.inputStream().use { it.copyTo(zos) }
-                                zos.closeEntry()
-                            }
-                        }
-                        val targetStatesDir = if (useTempStates) tempStatesDir else statesDir
-                        if (targetStatesDir.exists()) {
-                            targetStatesDir.walkTopDown().filter { it.isFile && !NetmapCache.isCachePath(it.relativeTo(targetStatesDir).path) }.forEach { file ->
-                                val entryName = "files/states/${file.relativeTo(targetStatesDir).path}"
-                                zos.putNextEntry(java.util.zip.ZipEntry(entryName))
-                                file.inputStream().use { it.copyTo(zos) }
-                                zos.closeEntry()
-                            }
-                        }
-                        val historyFile = File(context.filesDir, "sent_history.json")
-                        if (historyFile.exists()) {
-                            zos.putNextEntry(java.util.zip.ZipEntry("files/sent_history.json"))
-                            historyFile.inputStream().use { it.copyTo(zos) }
+                    val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+                    if (prefsDir.exists()) {
+                        prefsDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                            val entryName = "shared_prefs/${file.name}"
+                            zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                            file.inputStream().use { it.copyTo(zos) }
                             zos.closeEntry()
                         }
                     }
-                    val zipBytes = baos.toByteArray()
-                    val encryptedBytes = BackupCrypto.encrypt(zipBytes, backupPassword.toCharArray())
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(encryptedBytes) }
-                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_saved), Toast.LENGTH_SHORT).show() }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_failed_format, e.message), Toast.LENGTH_LONG).show() }
-                } finally {
-                    backupPassword = ""
-                    try {
-                        tempStatesDir.deleteRecursively()
-                    } catch (e: Exception) {}
+                    val targetStatesDir = if (useTempStates) tempStatesDir else statesDir
+                    if (targetStatesDir.exists()) {
+                        targetStatesDir.walkTopDown().filter { it.isFile && !NetmapCache.isCachePath(it.relativeTo(targetStatesDir).path) }.forEach { file ->
+                            val entryName = "files/states/${file.relativeTo(targetStatesDir).path}"
+                            zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                            file.inputStream().use { it.copyTo(zos) }
+                            zos.closeEntry()
+                        }
+                    }
+                    val historyFile = File(context.filesDir, "sent_history.json")
+                    if (historyFile.exists()) {
+                        zos.putNextEntry(java.util.zip.ZipEntry("files/sent_history.json"))
+                        historyFile.inputStream().use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
                 }
+                val zipBytes = baos.toByteArray()
+                val encryptedBytes = BackupCrypto.encrypt(zipBytes, password)
+                context.contentResolver.openOutputStream(uri)?.use { it.write(encryptedBytes) }
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_saved), Toast.LENGTH_SHORT).show() }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_backup_failed_format, e.message), Toast.LENGTH_LONG).show() }
+            } finally {
+                password.fill('\u0000')
+                try {
+                    tempStatesDir.deleteRecursively()
+                } catch (e: Exception) {}
             }
         }
     }
@@ -815,60 +825,21 @@ fun SettingsScreen(
                     }
                 }
 
-                // A backup may only restore what a backup contains: preference files,
-                // daemon state directories and the sent-files history. Every other
-                // entry is refused — before anything is written. The old prefix match
-                // accepted any `files/...` path, including `control_proxy.env`, which
-                // the Root Mode boot script sourced as root, and `files/../x` escapes.
-                val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs").canonicalFile
-                val statesDir = File(context.filesDir, "states").canonicalFile
-                val filesDir = context.filesDir.canonicalFile
-                fun restoreTarget(name: String): File? {
-                    if (name.startsWith("/") || name.split('/').any { it == ".." || it.isEmpty() }) return null
-                    val (base, target) = when {
-                        name == "files/sent_history.json" -> filesDir to File(filesDir, "sent_history.json")
-                        name.startsWith("shared_prefs/") && name.endsWith(".xml") && name.count { it == '/' } == 1 ->
-                            prefsDir to File(prefsDir, name.removePrefix("shared_prefs/"))
-                        name.startsWith("files/states/") ->
-                            statesDir to File(statesDir, name.removePrefix("files/states/"))
-                        else -> return null
-                    }
-                    val canonical = target.canonicalFile
-                    return canonical.takeIf { it.path.startsWith(base.path + File.separator) }
-                }
-
-                val entries = mutableListOf<Pair<String, File>>()
-                java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(decryptedBytes)).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        if (!entry.isDirectory && entry.name != BackupFormat.MANIFEST_ENTRY) {
-                            val target = restoreTarget(entry.name)
-                                ?: throw SecurityException("Backup contains a file outside the restorable set: ${entry.name}")
-                            entries.add(entry.name to target)
-                        }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
-                    }
-                }
-
-                val targets = entries.toMap()
-                java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(decryptedBytes)).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        val targetFile = targets[entry.name]
-                        // An archive from before backups left the daemon's netmap cache out
-                        // may still carry one: an old map is no state worth restoring.
-                        val cacheEntry = entry.name.startsWith("files/states/") &&
-                            NetmapCache.isCachePath(entry.name.removePrefix("files/states/"))
-                        if (targetFile != null && !cacheEntry) {
-                            targetFile.parentFile?.mkdirs()
-                            targetFile.outputStream().use { fos -> zis.copyTo(fos) }
-                        }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
-                    }
-                }
-                withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_restore_success), Toast.LENGTH_LONG).show() }
+                // Only preference files, daemon state and the sent-files history may be
+                // restored (BackupRestore.restoreTarget); every entry is checked before
+                // a single file is written.
+                val targets = BackupRestore.restoreTargets(
+                    decryptedBytes,
+                    prefsDir = File(context.applicationInfo.dataDir, "shared_prefs").canonicalFile,
+                    statesDir = File(context.filesDir, "states").canonicalFile,
+                    filesDir = context.filesDir.canonicalFile,
+                )
+                BackupRestore.writeRestore(decryptedBytes, targets)
+                // Written, but this process still holds the old settings in memory and
+                // would write them back: the restore is finished by a restart, which
+                // the dialog offers (BackupRestore.PendingRestart).
+                BackupRestore.PendingRestart.hold(decryptedBytes, targets)
+                withContext(Dispatchers.Main) { showRestartDialog = true }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { Toast.makeText(context, context.getString(R.string.settings_full_restore_failed), Toast.LENGTH_LONG).show() }
             } finally {
@@ -1270,8 +1241,6 @@ fun SettingsScreen(
                     GlobalSettings.setRootRoutingYielded(context, false)
                     GlobalSettings.setRootRoutingShared(context, false)
                 }
-                RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
-                RootUtils.handStateBackToApp(context)
                 // Whether the user wants a connection, not whether this process
                 // happens to own a daemon: in Root Mode the daemon is a separate
                 // root process the app only attaches to, so Appctr.isRunning()
@@ -1337,6 +1306,8 @@ fun SettingsScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
+                RootUtils.stopRootDaemon("${context.filesDir.absolutePath}/tailscaled.sock")
+                RootUtils.handStateBackToApp(context)
                             imageVector = Icons.Default.Warning,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error,
@@ -1832,20 +1803,6 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-        // Where the listeners can be reached from outside this device: the Wi-Fi
-        // address (none on mobile data) and this node's tailnet address — in
-        // userspace mode the daemon's netstack hands connections to that address to
-        // local listeners (measured 2026-09-08 from another tailnet node). Read when
-        // this page opens, off the main thread, not on every open of Settings: the
-        // interfaces are enumerated, and the tailnet address comes from the bridge's
-        // bus snapshot rather than a full status with every peer decoded.
-        val lanIp by produceState<String?>(null) { value = withContext(Dispatchers.IO) { NetAddr.lanIpv4() } }
-        val tailnetIp by produceState<String?>(null) {
-            value = withContext(Dispatchers.IO) {
-                runCatching { Appctr.getSelfIPs() }.getOrDefault("")
-                    .split(',').map { it.trim() }.firstOrNull { it.isNotEmpty() && ':' !in it }
-            }
-        }
                             imageVector = Icons.Default.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
@@ -1876,6 +1833,20 @@ fun SettingsScreen(
 
     // C. Local proxies
     val sectionProxies: @Composable () -> Unit = {
+        // Where the listeners can be reached from outside this device: the Wi-Fi
+        // address (none on mobile data) and this node's tailnet address — in
+        // userspace mode the daemon's netstack hands connections to that address to
+        // local listeners (measured 2026-09-08 from another tailnet node). Read when
+        // this page opens, off the main thread, not on every open of Settings: the
+        // interfaces are enumerated, and the tailnet address comes from the bridge's
+        // bus snapshot rather than a full status with every peer decoded.
+        val lanIp by produceState<String?>(null) { value = withContext(Dispatchers.IO) { NetAddr.lanIpv4() } }
+        val tailnetIp by produceState<String?>(null) {
+            value = withContext(Dispatchers.IO) {
+                runCatching { Appctr.getSelfIPs() }.getOrDefault("")
+                    .split(',').map { it.trim() }.firstOrNull { it.isNotEmpty() && ':' !in it }
+            }
+        }
         SettingsCard(title = stringResource(R.string.settings_sect_socks5)) {
             SettingsEditItem(stringResource(R.string.settings_socks5_address_title), socks5, Icons.Default.Language, onAction = { generateRandomLoopbackAddress() }, actionIcon = Icons.Default.Casino) { socks5 = it; saveGlobalPref("socks5", it) }
             SettingsEditItem(stringResource(R.string.settings_socks5_username_title), socks5User, Icons.Default.Person, onAction = { generateRandomString(8) }, actionIcon = Icons.Default.Casino) { socks5User = it; saveGlobalPref("socks5_user", it) }
@@ -2819,25 +2790,6 @@ fun SettingsScreen(
                     shape = MaterialTheme.shapes.medium
                 ) {
                     Icon(Icons.Default.Backup, null, modifier = Modifier.size(18.dp))
-        // The admin console's active profile, for the row that opens it. Read when this page
-        // opens and off the main thread: the first read migrates the old plain-text
-        // credentials into the Keystore-sealed vault, which no other page of Settings needs.
-        // No secret is ever read here, let alone shown.
-        val adminInPreview = androidx.compose.ui.platform.LocalInspectionMode.current
-        val adminSummary by produceState("") {
-            if (adminInPreview) return@produceState
-            value = withContext(Dispatchers.IO) {
-                runCatching {
-                    AdminProfiles.store(context).active()?.let { p ->
-                        listOfNotNull(
-                            p.displayName,
-                            context.getString(if (p.authType == AuthType.OAUTH_CLIENT) R.string.admin_setup_tab_oauth else R.string.admin_setup_tab_token),
-                            context.getString(R.string.admin2_profile_read_only_badge).takeIf { p.readOnly },
-                        ).joinToString(" · ")
-                    }
-                }.getOrNull() ?: context.getString(R.string.admin2_settings_none)
-            }
-        }
                     Spacer(Modifier.width(6.dp))
                     Text(
                         stringResource(R.string.settings_profile_export_title),
@@ -2868,6 +2820,25 @@ fun SettingsScreen(
 
     // J. Automation & API
     val sectionAutomation: @Composable () -> Unit = {
+        // The admin console's active profile, for the row that opens it. Read when this page
+        // opens and off the main thread: the first read migrates the old plain-text
+        // credentials into the Keystore-sealed vault, which no other page of Settings needs.
+        // No secret is ever read here, let alone shown.
+        val adminInPreview = androidx.compose.ui.platform.LocalInspectionMode.current
+        val adminSummary by produceState("") {
+            if (adminInPreview) return@produceState
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    AdminProfiles.store(context).active()?.let { p ->
+                        listOfNotNull(
+                            p.displayName,
+                            context.getString(if (p.authType == AuthType.OAUTH_CLIENT) R.string.admin_setup_tab_oauth else R.string.admin_setup_tab_token),
+                            context.getString(R.string.admin2_profile_read_only_badge).takeIf { p.readOnly },
+                        ).joinToString(" · ")
+                    }
+                }.getOrNull() ?: context.getString(R.string.admin2_settings_none)
+            }
+        }
         var automationEnabled by remember { mutableStateOf(GlobalSettings.isAutomationEnabled(context)) }
         var automationSecret by remember { mutableStateOf(GlobalSettings.getAutomationSecret(context)) }
 
@@ -3352,7 +3323,8 @@ fun SettingsScreen(
                     if (browsing == BackupFile.FULL_BACKUP) writeFullBackup(Uri.fromFile(freeFile(dir, FULL_BACKUP_NAME)))
                     else exportProfile(Uri.fromFile(freeFile(dir, profileBackupName)))
                 },
-                onCancel = close,
+                // A full backup's password waits in the process only while its folder is chosen.
+                onCancel = { BackupRestore.PasswordHold.clear(); close() },
                 start = downloads,
                 writable = true,
                 title = stringResource(R.string.tv_settings_backup_save_title),
@@ -3461,8 +3433,15 @@ fun SettingsScreen(
         val strSettingsPasswordLabel = stringResource(R.string.settings_password_label)
         val strSettingsBackupAction = stringResource(R.string.settings_backup_action)
         val strActionCancel = stringResource(R.string.action_cancel)
+        // Cancelling the second ask leaves no archive behind: the empty file the picker
+        // created goes too.
+        val cancelBackup = {
+            showBackupPasswordDialog = false
+            pendingBackupUri?.let { uri -> scope.launch(Dispatchers.IO) { discardBackupFile(context, uri) } }
+            pendingBackupUri = null
+        }
         AppAlertDialog(
-            onDismissRequest = { showBackupPasswordDialog = false },
+            onDismissRequest = cancelBackup,
             title = { Text(strSettingsBackupPasswordTitle) },
             text = {
                 Column {
@@ -3489,9 +3468,17 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         if (tempPassword.isNotBlank()) {
-                            backupPassword = tempPassword
                             showBackupPasswordDialog = false
-                            pickBackupFile(BackupFile.FULL_BACKUP)
+                            val chosen = pendingBackupUri
+                            if (chosen != null) {
+                                // The file is already chosen: a recreation under the
+                                // picker lost the first answer.
+                                pendingBackupUri = null
+                                writeFullBackup(chosen, tempPassword.toCharArray())
+                            } else {
+                                BackupRestore.PasswordHold.put(tempPassword.toCharArray())
+                                pickBackupFile(BackupFile.FULL_BACKUP)
+                            }
                         } else {
                             Toast.makeText(context, context.getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
                         }
@@ -3499,7 +3486,7 @@ fun SettingsScreen(
                 ) { Text(strSettingsBackupAction) }
             },
             dismissButton = {
-                TextButton(onClick = { showBackupPasswordDialog = false }) { Text(strActionCancel) }
+                TextButton(onClick = cancelBackup) { Text(strActionCancel) }
             }
         )
     }
@@ -3558,6 +3545,43 @@ fun SettingsScreen(
                     showRestorePasswordDialog = false
                     pendingRestoreUri = null
                 }) { Text(strActionCancel) }
+            }
+        )
+    }
+
+    if (showRestartDialog && BackupRestore.PendingRestart.pending) {
+        // Neither a tap outside nor Back closes it: the restore is only finished by a
+        // restart, and "Later" says what waiting means.
+        val strTitle = stringResource(R.string.settings_restore_restart_title)
+        val strBody = stringResource(R.string.settings_restore_restart_body)
+        val strNow = stringResource(R.string.settings_restore_restart_now)
+        val strLater = stringResource(R.string.settings_restore_restart_later)
+        val strRestarting = stringResource(R.string.settings_restore_restarting)
+        AppAlertDialog(
+            onDismissRequest = {},
+            properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+            title = { Text(strTitle) },
+            text = { Text(strBody, style = MaterialTheme.typography.bodyMedium) },
+            confirmButton = {
+                Button(
+                    enabled = !restarting,
+                    onClick = {
+                        restarting = true
+                        // Stops the connection, writes the restored files again and
+                        // relaunches the app in a new process; it does not come back.
+                        val app = context.applicationContext
+                        settingsWork.launch { BackupRestore.PendingRestart.restartNow(app) }
+                    }
+                ) { Text(if (restarting) strRestarting else strNow) }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !restarting,
+                    onClick = {
+                        BackupRestore.PendingRestart.drop()
+                        showRestartDialog = false
+                    }
+                ) { Text(strLater) }
             }
         )
     }
