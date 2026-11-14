@@ -957,20 +957,7 @@ class TunVpnService : VpnService() {
         return try {
             file.createNewFile()
             FileOutputStream(file, false).use { fos ->
-                var cfg = """
-tunnel:
-  mtu: $mtu
-
-socks5:
-  address: '$socksHost'
-  port: $socksPort
-  udp: 'udp'
-""".trimIndent()
-
-                if (user.isNotEmpty() && pass.isNotEmpty()) {
-                    cfg += "\n  username: '$user'\n  password: '$pass'\n"
-                }
-                fos.write(cfg.toByteArray())
+                fos.write(HevConfig.text(socksHost, socksPort, mtu, user, pass).toByteArray())
             }
             Log.d(TAG, "hev config written: ${file.absolutePath}")
             true
@@ -979,4 +966,44 @@ socks5:
             false
         }
     }
+}
+
+/**
+ * The hev-socks5-tunnel YAML [TunVpnService] writes for the compatibility engine.
+ * Every string goes out as a single-quoted scalar through [quoted]: the SOCKS5
+ * credentials are free text from Settings, and written verbatim a password with
+ * a `'` in it produced a config that failed to parse (or parsed into something
+ * else), and the hev engine did not start.
+ */
+internal object HevConfig {
+    /**
+     * A minimal config. The mapdns section is left out so DNS queries on
+     * 100.100.100.100:53 are routed natively through the SOCKS5 UDP association
+     * to the daemon, returning real IPs and supporting Split Tunnel.
+     */
+    fun text(socksHost: String, socksPort: Int, mtu: Int, user: String, pass: String): String {
+        var cfg = """
+tunnel:
+  mtu: $mtu
+
+socks5:
+  address: ${quoted(socksHost)}
+  port: $socksPort
+  udp: 'udp'
+""".trimIndent()
+
+        if (user.isNotEmpty() && pass.isNotEmpty()) {
+            cfg += "\n  username: ${quoted(user)}\n  password: ${quoted(pass)}\n"
+        }
+        return cfg
+    }
+
+    /**
+     * A YAML single-quoted scalar: the only escape inside one is `''` for a
+     * quote. Line breaks are dropped rather than folded — no host, user or
+     * password legitimately holds one, and inside a quoted scalar YAML would
+     * turn it into a space.
+     */
+    fun quoted(value: String): String =
+        "'" + value.replace("\r", "").replace("\n", "").replace("'", "''") + "'"
 }
