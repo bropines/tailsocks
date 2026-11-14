@@ -33,7 +33,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
-import appctr.Appctr
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.decodeFromString
@@ -173,13 +172,13 @@ fun FilesScreen(
 
             // 2. Peers
             try {
-                val pJson = Appctr.getStatusFromAPI()
-                if (!pJson.startsWith("Error") && pJson.isNotBlank()) {
-                    val status = AppJson.decodeFromString<StatusResponse>(pJson)
-                    val newPeers = taildropPickerPeers(status, taildropStrings)
-                    withContext(Dispatchers.Main) { pickerPeers = newPeers }
-                } else {
-                    android.util.Log.w("FilesActivity", "Status source error: $pJson")
+                // A failed read keeps the peers already listed.
+                when (val read = DaemonStatus.read()) {
+                    is DaemonStatus.Read.Ok -> {
+                        val newPeers = taildropPickerPeers(read.status, taildropStrings)
+                        withContext(Dispatchers.Main) { pickerPeers = newPeers }
+                    }
+                    is DaemonStatus.Read.Failed -> android.util.Log.w("FilesActivity", "Status source error: ${read.error}")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("FilesActivity", "Failed to parse status JSON", e)

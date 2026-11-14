@@ -7,12 +7,10 @@ import android.os.SystemClock
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.models.PeerData
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropDirection
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
 import io.github.bropines.tailscaled.models.TaildropRoute
 import io.github.bropines.tailscaled.models.TaildropSource
-import kotlinx.serialization.decodeFromString
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -159,11 +157,7 @@ private val HTTP_STATUS = Regex("""^HTTP (\d{3})\b""")
 /** The peer as the daemon sees it now, by StableNodeID; null when the status cannot say. */
 internal fun currentPeer(peer: PeerData): PeerData? {
     val id = peer.id?.takeIf { it.isNotEmpty() } ?: return null
-    return runCatching {
-        val json = Appctr.getStatusFromAPI()
-        if (json.isBlank() || json.startsWith("Error")) null
-        else AppJson.decodeFromString<StatusResponse>(json).peers?.values?.firstOrNull { it.id == id }
-    }.getOrNull()
+    return DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.id == id }
 }
 
 /** The bridge's word for a send stopped by cancelSendFile (appctr/taildrop_send.go). */

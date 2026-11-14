@@ -17,7 +17,6 @@ import appctr.Appctr
 import appctr.TaildropListener
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.models.PeerData
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.models.TaildropDirection
 import io.github.bropines.tailscaled.models.TaildropFile
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
@@ -244,11 +243,8 @@ object TaildropEvents {
     }
 
     /** The sender as /status has it; null when anything along the way is missing. */
-    internal fun senderPeer(id: String): PeerData? = runCatching {
-        val json = Appctr.getStatusFromAPI()
-        if (json.isBlank() || json.startsWith("Error")) null
-        else AppJson.decodeFromString<StatusResponse>(json).peers?.values?.firstOrNull { it.id == id }
-    }.getOrNull()
+    internal fun senderPeer(id: String): PeerData? =
+        DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.id == id }
 
     /**
      * "File received": the file and its sender, and where it went when there is a default
