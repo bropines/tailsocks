@@ -622,13 +622,21 @@ class TailscaledService : Service() {
                 // The Context lets the SO_MARK check read the daemon log by its
                 // canonical path — also for a daemon the boot script started,
                 // which this process never launched.
+                // Whether the daemon should have a default route in table 52: only
+                // then is its absence a daemon-side problem worth naming.
+                val exitNodeSelected = runCatching {
+                    val account = AccountManager.getActiveAccount(this@TailscaledService)
+                    getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE)
+                        .getString("exit_node_ip", "").orEmpty().isNotBlank()
+                }.getOrDefault(false)
                 val result = RootUtils.applyTailscale0Routing(
                     dnsRedirect,
                     bypass,
                     this@TailscaledService,
                     foreignVpn,
                     takeDeviceAnyway,
-                    probeResult
+                    probeResult,
+                    exitNodeSelected
                 )
                 if (generation != rootRoutingGeneration.get()) {
                     // A teardown ran while this apply was in its `su` shell. Its
@@ -680,7 +688,7 @@ class TailscaledService : Service() {
                 } else {
                     rootRoutingPassDone = false
                     lastRootRoutingSignature = null
-                    // Read from what the script wrote, not cleared. Both verify
+                    // Read from what the script wrote, not cleared. The verify
                     // lines run after the DNS section and the script does not stop
                     // at the first error, so a failed apply can leave the redirect
                     // live — and the health gate, the only thing that can take it

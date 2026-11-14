@@ -1134,7 +1134,7 @@ object RootUtils {
      *                          tunnel bypasses, rather than taking the device.
      * @param dnsChainInstalled TAILSOCKS_DNS exists and is populated. This is what
      *                          the script wrote, not what [ok] says: the DNS
-     *                          section runs before both verify lines.
+     *                          section runs before every verify line.
      * @param dnsHooked         the nat OUTPUT jumps are in, i.e. the redirect is
      *                          live. False with [dnsChainInstalled] true means the
      *                          health gate is holding it back; [setDnsRedirectHooked]
@@ -1198,7 +1198,8 @@ object RootUtils {
         context: Context,
         foreignVpn: Boolean? = null,
         takeDeviceAnyway: Boolean = false,
-        probeResult: ForeignVpnVerdict? = null
+        probeResult: ForeignVpnVerdict? = null,
+        exitNodeSelected: Boolean = false
     ): RoutingApplyResult {
         var verdict = soMarkVerdict(rootDaemonLogFile(context))
         // A log that never carried the probe line is silence, not a "no". Ask the
@@ -1446,14 +1447,7 @@ object RootUtils {
             )
         }
 
-        // Verify rather than trust: the shell's exit code otherwise only reflects
-        // the last command, and a failed route on a missing tailscale0 would be
-        // reported as success.
-        sb.append("ip route show table $ROUTE_TABLE 2>/dev/null | grep -q . || { echo 'verify: table $ROUTE_TABLE is empty'; exit 1; }\n")
-        if (installDns) {
-            sb.append("iptables -w -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
-        }
-        sb.append("echo 'verify: ok'\n")
+        sb.append(applyVerifyScript(installDns, checkExitRoute = installCatchAll && exitNodeSelected))
 
         // Before the script, not after it: the first thing it does is write the
         // tailnet tier, so from here on there are rules on this device whatever
@@ -1505,6 +1499,27 @@ object RootUtils {
             )
         } else if (installDns) {
             GlobalSettings.setRootDnsV6Unsupported(context, false)
+        }
+        // Not ours to fix, and not a reason to fail the apply: re-applying our
+        // rules does not give tailscale0 its address back. But they must not pass
+        // silently either — a tailscale0 stripped by a second daemon's start-up
+        // cleanup ran for a whole session with the card saying Active while
+        // nothing on the phone reached the tailnet or the exit node.
+        if (res.output.contains(DAEMON_NO_ADDRESS)) {
+            rootLog(
+                "WARN",
+                "daemon-side problem: tailscale0 carries no tailnet address, so the kernel has no route " +
+                    "into the tailnet and table $DAEMON_TABLE is empty. The daemon's router did not configure the " +
+                    "interface (or something removed its addresses); the app's rules cannot fix that. Stop and start the connection"
+            )
+        }
+        if (res.output.contains(DAEMON_NO_EXIT_ROUTE)) {
+            rootLog(
+                "WARN",
+                "daemon-side problem: an exit node is selected but table $DAEMON_TABLE has no default route, so " +
+                    "the pref-$CATCH_ALL_PRIO catch-all falls through and traffic leaves on the physical network. " +
+                    "The daemon has not routed the exit node (yet); the app's rules cannot fix that"
+            )
         }
         if (res.output.contains(UIDRANGE_MISSING_V6)) {
             rootLog(
@@ -1569,7 +1584,7 @@ object RootUtils {
         // set from what it did rather than by calling out to another shell.
         //
         // Deliberately not conditioned on [SuResult.ok]: the script has no
-        // `set -e` and both verify lines run after the DNS section, so whatever this
+        // `set -e` and every verify line runs after the DNS section, so whatever this
         // section was asked to install is on the device whether the verify
         // passed or not. Reporting a live redirect as absent left the health
         // gate — the only thing that can take it off again — disarmed against a
@@ -1587,6 +1602,63 @@ object RootUtils {
             dnsHooked = dnsHooked
         )
     }
+
+    /**
+     * The end of the apply script: verify rather than trust. The shell's exit
+     * code otherwise only reflects the last command, and the script has no
+     * `set -e` on purpose — so each promise the ruleset makes is read back, and
+     * a broken one ends the script with status 1, which sends the apply through
+     * the caller's retry (three attempts per set of inputs) and the ERROR log
+     * instead of being recorded as applied:
+     *  - table 53 holds a route (a missing tailscale0 fails here);
+     *  - both priority-100 rules into table 53, the mark rule and the
+     *    destination rule (`ip rule add` can fail on its own);
+     *  - the mangle OUTPUT jump into [CHAIN_MARK];
+     *  - with device-wide DNS, [CHAIN_DNS] and both of its DNAT lines, which
+     *    nothing else checked: a chain left holding only its RETURNs passed.
+     *
+     * Two daemon-side checks print a line and fail nothing, and run first, so
+     * a failed verify cannot hide them: whether tailscale0 carries a tailnet
+     * address, and — with the catch-all installed and an exit node selected
+     * ([checkExitRoute]) — whether the daemon's table 52 has its default route.
+     * Both are the daemon's router's work, which no re-apply of ours repairs.
+     */
+    internal fun applyVerifyScript(installDns: Boolean, checkExitRoute: Boolean): String = buildString {
+        append(
+            "ip addr show dev tailscale0 2>/dev/null | grep -qE 'inet6? (100\\.|fd7a:115c:a1e0:)' || " +
+                "echo '$DAEMON_NO_ADDRESS'\n"
+        )
+        if (checkExitRoute) {
+            append("ip route show table $DAEMON_TABLE 2>/dev/null | grep -q '^default' || echo '$DAEMON_NO_EXIT_ROUTE'\n")
+        }
+        append("ip route show table $ROUTE_TABLE 2>/dev/null | grep -q . || { echo 'verify: table $ROUTE_TABLE is empty'; exit 1; }\n")
+        append("TS_RULES=\$(ip rule show 2>/dev/null)\n")
+        append(
+            "printf '%s\\n' \"\$TS_RULES\" | grep -q '^100:.*fwmark $MARK_BIT/$MARK_MASK lookup $ROUTE_TABLE' || " +
+                "{ echo 'verify: priority-100 fwmark rule into table $ROUTE_TABLE missing'; exit 1; }\n"
+        )
+        append(
+            "printf '%s\\n' \"\$TS_RULES\" | grep -q '^100:.*to 100\\.64\\.0\\.0/10 .*lookup $ROUTE_TABLE' || " +
+                "{ echo 'verify: priority-100 tailnet destination rule into table $ROUTE_TABLE missing'; exit 1; }\n"
+        )
+        append(
+            "iptables -w -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || " +
+                "{ echo 'verify: mangle OUTPUT jump into $CHAIN_MARK missing'; exit 1; }\n"
+        )
+        if (installDns) {
+            append("iptables -w -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
+            append(
+                "[ \"\$(iptables -w -t nat -S $CHAIN_DNS 2>/dev/null | grep -c -- '-j DNAT')\" -ge 2 ] || " +
+                    "{ echo 'verify: $CHAIN_DNS lacks its DNAT lines'; exit 1; }\n"
+            )
+        }
+        append("echo 'verify: ok'\n")
+    }
+
+    /** Printed by [applyVerifyScript] when tailscale0 has no tailnet address. */
+    internal const val DAEMON_NO_ADDRESS = "daemon: tailscale0 has no tailnet address"
+    /** Printed by [applyVerifyScript] when an exit node is selected and table 52 has no default route. */
+    internal const val DAEMON_NO_EXIT_ROUTE = "daemon: no default route in table 52 with an exit node selected"
 
     /**
      * The tailnet tier's (T1) IPv4 route into table 53. Written by the boot

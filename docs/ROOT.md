@@ -424,9 +424,16 @@ With an empty exclusion list nothing at all is emitted for this feature.
 Everything else lives in named chains, so the rules are idempotent, can be
 inspected with `iptables -t nat -S TAILSOCKS_DNS` / `iptables -t mangle -S
 TAILSOCKS_MARK`, and are replaced as a unit on every apply and removed in one
-shot when the service stops. The script verifies its own result (table
-populated, DNS chain present when it should be) instead of trusting the shell's
-exit code, and after three failed attempts it gives up and says so in the log.
+shot when the service stops. The script verifies its own result instead of
+trusting the shell's exit code — table 53 populated, both priority-100 rules
+present, the `mangle OUTPUT` jump into `TAILSOCKS_MARK` in place and, when DNS
+is installed, `TAILSOCKS_DNS` holding both of its DNAT lines — so a partial
+ruleset is retried rather than recorded as applied; after three failed
+attempts it gives up and says so in the log. Two things are the daemon's work,
+not ours, and are only reported: a `tailscale0` without a tailnet address, and,
+with the catch-all installed and an exit node selected, a table 52 without its
+`default` route. The ROOT log then says `daemon-side problem: …`; re-applying
+our rules cannot fix either, a Stop and Start usually does.
 
 ### 5. Living next to another VPN client
 
