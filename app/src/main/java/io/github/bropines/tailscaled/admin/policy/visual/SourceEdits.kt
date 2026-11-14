@@ -70,7 +70,9 @@ object SourceEdits {
 
     internal fun done(text: String, edits: List<Edit>): String {
         val out = applyEdits(text, edits)
-        HuJson.check(out).firstOrNull()?.let { throw IllegalStateException("edit produced unparsable text: $it") }
+        // Checked by parsing it (the same verdict as HuJson.check): the tree the next primitive,
+        // the draft and the pages ask for is then already in SourceTree's memo.
+        SourceTree.issueOf(out)?.let { throw IllegalStateException("edit produced unparsable text: $it") }
         return out
     }
 

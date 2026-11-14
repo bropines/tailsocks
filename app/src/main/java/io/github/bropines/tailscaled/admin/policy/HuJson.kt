@@ -198,7 +198,18 @@ object HuJson {
     }
 
     /** The document, which must be one object, as the policy file is. */
-    fun parse(text: String): HuObject = document(text, tokenize(text), Lines(text))
+    fun parse(text: String): HuObject =
+        when (val r = parsed.getOrPut(text) { try { document(text, tokenize(text), Lines(text)) } catch (e: HuParseException) { e.issue } }) {
+            is HuObject -> r
+            else -> throw HuParseException(r as HuIssue)
+        }
+
+    /**
+     * The last two texts' trees (or the issue that stops one), keyed by the exact text
+     * (TextMemo): the risks parse the saved policy and the draft after every edit, the rule
+     * editor and the lint the same draft again. The nodes are immutable, so they are shared.
+     */
+    internal val parsed = TextMemo<Any>(2)
 
     private fun document(text: String, tokens: List<HuToken>, lines: Lines): HuObject {
         val root = Parser(text, tokens, lines).document()
