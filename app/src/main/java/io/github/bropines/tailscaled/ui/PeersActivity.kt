@@ -732,12 +732,12 @@ enum class PeerTab(@param:StringRes val label: Int) {
  * separately they once disagreed, and a swipe in the sheet landed on a device that was not
  * in the list behind it.
  */
-private class TabRows(val self: PeerData?, val peers: List<PeerData>) {
+internal class TabRows(val self: PeerData?, val peers: List<PeerData>) {
     val size: Int get() = peers.size + if (self != null) 1 else 0
 }
 
 /** Every tab's rows under [query], which is already trimmed; empty is no search. */
-private fun peerTabRows(self: PeerData?, peers: List<PeerData>, query: String): Map<PeerTab, TabRows> {
+internal fun peerTabRows(self: PeerData?, peers: List<PeerData>, query: String): Map<PeerTab, TabRows> {
     val ownerId = self?.userID
     val selfHit = self?.takeIf { it.matchesQuery(query) }
     val hits = if (query.isEmpty()) peers else peers.filter { it.matchesQuery(query) }
@@ -754,7 +754,7 @@ private fun peerTabRows(self: PeerData?, peers: List<PeerData>, query: String): 
  * holds nothing would open on an empty page, and one that holds everything would repeat
  * All — Mine in a tailnet of one person's untagged devices, Online when nothing is offline.
  */
-private fun visiblePeerTabs(self: PeerData?, peers: List<PeerData>): List<PeerTab> {
+internal fun visiblePeerTabs(self: PeerData?, peers: List<PeerData>): List<PeerTab> {
     val total = peers.size + if (self != null) 1 else 0
     val rows = peerTabRows(self, peers, "")
     return PeerTab.entries.filter { it == PeerTab.ALL || rows.getValue(it).size in 1 until total }

@@ -174,7 +174,7 @@ private enum class ClearScope { ALL, APP, DAEMON }
  * 2-second refresh made the Logs screen crawl, so only the last [TAIL_BYTES]
  * are read, and the parse is reused until the file's length or mtime changes.
  */
-private object RootDaemonLog {
+internal object RootDaemonLog {
     private const val TAIL_BYTES = 128 * 1024
     private const val MAX_ENTRIES = 300
 
@@ -355,7 +355,7 @@ private fun demoLogEntries(lines: List<String>): List<LogEntry> {
 private val LogFilterChipsMaxWidth = 560.dp
 
 /** One row of the list: an entry, or the divider that opens a new day. */
-private sealed interface LogRow {
+internal sealed interface LogRow {
     data class Entry(val log: LogEntry) : LogRow
     data class Day(val label: String) : LogRow
 }
@@ -366,7 +366,7 @@ private sealed interface LogRow {
  * buffer lives as long as the app process — with the phone on for two days,
  * yesterday's "16:43" and today's "11:27" are otherwise indistinguishable.
  */
-private fun withDayDividers(logs: List<LogEntry>, today: String, yesterday: String): List<LogRow> {
+internal fun withDayDividers(logs: List<LogEntry>, today: String, yesterday: String): List<LogRow> {
     if (logs.isEmpty()) return emptyList()
     val cal = Calendar.getInstance()
     fun dayOf(unix: Long): Long {
@@ -439,7 +439,7 @@ fun buildFullLogString(context: Context): String {
 }
 
 /** Drops the beginning of [text] so that at most [maxChars] remain, cutting at a line boundary. */
-private fun cutToTail(text: String, maxChars: Int): String {
+internal fun cutToTail(text: String, maxChars: Int): String {
     if (text.length <= maxChars) return text
     val cut = text.length - maxChars.coerceAtLeast(0)
     val nl = text.indexOf('\n', cut)
