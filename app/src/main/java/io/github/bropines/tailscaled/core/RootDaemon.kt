@@ -7,13 +7,13 @@ import android.util.Log
 import io.github.bropines.tailscaled.BuildConfig
 import io.github.bropines.tailscaled.core.RootDnsGate.localApiGet
 import io.github.bropines.tailscaled.core.RootRoutingScript.routingCleanupScript
+import io.github.bropines.tailscaled.core.RootSelinux.injectSocketConnectRule
 import io.github.bropines.tailscaled.core.RootShell.rootLog
 import io.github.bropines.tailscaled.core.RootShell.runSu
 import io.github.bropines.tailscaled.core.RootUtils.LOG_TRIM_BYTES
 import io.github.bropines.tailscaled.core.RootUtils.RUN_MARKER
 import io.github.bropines.tailscaled.core.RootUtils.RootDaemonSpec
 import io.github.bropines.tailscaled.core.RootUtils.TAG
-import io.github.bropines.tailscaled.core.RootUtils.injectSocketConnectRule
 import io.github.bropines.tailscaled.core.RootUtils.logTrimScript
 import io.github.bropines.tailscaled.core.RootUtils.noteRoutingRemoved
 import io.github.bropines.tailscaled.core.RootUtils.paths
