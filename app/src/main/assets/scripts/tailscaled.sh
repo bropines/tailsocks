@@ -105,7 +105,7 @@ if [ -f "$LOG_FILE" ]; then
     fi
 fi
 
-# Run marker for the app: RootUtils.daemonMarksSockets bounds "this run" by the
+# Run marker for the app: its SO_MARK gate (RootUtils.soMarkVerdict) bounds "this run" by the
 # last such line when TailSocks adopts a daemon this script started (this core
 # prints no start banner of its own). Same text as RootUtils.RUN_MARKER; lines
 # tagged 'TailSocks:' are never taken as daemon output.
@@ -166,16 +166,19 @@ for i in $(seq 1 30); do
         # tick; until then this device has tailnet reachability and nothing else.
         for j in $(seq 1 30); do
             if ip link show tailscale0 >/dev/null 2>&1; then
+                # Every iptables call passes -w (wait for the xtables lock), as
+                # RootUtils does: netd may be restoring its chains at boot.
+                #
                 # Drop rules left by TailSocks 3.5.x, which appended to OUTPUT directly
                 # and used the bare mark 1099 (it overwrote Android's own fwmark bits).
-                while iptables -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done
-                while ip6tables -t mangle -D OUTPUT -d fd7a:115c:a1e0::/48 -j MARK --set-mark 1099 2>/dev/null; do :; done
+                while iptables -w -t mangle -D OUTPUT -d 100.64.0.0/10 -j MARK --set-mark 1099 2>/dev/null; do :; done
+                while ip6tables -w -t mangle -D OUTPUT -d fd7a:115c:a1e0::/48 -j MARK --set-mark 1099 2>/dev/null; do :; done
                 while ip rule del fwmark 1099 table 1099 2>/dev/null; do :; done
                 while ip rule del fwmark 1099 lookup 1099 2>/dev/null; do :; done
-                while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
-                while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
-                while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
-                while iptables -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+                while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+                while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination 100.100.100.100:53 2>/dev/null; do :; done
+                while iptables -w -t nat -D OUTPUT -d 100.64.0.0/10 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+                while iptables -w -t nat -D OUTPUT -d 100.64.0.0/10 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
 
                 # And the tier every build up to 4.0 wrote into table 1099, by
                 # content and never with a flush: netd names its per-network
@@ -207,12 +210,12 @@ for i in $(seq 1 30); do
                 while ip rule del to 100.64.0.0/10 table 53 2>/dev/null; do :; done
                 ip rule add to 100.64.0.0/10 iif lo table 53 priority 100
 
-                iptables -t mangle -N TAILSOCKS_MARK 2>/dev/null || iptables -t mangle -F TAILSOCKS_MARK
-                iptables -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000
-                iptables -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || iptables -t mangle -A OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK
+                iptables -w -t mangle -N TAILSOCKS_MARK 2>/dev/null || iptables -w -t mangle -F TAILSOCKS_MARK
+                iptables -w -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000
+                iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || iptables -w -t mangle -A OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK
 
-                iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT
-                iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT
+                iptables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -o tailscale0 -j ACCEPT
+                iptables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -i tailscale0 -j ACCEPT
 
                 ip -6 route replace fd7a:115c:a1e0::/48 dev tailscale0 table 53 metric 1 2>/dev/null || true
                 ip -6 rule del fwmark 0x1000000/0x1000000 table 53 2>/dev/null || true
@@ -221,12 +224,12 @@ for i in $(seq 1 30); do
                 while ip -6 rule del to fd7a:115c:a1e0::/48 table 53 2>/dev/null; do :; done
                 ip -6 rule add to fd7a:115c:a1e0::/48 iif lo table 53 priority 100 2>/dev/null || true
 
-                ip6tables -t mangle -N TAILSOCKS_MARK 2>/dev/null || ip6tables -t mangle -F TAILSOCKS_MARK
-                ip6tables -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000 2>/dev/null || true
-                ip6tables -t mangle -C OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || ip6tables -t mangle -A OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || true
+                ip6tables -w -t mangle -N TAILSOCKS_MARK 2>/dev/null || ip6tables -w -t mangle -F TAILSOCKS_MARK
+                ip6tables -w -t mangle -A TAILSOCKS_MARK -j MARK --set-xmark 0x1000000/0x1000000 2>/dev/null || true
+                ip6tables -w -t mangle -C OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || ip6tables -w -t mangle -A OUTPUT -d fd7a:115c:a1e0::/48 -j TAILSOCKS_MARK 2>/dev/null || true
 
-                ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true
-                ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true
+                ip6tables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true
+                ip6tables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true
 
                 break
             fi

@@ -268,6 +268,16 @@ object RootUtils {
     @Volatile private var lastDaemonLogFile: File? = null
     @Volatile private var daemonLogStartOffset: Long = -1L
 
+    /*
+     * Every iptables/ip6tables call here (and in the boot script) passes `-w`:
+     * wait for the xtables lock instead of failing at once with "Another app
+     * is currently holding the xtables lock". The apply is triggered by
+     * network changes, exactly when netd is rewriting its own chains, and an
+     * immediate failure there dropped a rule silently. `-w` without a timeout
+     * exists in every iptables Android has shipped since 5.0; a lock that is
+     * never released is bounded by the root shell's own timeout.
+     */
+
     /** Dedicated iptables chains. Owning named chains makes every rule we install
      *  idempotent, inspectable and removable in one shot — unlike appending to
      *  the shared OUTPUT/FORWARD chains, which accumulates duplicates. */
@@ -1276,19 +1286,19 @@ object RootUtils {
         sb.append("while ip rule del to $CGNAT_V4 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("ip rule add to $CGNAT_V4 iif lo table $ROUTE_TABLE priority 100\n")
 
-        sb.append("iptables -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -t mangle -F $CHAIN_MARK\n")
-        sb.append("iptables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
-        sb.append("iptables -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
+        sb.append("iptables -w -t mangle -N $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -F $CHAIN_MARK\n")
+        sb.append("iptables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK\n")
+        sb.append("iptables -w -t mangle -C OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || iptables -w -t mangle -A OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK\n")
 
-        sb.append("iptables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -o tailscale0 -j ACCEPT\n")
-        sb.append("iptables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -I FORWARD -i tailscale0 -j ACCEPT\n")
+        sb.append("iptables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -o tailscale0 -j ACCEPT\n")
+        sb.append("iptables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || iptables -w -I FORWARD -i tailscale0 -j ACCEPT\n")
 
         // --- Per-app exclusions: uid rules, both families in one call ---
         // The teardown runs whatever we install: it clears the rules of an
         // earlier apply and the mangle chain of an earlier version. The install
         // only follows the catch-all — an exclusion is a hole in the catch-all,
         // and without one it would just take the uid out of the foreign tunnel.
-        sb.append(bypassChainTeardown("iptables"))
+        sb.append(bypassChainTeardown("iptables -w"))
         sb.append(excludeRulesTeardown())
         if (installCatchAll) sb.append(excludeRulesInstall(bypassUids))
 
@@ -1324,15 +1334,15 @@ object RootUtils {
         sb.append("while ip -6 rule del to $TAILNET_V6 table $ROUTE_TABLE 2>/dev/null; do :; done\n")
         sb.append("ip -6 rule add to $TAILNET_V6 iif lo table $ROUTE_TABLE priority 100 2>/dev/null || true\n")
 
-        sb.append("ip6tables -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -F $CHAIN_MARK\n")
-        sb.append("ip6tables -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -N $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -F $CHAIN_MARK\n")
+        sb.append("ip6tables -w -t mangle -A $CHAIN_MARK -j MARK --set-xmark $MARK_BIT/$MARK_MASK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -C OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || ip6tables -w -t mangle -A OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
 
-        sb.append("ip6tables -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
-        sb.append("ip6tables -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
+        sb.append("ip6tables -w -C FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -o tailscale0 -j ACCEPT 2>/dev/null || true\n")
+        sb.append("ip6tables -w -C FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || ip6tables -w -I FORWARD -i tailscale0 -j ACCEPT 2>/dev/null || true\n")
 
         // --- Per-app exclusions (IPv6): the v6 uid rules are emitted above ---
-        sb.append(bypassChainTeardown("ip6tables"))
+        sb.append(bypassChainTeardown("ip6tables -w"))
 
         // --- Exit-node catch-all (IPv6) ---
         // The purge is harmless anywhere; the rule itself only where IPv6 exists
@@ -1360,7 +1370,7 @@ object RootUtils {
         // time the script reaches here, whoever put them there.
         sb.append(dnsChainTeardown())
         if (installDns) {
-            sb.append("iptables -t nat -N $CHAIN_DNS 2>/dev/null || iptables -t nat -F $CHAIN_DNS\n")
+            sb.append("iptables -w -t nat -N $CHAIN_DNS 2>/dev/null || iptables -w -t nat -F $CHAIN_DNS\n")
             // First, before anything else in the chain: whatever the other
             // tunnel resolves for its own apps goes through untouched. netd
             // stamps its network id into the low 16 bits of the mark, and it is
@@ -1369,7 +1379,7 @@ object RootUtils {
             // since the uid on that packet is the resolver's, not the app's.
             for (netId in dnsExemptNetIds) {
                 sb.append(
-                    "iptables -t nat -A $CHAIN_DNS -m mark --mark 0x%x/0xffff -j RETURN 2>/dev/null || true\n"
+                    "iptables -w -t nat -A $CHAIN_DNS -m mark --mark 0x%x/0xffff -j RETURN 2>/dev/null || true\n"
                         .format(netId)
                 )
             }
@@ -1380,17 +1390,17 @@ object RootUtils {
             // see it, and those names still go to MagicDNS. Measured: this
             // RETURN's counter stays at zero while the DNAT's climbs.
             for (uid in bypassUids) {
-                sb.append("iptables -t nat -A $CHAIN_DNS -m owner --uid-owner $uid -j RETURN 2>/dev/null || echo '$OWNER_MATCH_MISSING'\n")
+                sb.append("iptables -w -t nat -A $CHAIN_DNS -m owner --uid-owner $uid -j RETURN 2>/dev/null || echo '$OWNER_MATCH_MISSING'\n")
             }
             // Queries already aimed at the tailnet (MagicDNS itself, Split DNS
             // resolvers living on peers) must never be rewritten.
-            sb.append("iptables -t nat -A $CHAIN_DNS -d $CGNAT_V4 -j RETURN\n")
+            sb.append("iptables -w -t nat -A $CHAIN_DNS -d $CGNAT_V4 -j RETURN\n")
             // Upstream resolvers the daemon and our own DNS proxy forward to.
             for (addr in dnsBypassAddrs.distinct()) {
-                sb.append("iptables -t nat -A $CHAIN_DNS -d $addr -j RETURN\n")
+                sb.append("iptables -w -t nat -A $CHAIN_DNS -d $addr -j RETURN\n")
             }
-            sb.append("iptables -t nat -A $CHAIN_DNS -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
-            sb.append("iptables -t nat -A $CHAIN_DNS -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
+            sb.append("iptables -w -t nat -A $CHAIN_DNS -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
+            sb.append("iptables -w -t nat -A $CHAIN_DNS -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53\n")
             // The chain is complete either way; only these two lines redirect
             // anything, and they wait for a resolver that answers.
             if (dnsHealthy) sb.append(dnsHookInstall())
@@ -1402,7 +1412,7 @@ object RootUtils {
             // only appended when there are uids to exclude.
             sb.append(
                 "[ -d /proc/sys/net/ipv6 ] && [ \"\$(cat /proc/sys/net/ipv6/conf/all/disable_ipv6 2>/dev/null)\" = \"0\" ] && " +
-                    "{ ip6tables -t nat -S >/dev/null 2>&1 || echo '$DNS_V6_NO_NAT'; } || true\n"
+                    "{ ip6tables -w -t nat -S >/dev/null 2>&1 || echo '$DNS_V6_NO_NAT'; } || true\n"
             )
         }
 
@@ -1411,7 +1421,7 @@ object RootUtils {
         // reported as success.
         sb.append("ip route show table $ROUTE_TABLE 2>/dev/null | grep -q . || { echo 'verify: table $ROUTE_TABLE is empty'; exit 1; }\n")
         if (installDns) {
-            sb.append("iptables -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
+            sb.append("iptables -w -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo 'verify: $CHAIN_DNS chain missing'; exit 1; }\n")
         }
         sb.append("echo 'verify: ok'\n")
 
@@ -1837,21 +1847,21 @@ object RootUtils {
     internal fun routingCleanupScript(): String {
         val sb = StringBuilder()
         sb.append(dnsChainTeardown())
-        sb.append(bypassChainTeardown("iptables"))
-        sb.append(bypassChainTeardown("ip6tables"))
+        sb.append(bypassChainTeardown("iptables -w"))
+        sb.append(bypassChainTeardown("ip6tables -w"))
         sb.append(excludeRulesTeardown())
 
-        sb.append("iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("iptables -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("iptables -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -D OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
-        sb.append("ip6tables -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("iptables -w -t mangle -D OUTPUT -d $CGNAT_V4 -j $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("iptables -w -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("iptables -w -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -D OUTPUT -d $TAILNET_V6 -j $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -F $CHAIN_MARK 2>/dev/null || true\n")
+        sb.append("ip6tables -w -t mangle -X $CHAIN_MARK 2>/dev/null || true\n")
 
-        sb.append("while iptables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
-        sb.append("while iptables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
-        sb.append("while ip6tables -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
-        sb.append("while ip6tables -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while iptables -w -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while iptables -w -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while ip6tables -w -D FORWARD -o tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
+        sb.append("while ip6tables -w -D FORWARD -i tailscale0 -j ACCEPT 2>/dev/null; do :; done\n")
 
         // Ours, and the one 4.0 moved away from: an upgrade that stops Root
         // Mode must collect both, and neither is ever flushed — see [ROUTE_TABLE].
@@ -1900,8 +1910,8 @@ object RootUtils {
     /** Detaches and drops our nat chain; safe to run when it does not exist. */
     private fun dnsChainTeardown(): String = buildString {
         append(dnsHookRemove())
-        append("iptables -t nat -F $CHAIN_DNS 2>/dev/null || true\n")
-        append("iptables -t nat -X $CHAIN_DNS 2>/dev/null || true\n")
+        append("iptables -w -t nat -F $CHAIN_DNS 2>/dev/null || true\n")
+        append("iptables -w -t nat -X $CHAIN_DNS 2>/dev/null || true\n")
     }
 
     /**
@@ -1921,8 +1931,8 @@ object RootUtils {
     private fun dnsHookInstall(): String = buildString {
         for (proto in listOf("udp", "tcp")) {
             append(
-                "iptables -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
-                    "iptables -t nat -I OUTPUT 1 -p $proto --dport 53 -j $CHAIN_DNS\n"
+                "iptables -w -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
+                    "iptables -w -t nat -I OUTPUT 1 -p $proto --dport 53 -j $CHAIN_DNS\n"
             )
         }
     }
@@ -1930,7 +1940,7 @@ object RootUtils {
     /** Drains the jumps, duplicates included; a no-op when none are there. */
     private fun dnsHookRemove(): String = buildString {
         for (proto in listOf("udp", "tcp")) {
-            append("while iptables -t nat -D OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null; do :; done\n")
+            append("while iptables -w -t nat -D OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null; do :; done\n")
         }
     }
 
@@ -1958,14 +1968,14 @@ object RootUtils {
             if (hooked) {
                 // A jump to a chain that does not exist is refused by iptables,
                 // and the caller would be left believing DNS is redirected.
-                append("iptables -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo '$DNS_CHAIN_ABSENT'; exit 1; }\n")
+                append("iptables -w -t nat -S $CHAIN_DNS >/dev/null 2>&1 || { echo '$DNS_CHAIN_ABSENT'; exit 1; }\n")
                 append(dnsHookInstall())
                 // Both, read back: a UDP jump alone would leave every TCP query
                 // — a large answer, a DoT-less resolver retrying — outside
                 // MagicDNS while the caller was told the redirect is on.
                 for (proto in listOf("udp", "tcp")) {
                     append(
-                        "iptables -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
+                        "iptables -w -t nat -C OUTPUT -p $proto --dport 53 -j $CHAIN_DNS 2>/dev/null || " +
                             "{ echo '$DNS_HOOK_FAILED'; exit 1; }\n"
                     )
                 }
@@ -2193,14 +2203,14 @@ object RootUtils {
      * restart, so they are drained here until none are left.
      */
     private fun legacyRuleCleanup(): String = buildString {
-        append("while iptables -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
-        append("while ip6tables -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
+        append("while iptables -w -t mangle -D OUTPUT -d $CGNAT_V4 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
+        append("while ip6tables -w -t mangle -D OUTPUT -d $TAILNET_V6 -j MARK --set-mark $LEGACY_MARK 2>/dev/null; do :; done\n")
         append("while ip rule del fwmark $LEGACY_MARK table $LEGACY_ROUTE_TABLE 2>/dev/null; do :; done\n")
         append("while ip rule del fwmark $LEGACY_MARK lookup $LEGACY_ROUTE_TABLE 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -d $CGNAT_V4 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
-        append("while iptables -t nat -D OUTPUT -d $CGNAT_V4 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j DNAT --to-destination $MAGIC_DNS:53 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -d $CGNAT_V4 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
+        append("while iptables -w -t nat -D OUTPUT -d $CGNAT_V4 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done\n")
     }
 
     /**
@@ -2911,7 +2921,7 @@ object RootUtils {
             append("echo '--- rules installed but never evaluated ([detached] / unresolved goto targets) ---'\n")
             append("{ ip rule show 2>/dev/null; ip -6 rule show 2>/dev/null; } | grep -E '\\[detached\\]| unresolved' || echo '(none)'\n")
             append("echo '--- every fwmark claim in mangle, ours and anyone else's ---'\n")
-            append("iptables -t mangle -S 2>/dev/null | grep -- '--set-xmark' || echo '(none)'\n")
+            append("iptables -w -t mangle -S 2>/dev/null | grep -- '--set-xmark' || echo '(none)'\n")
             append("echo '--- rp_filter ---'\n")
             append("for f in /proc/sys/net/ipv4/conf/*/rp_filter; do printf '%s=%s\\n' \"\${f#/proc/sys/net/ipv4/conf/}\" \"\$(cat \"\$f\" 2>/dev/null)\"; done 2>/dev/null\n")
             append("[ -f $orig ] && echo \"saved original all=\$(cat $orig)\"\n")
@@ -2933,15 +2943,15 @@ object RootUtils {
                 ) + "\n"
             )
             append("echo '--- mangle $CHAIN_MARK ---'\n")
-            append("iptables -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t mangle -S $CHAIN_MARK 2>/dev/null || echo '(absent)'\n")
             append("echo '--- mangle $CHAIN_BYPASS (removed in 4.0; anything here is upgrade residue) ---'\n")
-            append("iptables -t mangle -S $CHAIN_BYPASS 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t mangle -S $CHAIN_BYPASS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat OUTPUT jumps into $CHAIN_DNS (without these the redirect is built but inert) ---'\n")
-            append("iptables -t nat -S OUTPUT 2>/dev/null | grep -- '-j $CHAIN_DNS' || echo '(unhooked)'\n")
+            append("iptables -w -t nat -S OUTPUT 2>/dev/null | grep -- '-j $CHAIN_DNS' || echo '(unhooked)'\n")
             append("echo '--- nat $CHAIN_DNS ---'\n")
-            append("iptables -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t nat -S $CHAIN_DNS 2>/dev/null || echo '(absent)'\n")
             append("echo '--- nat $CHAIN_DNS counters ---'\n")
-            append("iptables -t nat -L $CHAIN_DNS -n -v -x 2>/dev/null || echo '(absent)'\n")
+            append("iptables -w -t nat -L $CHAIN_DNS -n -v -x 2>/dev/null || echo '(absent)'\n")
             append("echo '--- tailscale0 ---'\n")
             append("ip -br addr show tailscale0 2>/dev/null || echo '(interface missing)'\n")
             if (taildropDir != null) {
