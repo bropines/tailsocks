@@ -143,3 +143,39 @@ func TestDeleteDriveShareSendsTheNameAsTheBody(t *testing.T) {
 		t.Errorf("still shared: %v", d.shares)
 	}
 }
+
+// An apply with nothing changed asks the daemon for its list and puts
+// nothing; a moved share and a new one are put, and only they.
+func TestUpdateDriveSharesPutsOnlyWhatChanged(t *testing.T) {
+	d := &fakeShareDaemon{shares: map[string]string{
+		"sdcard":   "/storage/emulated/0",
+		"taildrop": "/storage/emulated/0/Download/Taildrop",
+	}}
+	serveFakeShareDaemon(t, d)
+
+	same := `[{"name":"sdcard","path":"/storage/emulated/0"},{"name":"Taildrop","path":"/storage/emulated/0/Download/Taildrop"}]`
+	if err := UpdateDriveShares(same); err != nil {
+		t.Fatal(err)
+	}
+	d.mu.Lock()
+	if len(d.put) != 0 || len(d.deleted) != 0 {
+		t.Errorf("unchanged shares: put %v, deleted %v, want neither", d.put, d.deleted)
+	}
+	d.put = nil
+	d.mu.Unlock()
+
+	changed := `[{"name":"sdcard","path":"/storage/emulated/0/DCIM"},{"name":"Taildrop","path":"/storage/emulated/0/Download/Taildrop"},{"name":"music","path":"/storage/emulated/0/Music"}]`
+	if err := UpdateDriveShares(changed); err != nil {
+		t.Fatal(err)
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	put := slices.Clone(d.put)
+	sort.Strings(put)
+	if !slices.Equal(put, []string{"music", "sdcard"}) {
+		t.Errorf("put %v, want the moved share and the new one", put)
+	}
+	if d.shares["sdcard"] != "/storage/emulated/0/DCIM" {
+		t.Errorf("sdcard is at %q", d.shares["sdcard"])
+	}
+}

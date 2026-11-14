@@ -134,7 +134,9 @@ func UpdateDriveShares(sharesJson string) error {
 	server.SetShares(shares)
 
 	// Apply/sync each share with the daemon via LocalAPI.
-	// 1. Remove all old shares first by fetching the current ones and deleting them.
+	// 1. Remove the shares the daemon has and the list does not.
+	// listed is what the daemon has, by shareKey, when it could be read.
+	var listed map[string]string
 	currentStr, err := GetDriveSharesJSON()
 	if err != nil {
 		slog.Warn("Taildrive: Could not fetch current shares from daemon", "error", err)
@@ -150,8 +152,10 @@ func UpdateDriveShares(sharesJson string) error {
 			for _, entry := range entries {
 				wanted[shareKey(entry.Name)] = true
 			}
+			listed = make(map[string]string, len(currentShares))
 			for _, cs := range currentShares {
 				if wanted[shareKey(cs.Name)] {
+					listed[shareKey(cs.Name)] = cs.Path
 					continue
 				}
 				slog.Info("Taildrive: Removing stale share", "name", cs.Name)
@@ -164,8 +168,16 @@ func UpdateDriveShares(sharesJson string) error {
 		}
 	}
 
-	// 2. Put all new/updated shares
+	// 2. Put the new and changed shares. One the daemon already has under
+	// that name with that path is left alone: each PUT is a LocalAPI round
+	// trip and a prefs write in the daemon that re-notifies every watcher,
+	// and a settings apply or a service start with nothing changed used to
+	// do one per share. Without a listing every share is put, as before.
 	for _, entry := range entries {
+		if path, ok := listed[shareKey(entry.Name)]; ok && path == entry.Path {
+			slog.Debug("Taildrive: share unchanged", "name", entry.Name)
+			continue
+		}
 		slog.Info("Taildrive: PUT share to daemon", "name", entry.Name, "path", entry.Path)
 		err = PutDriveShare(entry.Name, entry.Path)
 		if err != nil {
