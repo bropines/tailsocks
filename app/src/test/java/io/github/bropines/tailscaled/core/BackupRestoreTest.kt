@@ -54,6 +54,17 @@ class BackupRestoreTest {
 
     // --- restoreTarget: the allow-list between a crafted archive and a file written as the app
 
+    @Test fun aRestartAfterARestoreComesBackDisconnected() {
+        val xml = """<map>
+    <boolean name="desired_running" value="true" />
+    <boolean name="other_flag" value="true" />
+</map>"""
+        val out = BackupRestore.PendingRestart.withoutDesiredRunning(xml)
+        assertTrue(out.contains("""name="desired_running" value="false""""))
+        assertTrue(out.contains("""name="other_flag" value="true""""))
+        assertEquals(out, BackupRestore.PendingRestart.withoutDesiredRunning(out))
+    }
+
     @Test fun whatABackupContainsIsRestored() {
         assertEquals(File(prefs, "tailsocks_global.xml"), target("shared_prefs/tailsocks_global.xml"))
         assertEquals(File(files, "sent_history.json"), target("files/sent_history.json"))

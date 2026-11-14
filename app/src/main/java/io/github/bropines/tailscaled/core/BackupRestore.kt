@@ -221,12 +221,23 @@ object BackupRestore {
             // and nothing in this process writes a preference after this line.
             try {
                 writeRestore(s.zip, s.targets)
+                // The backup carries the connection as it was when it was made; a restore
+                // must not reconnect by itself (the dialog says so, and in Root Mode the
+                // daemon was just stopped). Edited as text: a SharedPreferences write here
+                // would put this process's old values back over the restored file.
+                File(app.dataDir, "shared_prefs/proxy_state.xml").let { f ->
+                    if (f.isFile) f.writeText(withoutDesiredRunning(f.readText()))
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Rewriting the restored files before the restart failed", e)
             }
             staged = null
             relaunch(app)
         }
+
+        /** [prefsXml] (proxy_state.xml) with the wish to be connected switched off; everything else as it is. */
+        internal fun withoutDesiredRunning(prefsXml: String): String =
+            prefsXml.replace(Regex("""(<boolean name="desired_running" value=")true(")"""), "$1false$2")
 
         /** Asks the service to stop and waits for its "STOP" broadcast, which it sends once the teardown is done. */
         private suspend fun awaitServiceStop(app: Context) {
