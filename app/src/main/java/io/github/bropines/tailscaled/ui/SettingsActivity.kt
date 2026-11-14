@@ -85,12 +85,6 @@ import java.io.File
 import appctr.Appctr
 import java.net.URLEncoder
 
-/** The Advanced page's row for remote management, as the row the remote comes back to. */
-private const val REMOTE_ROW = "remote"
-
-/** And its row for what this device exposes (ExposureScreen). */
-private const val EXPOSURE_ROW = "exposure"
-
 /** What the remote is sent to after Settings changes what it shows; see `focus` in [SettingsScreen]. */
 private enum class SettingsFocus { HUB, PAGE, ROW }
 
@@ -1660,78 +1654,6 @@ fun SettingsScreen(
         }
     }
 
-    // Advanced: what this device is not offered in its usual place and can still do — the
-    // pages that left the hub, and the screens that left the main screen. The lists come
-    // from the gate (`place`), so the page holds whatever the device keeps for it.
-    val sectionAdvanced: @Composable () -> Unit = {
-        // On every device, first: everything that listens or can be reached here, in one list.
-        SettingsCard(title = stringResource(R.string.exposure_card)) {
-            SettingsClickableItem(
-                title = stringResource(R.string.exposure_title),
-                subtitle = stringResource(R.string.exposure_entry_desc),
-                icon = Icons.Default.GppMaybe,
-                modifier = if (tv && advancedRow == EXPOSURE_ROW) Modifier.focusRequester(rowFocus) else Modifier,
-                onClick = {
-                    advancedRow = EXPOSURE_ROW
-                    stepOutOfPage()
-                    exposureOpen = true
-                }
-            )
-        }
-        SettingsCardGap()
-        if (advancedPages.isNotEmpty()) {
-            SettingsCard(title = stringResource(R.string.tv_settings_more)) {
-                advancedPages.forEachIndexed { index, page ->
-                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                    // Keyed: a group that remembers the remote's row (tvFocusGroup) tells rows apart by their place in the composition.
-                    key(page.id) {
-                        SettingsClickableItem(
-                            title = stringResource(page.titleRes),
-                            subtitle = stringResource(page.descRes),
-                            icon = page.icon,
-                            // Where Back from that page puts the remote again.
-                            modifier = if (tv && page.id == advancedRow) Modifier.focusRequester(rowFocus) else Modifier,
-                            onClick = { open(page.id) }
-                        )
-                    }
-                }
-            }
-        }
-        if (advancedLinks.isNotEmpty()) {
-            if (advancedPages.isNotEmpty()) SettingsCardGap()
-            SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
-                advancedLinks.forEachIndexed { index, tool ->
-                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                    key(tool.titleRes) {
-                        SettingsClickableItem(
-                            title = stringResource(tool.titleRes),
-                            subtitle = stringResource(tool.descRes),
-                            icon = tool.icon,
-                            onClick = { context.startActivity(Intent(context, tool.screen)) }
-                        )
-                    }
-                }
-            }
-        }
-        // On every device: what is still an experiment. Off until a person turns it on.
-        if (advancedPages.isNotEmpty() || advancedLinks.isNotEmpty()) SettingsCardGap()
-        SettingsCard(title = stringResource(R.string.remote_experimental)) {
-            SettingsClickableItem(
-                title = stringResource(R.string.remote_title),
-                subtitle = stringResource(R.string.settings_remote_entry_desc),
-                icon = Icons.Default.SettingsRemote,
-                modifier = if (tv && advancedRow == REMOTE_ROW) Modifier.focusRequester(rowFocus) else Modifier,
-                onClick = {
-                    advancedRow = REMOTE_ROW
-                    stepOutOfPage()
-                    remoteOpen = true
-                }
-            )
-            // The devices this one manages: nothing until it is paired with one (ui/RemoteManageDevices.kt).
-            RemoteDevices()
-        }
-    }
-
     // I. Backup & restore
     val sectionBackup: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_backup_files)) {
@@ -1929,7 +1851,19 @@ fun SettingsScreen(
                         "backup" -> sectionBackup()
                         "automation" -> SettingsAutomationPage(env)
                         "diagnostics" -> SettingsDiagnosticsPage(env, diagnostics)
-                        advancedCategory.id -> sectionAdvanced()
+                        advancedCategory.id -> SettingsAdvancedPage(
+                            env, advancedPages, advancedLinks, advancedRow, rowFocus,
+                            onExposure = {
+                                advancedRow = EXPOSURE_ROW
+                                stepOutOfPage()
+                                exposureOpen = true
+                            },
+                            onRemote = {
+                                advancedRow = REMOTE_ROW
+                                stepOutOfPage()
+                                remoteOpen = true
+                            }
+                        )
                     }
                     }
                 }
