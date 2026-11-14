@@ -187,11 +187,11 @@ object RootUtils {
      *    that was started by hand (no [RUN_MARKER]), so an earlier run's line
      *    can never vouch for it.
      */
-    private const val RUN_MARKER = "TailSocks: daemon start"
-    private const val DAEMON_START_LINE = "wgengine.NewUserspaceEngine(tun"
+    internal const val RUN_MARKER = "TailSocks: daemon start"
+    internal const val DAEMON_START_LINE = "wgengine.NewUserspaceEngine(tun"
 
     /** Lines the app or the boot script write into the daemon log carry this tag; none of them is daemon output. */
-    private const val APP_LINE_TAG = "TailSocks:"
+    internal const val APP_LINE_TAG = "TailSocks:"
 
     /**
      * The netns probe (patch 16) logs exactly one line per run containing
@@ -202,12 +202,22 @@ object RootUtils {
      * never two loose tokens (a message that merely mentions both would
      * otherwise open the gate).
      */
-    private const val SO_MARK_LINE = "netns: SO_MARK"
-    private const val SO_MARK_OK = "netns: SO_MARK $BYPASS_MARK set on tailscaled sockets"
+    internal const val SO_MARK_LINE = "netns: SO_MARK"
+    internal const val SO_MARK_OK = "netns: SO_MARK $BYPASS_MARK set on tailscaled sockets"
 
     /** Backward log scan in [soMarkVerdict]: bytes read per step, and how far back to look before giving up. */
-    private const val SCAN_CHUNK = 1 shl 20
-    private const val SCAN_LIMIT = 256L shl 20
+    internal const val SCAN_CHUNK = 1 shl 20
+    internal const val SCAN_LIMIT = 256L shl 20
+
+    /**
+     * Above this size the daemon log is cut to its last [LOG_TRIM_KEEP_LINES]
+     * lines before a daemon is started — by the boot script, and by
+     * [startRootDaemon] with the same three lines ([logTrimScript]). The log is
+     * root-owned and only ever appended to; before the app's start path
+     * trimmed it too, a phone without the boot script grew it without bound.
+     */
+    internal const val LOG_TRIM_BYTES = 2_097_152L
+    internal const val LOG_TRIM_KEEP_LINES = 500
 
     /** Markers the apply script prints when a catch-all did not land; distinct so v4 → WARN, v6 → INFO. */
     private const val V4_CATCH_ALL_MISSING = "verify: v4 exit-node catch-all NOT installed (ip dropped the fwmark mask)"
@@ -797,9 +807,13 @@ object RootUtils {
             val dataDir = context.filesDir.parentFile?.absolutePath ?: context.filesDir.absolutePath
             val logsDir = File(dataDir, "logs").apply { mkdirs() }.absolutePath
             val logFile = if (spec.logFilePath.isNotEmpty()) spec.logFilePath else "$logsDir/tailscaled.log"
-            // Everything the daemon appends from here on belongs to this run.
+            // Everything the daemon appends from here on belongs to this run —
+            // unless the script below trims the log first, which moves every
+            // offset; the run marker it writes bounds the run then.
             lastDaemonLogFile = File(logFile)
-            daemonLogStartOffset = File(logFile).length()
+            val logLength = File(logFile).length()
+            daemonLogStartOffset = if (logLength > LOG_TRIM_BYTES) -1L else logLength
+            soMarkScan.reset()
 
             val socketFile = File(spec.socketPath)
             socketFile.parentFile?.mkdirs()
@@ -827,8 +841,10 @@ object RootUtils {
             }.joinToString(" ")
 
             val sb = StringBuilder(env)
+            // The boot script's trim, before the marker so the marker survives it.
+            sb.append(logTrimScript(logFile))
             // Run marker first: everything the daemon prints in this run follows
-            // it, which is what daemonMarksSockets keys on (the boot script writes
+            // it, which is what the SO_MARK gate keys on (the boot script writes
             // the same line). A missing marker means "unverified", never "marks".
             sb.append("echo ${shQuote(RUN_MARKER)} >> ${shQuote(logFile)}\n")
             // Received Taildrop files are created by the root daemon with 0666
@@ -2733,56 +2749,33 @@ object RootUtils {
         }
     }
 
-    private fun soMarkVerdict(logFile: File): SoMarkVerdict {
-        val recorded = if (lastDaemonLogFile == logFile) daemonLogStartOffset else -1L
-        val noProbe = "no '$SO_MARK_LINE' line since this run's start in ${logFile.path}"
-        try {
-            java.io.RandomAccessFile(logFile, "r").use { raf ->
-                val len = raf.length()
-                val bounded = recorded in 0..len
-                val floor = if (bounded) recorded else 0L
-                val buf = ByteArray(SCAN_CHUNK)
-                // Leading partial line of the chunk read before this one (later in the file).
-                var carry = ""
-                var pos = len
-                // Verdict of the last probe line met, pending a run start below it.
-                var probe: SoMarkVerdict? = null
-                while (pos > floor) {
-                    if (len - pos >= SCAN_LIMIT) {
-                        return SoMarkVerdict(false, "no run start within the last ${SCAN_LIMIT shr 20} MiB of ${logFile.path}; run unverified")
-                    }
-                    val start = maxOf(floor, pos - SCAN_CHUNK)
-                    val n = (pos - start).toInt()
-                    raf.seek(start)
-                    raf.readFully(buf, 0, n)
-                    // ISO-8859-1 decodes bytes 1:1, so no multi-byte sequence can straddle a chunk boundary.
-                    val lines = (String(buf, 0, n, Charsets.ISO_8859_1) + carry).split('\n')
-                    // Unless this chunk begins at the floor (a line start by
-                    // construction), its first segment continues a line from the
-                    // chunk below and is judged together with that one.
-                    val first = if (start > floor) 1 else 0
-                    carry = if (start > floor) lines[0] else ""
-                    for (i in lines.indices.reversed()) {
-                        if (i < first) break
-                        val line = lines[i]
-                        if (line.contains(RUN_MARKER) || line.contains(DAEMON_START_LINE)) {
-                            return probe ?: SoMarkVerdict(false, noProbe)
-                        }
-                        if (probe != null || line.contains(APP_LINE_TAG) || !line.contains(SO_MARK_LINE)) continue
-                        probe = if (line.contains(SO_MARK_OK)) SoMarkVerdict(true, "daemon logged '$SO_MARK_OK'")
-                        else SoMarkVerdict(false, "daemon logged: ${line.trim()}")
-                    }
-                    pos = start
-                }
-                if (bounded) {
-                    // The recorded launch offset is a run start by construction.
-                    return probe ?: SoMarkVerdict(false, "no '$SO_MARK_LINE' line yet for the run started at byte $recorded of ${logFile.path}")
-                }
-                return SoMarkVerdict(false, "no run start ('$RUN_MARKER' or '$DAEMON_START_LINE') in ${logFile.path}; run unverified")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "soMarkVerdict: cannot read ${logFile.path}: ${e.message}")
-            return SoMarkVerdict(false, "cannot read ${logFile.path} (${e.message})")
+    /** Remembers how far the daemon log was read, so an apply reads only what was appended since. */
+    private val soMarkScan = SoMarkLogScan()
+
+    /**
+     * The log witness, read by [SoMarkLogScan] under the rules described at
+     * [daemonMarksSockets]; after the first full scan of a run only the bytes
+     * appended since are read.
+     */
+    private fun soMarkVerdict(logFile: File): SoMarkVerdict =
+        soMarkScan.verdict(logFile, if (lastDaemonLogFile == logFile) daemonLogStartOffset else -1L)
+
+    /**
+     * Cuts the daemon log to its last [LOG_TRIM_KEEP_LINES] lines when it is
+     * over [LOG_TRIM_BYTES]: the boot script's three lines, for the app's own
+     * start. Run only before a daemon starts — `mv` gives the file a new inode,
+     * which a running daemon would not follow.
+     */
+    internal fun logTrimScript(logFile: String): String {
+        val f = shQuote(logFile)
+        val tmp = shQuote("$logFile.tmp")
+        return buildString {
+            append("if [ -f $f ]; then\n")
+            append("    LOG_SIZE=\"\$(wc -c < $f 2>/dev/null || echo 0)\"\n")
+            append("    if [ \"\$LOG_SIZE\" -gt $LOG_TRIM_BYTES ] 2>/dev/null; then\n")
+            append("        tail -n $LOG_TRIM_KEEP_LINES $f > $tmp && mv $tmp $f\n")
+            append("    fi\n")
+            append("fi\n")
         }
     }
 
