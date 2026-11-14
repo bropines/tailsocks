@@ -12,6 +12,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Changed
 
 - Battery: the main screen no longer polls the daemon: it updates the moment the connection, health, settings or devices change, and otherwise checks once every 30 seconds, and not at all while it is off screen; the Logs screen reads only new lines and only while shown; the daemon computes engine statistics only while the diagnostics card is open.
+- Battery: the background service follows the same events: the notification, the devices in the share sheet and the widgets update when the daemon reports a change, not on a 15-second poll, and the service no longer asks the daemon for the full status once a minute.
 - Admin console: visual policy edits and the Review step are much faster on large policies, the console opens without waiting for the phone's own change log, and typing in the policy editor no longer redraws the dashboard under it.
 - Settings opens faster: the tailnet address and the admin profile are read only when their pages open. The excluded-apps list opens at once; icons load as you scroll and are sharp.
 - Files: switching tabs no longer reloads the inbox and the device list. Taildrive in other apps: file details load faster, and a share that just restarted is retried once instead of showing an error.
@@ -39,6 +40,9 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Automation: switching accounts through an assistant restarts the connection the same way Tasker does.
 - About: the open-source licenses screen no longer lists OkHttp, Okio and DocumentFile, which the app never shipped.
 - Language: the one chosen in the app now reaches Android 13+'s own per-app language setting, and TailSocks is listed on that system page (Settings → Apps → TailSocks → Language). A language picked there is taken over by the app, and "System default" there resets it. Before, the choice never left the app: the call used for it works only from a kind of screen this app does not have.
+- Share: the file count on the share sheet reads "1 file", not "1 files".
+- Taildrive: a device that shares no folders shows as empty instead of "Not found".
+- Netcheck: right after Start it shows "Connecting" until the coordination server confirms this device, instead of "Offline".
 
 ## [6.1.0] - 2026-11-14
 
