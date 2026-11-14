@@ -197,7 +197,11 @@ func StartDriveProxy(localAddr, username, password string) error {
 
 	if driveProxyServer != nil {
 		slog.Info("Taildrive Proxy: Recreating proxy to apply new settings", "addr", localAddr, "has_auth", username != "")
-		_ = shutdownDriveProxyLocked()
+		// The old listener is closed by now, so the new one can bind the
+		// same address; the old sessions — the old credentials' — end in
+		// the background, cut after the grace period if still running.
+		old, oldTransport := detachDriveProxyLocked()
+		go retireDriveProxy(old, oldTransport)
 	}
 
 	transport := newDriveTransport()
@@ -296,36 +300,63 @@ func driveProxySelfName() string {
 	return self.Name // a tailcfg.Node (SelfChange) names itself here
 }
 
-// shutdownDriveProxyLocked stops the listener and closes the upstream pool.
-// Caller holds driveProxyServerMu. Shared by the re-apply path and
-// StopDriveProxy so neither can forget the transport again.
-func shutdownDriveProxyLocked() error {
-	if driveProxyServer == nil {
+// driveProxyGrace is how long a stopped proxy lets the requests in flight
+// finish before it cuts them.
+var driveProxyGrace = 3 * time.Second
+
+// detachDriveProxyLocked takes the proxy out of the globals and closes its
+// listener at once — Shutdown with a context already done closes the
+// listeners, waits for the accept loops to let go and returns — so the
+// address is free for a successor. What it is still serving is left to
+// retireDriveProxy. Caller holds driveProxyServerMu; shared by the re-apply
+// path and StopDriveProxy so neither can forget the transport again.
+func detachDriveProxyLocked() (*http.Server, *http.Transport) {
+	srv, tr := driveProxyServer, driveProxyTransport
+	driveProxyServer, driveProxyTransport = nil, nil
+	if srv != nil {
+		done, cancel := context.WithCancel(context.Background())
+		cancel()
+		_ = srv.Shutdown(done)
+	}
+	return srv, tr
+}
+
+// retireDriveProxy gives a detached proxy's requests driveProxyGrace to
+// finish, then closes what is left and the upstream pool. Without the Close
+// a transfer still running when the grace ran out kept streaming through the
+// old transport after the proxy reported itself stopped (CloseIdleConnections
+// does not touch a busy connection) — the old credentials' sessions included.
+// It runs without driveProxyServerMu: holding the lock for the grace period
+// made Stop()/Start() wait behind it.
+func retireDriveProxy(srv *http.Server, tr *http.Transport) error {
+	if srv == nil {
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), driveProxyGrace)
 	defer cancel()
-	err := driveProxyServer.Shutdown(ctx)
-	if driveProxyTransport != nil {
-		driveProxyTransport.CloseIdleConnections()
-		driveProxyTransport = nil
+	err := srv.Shutdown(ctx)
+	if err != nil {
+		_ = srv.Close()
 	}
-	driveProxyServer = nil
+	if tr != nil {
+		tr.CloseIdleConnections()
+	}
 	return err
 }
 
 // StopDriveProxy stops the WebDAV reverse-proxy.
 func StopDriveProxy() error {
 	driveProxyServerMu.Lock()
-	defer driveProxyServerMu.Unlock()
+	srv, tr := detachDriveProxyLocked()
+	driveProxyServerMu.Unlock()
 
-	if driveProxyServer == nil {
+	if srv == nil {
 		slog.Debug("Taildrive Proxy: Server is not running")
 		return nil
 	}
 
 	slog.Info("Taildrive Proxy: Stopping server...")
-	err := shutdownDriveProxyLocked()
+	err := retireDriveProxy(srv, tr)
 	if err != nil {
 		slog.Error("Taildrive Proxy: Error stopping server", "error", err)
 	} else {
