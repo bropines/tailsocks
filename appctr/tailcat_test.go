@@ -1,6 +1,11 @@
 package appctr
 
-import "testing"
+import (
+	"net"
+	"sync"
+	"testing"
+	"time"
+)
 
 func TestTcParseMappings(t *testing.T) {
 	good := map[string][]tcMapping{
@@ -83,5 +88,55 @@ func TestTcQuiet(t *testing.T) {
 		if tcQuiet.MatchString(l) {
 			t.Errorf("dropped: %s", l)
 		}
+	}
+}
+
+// countingTailcatListener counts the calls and what the connection's card
+// would show at each.
+type countingTailcatListener struct {
+	c     *tcConn
+	mu    sync.Mutex
+	calls int
+	last  int
+}
+
+func (l *countingTailcatListener) OnTailcatChanged(id string) {
+	l.c.mu.Lock()
+	active := len(l.c.active)
+	l.c.mu.Unlock()
+	l.mu.Lock()
+	l.calls++
+	l.last = active
+	l.mu.Unlock()
+}
+
+// A burst of connections costs a handful of upcalls, not two each, and the
+// last one sees the burst over.
+func TestTailcatConnectionCountsAreCoalesced(t *testing.T) {
+	c := &tcConn{id: "burst", active: map[net.Conn]struct{}{}}
+	l := &countingTailcatListener{c: c}
+	SetTailcatListener(l)
+	t.Cleanup(func() { SetTailcatListener(nil) })
+
+	for i := 0; i < 100; i++ {
+		a, b := net.Pipe()
+		c.track(a)
+		c.untrack(a)
+		b.Close()
+	}
+	time.Sleep(3 * tcNotifyCoalesce)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.calls == 0 || l.calls > 3 {
+		t.Errorf("%d calls for 100 connections, want one or two", l.calls)
+	}
+	if l.last != 0 {
+		t.Errorf("the last call saw %d active connections, want 0", l.last)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.served != 100 {
+		t.Errorf("served %d", c.served)
 	}
 }

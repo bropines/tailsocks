@@ -250,6 +250,66 @@ func (c *tcConn) notify() {
 	}
 }
 
+// tcNotifyCoalesce is how long the changes that come in bursts — a
+// connection accepted, a connection closed — are gathered into one call of
+// the listener.
+var tcNotifyCoalesce = 250 * time.Millisecond
+
+// tcLater gathers the ids whose counters changed since the listener was last
+// told. armed is set from the first change until the flush that follows has
+// called the listener and found nothing more, so flushes never overlap.
+var tcLater struct {
+	mu    sync.Mutex
+	dirty map[string]bool
+	armed bool
+}
+
+// tcNotifyLater tells the listener about id within tcNotifyCoalesce, once for
+// all the changes in between. track and untrack called the listener directly
+// — a blocking upcall into Kotlin, whose handler makes two more bridge calls
+// and two JSON decodes — from the accept loop itself, so a browser behind the
+// SOCKS5 port opening dozens of connections paid two such round trips per
+// connection and the next accept waited for each. The listener re-reads the
+// whole state when called, so the last call, which always comes after the
+// last change, shows what it showed before; the counters lag by at most
+// tcNotifyCoalesce. State changes (set) still call it at once.
+func tcNotifyLater(id string) {
+	tcLater.mu.Lock()
+	defer tcLater.mu.Unlock()
+	if tcLater.dirty == nil {
+		tcLater.dirty = map[string]bool{}
+	}
+	tcLater.dirty[id] = true
+	if !tcLater.armed {
+		tcLater.armed = true
+		time.AfterFunc(tcNotifyCoalesce, tcFlushLater)
+	}
+}
+
+func tcFlushLater() {
+	tcLater.mu.Lock()
+	ids := tcLater.dirty
+	tcLater.dirty = nil
+	tcLater.mu.Unlock()
+
+	tcMu.Lock()
+	l := tcListener
+	tcMu.Unlock()
+	if l != nil {
+		for id := range ids {
+			l.OnTailcatChanged(id)
+		}
+	}
+
+	tcLater.mu.Lock()
+	defer tcLater.mu.Unlock()
+	if len(tcLater.dirty) > 0 {
+		time.AfterFunc(tcNotifyCoalesce, tcFlushLater)
+	} else {
+		tcLater.armed = false
+	}
+}
+
 func (c *tcConn) set(f func(c *tcConn)) {
 	c.mu.Lock()
 	f(c)
@@ -517,7 +577,7 @@ func (c *tcConn) track(conn net.Conn) {
 	c.active[conn] = struct{}{}
 	c.served++
 	c.mu.Unlock()
-	c.notify()
+	tcNotifyLater(c.id)
 }
 
 func (c *tcConn) untrack(conn net.Conn) {
@@ -525,7 +585,7 @@ func (c *tcConn) untrack(conn net.Conn) {
 	delete(c.active, conn)
 	c.mu.Unlock()
 	conn.Close()
-	c.notify()
+	tcNotifyLater(c.id)
 }
 
 // dialed marks the connection forwarding once a dial through it worked, even

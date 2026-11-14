@@ -344,13 +344,13 @@ func (srv *tcServer) forwardTCP(target string) func(net.Conn) {
 		srv.active[c] = struct{}{}
 		srv.served++
 		srv.mu.Unlock()
-		srv.notify()
+		tcNotifyLater(TailcatServerID) // in bursts, like a client's: see there
 		defer func() {
 			srv.mu.Lock()
 			delete(srv.active, c)
 			srv.mu.Unlock()
 			c.Close()
-			srv.notify()
+			tcNotifyLater(TailcatServerID)
 		}()
 		local, err := net.DialTimeout("tcp", target, 15*time.Second)
 		if err != nil {
