@@ -32,6 +32,18 @@ class RootBootScriptDriftTest {
     }
 
     @Test
+    fun `the boot script takes the launch lock the way the app does`() {
+        // Both launchers must agree on the lock, or the boot script and the app
+        // could each start a daemon on the same socket.
+        val guard = RootUtils.launchGuardScript("/x", "/y").lines()
+        val fn = guard.subList(guard.indexOf("ts_launch_lock() {"), guard.indexOf("}") + 1).joinToString("\n")
+        assertAllInScript("launch lock", fn)
+        assertTrue(script.contains("TS_LAUNCH_LOCK=\"\$DATA_DIR/files/root-daemon-launch.lock\""))
+        assertTrue(RootUtils.launchLockDir("/data/data/p").endsWith("/files/root-daemon-launch.lock"))
+        assertTrue(scriptLines.contains("if pgrep -f -- \"--socket=\$SOCKET_PATH\" >/dev/null 2>&1; then"))
+    }
+
+    @Test
     fun `the boot script installs no device-wide tier`() {
         assertTrue(scriptLines.none { it.contains("lookup 52") || it.contains("priority 200") })
         assertTrue(scriptLines.none { !it.startsWith("#") && it.contains("TAILSOCKS_DNS") })

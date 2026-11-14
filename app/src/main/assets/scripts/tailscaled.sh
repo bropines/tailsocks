@@ -97,34 +97,72 @@ export TS_NO_LOGS_NO_SUPPORT="${TS_NO_LOGS_NO_SUPPORT:-true}"
 export TS_AUTH_ONCE="${TS_AUTH_ONCE:-true}"
 export TS_DNS_FALLBACK="${TS_DNS_FALLBACK:-1.1.1.1,8.8.8.8}"
 
-# Log rotation: if log > 2MB, keep last 500 lines
-if [ -f "$LOG_FILE" ]; then
-    LOG_SIZE="$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)"
-    if [ "$LOG_SIZE" -gt 2097152 ] 2>/dev/null; then
-        tail -n 500 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
+# TUN_MODE also decides below whether tailscale0 and the T1 rules exist at all.
+TUN_MODE="${TAILSOCKS_TUN:-tailscale0}"
+case "$TUN_MODE" in tailscale0|userspace-networking) ;; *) TUN_MODE="tailscale0" ;; esac
+
+# One launcher at a time per socket, and none while a daemon for it runs — the
+# same guard as the app's (RootUtils.launchGuardScript): a lock directory made
+# with mkdir, then a look for the process. The app's start can run while this
+# script does (BootReceiver, the user opening the app); two daemons on one
+# socket strip each other's tailnet addresses from tailscale0. A lock whose
+# owner is gone, or one older than a minute, is a leftover and is taken over.
+# When this script does not launch, it still waits for the socket below and
+# writes the tailnet tier for the daemon that is there.
+TS_LAUNCH_LOCK="$DATA_DIR/files/root-daemon-launch.lock"
+ts_launch_lock() {
+    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null && { echo $$ > "$TS_LAUNCH_LOCK/pid"; return 0; }
+    h=$(cat "$TS_LAUNCH_LOCK/pid" 2>/dev/null)
+    b=$(stat -c %Y "$TS_LAUNCH_LOCK" 2>/dev/null) || b=$(date +%s)
+    if [ $(($(date +%s) - b)) -le 60 ]; then
+        [ -z "$h" ] && return 1
+        kill -0 "$h" 2>/dev/null && return 1
+    fi
+    rm -rf "$TS_LAUNCH_LOCK"
+    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null || return 1
+    echo $$ > "$TS_LAUNCH_LOCK/pid"
+}
+TS_LAUNCH=0
+if ts_launch_lock; then
+    if pgrep -f -- "--socket=$SOCKET_PATH" >/dev/null 2>&1; then
+        rm -rf "$TS_LAUNCH_LOCK"
+    else
+        TS_LAUNCH=1
     fi
 fi
 
-# Run marker for the app: its SO_MARK gate (RootUtils.soMarkVerdict) bounds "this run" by the
-# last such line when TailSocks adopts a daemon this script started (this core
-# prints no start banner of its own). Same text as RootUtils.RUN_MARKER; lines
-# tagged 'TailSocks:' are never taken as daemon output.
-echo "TailSocks: daemon start" >> "$LOG_FILE"
-
-# Run daemon with resolved STATE_DIR (native safesocket patch forces 0666 on tailscaled.sock).
 # umask 022: received Taildrop files are created 0666 minus umask, and the app
 # must be able to read them while the daemon runs (same line in RootUtils).
 umask 022
-# Same command line the app builds in RootUtils.startRootDaemon, from the values
-# it recorded: without them the daemon used to run with no SOCKS5/HTTP listener
-# until the app restarted it. TUN_MODE also decides below whether tailscale0 and
-# the T1 rules exist at all.
-TUN_MODE="${TAILSOCKS_TUN:-tailscale0}"
-case "$TUN_MODE" in tailscale0|userspace-networking) ;; *) TUN_MODE="tailscale0" ;; esac
-set -- --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun="$TUN_MODE"
-[ -n "$TAILSOCKS_SOCKS_ADDR" ] && [ "$TAILSOCKS_SOCKS_ADDR" != "none" ] && set -- "$@" --socks5-server="$TAILSOCKS_SOCKS_ADDR"
-[ -n "$TAILSOCKS_HTTP_ADDR" ] && set -- "$@" --outbound-http-proxy-listen="$TAILSOCKS_HTTP_ADDR"
-nohup "$DAEMON_BIN" "$@" >> "$LOG_FILE" 2>&1 &
+if [ "$TS_LAUNCH" = 1 ]; then
+    # Log rotation: if log > 2MB, keep last 500 lines
+    if [ -f "$LOG_FILE" ]; then
+        LOG_SIZE="$(wc -c < "$LOG_FILE" 2>/dev/null || echo 0)"
+        if [ "$LOG_SIZE" -gt 2097152 ] 2>/dev/null; then
+            tail -n 500 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
+        fi
+    fi
+
+    # Run marker for the app: its SO_MARK gate (RootUtils.soMarkVerdict) bounds "this run" by the
+    # last such line when TailSocks adopts a daemon this script started (this core
+    # prints no start banner of its own). Same text as RootUtils.RUN_MARKER; lines
+    # tagged 'TailSocks:' are never taken as daemon output.
+    echo "TailSocks: daemon start" >> "$LOG_FILE"
+
+    # Run daemon with resolved STATE_DIR (native safesocket patch forces 0666 on tailscaled.sock).
+    # Same command line the app builds in RootUtils.startRootDaemon, from the values
+    # it recorded: without them the daemon used to run with no SOCKS5/HTTP listener
+    # until the app restarted it.
+    set -- --statedir="$STATE_DIR" --socket="$SOCKET_PATH" --tun="$TUN_MODE"
+    [ -n "$TAILSOCKS_SOCKS_ADDR" ] && [ "$TAILSOCKS_SOCKS_ADDR" != "none" ] && set -- "$@" --socks5-server="$TAILSOCKS_SOCKS_ADDR"
+    [ -n "$TAILSOCKS_HTTP_ADDR" ] && set -- "$@" --outbound-http-proxy-listen="$TAILSOCKS_HTTP_ADDR"
+    nohup "$DAEMON_BIN" "$@" >> "$LOG_FILE" 2>&1 &
+    # The lock is held until the daemon is visible to pgrep: released earlier,
+    # another launcher could look in the moment between fork and exec.
+    i=0
+    while [ $i -lt 30 ] && ! pgrep -f -- "--socket=$SOCKET_PATH" >/dev/null 2>&1; do sleep 0.1; i=$((i+1)); done
+    rm -rf "$TS_LAUNCH_LOCK"
+fi
 # Same modes as RootUtils.startRootDaemon: the log is root-owned and the app
 # reads it for the Logs screen (0644), the socket is shared with the app uid
 # (0666), the state directory holds the node keys (0700). Up to 4.1.0 this

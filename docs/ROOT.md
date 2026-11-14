@@ -775,6 +775,20 @@ start wait — probing every 400 ms, adopting it when it answers, and replacing 
 only if it dies or has not answered within 15 s. With no such process a start
 does not wait at all.
 
+One daemon per socket, whoever asks. The service runs one start sequence at a
+time: a START that arrives while one is in flight — the activity's own start
+and the watchdog's revive after a force-stop, a double tap on the tile, Tasker —
+joins it instead of running a second one, and a start after a Stop waits for
+the superseded one to finish. The launch script checks again as root and in one
+step: it takes a lock directory (`files/root-daemon-launch.lock`, made with
+`mkdir`, removed when the script exits) and launches only when no process with
+this `--socket=` exists; otherwise it prints `launch: skipped, …` and the start
+waits for the daemon that is there. The boot script takes the same lock. Two
+starts within the same second used to be able to launch a daemon each; the second
+one's start-up cleanup removed the first one's addresses from `tailscale0`,
+and the survivor ran with no tailnet address and an empty table 52 while the
+card said Active.
+
 ---
 
 ## 📱 Enabling Root Integration in App

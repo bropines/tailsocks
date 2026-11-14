@@ -854,10 +854,13 @@ object RootUtils {
                 }
             }.joinToString(" ")
 
-            // The env file the boot script reads next boot, then the same
+            // The guard first: no launch while a daemon for this socket exists or
+            // another launch of one is in progress (see [launchGuardScript]).
+            // Then the env file the boot script reads next boot, and the same
             // variables exported for this launch — one root shell for both; they
             // used to be two, in this order.
-            val sb = StringBuilder(rootEnvFileScript(env, dataDir))
+            val sb = StringBuilder(launchGuardScript(launchLockDir(dataDir), spec.socketPath))
+            sb.append(rootEnvFileScript(env, dataDir))
             sb.append(env)
             // The boot script's trim, before the marker so the marker survives it.
             sb.append(logTrimScript(logFile))
@@ -901,11 +904,22 @@ object RootUtils {
             if (!res.ok) {
                 Log.w(TAG, "The daemon-start shell failed; the root-owned control_proxy.env may not have been written")
             }
+            // Nothing was launched: the daemon that exists, or the one another
+            // launch is bringing up, is the one to attach to. It opens its socket
+            // in its own time, so the wait is the adoption budget rather than the
+            // five seconds a launch of our own gets; and its run started at the
+            // marker that launch wrote, not at the offset sampled above.
+            val skipped = res.output.contains(LAUNCH_SKIPPED_RUNNING) || res.output.contains(LAUNCH_SKIPPED_LOCKED)
+            if (skipped) {
+                daemonLogStartOffset = -1L
+                rootLog("INFO", "No second root daemon launched for this socket; waiting for the one that is there to answer")
+            }
+            val waitMs = if (skipped) RootAdoption.BUDGET_MS else 5_000L
 
             // Verify the daemon really came up rather than trusting the exit code.
             var attempts = 0
             var policyPatched = false
-            while (attempts < 25) {
+            while (attempts < waitMs / 200) {
                 val error = probeSocket(spec.socketPath)
                 if (error == null) {
                     Log.i(TAG, "Root daemon socket is accepting connections at ${spec.socketPath}")
@@ -925,7 +939,7 @@ object RootUtils {
                 Thread.sleep(200)
                 attempts++
             }
-            rootLog("ERROR", "Root daemon did not open ${spec.socketPath} within 5s")
+            rootLog("ERROR", "Root daemon did not open ${spec.socketPath} within ${waitMs / 1000}s")
             false
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start root daemon: ${e.message}", e)
@@ -933,6 +947,61 @@ object RootUtils {
             false
         }
     }
+
+    /** Printed by [launchGuardScript] when a daemon for the socket is already running. */
+    internal const val LAUNCH_SKIPPED_RUNNING = "launch: skipped, a daemon for this socket is already running"
+    /** Printed by [launchGuardScript] when another launch holds the lock. */
+    internal const val LAUNCH_SKIPPED_LOCKED = "launch: skipped, another launch for this socket is in progress"
+
+    /** The launch lock: a directory in the app's files dir, created by root with mkdir. */
+    internal fun launchLockDir(dataDir: String): String = "$dataDir/files/root-daemon-launch.lock"
+
+    /**
+     * The head of the launch script: makes "is there a daemon for this socket?"
+     * and "start one" a single step, whoever runs the script.
+     *
+     * The app decides in Kotlin whether to launch ([awaitRootDaemon]), and two
+     * start sequences that both asked before either had launched each started a
+     * daemon — the second one's start-up cleanup then stripped the first one's
+     * tailnet addresses from tailscale0, and the routes went with them. The
+     * service no longer runs two sequences ([StartGate]), but the launch itself
+     * must not depend on that: it takes a lock, then looks for the process, and
+     * launches only with the lock held and no process found.
+     *
+     * The lock is a directory, because `mkdir` is atomic and exists in every
+     * shell; it holds the owner's pid and is removed when the shell exits (the
+     * EXIT trap, which INT/TERM/HUP are routed through). A shell killed outright
+     * — su's timeout — leaves it behind, so a lock whose owner is gone, or one
+     * older than any launch can take, is taken over. A lock with no pid yet is
+     * a launch between its `mkdir` and its first write, and is left alone unless
+     * it is that old. Either refusal prints a [LAUNCH_SKIPPED_LOCKED] or
+     * [LAUNCH_SKIPPED_RUNNING] line and ends the script with status 0; the
+     * caller then waits for the socket of the daemon that is there.
+     */
+    internal fun launchGuardScript(lockDir: String, socketPath: String): String = buildString {
+        append("TS_LAUNCH_LOCK=").append(shQuote(lockDir)).append('\n')
+        append("TS_LAUNCH_PAT=").append(shQuote("--socket=$socketPath")).append('\n')
+        append("ts_launch_lock() {\n")
+        append("    mkdir \"\$TS_LAUNCH_LOCK\" 2>/dev/null && { echo \$\$ > \"\$TS_LAUNCH_LOCK/pid\"; return 0; }\n")
+        append("    h=\$(cat \"\$TS_LAUNCH_LOCK/pid\" 2>/dev/null)\n")
+        // An age that cannot be read counts as fresh: only the owner's pid can then free it.
+        append("    b=\$(stat -c %Y \"\$TS_LAUNCH_LOCK\" 2>/dev/null) || b=\$(date +%s)\n")
+        append("    if [ \$((\$(date +%s) - b)) -le $LAUNCH_LOCK_STALE_S ]; then\n")
+        append("        [ -z \"\$h\" ] && return 1\n")
+        append("        kill -0 \"\$h\" 2>/dev/null && return 1\n")
+        append("    fi\n")
+        append("    rm -rf \"\$TS_LAUNCH_LOCK\"\n")
+        append("    mkdir \"\$TS_LAUNCH_LOCK\" 2>/dev/null || return 1\n")
+        append("    echo \$\$ > \"\$TS_LAUNCH_LOCK/pid\"\n")
+        append("}\n")
+        append("ts_launch_lock || { echo ").append(shQuote(LAUNCH_SKIPPED_LOCKED)).append("; exit 0; }\n")
+        append("trap 'rm -rf \"\$TS_LAUNCH_LOCK\"' EXIT\n")
+        append("trap 'exit 1' HUP INT TERM\n")
+        append("if pgrep -f -- \"\$TS_LAUNCH_PAT\" >/dev/null 2>&1; then echo ").append(shQuote(LAUNCH_SKIPPED_RUNNING)).append("; exit 0; fi\n")
+    }
+
+    /** A launch lock older than this is a leftover: su gives a launch 30 s, then kills it. */
+    private const val LAUNCH_LOCK_STALE_S = 60
 
     /**
      * Quotes a value for safe use inside a single-quoted shell word. Line breaks

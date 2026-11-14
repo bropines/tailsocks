@@ -228,7 +228,18 @@ class WatchdogReceiver : BroadcastReceiver() {
         // coexistence re-check or the hosts sync. A fresh process is attached
         // to nothing until the service attaches it, so this is false exactly
         // when the service is gone; START_ACTION then adopts the running daemon.
-        if (wantsRunning && !appctr.Appctr.isRunning()) {
+        //
+        // "Not attached" is also true all through a start: in Root Mode the
+        // bridge attaches only after su has found or launched the daemon, which
+        // takes seconds. A revive fired into that window was a second START
+        // racing the first, and two starts launched two root daemons. So the
+        // watchdog stands down while this process is already acting on the
+        // user's wish — a start in flight, or a service instance that has only
+        // just come up. The start gate makes a second START harmless anyway;
+        // this keeps the watchdog from sending one.
+        if (wantsRunning && !appctr.Appctr.isRunning() && TailscaledService.isActingOnDesiredState()) {
+            Log.i("ServiceWatchdog", "Service is starting; nothing to revive")
+        } else if (wantsRunning && !appctr.Appctr.isRunning()) {
             Log.w("ServiceWatchdog", "Service is gone while the user wants it running, reviving")
             try {
                 ContextCompat.startForegroundService(

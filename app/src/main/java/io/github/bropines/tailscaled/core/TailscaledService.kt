@@ -56,6 +56,36 @@ class TailscaledService : Service() {
         /** What the card says now, as a state; null while no service holds it. The widgets' status line. */
         internal fun shownCardState(): CardState? = shownCard?.state
 
+        /**
+         * The one way a start sequence runs (see [StartGate]): serial, process-wide,
+         * and a START that arrives while one is in flight joins it. Every source of
+         * START — the activity, the tile, the watchdog, the boot receiver, Tasker,
+         * AppFunctions, widgets — ends in [startTailscale], so this is the only gate.
+         */
+        private val startGate = StartGate(
+            java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "tailsocks-start") }
+        )
+
+        /** When the live service instance was created (elapsedRealtime), 0 while there is none. */
+        @Volatile private var instanceCreatedAt = 0L
+
+        /** How long after its creation a service instance counts as acting on the user's wish. */
+        private const val START_GRACE_MS = 60_000L
+
+        /**
+         * Whether this process is already acting on the user's desired state: a
+         * start sequence is running or queued, or a service instance came up
+         * within [START_GRACE_MS] and is about to start one. The watchdog asks
+         * before reviving — its "is the bridge attached?" question is false all
+         * through a Root Mode start, and a revive fired into that window was the
+         * second START of the double launch [StartGate] describes.
+         */
+        internal fun isActingOnDesiredState(): Boolean {
+            if (startGate.inFlight) return true
+            val created = instanceCreatedAt
+            return created != 0L && android.os.SystemClock.elapsedRealtime() - created < START_GRACE_MS
+        }
+
         /** The app's resources in the language chosen in Settings, per language. */
         @Volatile private var localizedCache: Pair<String, Context>? = null
 
@@ -1182,6 +1212,10 @@ class TailscaledService : Service() {
         updateNotification(CardState.RECONNECTING)
 
         val gen = lifecycleGeneration.get()
+        // The recovery tears the daemon down, as a restart does: a start sequence
+        // still in flight is superseded, and the recovery's own start below is a
+        // new sequence rather than one that joins it (see [StartGate]).
+        stopGeneration.incrementAndGet()
         // Published as the in-flight teardown so a START arriving meanwhile joins
         // it and starts afterwards (see the START path) instead of doing nothing
         // because the daemon still looked alive.
@@ -1727,6 +1761,7 @@ class TailscaledService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        instanceCreatedAt = android.os.SystemClock.elapsedRealtime()
         try { android.system.Os.setenv("TZ", java.util.TimeZone.getDefault().id, true) } catch (e: Exception) {}
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         if (NetTrace.enabled) {
@@ -2020,12 +2055,6 @@ class TailscaledService : Service() {
     }
 
     private fun startTailscale() {
-        acquireKeepAliveLock()
-        taildriveAppliedForRun = TaildriveRun.NONE
-        // What was switched on in Tailcat comes up with the core, whichever way
-        // it starts (button, boot, watchdog): while this start is still inside
-        // the window that let it start a foreground service.
-        TailcatService.resume(this)
         // Only a stop may abandon a start. teardownStarted is set by stopMe() and
         // cleared synchronously by START/RESTART/auto-reconnect before they start,
         // so it means "the most recent lifecycle command was a stop". The
@@ -2050,173 +2079,193 @@ class TailscaledService : Service() {
         // here would take the newer start's daemon with it.
         fun ownsCleanup() = teardownStarted
 
-        Thread {
-            // buildStartOptions does file IO, preference writes, a ServerSocket
-            // bind (ByeDPI) and a JNI call — all off the main thread.
-            val options = buildStartOptions()
-            try {
-                if (stale()) {
-                    // buildStartOptions may already have started ByeDPI; the stop
-                    // that superseded us ran before that, so clean up here.
-                    Log.i(TAG, "Start abandoned: stopped before the daemon was launched")
-                    if (ownsCleanup()) shutdownDaemon()
-                    return@Thread
-                }
-                applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
-                if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
-                    val socketFile = java.io.File(options.socketPath)
-                    // A socket file left behind by a killed daemon still exists, so
-                    // liveness is decided by an actual connect before we query it.
-                    // allowSocketConnect is isDaemonAlive plus one repair: if the
-                    // connect is refused by SELinux rather than by a missing
-                    // daemon, it adds the one allow rule and retries. Without it
-                    // a healthy daemon started by the boot script looks dead and
-                    // gets killed and restarted below.
-                    RootUtils.allowSocketConnect(options.socketPath)
-                    // A daemon that is still coming up — the boot script's, or one
-                    // that outlived the app — is waited for rather than killed:
-                    // see RootAdoption. No daemon process means no wait at all.
-                    val adoption = RootUtils.awaitRootDaemon(options.socketPath) { stale() }
-                    if (stale()) {
-                        Log.i(TAG, "Start abandoned while the root daemon was being waited for")
-                        return@Thread
-                    }
-
-                    if (adoption == RootAdoption.Step.ADOPT) {
-                        Log.i(TAG, "Root daemon is already running. Attaching to existing socket with full options.")
-                        // The daemon keeps whatever the boot script gave it, but the
-                        // env file that script reads next boot is brought up to date
-                        // now, so a settings change made while attached is not lost
-                        // to the next reboot.
-                        val spec = rootDaemonSpec(options)
-                        RootUtils.writeRootEnvFile(this@TailscaledService, spec)
-                        // What it was really started with is not known; taken to be
-                        // this, so that only a change made from here on restarts it.
-                        runningRootSpec = spec
-                        Appctr.attachExternal(options)
-                    } else {
-                        // GIVE_UP: a daemon that never answered, socket or not —
-                        // it is killed before another is started beside it.
-                        if (adoption == RootAdoption.Step.GIVE_UP || socketFile.exists()) {
-                            Log.w(TAG, "Root daemon is gone or did not answer ($adoption). Stopping what is left of it and restarting.")
-                            RootUtils.stopRootDaemon(options.socketPath, handBackTo = this@TailscaledService)
-                        }
-                        val spec = rootDaemonSpec(options)
-                        val ok = RootUtils.startRootDaemon(this@TailscaledService, spec)
-
-                        if (!ok) {
-                            // Do not report "Active" for a daemon that never came up.
-                            Log.e(TAG, "Root daemon failed to start, aborting service start")
-                            updateNotification(CardState.ROOT_FAILED)
-                            // The card dies with the service: stopMe() shows
-                            // "Stopping" and its completion removes the
-                            // notification, so ROOT_FAILED was on screen for the
-                            // gap between two calls. What stays is a dismissible
-                            // notification that says so — posted after stopMe(),
-                            // which cancels that notification id on its way. On
-                            // the main thread, like every other stop, so stopMe's
-                            // guard is not raced by a STOP_ACTION.
-                            refreshHandler.post {
-                                if (stale()) return@post
-                                stopMe()
-                                ServiceWatchdog.noteRootStartFailed(this@TailscaledService)
-                            }
-                            return@Thread
-                        }
-                        if (stale()) {
-                            // A stop landed while su was bringing the daemon up; its
-                            // teardown ran before the daemon existed, so take it down here.
-                            Log.i(TAG, "Start abandoned after the root daemon launched, shutting it down again")
-                            if (ownsCleanup()) shutdownDaemon()
-                            return@Thread
-                        }
-                        runningRootSpec = spec
-                        Appctr.attachExternal(options)
-                    }
-                } else {
-                    // Starting in userspace mode while system rules from a previous
-                    // Root Mode session are still installed would leave the device
-                    // routing tailnet traffic into an interface nobody manages.
-                    if (GlobalSettings.isRootRoutingInstalled(this@TailscaledService)) {
-                        Log.i(TAG, "Removing leftover Root Mode routing before userspace start")
-                        removeRootArtifacts(killDaemon = true)
-                    }
-                    if (stale()) {
-                        Log.i(TAG, "Start abandoned before launching the daemon")
-                        if (ownsCleanup()) shutdownDaemon()
-                        return@Thread
-                    }
-                    // Native TUN engine: when the node's addresses are known from the
-                    // last run, establish the VPN first so the daemon's first launch
-                    // is already on the device — no userspace start followed by a
-                    // relaunch, no flicker. Anything missing falls back to the usual
-                    // order: TUN after readiness.
-                    if (GlobalSettings.isTunModeEnabled(this@TailscaledService) &&
-                        GlobalSettings.getTunEngine(this@TailscaledService) == TunVpnService.ENGINE_NATIVE &&
-                        TunVpnService.cachedSelfIps(this@TailscaledService).isNotEmpty() &&
-                        android.net.VpnService.prepare(this@TailscaledService) == null
-                    ) {
-                        startTunMode()
-                        var waited = 0
-                        while (!Appctr.hasNativeTun() && waited < 5000 && !stale()) { Thread.sleep(100); waited += 100 }
-                        Log.i(TAG, if (Appctr.hasNativeTun()) "Native TUN established before the daemon start ($waited ms)"
-                                   else "Native TUN not ready after $waited ms, the daemon starts in userspace mode first")
-                    }
-                    Appctr.setExternalSocketPath("")
-                    Appctr.start(options)
-                }
-                if (stale()) {
-                    // A stop landed while the daemon was starting; its teardown may
-                    // have run before the daemon existed. The Go side spawns the
-                    // process asynchronously, so give it a moment to appear before
-                    // taking it down, or it would be left running under no service.
-                    Log.i(TAG, "Start abandoned after the daemon launched, shutting it down again")
-                    if (ownsCleanup()) {
-                        var waited = 0
-                        while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
-                        shutdownDaemon()
-                    }
-                    return@Thread
-                }
-                // Not "connected" yet: the daemon has only been launched. The card
-                // follows it on a thread of its own, so a slow LocalAPI answer
-                // cannot hold up the rest of the start.
-                followCardAfterStart()
-                applicationContext.sendBroadcast(Intent("START").setPackage(packageName))
-                WidgetUpdates.request(this@TailscaledService)
-                if (waitForDaemonReady()) {
-                    if (stale()) {
-                        Log.i(TAG, "Start abandoned after the daemon became ready, shutting it down again")
-                        if (ownsCleanup()) shutdownDaemon()
-                        return@Thread
-                    }
-                    Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
-                    applyTagsAndRoutes(this@TailscaledService)
-                    // Share registration needs the node's capabilities (drive:share),
-                    // which arrive with the netmap. Right after the socket appears the
-                    // backend is still Starting and the daemon answers 403 "sharing not
-                    // enabled" — a race, not a policy problem. Apply now only if already
-                    // Running (re-attach); otherwise the refresh tick does it once the
-                    // state flips, see taildriveAppliedForRun.
-                    if (runCatching { Appctr.getBackendState() }.getOrDefault("") == "Running") {
-                        taildriveAppliedForRun = runCatching { Appctr.getDaemonStartTime() }.getOrDefault(TaildriveRun.NONE)
-                        applyTaildrive(this@TailscaledService)
-                    } else {
-                        Log.i(TAG, "Taildrive: deferring share registration until the backend is Running")
-                    }
-
-                    if (GlobalSettings.isTunModeEnabled(this@TailscaledService) && !GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
-                        startTunMode()
-                    }
-                } else {
-                    Log.w(TAG, "Daemon readiness checkpoint timed out.")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Start failed", e)
-                // A failure of a superseded start must not stop whatever superseded it.
-                if (!stale()) stopMe()
+        // One start sequence per stop generation (see [StartGate]). Two sequences
+        // that both found no daemon used to launch one each; now a START that
+        // arrives while this one is still in flight changes nothing, and a start
+        // after a stop waits until the superseded sequence has finished unwinding.
+        val admitted = startGate.request(
+            this, stopGen,
+            onAdmitted = {
+                acquireKeepAliveLock()
+                taildriveAppliedForRun = TaildriveRun.NONE
+                // What was switched on in Tailcat comes up with the core, whichever way
+                // it starts (button, boot, watchdog): while this start is still inside
+                // the window that let it start a foreground service.
+                TailcatService.resume(this)
             }
-        }.start()
+        ) {
+            startSequence(::stale, ::ownsCleanup)
+        }
+        if (!admitted) Log.i(TAG, "Start requested while a start is in flight; joining it")
+    }
+
+    /** The body of one admitted start; runs on [startGate]'s thread. */
+    private fun startSequence(stale: () -> Boolean, ownsCleanup: () -> Boolean) {
+        // buildStartOptions does file IO, preference writes, a ServerSocket
+        // bind (ByeDPI) and a JNI call — all off the main thread.
+        val options = buildStartOptions()
+        try {
+            if (stale()) {
+                // buildStartOptions may already have started ByeDPI; the stop
+                // that superseded us ran before that, so clean up here.
+                Log.i(TAG, "Start abandoned: stopped before the daemon was launched")
+                if (ownsCleanup()) shutdownDaemon()
+                return
+            }
+            applicationContext.sendBroadcast(Intent("STARTING").setPackage(packageName))
+            if (GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                val socketFile = java.io.File(options.socketPath)
+                // A socket file left behind by a killed daemon still exists, so
+                // liveness is decided by an actual connect before we query it.
+                // allowSocketConnect is isDaemonAlive plus one repair: if the
+                // connect is refused by SELinux rather than by a missing
+                // daemon, it adds the one allow rule and retries. Without it
+                // a healthy daemon started by the boot script looks dead and
+                // gets killed and restarted below.
+                RootUtils.allowSocketConnect(options.socketPath)
+                // A daemon that is still coming up — the boot script's, or one
+                // that outlived the app — is waited for rather than killed:
+                // see RootAdoption. No daemon process means no wait at all.
+                val adoption = RootUtils.awaitRootDaemon(options.socketPath) { stale() }
+                if (stale()) {
+                    Log.i(TAG, "Start abandoned while the root daemon was being waited for")
+                    return
+                }
+
+                if (adoption == RootAdoption.Step.ADOPT) {
+                    Log.i(TAG, "Root daemon is already running. Attaching to existing socket with full options.")
+                    // The daemon keeps whatever the boot script gave it, but the
+                    // env file that script reads next boot is brought up to date
+                    // now, so a settings change made while attached is not lost
+                    // to the next reboot.
+                    val spec = rootDaemonSpec(options)
+                    RootUtils.writeRootEnvFile(this@TailscaledService, spec)
+                    // What it was really started with is not known; taken to be
+                    // this, so that only a change made from here on restarts it.
+                    runningRootSpec = spec
+                    Appctr.attachExternal(options)
+                } else {
+                    // GIVE_UP: a daemon that never answered, socket or not —
+                    // it is killed before another is started beside it.
+                    if (adoption == RootAdoption.Step.GIVE_UP || socketFile.exists()) {
+                        Log.w(TAG, "Root daemon is gone or did not answer ($adoption). Stopping what is left of it and restarting.")
+                        RootUtils.stopRootDaemon(options.socketPath, handBackTo = this@TailscaledService)
+                    }
+                    val spec = rootDaemonSpec(options)
+                    val ok = RootUtils.startRootDaemon(this@TailscaledService, spec)
+
+                    if (!ok) {
+                        // Do not report "Active" for a daemon that never came up.
+                        Log.e(TAG, "Root daemon failed to start, aborting service start")
+                        updateNotification(CardState.ROOT_FAILED)
+                        // The card dies with the service: stopMe() shows
+                        // "Stopping" and its completion removes the
+                        // notification, so ROOT_FAILED was on screen for the
+                        // gap between two calls. What stays is a dismissible
+                        // notification that says so — posted after stopMe(),
+                        // which cancels that notification id on its way. On
+                        // the main thread, like every other stop, so stopMe's
+                        // guard is not raced by a STOP_ACTION.
+                        refreshHandler.post {
+                            if (stale()) return@post
+                            stopMe()
+                            ServiceWatchdog.noteRootStartFailed(this@TailscaledService)
+                        }
+                        return
+                    }
+                    if (stale()) {
+                        // A stop landed while su was bringing the daemon up; its
+                        // teardown ran before the daemon existed, so take it down here.
+                        Log.i(TAG, "Start abandoned after the root daemon launched, shutting it down again")
+                        if (ownsCleanup()) shutdownDaemon()
+                        return
+                    }
+                    runningRootSpec = spec
+                    Appctr.attachExternal(options)
+                }
+            } else {
+                // Starting in userspace mode while system rules from a previous
+                // Root Mode session are still installed would leave the device
+                // routing tailnet traffic into an interface nobody manages.
+                if (GlobalSettings.isRootRoutingInstalled(this@TailscaledService)) {
+                    Log.i(TAG, "Removing leftover Root Mode routing before userspace start")
+                    removeRootArtifacts(killDaemon = true)
+                }
+                if (stale()) {
+                    Log.i(TAG, "Start abandoned before launching the daemon")
+                    if (ownsCleanup()) shutdownDaemon()
+                    return
+                }
+                // Native TUN engine: when the node's addresses are known from the
+                // last run, establish the VPN first so the daemon's first launch
+                // is already on the device — no userspace start followed by a
+                // relaunch, no flicker. Anything missing falls back to the usual
+                // order: TUN after readiness.
+                if (GlobalSettings.isTunModeEnabled(this@TailscaledService) &&
+                    GlobalSettings.getTunEngine(this@TailscaledService) == TunVpnService.ENGINE_NATIVE &&
+                    TunVpnService.cachedSelfIps(this@TailscaledService).isNotEmpty() &&
+                    android.net.VpnService.prepare(this@TailscaledService) == null
+                ) {
+                    startTunMode()
+                    var waited = 0
+                    while (!Appctr.hasNativeTun() && waited < 5000 && !stale()) { Thread.sleep(100); waited += 100 }
+                    Log.i(TAG, if (Appctr.hasNativeTun()) "Native TUN established before the daemon start ($waited ms)"
+                               else "Native TUN not ready after $waited ms, the daemon starts in userspace mode first")
+                }
+                Appctr.setExternalSocketPath("")
+                Appctr.start(options)
+            }
+            if (stale()) {
+                // A stop landed while the daemon was starting; its teardown may
+                // have run before the daemon existed. The Go side spawns the
+                // process asynchronously, so give it a moment to appear before
+                // taking it down, or it would be left running under no service.
+                Log.i(TAG, "Start abandoned after the daemon launched, shutting it down again")
+                if (ownsCleanup()) {
+                    var waited = 0
+                    while (!Appctr.isRunning() && waited < 3000) { Thread.sleep(100); waited += 100 }
+                    shutdownDaemon()
+                }
+                return
+            }
+            // Not "connected" yet: the daemon has only been launched. The card
+            // follows it on a thread of its own, so a slow LocalAPI answer
+            // cannot hold up the rest of the start.
+            followCardAfterStart()
+            applicationContext.sendBroadcast(Intent("START").setPackage(packageName))
+            WidgetUpdates.request(this@TailscaledService)
+            if (waitForDaemonReady()) {
+                if (stale()) {
+                    Log.i(TAG, "Start abandoned after the daemon became ready, shutting it down again")
+                    if (ownsCleanup()) shutdownDaemon()
+                    return
+                }
+                Log.d(TAG, "Daemon readiness checkpoint reached. Launching auxiliary modules...")
+                applyTagsAndRoutes(this@TailscaledService)
+                // Share registration needs the node's capabilities (drive:share),
+                // which arrive with the netmap. Right after the socket appears the
+                // backend is still Starting and the daemon answers 403 "sharing not
+                // enabled" — a race, not a policy problem. Apply now only if already
+                // Running (re-attach); otherwise the refresh tick does it once the
+                // state flips, see taildriveAppliedForRun.
+                if (runCatching { Appctr.getBackendState() }.getOrDefault("") == "Running") {
+                    taildriveAppliedForRun = runCatching { Appctr.getDaemonStartTime() }.getOrDefault(TaildriveRun.NONE)
+                    applyTaildrive(this@TailscaledService)
+                } else {
+                    Log.i(TAG, "Taildrive: deferring share registration until the backend is Running")
+                }
+
+                if (GlobalSettings.isTunModeEnabled(this@TailscaledService) && !GlobalSettings.isRootModeEnabled(this@TailscaledService)) {
+                    startTunMode()
+                }
+            } else {
+                Log.w(TAG, "Daemon readiness checkpoint timed out.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Start failed", e)
+            // A failure of a superseded start must not stop whatever superseded it.
+            if (!stale()) stopMe()
+        }
     }
 
     private fun waitForDaemonReady(timeoutMs: Long = 10000L): Boolean {
@@ -2912,6 +2961,7 @@ class TailscaledService : Service() {
         ConnectionHistory.recordStopped(this)
         // A card that said "Stopping…" is gone with it; the widgets must not keep saying so.
         WidgetUpdates.request(this)
+        instanceCreatedAt = 0L
         super.onDestroy()
     }
 
