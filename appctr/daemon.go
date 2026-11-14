@@ -64,19 +64,24 @@ func (h hostinfoReport) env() []string {
 // Both names lead to the same binary. The name is what picks the role: the
 // daemon built with ts_include_cli becomes the CLI when argv[0] is "tailscale"
 // (cmd/tailscaled shouldRunCLI).
+//
+// In process, and only when a link is not already right: it used to fork
+// /system/bin/rm -rf and two /system/bin/ln -s, with a log line each, on every
+// start and attach, to keep two links that are almost always correct. The
+// links are the same symlinks in the same place, so the same SELinux rules
+// apply.
 func linkBinaries(p pathControl) {
-	rm(p.Tailscale(), p.Tailscaled())
-	ln(p.TailscaledSo(), p.Tailscale())
-	ln(p.TailscaledSo(), p.Tailscaled())
+	ensureSymlink(p.TailscaledSo(), p.Tailscale())
+	ensureSymlink(p.TailscaledSo(), p.Tailscaled())
 }
 
 // cliArgv0 is the name under which the combined binary acts as the CLI.
 const cliArgv0 = "tailscale"
 
 // cliCommand runs the CLI with args. The data-directory link is preferred, so
-// the process is named `tailscale` in ps as well; if it dangles (the ln
-// shell-out failed) the binary is run directly, still with argv[0]
-// "tailscale" — without that name it would start a second daemon.
+// the process is named `tailscale` in ps as well; if it dangles (linking
+// failed) the binary is run directly, still with argv[0] "tailscale" —
+// without that name it would start a second daemon.
 func cliCommand(p pathControl, args ...string) *exec.Cmd {
 	return cliCommandContext(context.Background(), p, args...)
 }

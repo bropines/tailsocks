@@ -144,3 +144,61 @@ func TestRunTailscaleArgsReturnsAFinishedCommand(t *testing.T) {
 		t.Errorf("output %q", out)
 	}
 }
+
+// linkBinaries makes both names, mends a link left by an earlier install
+// (Android renames the library directory on every install), and leaves a
+// correct one alone.
+func TestLinkBinaries(t *testing.T) {
+	dir := t.TempDir()
+	data := filepath.Join(dir, "data")
+	if err := os.MkdirAll(data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	so := filepath.Join(dir, "lib-new", "libtailscale.so")
+	pc := newPathControl(so, filepath.Join(data, "tailscaled.sock"), filepath.Join(data, "states", "a"))
+	check := func(when string) {
+		t.Helper()
+		for _, name := range []string{pc.Tailscale(), pc.Tailscaled()} {
+			if got, err := os.Readlink(name); err != nil || got != so {
+				t.Errorf("%s: %s -> %q (%v), want %q", when, name, got, err, so)
+			}
+		}
+	}
+
+	linkBinaries(pc) // fresh
+	check("fresh")
+
+	// Stale: the previous install's directory.
+	for _, name := range []string{pc.Tailscale(), pc.Tailscaled()} {
+		os.Remove(name)
+		if err := os.Symlink(filepath.Join(dir, "lib-old", "libtailscale.so"), name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	linkBinaries(pc)
+	check("stale")
+
+	// Already right: not touched.
+	before, err := os.Lstat(pc.Tailscale())
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	linkBinaries(pc)
+	after, err := os.Lstat(pc.Tailscale())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.ModTime().Equal(before.ModTime()) || !os.SameFile(before, after) {
+		t.Error("a correct link was made again")
+	}
+	check("unchanged")
+
+	// A plain file where a link belongs is replaced.
+	os.Remove(pc.Tailscaled())
+	if err := os.WriteFile(pc.Tailscaled(), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linkBinaries(pc)
+	check("a file in the way")
+}

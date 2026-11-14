@@ -1,8 +1,10 @@
 package appctr
 
 import (
+	"errors"
+	"io/fs"
 	"log/slog"
-	"os/exec"
+	"os"
 	"path/filepath"
 )
 
@@ -41,18 +43,16 @@ func (p pathControl) DataDir(s ...string) string {
 	return filepath.Join(append([]string{p.dataDir}, s...)...)
 }
 
-func rm(path ...string) {
-	if len(path) == 0 {
+// ensureSymlink makes dst a symbolic link to src, leaving it alone when it
+// already is one. Only a failure is logged.
+func ensureSymlink(src, dst string) {
+	if cur, err := os.Readlink(dst); err == nil && cur == src {
 		return
 	}
-	args := []string{"-rf"}
-	args = append(args, path...)
-	data, err := exec.Command("/system/bin/rm", args...).CombinedOutput()
-	slog.Info("rm", "cmd", args, "output", string(data), "err", err)
-}
-
-func ln(src, dst string) {
-	c := exec.Command("/system/bin/ln", "-s", src, dst)
-	data, err := c.CombinedOutput()
-	slog.Info("ln", "cmd", c.String(), "output", string(data), "err", err)
+	if err := os.Remove(dst); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("Could not remove a stale link", "path", dst, "err", err)
+	}
+	if err := os.Symlink(src, dst); err != nil {
+		slog.Warn("Could not link the binary", "src", src, "dst", dst, "err", err)
+	}
 }
