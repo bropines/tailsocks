@@ -939,7 +939,7 @@ object RootUtils {
      * are dropped: no root command argument legitimately contains one, and a
      * newline would end the line inside the env file the boot script reads.
      */
-    private fun shQuote(value: String): String =
+    internal fun shQuote(value: String): String =
         "'" + value.replace("\r", "").replace("\n", "").replace("'", "'\\''") + "'"
 
     /** A hosts entry may only contain characters valid in a DNS name. */
@@ -949,7 +949,7 @@ object RootUtils {
     private val ipv6Literal = Regex("^[0-9A-Fa-f:]{2,45}$")
 
     /** An address is written to a root-owned file, so it must really be one. */
-    private fun isIpLiteral(value: String): Boolean = when {
+    internal fun isIpLiteral(value: String): Boolean = when {
         ipv4Literal.matches(value) -> value.split(".").all { (it.toIntOrNull() ?: 256) <= 255 }
         ipv6Literal.matches(value) -> value.contains(":")
         else -> false
@@ -1650,7 +1650,7 @@ object RootUtils {
     }
 
     /** Splits [range] around [holes], dropping the holes themselves. */
-    private fun splitAround(range: LongRange, holes: Collection<Long>): List<LongRange> {
+    internal fun splitAround(range: LongRange, holes: Collection<Long>): List<LongRange> {
         val sorted = holes.filter { it in range }.sorted()
         if (sorted.isEmpty()) return listOf(range)
         val out = mutableListOf<LongRange>()
@@ -1767,7 +1767,12 @@ object RootUtils {
             // shell failure would already have broken the apply itself.
             return ForeignVpnVerdict(false, "the coexistence probe could not be run")
         }
-        fun values(tag: String) = res.output.lineSequence()
+        return parseForeignVpnProbe(res.output)
+    }
+
+    /** The coexistence probe's `FOREIGN_*` lines, read into a verdict. */
+    internal fun parseForeignVpnProbe(output: String): ForeignVpnVerdict {
+        fun values(tag: String) = output.lineSequence()
             .filter { it.startsWith("$tag ") }
             .map { it.removePrefix("$tag ").trim() }
             .filter { it.isNotEmpty() }
@@ -2245,17 +2250,26 @@ object RootUtils {
      * over a broader exclusion.
      */
     private fun manualExclusions(context: Context, v6: Boolean): List<String> {
-        val fromSettings = GlobalSettings.getTunExcludedCIDRs(context)
+        val (valid, dropped) = filterCidrs(GlobalSettings.getTunExcludedCIDRs(context), v6)
+        if (dropped.isNotEmpty()) {
+            rootLog("WARN", "exit-node exclusions ignored, not plain CIDRs: ${dropped.joinToString(", ")}")
+        }
+        return valid
+    }
+
+    /**
+     * The setting's text split into CIDRs of one family, link-local added:
+     * the ones kept (in order, once each) and the ones dropped for not being
+     * plain CIDRs.
+     */
+    internal fun filterCidrs(fromSettings: String, v6: Boolean): Pair<List<String>, List<String>> {
         val all = (fromSettings.split(',', ';', ' ', '\n') + listOf(LINK_LOCAL_V4, LINK_LOCAL_V6))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
         val wanted = all.filter { if (v6) it.contains(':') else !it.contains(':') }
         val valid = wanted.filter { if (v6) CIDR_V6.matches(it) else CIDR_V4.matches(it) }
         val dropped = wanted - valid.toSet()
-        if (dropped.isNotEmpty()) {
-            rootLog("WARN", "exit-node exclusions ignored, not plain CIDRs: ${dropped.joinToString(", ")}")
-        }
-        return valid.distinct()
+        return valid.distinct() to dropped
     }
 
     /**
@@ -2290,15 +2304,11 @@ object RootUtils {
                 val addr = ia.address ?: continue
                 val len = ia.networkPrefixLength.toInt()
                 if (!v6 && addr is java.net.Inet4Address && len in 1..32) {
-                    val bytes = addr.address
-                    val value = bytes.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+                    val value = ipv4Value(addr.address)
                     if (value in 0x64400000L..0x647fffffL) continue
                     if (value in 0xa9fe0000L..0xa9feffffL) continue
                     if (value in 0x7f000000L..0x7fffffffL) continue
-                    val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
-                    val network = value and mask
-                    val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
-                    found.add("$dotted/$len")
+                    found.add(ipv4Network(addr.address, len))
                 } else if (v6 && addr is java.net.Inet6Address && len in 1..128) {
                     if (addr.isLinkLocalAddress || addr.isLoopbackAddress) continue
                     val bytes = addr.address
@@ -2312,6 +2322,17 @@ object RootUtils {
             }
         }
         return found.distinct()
+    }
+
+    /** An IPv4 address's four bytes as an unsigned number. */
+    internal fun ipv4Value(bytes: ByteArray): Long = bytes.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+
+    /** `a.b.c.d/len` for the network an IPv4 address of prefix length [len] (1..32) sits in. */
+    internal fun ipv4Network(bytes: ByteArray, len: Int): String {
+        val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
+        val network = ipv4Value(bytes) and mask
+        val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
+        return "$dotted/$len"
     }
 
     /** Signature for the routing-apply gate: a changed LAN prefix must re-apply the rules. */
@@ -2569,7 +2590,7 @@ object RootUtils {
             if (!(runCatching { nif.isUp }.getOrDefault(false))) continue
             for (ia in nif.interfaceAddresses.orEmpty()) {
                 val addr = ia.address as? java.net.Inet4Address ?: continue
-                val value = addr.address.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+                val value = ipv4Value(addr.address)
                 if (value !in 0x64400000L..0x647fffffL) continue
                 val len = ia.networkPrefixLength.toInt()
                 if (len !in 11..32) {
@@ -2580,10 +2601,7 @@ object RootUtils {
                     )
                     continue
                 }
-                val mask = (0xffffffffL shl (32 - len)) and 0xffffffffL
-                val network = value and mask
-                val dotted = (24 downTo 0 step 8).joinToString(".") { ((network shr it) and 0xff).toString() }
-                found.add(name to "$dotted/$len")
+                found.add(name to ipv4Network(addr.address, len))
             }
         }
         return found.distinctBy { it.second }
