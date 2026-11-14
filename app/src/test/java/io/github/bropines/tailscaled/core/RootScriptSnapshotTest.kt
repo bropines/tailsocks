@@ -61,6 +61,7 @@ class RootScriptSnapshotTest {
             "applyVerifyScript tf" to { RootUtils.applyVerifyScript(true, false) },
             "applyVerifyScript ft" to { RootUtils.applyVerifyScript(false, true) },
             "applyVerifyScript ff" to { RootUtils.applyVerifyScript(false, false) },
+            "rootRulesPresence" to { RootRulesPresence.script() },
             // The only package-specific part of any script: the hosts copy's path (debug and release differ).
             "routingCleanupScript" to {
                 val hosts = RootPaths.current.hostsFile

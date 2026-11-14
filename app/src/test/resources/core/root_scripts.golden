@@ -331,6 +331,13 @@ printf '%s\n' "$TS_RULES" | grep -q '^100:.*to 100\.64\.0\.0/10 .*lookup 53' || 
 iptables -w -t mangle -C OUTPUT -d 100.64.0.0/10 -j TAILSOCKS_MARK 2>/dev/null || { echo 'verify: mangle OUTPUT jump into TAILSOCKS_MARK missing'; exit 1; }
 echo 'verify: ok'
 
+=== rootRulesPresence ===
+echo '@@rules'
+ip rule show 2>/dev/null | grep -E '^(100|200):'
+echo '@@table53'
+ip route show table 53 2>/dev/null | head -n 1
+echo '@@end'
+
 === routingCleanupScript ===
 while iptables -w -t nat -D OUTPUT -p udp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done
 while iptables -w -t nat -D OUTPUT -p tcp --dport 53 -j TAILSOCKS_DNS 2>/dev/null; do :; done

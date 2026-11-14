@@ -573,6 +573,8 @@ class TailscaledService : Service() {
             // An in-memory copy of the bus snapshot; read here only for the gate,
             // whose three misses are counted in ticks.
             checkMagicDnsHealth(readHealthWarnings(isRunning))
+            // After the gate: a miss it just counted brings the check forward.
+            if (isRunning && backendState == "Running") checkRootRulesPresence()
         }
 
         // Lets the timeline tell a process that died from a connection that held.
@@ -738,6 +740,9 @@ class TailscaledService : Service() {
                     rootRoutingFailures = 0
                     failedRootRoutingInputs = null
                     lastRootRoutingSignature = signature
+                    // The apply read its rules back: that is this minute's check.
+                    rulesExpectCatchAll = result.catchAllInstalled
+                    rulesCheckedAt = System.currentTimeMillis()
                     // A fresh chain went on the device, and the apply says whether
                     // its two nat OUTPUT jumps went in with it: the health gate
                     // withholds them while MagicDNS is not answering, and the gate
@@ -797,6 +802,70 @@ class TailscaledService : Service() {
             // the redirect stayed off until the next tick. Ask the gate now.
             if (rootDnsTierInstalled && dnsRedirectUnhooked && RootUtils.dnsRedirectHold == null) {
                 runCatching { checkMagicDnsHealth(readHealthWarnings(Appctr.isRunning())) }
+            }
+        }.start()
+    }
+
+    /** The last DNS gate pass found MagicDNS not answering (not a hold, not "nothing installed"). */
+    @Volatile private var dnsGateMissed = false
+    /** When the ruleset was last read back: by an apply, or by [checkRootRulesPresence]. */
+    @Volatile private var rulesCheckedAt = 0L
+    /** The last successful apply installed the pref-200 catch-all, so the check expects it. */
+    @Volatile private var rulesExpectCatchAll = false
+    @Volatile private var rulesCheckInFlight = false
+
+    /**
+     * Notices the ruleset vanishing from under a run that believes it is installed.
+     *
+     * The apply is skipped while its inputs are unchanged, and the installed
+     * marker is a preference — neither looks at the device, so rules deleted
+     * from outside (netd flushing its rule table, another root tool) went
+     * unnoticed: peers unreachable, the DNS gate unhooking the redirect, and the
+     * card still saying the traffic was routed, until a manual Stop and Start.
+     *
+     * One read-only root shell ([RootUtils.missingRootRules]) once a minute
+     * ([RootRulesPresence.checkDue]), and on the next tick after the DNS gate
+     * misses — its probe is free and missing rules are what it sees first.
+     * Nothing else in the steady state spends a root shell, so this is the only
+     * recurring one while no other tunnel is up. Found missing, the latch and the
+     * signature are invalidated and the ordinary apply runs: one way of
+     * installing the rules, whatever asked for it. The apply's failure budget
+     * still bounds the retries — a failed apply clears the signature, and no
+     * check runs without one.
+     */
+    private fun checkRootRulesPresence() {
+        if (teardownStarted || rulesCheckInFlight) return
+        if (!rootRoutingPassDone || rootRoutingInFlight || rootCleanupInFlight) return
+        if (lastRootRoutingSignature == null || !GlobalSettings.isRootRoutingInstalled(this)) return
+        val now = System.currentTimeMillis()
+        if (!RootRulesPresence.checkDue(now, rulesCheckedAt, dnsGateMissed)) return
+        rulesCheckedAt = now
+        rulesCheckInFlight = true
+        val generation = rootRoutingGeneration.get()
+        val expectCatchAll = rulesExpectCatchAll
+        Thread {
+            try {
+                val missing = RootUtils.missingRootRules(expectCatchAll)
+                if (missing.isNullOrEmpty()) return@Thread
+                // A teardown or another apply since the shell started owns the rules now.
+                if (teardownStarted || generation != rootRoutingGeneration.get() || rootRoutingInFlight) return@Thread
+                val what = missing.joinToString(", ")
+                Log.w(TAG, "Root routing rules are missing from the device ($what); applying them again")
+                Appctr.logAndroid(
+                    "WARN", "ROOT",
+                    "Root Mode's routing rules were removed from outside the app ($what); installing them again"
+                )
+                rootRoutingPassDone = false
+                lastRootRoutingSignature = null
+                rootDnsTierInstalled = false
+                // A refresh pass now rather than an apply from this thread: the
+                // tick is where the apply runs, one pass at a time (tickGate).
+                refreshHandler.post {
+                    refreshHandler.removeCallbacks(refreshRunnable)
+                    refreshHandler.post(refreshRunnable)
+                }
+            } finally {
+                rulesCheckInFlight = false
             }
         }.start()
     }
@@ -895,6 +964,9 @@ class TailscaledService : Service() {
     }
 
     private fun checkMagicDnsHealthLocked(healthWarnings: List<HealthWarning>) {
+        // Set again below only when the probe itself fails, which is what
+        // checkRootRulesPresence wants to hear about.
+        dnsGateMissed = false
         if (!rootDnsTierInstalled) {
             // Nothing of ours is on port 53. Forget the count, so a later install
             // starts from zero rather than acting on a stale one.
@@ -933,6 +1005,7 @@ class TailscaledService : Service() {
             }
             return
         }
+        dnsGateMissed = true
         if (dnsRedirectUnhooked) return
         magicDnsFailures++
         if (magicDnsFailures < maxMagicDnsFailures) return

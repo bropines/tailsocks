@@ -238,7 +238,9 @@ object RootUtils {
         val ok: Boolean,
         val shared: Boolean,
         val dnsChainInstalled: Boolean,
-        val dnsHooked: Boolean
+        val dnsHooked: Boolean,
+        /** The IPv4 pref-[CATCH_ALL_PRIO] rule went in and was read back: [missingRootRules] expects it. */
+        val catchAllInstalled: Boolean = false
     )
 
     /**
@@ -691,8 +693,19 @@ object RootUtils {
             ok = res.ok,
             shared = shared,
             dnsChainInstalled = installDns,
-            dnsHooked = dnsHooked
+            dnsHooked = dnsHooked,
+            catchAllInstalled = installCatchAll && res.ok && !res.output.contains(V4_CATCH_ALL_MISSING)
         )
+    }
+
+    /**
+     * What of the last apply's ruleset is gone from the device ([RootRulesPresence]),
+     * read in one quiet, read-only root shell; null when the shell gave no complete answer.
+     */
+    fun missingRootRules(expectCatchAll: Boolean): List<String>? {
+        val res = runSu("rules-check", RootRulesPresence.script(), timeoutMs = 10_000L, quiet = true)
+        if (!res.ok) return null
+        return RootRulesPresence.missing(res.output, expectCatchAll)
     }
 
     // Moved to RootRoutingScript.kt; kept here as the entry point callers use.
