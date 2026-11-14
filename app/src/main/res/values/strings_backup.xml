@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → Backup: the restart a full restore asks for. Kept apart from strings.xml so
+     work on it does not collide with edits there; Android merges every file in values/. -->
+<resources>
+    <string name="settings_restore_restart_title">Restart the app?</string>
+    <string name="settings_restore_restart_body">The backup is restored. Its settings take effect after the app restarts: until then the app keeps the old ones in memory, and changing a setting, or the connection saving its state, would write them back over the restore.\n\nRestart now stops the connection (in Root Mode the daemon too) and reopens the app; start the connection again from the main screen.\n\nLater leaves the restored files in place: stop the connection and force-stop the app yourself before you change anything.</string>
+    <string name="settings_restore_restart_now">Restart now</string>
+    <string name="settings_restore_restart_later">Later</string>
+    <string name="settings_restore_restarting">Restarting…</string>
+</resources>

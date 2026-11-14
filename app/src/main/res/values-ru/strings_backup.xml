@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings → Backup: the restart a full restore asks for; see values/strings_backup.xml. -->
+<resources>
+    <string name="settings_restore_restart_title">Перезапустить приложение?</string>
+    <string name="settings_restore_restart_body">Резервная копия восстановлена. Её настройки вступят в силу после перезапуска приложения: до тех пор оно держит в памяти старые, и изменение любой настройки или сохранение состояния подключения запишет их поверх восстановленных.\n\n«Перезапустить» остановит подключение (в Root-режиме и демон) и откроет приложение заново; подключение затем включите с главного экрана.\n\n«Позже» оставит восстановленные файлы на месте: прежде чем что-то менять, остановите подключение и принудительно остановите приложение сами.</string>
+    <string name="settings_restore_restart_now">Перезапустить</string>
+    <string name="settings_restore_restart_later">Позже</string>
+    <string name="settings_restore_restarting">Перезапуск…</string>
+</resources>

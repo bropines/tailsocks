@@ -143,6 +143,9 @@ object BackupCrypto {
     private const val IV_LENGTH = 12
 
     fun encrypt(data: ByteArray, password: CharArray): ByteArray {
+        // A password lost on the way here (see BackupRestore.PasswordHold) must not
+        // turn into an archive sealed with nothing that the user's password cannot open.
+        require(password.isNotEmpty()) { "A backup needs a password" }
         val salt = ByteArray(SALT_LENGTH)
         java.security.SecureRandom().nextBytes(salt)
 
