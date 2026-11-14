@@ -1091,14 +1091,20 @@ fun ServeScreen(onBack: () -> Unit, activity: FragmentActivity? = null, page: Se
                         allRules.isEmpty() -> item { EmptyRulesCard(context) }
                         else -> {
                             val groups = groupsOf(allRules)
+                            // Cards keyed by what makes a group (its groupKey), so a rule added,
+                            // paused or deleted moves the cards around it rather than rewriting them.
+                            val groupKeys = uniqueKeys(groups) { g -> "rule:" + groupKey(g.first).joinToString("|") }
+                            val keyOf = java.util.IdentityHashMap<RuleGroup, String>().apply {
+                                groups.forEachIndexed { i, g -> put(g, groupKeys[i]) }
+                            }
                             val nodeGroups = groups.filter { it.first.service == null }
                             if (nodeGroups.isNotEmpty()) {
                                 item { SectionHeading(context.getString(R.string.serve_rules_heading)) }
-                                items(nodeGroups) { group -> ruleCard(group, null) }
+                                items(nodeGroups, key = { keyOf.getValue(it) }) { group -> ruleCard(group, null) }
                             }
                             groups.filter { it.first.service != null }.groupBy { it.first.service!! }.forEach { (service, list) ->
                                 item { serviceHeading(service, Modifier, false) }
-                                items(list) { group -> ruleCard(group, service) }
+                                items(list, key = { keyOf.getValue(it) }) { group -> ruleCard(group, service) }
                             }
                         }
                     }

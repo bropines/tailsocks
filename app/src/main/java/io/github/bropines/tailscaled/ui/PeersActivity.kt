@@ -408,9 +408,14 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
             val rows = tabRows.getValue(tab)
             // Two-pane, the row whose details are beside the list is marked.
             val isShown: (PeerData) -> Boolean = { p -> panePeer != null && (if (p.id != null) p.id == panePeer.id else p == panePeer) }
+            // Rows keyed by peer, so a refresh that re-sorts or a search that narrows moves rows
+            // (with their focus and state) instead of rewriting each with another peer's data.
+            // uniqueKeys: a peer without an ID falls back to a composite key, and a repeat
+            // cannot crash the list (LazyKeys.kt).
+            val peerKeys = remember(rows.peers) { uniqueKeys(rows.peers, ::peerRowKey) }
             LazyColumn(Modifier.fillMaxSize(), state = listStates.getValue(tab), contentPadding = PaddingValues(bottom = 16.dp)) {
                 rows.self?.let { self ->
-                    item {
+                    item(key = SELF_ROW_KEY) {
                         PeerItem(
                             self,
                             true,
@@ -424,7 +429,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         ) { selectedPeer = self }
                     }
                 }
-                itemsIndexed(rows.peers) { index, p ->
+                itemsIndexed(rows.peers, key = { index, _ -> peerKeys[index] }) { index, p ->
                     PeerItem(
                         p,
                         false,
