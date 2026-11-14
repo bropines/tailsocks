@@ -408,12 +408,10 @@ fun NetcheckScreen(onBack: () -> Unit) {
         scope.launch(Dispatchers.IO) {
             try {
                 val currentDaemonStart = Appctr.getDaemonStartTime()
-                val rawStatus = Appctr.getStatusFromAPI()
-                android.util.Log.d("Netcheck", "Raw Status: $rawStatus")
-                val status = decodeNetcheckStatus(rawStatus)
-
+                // Neither answer goes to logcat: the status names every device of the tailnet
+                // with its addresses, and this process's logcat can end up in a saved log file.
+                val status = decodeNetcheckStatus(Appctr.getStatusFromAPI())
                 val rawNetcheck = Appctr.getNetcheckFromAPI()
-                android.util.Log.d("Netcheck", "Raw Netcheck: $rawNetcheck")
                 val fresh = parseNetcheck(context, status, rawNetcheck, LinkMtu.read(context))
 
                 withContext(Dispatchers.Main) {
