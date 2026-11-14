@@ -1,9 +1,9 @@
 package io.github.bropines.tailscaled.admin
 
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.core.*
-import io.github.bropines.tailscaled.models.*
-import io.github.bropines.tailscaled.ui.*
+import io.github.bropines.tailscaled.ui.CardColumns
+import io.github.bropines.tailscaled.ui.ReadableContentWidth
+import io.github.bropines.tailscaled.ui.rememberWindowLayout
 
 import android.widget.Toast
 import androidx.compose.foundation.background

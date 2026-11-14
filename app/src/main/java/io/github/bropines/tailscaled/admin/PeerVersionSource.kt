@@ -58,14 +58,6 @@ object PeerVersionSource {
         emptyMap()
     }
 
-    /** The version [peer] runs as the Admin API reports it, or null for "no data" of any kind. */
-    fun versionFor(context: Context, peer: PeerData): String? = try {
-        devices(context, suffixOf(listOf(peer)))?.let { versionOf(peer, it) }
-    } catch (e: Exception) {
-        Log.w(TAG, "Version lookup failed: ${e.javaClass.simpleName}")
-        null
-    }
-
     /**
      * The endpoints ("ip:port") every peer in [peers] last reported (ApiDevice.clientConnectivity,
      * only in a list fetched with fields=all), keyed by PeerData.id, from the same cached list as
@@ -101,12 +93,6 @@ object PeerVersionSource {
         }
     }
 
-    /** Forget what was fetched, so the next [versionsFor] or [versionFor] asks again. */
-    @Synchronized
-    fun invalidate() {
-        shared = null
-    }
-
     /** "tail1234.ts.net" from the first peer whose MagicDNS name has a domain. */
     private fun suffixOf(peers: Collection<PeerData>): String? = peers.firstNotNullOfOrNull { p ->
         normalizeName(p.dnsName)?.substringAfter('.', "")?.takeIf { it.isNotEmpty() }
@@ -129,7 +115,7 @@ object PeerVersionSource {
         return runBlocking { lists(app).get(profile) }
     }
 
-    /** The edited profile is another key: its answer is fetched again. */
+    /** Made on first use, with the application context; an edited profile is another key, fetched again. */
     private var shared: SharedFetch<AdminProfile, List<ApiDevice>>? = null
 
     @Synchronized

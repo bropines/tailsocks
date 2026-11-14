@@ -685,7 +685,6 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         private const val TAG = "AdminConsole"
         private const val FRESH_MS = 60_000L
         private const val CACHE_WRITE_DELAY_MS = 1_500L
-        private const val DAY_MS = 24L * 3600 * 1000
 
     }
 }

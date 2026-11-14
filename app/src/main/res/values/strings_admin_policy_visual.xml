@@ -76,5 +76,4 @@
     <string name="admin_pv_section_attributes">Device attributes</string>
     <string name="admin_pv_section_posture">Device posture</string>
     <string name="admin_pv_section_network">Network and other</string>
-    <string name="admin_pv_section_pending">%1$s will be edited here soon; until then, in JSON.</string>
 </resources>

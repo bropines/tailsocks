@@ -18,22 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.bropines.tailscaled.admin.api.ApiDevice
-import io.github.bropines.tailscaled.admin.devices.DeviceQueries
-import io.github.bropines.tailscaled.admin.devices.DeviceSort
 
 /*
  * The Devices tab lives in admin/devices/ (DevicesTab, DeviceDetailSheet). What stays here is
  * what the other tabs share.
  */
-
-/** The list's order by its old names: "name", "name_desc", "last_seen" (online first), "created". */
-internal fun sortDevices(devices: List<ApiDevice>, sortBy: String): List<ApiDevice> = when (sortBy) {
-    "name_desc" -> DeviceQueries.sorted(devices, DeviceSort.NAME).reversed()
-    "last_seen" -> DeviceQueries.sorted(devices, DeviceSort.LAST_SEEN)
-    "created" -> DeviceQueries.sorted(devices, DeviceSort.CREATED)
-    else -> DeviceQueries.sorted(devices, DeviceSort.NAME)
-}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable

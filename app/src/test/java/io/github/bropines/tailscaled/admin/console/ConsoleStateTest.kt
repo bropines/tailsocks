@@ -10,6 +10,8 @@ import io.github.bropines.tailscaled.admin.api.CredentialKind
 import io.github.bropines.tailscaled.admin.api.TailscaleBackend
 import io.github.bropines.tailscaled.admin.profile.AdminProfile
 import io.github.bropines.tailscaled.admin.secure.LockState
+import io.github.bropines.tailscaled.admin.devices.DeviceQueries
+import io.github.bropines.tailscaled.admin.devices.DeviceSort
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -75,7 +77,7 @@ class ConsoleStateTest {
             ApiDevice(nodeId = "b", name = "b.t.ts.net", connectedToControl = true),
             ApiDevice(nodeId = "c", name = "c.t.ts.net", connectedToControl = false, lastSeen = "2026-10-05T00:00:00Z"),
         )
-        assertEquals(listOf("b", "c", "a"), io.github.bropines.tailscaled.admin.sortDevices(list, "last_seen").map { it.nodeId })
-        assertEquals(listOf("a", "b", "c"), io.github.bropines.tailscaled.admin.sortDevices(list, "name").map { it.nodeId })
+        assertEquals(listOf("b", "c", "a"), DeviceQueries.sorted(list, DeviceSort.LAST_SEEN).map { it.nodeId })
+        assertEquals(listOf("a", "b", "c"), DeviceQueries.sorted(list, DeviceSort.NAME).map { it.nodeId })
     }
 }
