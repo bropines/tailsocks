@@ -272,8 +272,8 @@ platform, so the LAN stays local while an exit node is on.
   100, 190 and 200, the daemon installs none on Android and netd's start at
   10000.
 - **Removed** when T2 is yielded and when Root Mode stops:
-  `RootUtils.localBypassRoutesRemove` drops the user's throws by prefix,
-  `RootUtils.localReturnRulesRemove` drops every pref-150 rule, and the teardown
+  `RootRoutingScript.localBypassRoutesRemove` drops the user's throws by prefix,
+  `RootRoutingScript.localReturnRulesRemove` drops every pref-150 rule, and the teardown
   also sweeps throws an older build left in table 52.
 - **Seen** with `su -c ip route show table 52` (the user's throws) and
   `su -c ip rule show | grep '^150:'` (the local prefixes); Check Routing lists
