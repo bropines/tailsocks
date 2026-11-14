@@ -55,6 +55,11 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="content" android:mimeType="*/*" />
         </intent>
+        <!-- The other build of the app (release / .dev), to ask its SiblingStateProvider whether
+             it is running and to open it (core/SiblingBuild.kt). Its own name is listed too:
+             harmless, and the manifest needs no variant of its own for it. -->
+        <package android:name="io.github.bropines.tailscaled" />
+        <package android:name="io.github.bropines.tailscaled.dev" />
     </queries>
 
     <application
@@ -305,6 +310,15 @@
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
+
+        <!-- What the other build of the app may know about this one before it starts
+             (core/SiblingStateProvider.kt): running, mode, three port numbers, an 8-hex hash of
+             the node ID — nothing sensitive, read-only, and answered to the sibling's package
+             only. No permission: the two builds have different signing keys. -->
+        <provider
+            android:name=".core.SiblingStateProvider"
+            android:authorities="${applicationId}.sibling"
+            android:exported="true" />
 
         <!-- Home-screen widgets (ui/Widgets.kt). The app refreshes them itself (WidgetUpdates);
              the system's update covers placement, the 30-minute period and, through Glance,
