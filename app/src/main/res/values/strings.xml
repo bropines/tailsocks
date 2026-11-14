@@ -710,7 +710,10 @@
     <string name="settings_exit_node_select">Select Exit Node</string>
     <string name="settings_exit_node_empty">No exit nodes available</string>
     <string name="share_title">Send to…</string>
-    <string name="share_files_count_format">%1$d files</string>
+    <plurals name="share_files_count_format">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
     <!-- Taildrive Screen -->
     <string name="taildrive_title">Taildrive Shares</string>
     <string name="taildrive_cd_add">Add Share</string>
