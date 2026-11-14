@@ -2956,7 +2956,10 @@ class TailscaledService : Service() {
             stopTunMode()
             ShareTargets.clear(this)
             val rootMode = GlobalSettings.isRootModeEnabled(this)
-            Thread {
+            // On the start executor, not a thread of its own: a new instance's
+            // start, requested right after this destroy, queues behind this
+            // teardown instead of adopting a daemon the teardown then kills.
+            startExecutor.execute {
                 if (rootMode) {
                     Appctr.detachExternal()
                 } else {
@@ -2965,9 +2968,10 @@ class TailscaledService : Service() {
                 // Autostart installed means the daemon is expected to outlive the
                 // app, so it is left alone — but its rules are still ours to drop
                 // if the daemon is going away with us.
-                removeRootArtifacts(killDaemon = !RootUtils.isServiceScriptInstalled())
+                runCatching { removeRootArtifacts(killDaemon = !RootUtils.isServiceScriptInstalled()) }
+                    .onFailure { Log.w(TAG, "Teardown after destroy failed: ${it.message}") }
                 try { ByeDpiProxy.stop() } catch (e: Exception) {}
-            }.start()
+            }
             byedpiProxyAddress = null
             lastStartedFlags = null
             lastStartedIpv6Disabled = null
