@@ -53,6 +53,9 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.models.HealthWarning
 import io.github.bropines.tailscaled.models.parseHealthWarnings
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -102,20 +105,27 @@ internal fun keyRefusal(warnings: List<HealthWarning>, hasKey: Boolean): KeyRefu
     return KeyRefusal(reason)
 }
 
-/** The refusal of the account's stored key, read from the daemon as long as this is in the composition. */
+/**
+ * The refusal of the account's stored key, read from the daemon as long as this is in the
+ * composition and the screen is on show: a stopped activity asks the bridge nothing, and the
+ * first round on its return reads at once.
+ */
 @Composable
 private fun rememberKeyRefusal(): KeyRefusal? {
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     var refusal by remember { mutableStateOf<KeyRefusal?>(null) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            refusal = withContext(Dispatchers.IO) {
-                val account = AccountManager.getActiveAccount(context)
-                val hasKey = context.getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE)
-                    .getString("authkey", "").orEmpty().isNotBlank()
-                keyRefusal(parseHealthWarnings(runCatching { Appctr.getHealthWarningsJSON() }.getOrNull()), hasKey)
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                refusal = withContext(Dispatchers.IO) {
+                    val account = AccountManager.getActiveAccount(context)
+                    val hasKey = context.getSharedPreferences("appctr_${account.id}", Context.MODE_PRIVATE)
+                        .getString("authkey", "").orEmpty().isNotBlank()
+                    keyRefusal(parseHealthWarnings(runCatching { Appctr.getHealthWarningsJSON() }.getOrNull()), hasKey)
+                }
+                delay(KEY_REFUSAL_POLL_MS)
             }
-            delay(KEY_REFUSAL_POLL_MS)
         }
     }
     return refusal
