@@ -1139,9 +1139,8 @@ class TailscaledService : Service() {
         }
         exitNodeNameFetchedAt = now
         val name = runCatching {
-            val json = Appctr.getStatusJSON(true)
-            if (json.isNullOrBlank()) null
-            else summarize(AppJson.decodeFromString<StatusResponse>(json), ip).exitNodeName
+            // No status (an error envelope, nothing at all) is "no name yet", never an empty tailnet.
+            DaemonStatus.readOrNull()?.let { summarize(it, ip).exitNodeName }
         }.getOrNull()
         exitNodeNameCache = ip to name
         return name
@@ -2863,10 +2862,9 @@ class TailscaledService : Service() {
 
         Thread {
             try {
-                val statusJson = Appctr.getStatusJSON(true)
-                if (statusJson.isNullOrBlank()) return@Thread
-
-                val status = runCatching { AppJson.decodeFromString<StatusResponse>(statusJson) }.getOrNull() ?: return@Thread
+                // A failed read is not a tailnet without peers: publishing from it
+                // would wipe every name from the hosts file until the next sync.
+                val status = DaemonStatus.readOrNull() ?: return@Thread
                 val peers = status.peers ?: emptyMap()
 
                 // Every name published here resolves device-wide for every app, so
