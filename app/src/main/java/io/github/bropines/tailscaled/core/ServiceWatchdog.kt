@@ -208,7 +208,17 @@ class WatchdogReceiver : BroadcastReceiver() {
         if (intent.action != ServiceWatchdog.ACTION_CHECK) return
 
         val wantsRunning = ProxyState.isUserLetRunning(context)
-        if (wantsRunning && !ProxyState.isActualRunning(context)) {
+        // The question is whether the service is attached to a daemon, not
+        // whether a daemon is alive. Outside Root Mode the two are the same
+        // (ProxyState.isActualRunning answers with Appctr.isRunning() there).
+        // In Root Mode the daemon outlives the app process by design, so after
+        // the process was killed isActualRunning saw its socket answer and the
+        // watchdog never fired — while the ruleset (catch-all, DNS redirect)
+        // stayed on the device with nothing running the DNS health gate, the
+        // coexistence re-check or the hosts sync. A fresh process is attached
+        // to nothing until the service attaches it, so this is false exactly
+        // when the service is gone; START_ACTION then adopts the running daemon.
+        if (wantsRunning && !appctr.Appctr.isRunning()) {
             Log.w("ServiceWatchdog", "Service is gone while the user wants it running, reviving")
             try {
                 ContextCompat.startForegroundService(
