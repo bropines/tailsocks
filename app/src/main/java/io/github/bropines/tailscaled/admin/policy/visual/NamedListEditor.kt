@@ -72,18 +72,14 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
-import io.github.bropines.tailscaled.admin.InPaneWidth
 import io.github.bropines.tailscaled.admin.api.ApiDevice
 import io.github.bropines.tailscaled.admin.policy.PolicyText
 import io.github.bropines.tailscaled.admin.policy.RiskFinding
-import io.github.bropines.tailscaled.admin.settings.Provide
-import io.github.bropines.tailscaled.admin.settings.rememberParentLocals
 import io.github.bropines.tailscaled.ui.HelpText
 import io.github.bropines.tailscaled.ui.ListDetailLayout
 import io.github.bropines.tailscaled.ui.LocalInPane
 import io.github.bropines.tailscaled.ui.PaneEmptyState
 import io.github.bropines.tailscaled.ui.ReadableWidth
-import io.github.bropines.tailscaled.ui.SheetOrPane
 
 /*
  * What the definitions pages share — groups, tags, hosts and IP sets, auto approval, device
@@ -153,12 +149,9 @@ internal fun DefinitionsPage(
 /** An editor's frame: a full-height sheet on a phone, the pane's scrolling column on a large window ([scrolls] false: a plain column). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DefsEditorFrame(onDismiss: () -> Unit, scrolls: Boolean = true, content: @Composable ColumnScope.() -> Unit) {
-    val parent = rememberParentLocals()
-    SheetOrPane(onDismiss = onDismiss) {
-        parent.Provide { InPaneWidth { if (scrolls) DefsEditorColumn(content = content) else Column(Modifier.fillMaxSize(), content = content) } }
-    }
-}
+private fun DefsEditorFrame(onDismiss: () -> Unit, scrolls: Boolean = true, content: @Composable ColumnScope.() -> Unit) =
+    // The rule pages' frame (the sheet or the pane, the parent's locale, the pane's width); the column is this kit's own.
+    EditorFrame(onDismiss) { if (scrolls) DefsEditorColumn(content = content) else Column(Modifier.fillMaxSize(), content = content) }
 
 /** The editor's scrolling column, apart so that a preview can draw an editor without its sheet. */
 @Composable
