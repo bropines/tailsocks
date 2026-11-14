@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.DocumentsContract
 import android.util.Log
 import androidx.core.content.FileProvider
@@ -61,8 +62,15 @@ object TaildropSave {
                 is ReceiveFolder.Tree -> {
                     val tree = target.treeUri
                     if (!holdsGrant(context, tree)) throw IOException("no access to the folder any more, choose it again in Settings")
-                    copy = copyInto(context, tree, File(file.Path), file.Name)
-                    name = displayName(context, copy) ?: file.Name
+                    val made = try {
+                        copyToSink(treeSink(context, tree), File(file.Path), file.Name)
+                    } catch (e: Exception) {
+                        // The folder may have changed behind the names this sink knew.
+                        heldTree = null
+                        throw e
+                    }
+                    copy = Uri.parse(made.ref)
+                    name = made.name
                 }
                 is ReceiveFolder.Dir -> {
                     val saved = copyIntoDir(target.dir, File(file.Path), file.Name)
@@ -199,59 +207,54 @@ object TaildropSave {
     private fun folderDocument(uri: Uri): Uri =
         DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
 
-    /** Copies [source] into the top folder of [tree] as [name], or as "name (1).ext" and on when that is taken. */
-    private fun copyInto(context: Context, tree: Uri, source: File, name: String): Uri {
+    /**
+     * Copies [source] into the top of [sink]'s folder as [name], or as "name (1).ext" and on
+     * when that is taken — the name claimed, the file created and written the way a Taildrive
+     * download is (DownloadSink: DirSink for a directory, TreeSink for a SAF tree, which also
+     * gives the file its real type so the device's storage provider does not keep ".jpg" as
+     * part of the base name). A copy shorter than the file is removed: half a file under the
+     * right name is worse than none.
+     */
+    private fun copyToSink(sink: DownloadSink, source: File, name: String): SinkNode {
         if (!source.isFile) throw IOException("the received file is gone")
-        val resolver = context.contentResolver
-        val folderId = DocumentsContract.getTreeDocumentId(tree)
-        val target = freeName(name, childNames(resolver, tree, folderId))
-        // The real type, not "*/*": the device's storage provider fits the name to the type
-        // and would otherwise keep ".jpg" as part of the base name ("a.jpg (1)").
-        val mime = mimeTypeOf(target) ?: "application/octet-stream"
-        val copy = DocumentsContract.createDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, folderId), mime, target)
-            ?: throw IOException("the folder refused a new file")
+        val made = sink.newFile(null, name)
         try {
-            val out = resolver.openOutputStream(copy, "w") ?: throw IOException("the new file cannot be written")
-            val copied = source.inputStream().use { input -> out.use { input.copyTo(it) } }
+            val copied = source.inputStream().use { input -> sink.write(made).use { input.copyTo(it) } }
             if (copied != source.length()) throw IOException("copied $copied of ${source.length()} bytes")
         } catch (e: Exception) {
-            // Half a file under the right name is worse than none.
-            runCatching { DocumentsContract.deleteDocument(resolver, copy) }
+            sink.discard(made)
             throw e
         }
-        return copy
+        return made
     }
 
     /**
      * Copies [source] into [dir] — made when it is missing — as [name], or as "name (1).ext"
      * and on when that is taken. The name is claimed by creating the file: from Android 11,
      * without access to all files, the listing holds only the app's own files, and a name
-     * another app took shows up only then.
+     * another app took shows up only then (DirSink).
      */
-    internal fun copyIntoDir(dir: File, source: File, name: String): File {
-        if (!source.isFile) throw IOException("the received file is gone")
-        if (!dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) throw IOException("the folder is not there and cannot be made")
-        val taken = dir.list()?.toHashSet() ?: throw IOException("the folder cannot be read")
-        val wanted = storableName(name)
-        var claimed: File? = null
-        for (attempt in 0 until MAX_NAME_ATTEMPTS) {
-            val candidate = File(dir, freeName(wanted, taken))
-            if (candidate.createNewFile()) { claimed = candidate; break }
-            taken += candidate.name
-        }
-        val copy = claimed ?: throw IOException("no free name in the folder")
-        try {
-            val copied = source.inputStream().use { input -> copy.outputStream().use { input.copyTo(it) } }
-            if (copied != source.length()) throw IOException("copied $copied of ${source.length()} bytes")
-        } catch (e: Exception) {
-            // Half a file under the right name is worse than none.
-            copy.delete()
-            throw e
-        }
-        return copy
+    internal fun copyIntoDir(dir: File, source: File, name: String): File =
+        File(copyToSink(DirSink(dir), source, name).ref)
+
+    /**
+     * The sink of the receive folder [tree], kept for a burst of arrivals: a TreeSink lists the
+     * folder once and then keeps its names up as it adds, where asking the provider for the
+     * whole folder at every file cost a full listing per file — two hundred photos into a folder
+     * of thousands. Dropped after [TREE_SINK_IDLE_MS] without an arrival, and after a failure:
+     * the folder can change behind the app, and a fresh sink lists it again. Under [lock].
+     */
+    private fun treeSink(context: Context, tree: Uri): DownloadSink {
+        val now = SystemClock.elapsedRealtime()
+        val held = heldTree?.takeIf { it.first == tree && now - heldTreeAt < TREE_SINK_IDLE_MS }?.second
+            ?: TreeSink(context, tree).also { heldTree = tree to it }
+        heldTreeAt = now
+        return held
     }
 
-    private const val MAX_NAME_ATTEMPTS = 100
+    private var heldTree: Pair<Uri, DownloadSink>? = null
+    private var heldTreeAt = 0L
+    private const val TREE_SINK_IDLE_MS = 10_000L
 
     /**
      * [name] as shared storage and a FAT stick will take it: the characters they refuse
@@ -266,15 +269,6 @@ object TaildropSave {
 
     private const val UNSTORABLE = "\"*/:<>?\\|"
 
-    /** Names in the folder; the folder being gone or unreadable is an error, not an empty folder. */
-    private fun childNames(resolver: ContentResolver, tree: Uri, folderId: String): Set<String> {
-        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, folderId)
-        val names = HashSet<String>()
-        resolver.query(children, arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
-            while (c.moveToNext()) c.getString(0)?.let(names::add)
-        } ?: throw IOException("the folder cannot be read")
-        return names
-    }
 
     /**
      * [name], or "name (1).ext", "name (2).ext"… — the first not in [taken]. Compared without

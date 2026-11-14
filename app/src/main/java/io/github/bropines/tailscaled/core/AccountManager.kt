@@ -7,6 +7,7 @@ import io.github.bropines.tailscaled.models.*
 import io.github.bropines.tailscaled.ui.*
 
 import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -33,7 +34,7 @@ object AccountManager {
     )
 
     fun facts(context: Context, id: String): AccountFacts {
-        val prefs = context.getSharedPreferences("appctr_$id", Context.MODE_PRIVATE)
+        val prefs = profilePrefs(context, id)
         val server = (prefs.getString("login_server", "") ?: "").trim()
         return AccountFacts(
             loginServer = if (server.isEmpty()) DEFAULT_LOGIN_SERVER else hostOf(server),
@@ -77,21 +78,48 @@ object AccountManager {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().putString(KEY_PRIMARY_ID, id).apply()
     }
 
+    /**
+     * The JSON the list was last decoded from, and the list. The list sits on per-tick and
+     * per-binder-call paths (the exit-node guard, every document operation of the provider),
+     * and decoding it each time was the cost of every one of them. The key is the stored text
+     * itself, so whatever writes the preference — [saveAccounts], a backup restore — is seen at
+     * the next read with no invalidation to forget: SharedPreferences hands back the same
+     * String until the value changes, and an unchanged value compares at once. One process
+     * (the manifest declares no other), so the in-memory preference is the only copy.
+     */
+    @Volatile
+    private var decoded: Pair<String, List<TailscaleAccount>>? = null
+
     fun getAccounts(context: Context): List<TailscaleAccount> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val json = prefs.getString(KEY_ACCOUNTS, null)
-        if (json.isNullOrBlank()) return listOf(TailscaleAccount(FIRST_ID, "Default"))
-        return runCatching { AppJson.decodeFromString<List<TailscaleAccount>>(json) }
+        if (json.isNullOrBlank()) return DEFAULT_ACCOUNTS
+        decoded?.let { (text, list) -> if (text == json) return list }
+        val list = runCatching { AppJson.decodeFromString<List<TailscaleAccount>>(json) }
             .getOrNull()?.takeIf { it.isNotEmpty() }
-            ?: listOf(TailscaleAccount(FIRST_ID, "Default"))
+            ?: DEFAULT_ACCOUNTS
+        decoded = json to list
+        return list
     }
 
-    fun getActiveAccount(context: Context): TailscaleAccount {
-        val accounts = getAccounts(context)
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val activeId = prefs.getString(KEY_ACTIVE_ID, FIRST_ID)
-        return accounts.find { it.id == activeId } ?: accounts.first()
-    }
+    private val DEFAULT_ACCOUNTS = listOf(TailscaleAccount(FIRST_ID, "Default"))
+
+    /** The account in use among [accounts]: the one [stored] names while it is there, else the first. */
+    internal fun activeOf(accounts: List<TailscaleAccount>, stored: String?): TailscaleAccount =
+        accounts.find { it.id == stored } ?: accounts.first()
+
+    fun getActiveAccount(context: Context): TailscaleAccount =
+        activeOf(getAccounts(context), context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_ACTIVE_ID, FIRST_ID))
+
+    /** The id of [getActiveAccount]. */
+    fun activeId(context: Context): String = getActiveAccount(context).id
+
+    /**
+     * The preferences of profile [id] — the active one when it is not given: `appctr_<id>`,
+     * where every per-profile setting lives (agents.md, Account Isolation).
+     */
+    fun profilePrefs(context: Context, id: String = activeId(context)): SharedPreferences =
+        context.getSharedPreferences("appctr_$id", Context.MODE_PRIVATE)
 
     fun setActiveAccount(context: Context, id: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -109,6 +137,7 @@ object AccountManager {
         }
     }
 
+    @Synchronized
     fun addAccount(context: Context, name: String): TailscaleAccount {
         val accounts = getAccounts(context).toMutableList()
         val newAccount = TailscaleAccount(id = System.currentTimeMillis().toString(), name = name)
@@ -117,6 +146,7 @@ object AccountManager {
         return newAccount
     }
 
+    @Synchronized
     fun deleteAccount(context: Context, id: String) {
         val primary = getPrimaryId(context)
         if (id == primary) return
@@ -151,6 +181,7 @@ object AccountManager {
         ManagedLast.forget(context, id)
     }
 
+    @Synchronized
     fun renameAccount(context: Context, id: String, newName: String) {
         val accounts = getAccounts(context).map {
             if (it.id == id) it.copy(name = newName) else it
@@ -159,6 +190,7 @@ object AccountManager {
         WidgetUpdates.request(context)
     }
 
+    @Synchronized
     fun updateAccountAvatar(context: Context, id: String, avatarUrl: String) {
         val accounts = getAccounts(context).map {
             if (it.id == id) it.copy(avatarUrl = avatarUrl) else it

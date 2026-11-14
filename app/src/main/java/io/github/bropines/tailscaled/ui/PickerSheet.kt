@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -143,7 +143,9 @@ internal fun <T> PickerSheetContent(
                 .then(if (choosesOne) Modifier.selectableGroup() else Modifier),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            items(options) { option ->
+            // Keyed by value, uniquely even if two options share one (LazyKeys.kt).
+            val optionKeys = uniqueKeys(options) { "opt:${it.value}" }
+            itemsIndexed(options, key = { i, _ -> optionKeys[i] }) { _, option ->
                 PickerRow(
                     option = option,
                     isSelected = choosesOne && option.value == selected,

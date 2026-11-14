@@ -408,9 +408,14 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
             val rows = tabRows.getValue(tab)
             // Two-pane, the row whose details are beside the list is marked.
             val isShown: (PeerData) -> Boolean = { p -> panePeer != null && (if (p.id != null) p.id == panePeer.id else p == panePeer) }
+            // Rows keyed by peer, so a refresh that re-sorts or a search that narrows moves rows
+            // (with their focus and state) instead of rewriting each with another peer's data.
+            // uniqueKeys: a peer without an ID falls back to a composite key, and a repeat
+            // cannot crash the list (LazyKeys.kt).
+            val peerKeys = remember(rows.peers) { uniqueKeys(rows.peers, ::peerRowKey) }
             LazyColumn(Modifier.fillMaxSize(), state = listStates.getValue(tab), contentPadding = PaddingValues(bottom = 16.dp)) {
                 rows.self?.let { self ->
-                    item {
+                    item(key = SELF_ROW_KEY) {
                         PeerItem(
                             self,
                             true,
@@ -424,7 +429,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         ) { selectedPeer = self }
                     }
                 }
-                itemsIndexed(rows.peers) { index, p ->
+                itemsIndexed(rows.peers, key = { index, _ -> peerKeys[index] }) { index, p ->
                     PeerItem(
                         p,
                         false,
@@ -727,12 +732,12 @@ enum class PeerTab(@param:StringRes val label: Int) {
  * separately they once disagreed, and a swipe in the sheet landed on a device that was not
  * in the list behind it.
  */
-private class TabRows(val self: PeerData?, val peers: List<PeerData>) {
+internal class TabRows(val self: PeerData?, val peers: List<PeerData>) {
     val size: Int get() = peers.size + if (self != null) 1 else 0
 }
 
 /** Every tab's rows under [query], which is already trimmed; empty is no search. */
-private fun peerTabRows(self: PeerData?, peers: List<PeerData>, query: String): Map<PeerTab, TabRows> {
+internal fun peerTabRows(self: PeerData?, peers: List<PeerData>, query: String): Map<PeerTab, TabRows> {
     val ownerId = self?.userID
     val selfHit = self?.takeIf { it.matchesQuery(query) }
     val hits = if (query.isEmpty()) peers else peers.filter { it.matchesQuery(query) }
@@ -749,7 +754,7 @@ private fun peerTabRows(self: PeerData?, peers: List<PeerData>, query: String): 
  * holds nothing would open on an empty page, and one that holds everything would repeat
  * All — Mine in a tailnet of one person's untagged devices, Online when nothing is offline.
  */
-private fun visiblePeerTabs(self: PeerData?, peers: List<PeerData>): List<PeerTab> {
+internal fun visiblePeerTabs(self: PeerData?, peers: List<PeerData>): List<PeerTab> {
     val total = peers.size + if (self != null) 1 else 0
     val rows = peerTabRows(self, peers, "")
     return PeerTab.entries.filter { it == PeerTab.ALL || rows.getValue(it).size in 1 until total }

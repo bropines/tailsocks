@@ -91,16 +91,38 @@ object TaildriveDescriptor {
      * (android.os.FuseAppLoop), raised to the priority of the descriptors' own threads. It is
      * the platform's and has no handle; it is found by its name, once the first descriptor has
      * started it.
+     *
+     * Finding it means reading the name of every thread of the process — a hundred and more
+     * small files — and it was done at every open, a folder's worth of them when a file
+     * manager makes thumbnails. The loop lives once per process and keeps its priority, so
+     * the threads raised are remembered, and an open only checks that each is still there,
+     * still that thread and still raised: one read and one call per thread. The platform makes
+     * a new loop when the old one has ended (its last descriptor released); a check that fails
+     * is what sends this back to the full scan.
      */
     private fun raiseFuseLoop() {
-        val tasks = java.io.File("/proc/self/task").listFiles() ?: return
-        for (task in tasks) {
-            val name = runCatching { java.io.File(task, "comm").readText().trim() }.getOrNull() ?: continue
-            if (name != FUSE_LOOP_THREAD) continue
-            val tid = task.name.toIntOrNull() ?: continue
-            runCatching { Process.setThreadPriority(tid, Process.THREAD_PRIORITY_URGENT_DISPLAY) }
+        synchronized(raised) {
+            if (raised.isNotEmpty() && raised.all(::stillRaised)) return
+            raised.clear()
+            val tasks = java.io.File("/proc/self/task").listFiles() ?: return
+            for (task in tasks) {
+                if (threadName(task) != FUSE_LOOP_THREAD) continue
+                val tid = task.name.toIntOrNull() ?: continue
+                if (runCatching { Process.setThreadPriority(tid, Process.THREAD_PRIORITY_URGENT_DISPLAY) }.isSuccess) raised += tid
+            }
         }
     }
+
+    /** The FuseAppLoop threads raised so far, by thread id. */
+    private val raised = HashSet<Int>()
+
+    private fun threadName(task: java.io.File): String? = runCatching { java.io.File(task, "comm").readText().trim() }.getOrNull()
+
+    /** [tid] still runs, is still the loop (a thread id can be reused) and still has the priority it was given. */
+    private fun stillRaised(tid: Int): Boolean =
+        threadName(java.io.File("/proc/self/task/$tid")) == FUSE_LOOP_THREAD &&
+            runCatching { Process.getThreadPriority(tid) }.getOrNull() == Process.THREAD_PRIORITY_URGENT_DISPLAY
+
 
     /** android.os.FuseAppLoop names its thread after its log tag. */
     private const val FUSE_LOOP_THREAD = "FuseAppLoop"

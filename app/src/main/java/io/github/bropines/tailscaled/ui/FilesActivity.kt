@@ -32,11 +32,13 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 import io.github.bropines.tailscaled.core.AppJson
 import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -157,9 +159,14 @@ fun FilesScreen(
         }
     }
 
+    // The load under way. A new request replaces it, so two loads cannot land out of order and
+    // leave the older answer on screen.
+    val refreshJob = remember { mutableStateOf<Job?>(null) }
+
     fun refreshData() {
         isLoading = true
-        scope.launch(Dispatchers.IO) {
+        refreshJob.value?.cancel()
+        refreshJob.value = scope.launch(Dispatchers.IO) {
             // 1. Incoming files, with the history they are matched against: it says where a
             // file came from, when, and which received files the default folder took.
             val inbox = TaildropInbox.list(context, taildropDir)
@@ -197,7 +204,15 @@ fun FilesScreen(
         }
     }
 
-    LaunchedEffect(activeAccount.id, mainPagerState.currentPage) { if (demo == null && !inPreview) refreshData() }
+    // Loaded each time the screen comes on show (and for another account), not on every swipe
+    // between Taildrive and Taildrop: that re-listed the folder and read and decoded the whole
+    // tailnet's status per page change. What changes while the screen is up comes in by itself
+    // — a received file (the receiver below), a deletion (re-reads after it) — and the Refresh
+    // button and pull-to-refresh are there for the rest.
+    val loadLifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(activeAccount.id, loadLifecycle) {
+        if (demo == null && !inPreview) loadLifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { refreshData() }
+    }
 
     // A file the daemon has just finished writing: the service hears it on the IPN bus
     // (TaildropEvents) and says so; the list is re-read from disk. No polling of our own.

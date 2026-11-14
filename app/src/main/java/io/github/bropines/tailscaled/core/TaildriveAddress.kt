@@ -122,15 +122,12 @@ object DriveAddresses {
     fun isLanInterface(name: String): Boolean = !NOT_LAN.matches(name.lowercase())
 
     /**
-     * This device's address on the local network, or null: the private address of an interface
-     * that is up and is not a tunnel. Cheap, and it reads no network state that needs a permission.
+     * This device's addresses on the local network, the likeliest first: the private addresses
+     * of the interfaces that are up and are not tunnels. Cheap, and it reads no network state
+     * that needs a permission. A device on Wi-Fi and on a cable, or a phone that is on one
+     * network and shares another of its own, has several, and each network uses its own.
      */
-    fun lanAddress(): String? = lanAddresses().firstOrNull()
 
-    /**
-     * Every such address, the likeliest first. A device on Wi-Fi and on a cable, or a phone that
-     * is on one network and shares another of its own, has several, and each network uses its own.
-     */
     fun lanAddresses(): List<String> = runCatching {
         val candidates = NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback && isLanInterface(it.name) }

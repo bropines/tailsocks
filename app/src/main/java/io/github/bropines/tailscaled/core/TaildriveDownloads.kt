@@ -1,13 +1,11 @@
 package io.github.bropines.tailscaled.core
 
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -19,12 +17,8 @@ import java.io.InputStream
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 /*
  * Taildrive downloads as they run on the device: the queue of core/TaildriveDownloadQueue.kt given
@@ -109,7 +103,12 @@ object TaildriveDownloads {
 
     @Volatile
     private var receiverRegistered = false
-    private var ticker: Job? = null
+
+    /** Once a second while anything runs or waits: the rates, and the progress notification. */
+    private val ticker = BusyTicker(scope, TICK_MS, busy = { queue.active }) {
+        queue.tick()
+        app?.let(::render)
+    }
 
     /** Queues [request]; returns its id. Returns at once. */
     fun start(context: Context, request: DownloadRequest): Int {
@@ -117,7 +116,7 @@ object TaildriveDownloads {
         app = appContext
         registerCancel(appContext)
         val id = queue.add(request, TaildropFolder.quickLabel(request.folder) ?: "…")
-        startTicker(appContext)
+        ticker.start()
         return id
     }
 
@@ -195,26 +194,8 @@ object TaildriveDownloads {
     // The notification
     // ---------------------------------------------------------------------------------------------
 
-    /** Once a second while anything runs or waits: the rates, and the progress notification. */
-    private fun startTicker(context: Context) = synchronized(this) {
-        if (ticker?.isActive == true) return@synchronized
-        ticker = scope.launch {
-            while (true) {
-                queue.tick()
-                render(context)
-                if (!queue.active) break
-                delay(TICK_MS)
-            }
-        }
-    }
-
-    private fun channel(context: Context, nm: NotificationManager) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, context.getString(R.string.taildrive_download_channel), NotificationManager.IMPORTANCE_LOW)
-            )
-        }
-    }
+    private fun channel(context: Context, nm: NotificationManager) =
+        TransferNotifications.ensureChannel(nm, CHANNEL_ID, context.getString(R.string.taildrive_download_channel), NotificationManager.IMPORTANCE_LOW)
 
     private fun browseTap(context: Context, code: Int): PendingIntent = PendingIntent.getActivity(
         context, code,
@@ -222,20 +203,38 @@ object TaildriveDownloads {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    /** What the progress notification shows; it is posted again only when this changes. */
+    private data class Card(
+        val title: String,
+        val text: String,
+        val sub: String?,
+        /** 0..100, or null for an indeterminate bar. */
+        val percent: Int?,
+        val cancelLabel: String
+    )
+
+    /** The card on show; guarded by [renderLock]: the ticker and a download's end both draw. */
+    private var shown: Card? = null
+    private val renderLock = Any()
+
     /**
      * The queue as one notification: the files in flight, how far the running downloads have got
      * together and how fast, how many wait — and Cancel, which cancels them all. None once nothing
-     * runs or waits.
+     * runs or waits. In the app's language. Posted only when it says something new: a stalled or
+     * waiting download is the same card second after second, and each post is a binder call.
      */
-    private fun render(context: Context) {
+    private fun render(app: Context) {
+        val context = AppStrings.of(app)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val all = downloads.value
         val summary = DownloadQueueSummary.of(all)
         if (summary.running == 0) {
-            if (summary.active == 0) nm.cancel(PROGRESS_ID)
+            if (summary.active == 0) synchronized(renderLock) {
+                nm.cancel(PROGRESS_ID)
+                shown = null
+            }
             return
         }
-        channel(context, nm)
         val res = context.resources
         val running = all.filter { it.stage == DownloadStage.RUNNING }
         val one = running.singleOrNull()
@@ -251,41 +250,38 @@ object TaildriveDownloads {
         val text = listOfNotNull(sizes, summary.bytesPerSecond?.let { res.getString(R.string.taildrop_speed_format, formatFileSize(it)) }).joinToString(" · ")
         val sub = if (summary.waiting > 0) res.getQuantityString(R.plurals.taildrive_queue_in_queue, summary.waiting, summary.waiting)
         else one?.folderLabel
-        val fraction = summary.fraction
-        val percent = ((fraction ?: 0f) * 100).toInt()
-        // No id: every download, the waiting ones too.
-        val cancel = PendingIntent.getBroadcast(
-            context, PROGRESS_ID,
-            Intent(ACTION_CANCEL).setPackage(context.packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val percent = summary.fraction?.let { (it * 100).toInt() }
         val cancelLabel = res.getString(if (summary.active > 1) R.string.taildrive_queue_cancel_all else R.string.action_cancel)
-        val b = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setSubText(sub)
-            .setContentIntent(browseTap(context, PROGRESS_ID))
-            .addAction(0, cancelLabel, cancel)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOnlyAlertOnce(true)
-            .setShowWhen(false)
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        val card = Card(title, text, sub, percent, cancelLabel)
+        synchronized(renderLock) {
+            if (card == shown) return
+            channel(context, nm)
+            // No id: every download, the waiting ones too.
+            val cancel = PendingIntent.getBroadcast(
+                context, PROGRESS_ID,
+                Intent(ACTION_CANCEL).setPackage(context.packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             // As Taildrop's: a plain bar before Android 16, a Live Update on it.
-            .setStyle(NotificationCompat.ProgressStyle().setProgress(percent).setProgressIndeterminate(fraction == null))
-            .setRequestPromotedOngoing(true)
-        if (fraction != null) b.setShortCriticalText("$percent%")
-        // Without POST_NOTIFICATIONS on 13+ the system drops it silently; the page still shows it.
-        try {
-            nm.notify(PROGRESS_ID, b.build())
-        } catch (e: Exception) {
-            Log.w(TAG, "notify: ${e.javaClass.simpleName}")
+            val b = TransferNotifications.progress(
+                context, CHANNEL_ID, android.R.drawable.stat_sys_download,
+                card.title, card.text, card.sub, card.percent,
+                tap = browseTap(context, PROGRESS_ID),
+                action = card.cancelLabel to cancel
+            )
+            // Without POST_NOTIFICATIONS on 13+ the system drops it silently; the page still shows it.
+            try {
+                nm.notify(PROGRESS_ID, b.build())
+                shown = card
+            } catch (e: Exception) {
+                Log.w(TAG, "notify: ${e.javaClass.simpleName}")
+            }
         }
     }
 
     /** "Saved 12 files to Download/Movies", and what did not arrive; a tap opens the folder where something can. */
-    private fun postFinished(context: Context, done: DownloadState) {
+    private fun postFinished(app: Context, done: DownloadState) {
+        val context = AppStrings.of(app)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         channel(context, nm)
         val res = context.resources

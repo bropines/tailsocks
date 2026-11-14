@@ -166,9 +166,9 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
     fun send(p: PeerData) {
         if (handedOver) return
         handedOver = true
-        TaildropOutbox.send(context, fileUris, p, TaildropSource.SHARE)
         Toast.makeText(context, context.getString(R.string.taildrop_out_started_format, p.getDisplayName()), Toast.LENGTH_SHORT).show()
-        onDismiss()
+        // The window goes once the files are open: the grant to read them ends with it.
+        TaildropOutbox.send(context, fileUris, p, TaildropSource.SHARE, onOpened = onDismiss)
     }
 
     fun loadPeers() {

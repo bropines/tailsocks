@@ -2884,22 +2884,16 @@ fun DaemonStoppedState(
             // press there, and the focus used to open on Refresh in the top bar.
             modifier = Modifier.tvInitialFocus(),
             onClick = {
-                // The same refusal the main screen's toggle makes: the service would start
-                // with nowhere to listen.
-                if (GlobalSettings.getString(context, "socks5", "127.0.0.1:48115").isBlank()) {
-                    Toast.makeText(context, context.getString(R.string.main_error_socks5_empty), Toast.LENGTH_LONG).show()
-                    return@Button
-                }
+                // The same refusal the main screen's toggle makes (ServiceStart.kt), before the
+                // button turns busy: the service would start with nowhere to listen.
+                if (refuseEmptySocks5(context)) return@Button
                 starting = true
                 scope.launch {
                     // Up already — started a moment before this screen looked, say — and a
                     // second start would announce nothing, so go straight to the waiting.
                     val up = withContext(Dispatchers.IO) { runCatching { Appctr.isRunning() }.getOrDefault(false) }
                     if (up) awaitReady()
-                    else ContextCompat.startForegroundService(
-                        context,
-                        Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
-                    )
+                    else startTailSocks(context)
                 }
             }
         ) {
@@ -2916,19 +2910,6 @@ fun DaemonStoppedState(
         footer()
     }
 }
-
-/**
- * Returns once the daemon's backend has left its starting states, or after 15 s: past that
- * the screen loads anyway and shows what it finds. NeedsLogin ends the wait too — no waiting
- * changes it, and the screen has something to say about it.
- */
-private suspend fun awaitDaemonAnswering() = withContext(Dispatchers.IO) {
-    withTimeoutOrNull(15_000) {
-        while (runCatching { Appctr.getBackendState() }.getOrDefault("") in DAEMON_STARTING_STATES) delay(500)
-    }
-}
-
-private val DAEMON_STARTING_STATES = setOf("", "NoState", "Starting", "Error")
 
 /**
  * The colours of a highlighted log line. They were pastels picked for a dark page, and on a light
@@ -2953,6 +2934,30 @@ private class LogPalette(light: Boolean, val text: Color) {
     val wordBad = if (light) Color(0xFFC62828) else Color(0xFFE57373)
 }
 
+/*
+ * What the highlighter looks for. It runs once per log row entering the composition — all
+ * through a fling, on the main thread — so the patterns are compiled and the sets built once
+ * here rather than per line (Regex is stateless and safe to share). LogHighlightTest pins the
+ * output against a recording taken before they moved.
+ */
+private val LOG_IPV4 = """\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b""".toRegex()
+private val LOG_IPV6 = """\b([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b""".toRegex()
+private val LOG_KEY_VALUE = """\b([a-zA-Z0-9_\-]+)=([^\s]+)\b""".toRegex()
+private val LOG_WORD = """\b[a-zA-Z_]+\b""".toRegex()
+private val LOG_SUCCESS_WORDS = setOf("success", "successful", "ok", "online", "active", "connected", "working", "available", "healthy")
+private val LOG_ERROR_WORDS = setOf("error", "failed", "fail", "blocked", "offline", "unavailable", "unreachable", "exception", "panic", "warning", "warn")
+
+/**
+ * The palette of the last page colour asked for. A page has one text colour (two, counting the
+ * light and dark themes), so this is almost always a hit and a line costs no palette of its own.
+ * Read and written from the main thread; a race would only build one palette too many.
+ */
+@Volatile private var lastLogPalette: LogPalette? = null
+
+private fun logPaletteFor(text: Color): LogPalette =
+    lastLogPalette?.takeIf { it.text == text }
+        ?: LogPalette(light = text.luminance() < 0.5f, text = text).also { lastLogPalette = it }
+
 /** A log line with its parts coloured; [defaultColor] is the page's text colour, and tells a light page from a dark one. */
 fun highlightLogMessage(
     timestamp: String,
@@ -2960,7 +2965,7 @@ fun highlightLogMessage(
     message: String,
     defaultColor: Color
 ): AnnotatedString {
-    val palette = LogPalette(light = defaultColor.luminance() < 0.5f, text = defaultColor)
+    val palette = logPaletteFor(defaultColor)
     return buildAnnotatedString {
         withStyle(style = SpanStyle(color = palette.timestamp)) {
             append(timestamp)
@@ -2981,12 +2986,11 @@ fun highlightLogMessage(
             append("] ")
         }
 
-        val ipRegex = """\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b""".toRegex()
-        val ipv6Regex = """\b([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b""".toRegex()
-        val keyValueRegex = """\b([a-zA-Z0-9_\-]+)=([^\s]+)\b""".toRegex()
-        
-        val successKeywords = setOf("success", "successful", "ok", "online", "active", "connected", "working", "available", "healthy")
-        val errorKeywords = setOf("error", "failed", "fail", "blocked", "offline", "unavailable", "unreachable", "exception", "panic", "warning", "warn")
+        val ipRegex = LOG_IPV4
+        val ipv6Regex = LOG_IPV6
+        val keyValueRegex = LOG_KEY_VALUE
+        val successKeywords = LOG_SUCCESS_WORDS
+        val errorKeywords = LOG_ERROR_WORDS
 
         val text = message
         var lastIdx = 0
@@ -3050,9 +3054,8 @@ private fun AnnotatedString.Builder.appendWithKeywords(
     errorKeywords: Set<String>
 ) {
     val defaultColor = palette.text
-    val wordRegex = """\b[a-zA-Z_]+\b""".toRegex()
     var lastIdx = 0
-    val matches = wordRegex.findAll(text).toList()
+    val matches = LOG_WORD.findAll(text).toList()
     
     for (match in matches) {
         val start = match.range.first
@@ -3101,6 +3104,28 @@ fun rememberFullSheetState(): SheetState =
 fun Clipboard.copyText(scope: CoroutineScope, text: String) {
     scope.launch { setClipEntry(ClipEntry(ClipData.newPlainText("TailSocks", text))) }
 }
+
+/**
+ * Puts [text] on the clipboard under [label] and says so with [confirmation] in a toast
+ * (a long one when [longToast]): the copy buttons whose text is built off the screen's
+ * composition — a diagnostics report, the whole log — and that confirm in words of their own.
+ * Call it on the main thread. Whether a screen offers copying at all (a television has no
+ * clipboard to speak of) is `Feature.CLIPBOARD_ACTIONS`, decided by the caller.
+ *
+ * A clip goes to the system through a binder transaction, and a large one (the Logs copy is
+ * capped near that limit, `buildClipboardLogString`) can still be refused with an exception:
+ * that is an error toast and false, never a crash.
+ */
+fun copyToClipboard(context: Context, label: String, text: String, confirmation: String, longToast: Boolean = false): Boolean =
+    try {
+        (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+            .setPrimaryClip(ClipData.newPlainText(label, text))
+        Toast.makeText(context, confirmation, if (longToast) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
+        true
+    } catch (e: Exception) {
+        Toast.makeText(context, context.getString(R.string.error_generic, e.message), Toast.LENGTH_LONG).show()
+        false
+    }
 
 /** The clipboard's text, or null when it holds none. */
 suspend fun Clipboard.readText(context: Context): String? =

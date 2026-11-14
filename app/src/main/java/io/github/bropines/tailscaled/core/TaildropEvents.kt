@@ -1,13 +1,10 @@
 package io.github.bropines.tailscaled.core
 
 import android.app.ActivityManager
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -20,13 +17,11 @@ import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.TaildropDirection
 import io.github.bropines.tailscaled.models.TaildropFile
 import io.github.bropines.tailscaled.models.TaildropHistoryEntry
-import io.github.bropines.tailscaled.ui.FilesActivity
 import io.github.bropines.tailscaled.ui.parseRfc3339Millis
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import java.io.File
-import java.util.Locale
 
 /**
  * What the app does when the daemon finishes receiving a Taildrop file.
@@ -181,7 +176,7 @@ object TaildropEvents {
      * the remote and goes away by itself.
      */
     private fun showOnScreen(context: Context, name: String, sender: String?, saved: TaildropSave.Result) {
-        val res = inAppLanguage(context)
+        val res = AppStrings.of(context)
         val received = if (sender != null) res.getString(R.string.taildrop_received_from_format, name, sender) else name
         val where = when (saved) {
             is TaildropSave.Result.Saved -> res.getString(R.string.taildrop_saved_to_format, saved.folder)
@@ -193,15 +188,6 @@ object TaildropEvents {
         Handler(Looper.getMainLooper()).post {
             runCatching { Toast.makeText(context, line, Toast.LENGTH_LONG).show() }
         }
-    }
-
-    /** [context] in the language picked in Settings; a service's context is in the system's. */
-    private fun inAppLanguage(context: Context): Context {
-        val lang = GlobalSettings.getString(context, "app_locale", "sys")
-        if (lang == "sys") return context
-        val config = Configuration(context.resources.configuration)
-        config.setLocale(Locale.forLanguageTag(lang))
-        return context.createConfigurationContext(config)
     }
 
     /**
@@ -243,25 +229,20 @@ object TaildropEvents {
     }
 
     /** The sender as /status has it; null when anything along the way is missing. */
-    internal fun senderPeer(id: String): PeerData? =
-        DaemonStatus.readOrNull()?.peers?.values?.firstOrNull { it.id == id }
+    internal fun senderPeer(id: String): PeerData? = peerById(id)
 
     /**
      * "File received": the file and its sender, and where it went when there is a default
      * folder. A tap opens the saved copy in a viewer, or — a file kept in the inbox, or no
-     * app to view it — the Files screen.
+     * app to view it — the Files screen. In the app's language, as the progress card it
+     * replaces is: the service's own context is in the system's.
      */
-    private fun postNotification(context: Context, name: String, path: String, sender: String?, saved: TaildropSave.Result) {
+    private fun postNotification(app: Context, name: String, path: String, sender: String?, saved: TaildropSave.Result) {
+        val context = AppStrings.of(app)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, context.getString(R.string.taildrop_notif_channel), NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
+        TransferNotifications.ensureChannel(nm, CHANNEL_ID, context.getString(R.string.taildrop_notif_channel), NotificationManager.IMPORTANCE_DEFAULT)
         val id = NOTIF_BASE + (path.hashCode() and 0xFF)
-        val files = Intent(context, FilesActivity::class.java)
-            .putExtra(FilesActivity.EXTRA_OPEN_TAILDROP, true)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val files = TransferNotifications.taildropFilesIntent(context)
         // The read grant travels with the tap, given in the app's name: the app holds the folder.
         val view = (saved as? TaildropSave.Result.Saved)?.let { s ->
             runCatching { TaildropSave.viewIntent(context, s.uri, mimeTypeOf(s.name)) }.getOrNull()

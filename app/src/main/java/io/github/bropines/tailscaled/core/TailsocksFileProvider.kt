@@ -149,7 +149,7 @@ class TailsocksFileProvider : DocumentsProvider() {
             // none of the network (see ProviderWorker).
             val client = TaildriveClient(context, id.accountId)
             val document = try {
-                ProviderWorker.run { DriveDocuments.resolve(id, client::list, this::getMimeTypeForName) }
+                ProviderWorker.run { DriveDocuments.resolve(id, client::stat, client::list, this::getMimeTypeForName) }
             } catch (e: FileNotFoundException) {
                 throw e
             } catch (e: Exception) {
@@ -224,13 +224,13 @@ class TailsocksFileProvider : DocumentsProvider() {
     private fun queryWebDavChildDocuments(parentDocumentId: String, projection: Array<out String>?): Cursor {
         val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
         val context = context ?: return result
-        
+
         if (parentDocumentId.startsWith("drive_root") || parentDocumentId.startsWith("drive_account:")) {
             val accId = if (parentDocumentId.startsWith("drive_root")) {
                 if (parentDocumentId.contains(":")) {
                     parentDocumentId.substringAfter(":")
                 } else {
-                    AccountManager.getActiveAccount(context)?.id ?: return result
+                    AccountManager.activeId(context)
                 }
             } else {
                 parentDocumentId.substring("drive_account:".length)
@@ -243,28 +243,11 @@ class TailsocksFileProvider : DocumentsProvider() {
             }
             val client = TaildriveClient(context, accId)
             try {
+                // The root: nothing below it was forwarded, so no stale gateway to ask past.
                 val list = client.list("/")
                 for (file in list) {
                     val cleanHref = file.href.trimEnd('/')
-                    if (cleanHref.isNotEmpty() && cleanHref != "/") {
-                        val isDir = file.isDirectory
-                        val name = file.getDisplayName()
-                        val childDocId = "drive_path:$accId:$cleanHref"
-                        
-                        var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
-                        if (isDir) {
-                            flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
-                        }
-                        
-                        result.newRow().apply {
-                            add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, childDocId)
-                            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
-                            add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
-                            add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
-                            add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
-                            add(DocumentsContract.Document.COLUMN_FLAGS, flags)
-                        }
-                    }
+                    if (cleanHref.isNotEmpty() && cleanHref != "/") addDriveRow(result, accId, file, summary = null)
                 }
             } catch (e: Exception) {
                 // The class only: a message may carry an address.
@@ -284,7 +267,10 @@ class TailsocksFileProvider : DocumentsProvider() {
             }
             val client = TaildriveClient(context, accId)
             try {
-                val list = client.list(parentPath)
+                // Asked again once, quietly, after a stale gateway from a device or below — the
+                // first request after the other device's daemon restarted — as the app's own
+                // browser does (TaildriveBrowse.list): the picker showed the error it hides.
+                val list = TaildriveBrowse.retryingStale(depthOf(parentPath)) { client.list(parentPath) }
                 val normalizedParent = parentPath.trimEnd('/')
                 val entries = list.filter { file ->
                     val cleanHref = file.href.trimEnd('/')
@@ -300,27 +286,7 @@ class TailsocksFileProvider : DocumentsProvider() {
                     result.extras = Bundle().apply { putString(DocumentsContract.EXTRA_INFO, info) }
                 }
 
-                for (file in entries) {
-                    val cleanHref = file.href.trimEnd('/')
-                    val isDir = file.isDirectory
-                    val name = file.getDisplayName()
-                    val childDocId = "drive_path:$accId:$cleanHref"
-
-                    var flags = DocumentsContract.Document.FLAG_SUPPORTS_DELETE or DocumentsContract.Document.FLAG_SUPPORTS_WRITE
-                    if (isDir) {
-                        flags = flags or DocumentsContract.Document.FLAG_DIR_SUPPORTS_CREATE
-                    }
-
-                    result.newRow().apply {
-                        add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, childDocId)
-                        add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
-                        add(DocumentsContract.Document.COLUMN_SUMMARY, summaries[cleanHref])
-                        add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
-                        add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
-                        add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
-                        add(DocumentsContract.Document.COLUMN_FLAGS, flags)
-                    }
-                }
+                for (file in entries) addDriveRow(result, accId, file, summaries[file.href.trimEnd('/')])
             } catch (e: Exception) {
                 android.util.Log.e("Taildrive", "Error querying drive_path children: ${e.javaClass.simpleName}")
                 val name = parentPath.trimEnd('/').substringAfterLast("/")
@@ -332,6 +298,20 @@ class TailsocksFileProvider : DocumentsProvider() {
         return result
     }
 
+    /** One row of a Taildrive listing: [file] of profile [accId], with [summary] under its name when there is one. */
+    private fun addDriveRow(result: MatrixCursor, accId: String, file: WebDavFile, summary: String?) {
+        val isDir = file.isDirectory
+        val name = file.getDisplayName()
+        result.newRow().apply {
+            add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, "drive_path:$accId:${file.href.trimEnd('/')}")
+            add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, name)
+            add(DocumentsContract.Document.COLUMN_SUMMARY, summary)
+            add(DocumentsContract.Document.COLUMN_SIZE, if (isDir) 0 else file.size)
+            add(DocumentsContract.Document.COLUMN_MIME_TYPE, if (isDir) DocumentsContract.Document.MIME_TYPE_DIR else getMimeTypeForName(name))
+            add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, file.lastModified)
+            add(DocumentsContract.Document.COLUMN_FLAGS, DriveDocuments.flagsOf(isDir))
+        }
+    }
     /** `/<tailnet>/<node>`: the level whose children are the node's shares. */
     private fun isNodeLevel(path: String): Boolean = depthOf(path) == 2
 
@@ -340,8 +320,8 @@ class TailsocksFileProvider : DocumentsProvider() {
 
     /** What an empty folder at [depth] means, for the picker to show; null where there is nothing to say. */
     private fun emptyInfo(context: Context, depth: Int): String? = when (depth) {
-        1 -> wrapContextWithLocale(context).getString(R.string.taildrive_browser_empty_devices)
-        2 -> wrapContextWithLocale(context).getString(R.string.taildrive_browser_empty_shares)
+        1 -> AppStrings.of(context).getString(R.string.taildrive_browser_empty_devices)
+        2 -> AppStrings.of(context).getString(R.string.taildrive_browser_empty_shares)
         else -> null
     }
 
@@ -375,7 +355,7 @@ class TailsocksFileProvider : DocumentsProvider() {
         unavailableReason(context, DriveError.from(e, depth))
 
     private fun unavailableReason(context: Context, error: DriveError): String =
-        wrapContextWithLocale(context).getString(documentReasonRes(error))
+        AppStrings.of(context).getString(documentReasonRes(error))
 
     private fun getMimeTypeForName(name: String): String {
         // The app's own table first: the platform's lacks mkv, opus, m4v on older Android, and the
@@ -701,7 +681,7 @@ class TailsocksFileProvider : DocumentsProvider() {
      */
     private fun driveId(documentId: String): DriveDocId {
         val id = DriveDocId.parse(documentId) ?: throw FileNotFoundException("Invalid drive document ID")
-        val active = context?.let { runCatching { AccountManager.getActiveAccount(it).id }.getOrNull() }
+        val active = context?.let { runCatching { AccountManager.activeId(it) }.getOrNull() }
         if (id.accountId != active) throw FileNotFoundException("Document of another profile")
         return id
     }
@@ -722,7 +702,9 @@ data class WebDavFile(
     val href: String,
     val isDirectory: Boolean,
     val size: Long,
-    val lastModified: Long
+    val lastModified: Long,
+    /** Whether the server sent the length (getcontentlength); [size] is 0 when it did not. */
+    val sized: Boolean = true
 ) {
     fun getDisplayName(): String {
         val clean = href.trimEnd('/')
@@ -744,7 +726,11 @@ class WebDavHttpException(method: String, val code: Int, val body: String) :
  * appctr/drive_client.go) — no SOCKS5 port, no proxy, no HTTP spoken here. Paths are plain, not
  * percent-encoded: the bridge escapes them.
  */
-class TaildriveClient internal constructor(private val calls: DriveCalls) {
+class TaildriveClient internal constructor(
+    private val calls: DriveCalls,
+    /** Where a PROPFIND answer is parsed; the platform's parser, or one a unit test brings. */
+    private val newParser: () -> XmlPullParser = { XmlPullParserFactory.newInstance().newPullParser() }
+) {
     /** The daemon serves the profile it runs; [context] and [accountId] name where the request came from. */
     @Suppress("UNUSED_PARAMETER")
     constructor(context: Context, accountId: String) : this(GoDriveCalls)
@@ -755,12 +741,22 @@ class TaildriveClient internal constructor(private val calls: DriveCalls) {
     private fun request(method: String, path: String, depth: String = "", destination: String = "", timeoutMs: Int = REQUEST_TIMEOUT_MS): DriveAnswer =
         calls.newCall().request(method, slashed(path), depth, destination, timeoutMs).also { it.throwIfFailed() }
 
-    fun list(path: String): List<WebDavFile> {
-        val answer = request("PROPFIND", path, depth = "1", timeoutMs = LIST_TIMEOUT_MS)
+    /** PROPFIND Depth 1: the entry of [path] and those of its children. */
+    fun list(path: String): List<WebDavFile> = propfind(path, "1")
+
+    /**
+     * PROPFIND Depth 0: the entry of [path] alone — what the provider needs to describe one
+     * document, without a folder's whole listing (DriveDocuments.resolve, which falls back to
+     * [list] when the answer is not what it expects).
+     */
+    fun stat(path: String): List<WebDavFile> = propfind(path, "0")
+
+    private fun propfind(path: String, depth: String): List<WebDavFile> {
+        val answer = request("PROPFIND", path, depth = depth, timeoutMs = LIST_TIMEOUT_MS)
         if (answer.status != 207 && answer.status != 200) {
             throw WebDavHttpException("PROPFIND", answer.status, answer.firstLine())
         }
-        return parsePropFindXml(answer.body.inputStream())
+        return parsePropFindXml(answer.body.inputStream(), newParser())
     }
 
     /**
@@ -819,10 +815,11 @@ class TaildriveClient internal constructor(private val calls: DriveCalls) {
     }
 }
 
-fun parsePropFindXml(inputStream: java.io.InputStream): List<WebDavFile> {
+fun parsePropFindXml(
+    inputStream: java.io.InputStream,
+    parser: XmlPullParser = XmlPullParserFactory.newInstance().newPullParser()
+): List<WebDavFile> {
     val files = mutableListOf<WebDavFile>()
-    val factory = XmlPullParserFactory.newInstance()
-    val parser = factory.newPullParser()
     parser.setInput(inputStream, "UTF-8")
 
     var eventType = parser.eventType
@@ -831,6 +828,7 @@ fun parsePropFindXml(inputStream: java.io.InputStream): List<WebDavFile> {
     var href = ""
     var isDirectory = false
     var size = 0L
+    var sized = false
     var lastModified = 0L
 
     val dateFormat = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US)
@@ -843,6 +841,7 @@ fun parsePropFindXml(inputStream: java.io.InputStream): List<WebDavFile> {
                     href = ""
                     isDirectory = false
                     size = 0L
+                    sized = false
                     lastModified = 0L
                 } else if (currentTag.equals("collection", ignoreCase = true)) {
                     isDirectory = true
@@ -853,7 +852,10 @@ fun parsePropFindXml(inputStream: java.io.InputStream): List<WebDavFile> {
                 if (text.isNotEmpty()) {
                     when {
                         currentTag.equals("href", ignoreCase = true) -> href = text
-                        currentTag.equals("getcontentlength", ignoreCase = true) -> size = text.toLongOrNull() ?: 0L
+                        currentTag.equals("getcontentlength", ignoreCase = true) -> {
+                            size = text.toLongOrNull() ?: 0L
+                            sized = text.toLongOrNull() != null
+                        }
                         currentTag.equals("getlastmodified", ignoreCase = true) -> {
                             try {
                                 lastModified = dateFormat.parse(text)?.time ?: 0L
@@ -871,7 +873,8 @@ fun parsePropFindXml(inputStream: java.io.InputStream): List<WebDavFile> {
                         // An href is a percent-encoded path, where "+" is a literal plus;
                         // URLDecoder is form decoding and would turn it into a space.
                         val decodedHref = URLDecoder.decode(href.replace("+", "%2B"), "UTF-8")
-                        files.add(WebDavFile(decodedHref, isDirectory, size, lastModified))
+                        files.add(WebDavFile(decodedHref, isDirectory, size, lastModified, sized))
+
                     }
                 }
                 currentTag = ""

@@ -110,6 +110,9 @@ import io.github.bropines.tailscaled.core.TailcatService
 import io.github.bropines.tailscaled.core.TailcatStatus
 import io.github.bropines.tailscaled.core.serverStateLine
 import io.github.bropines.tailscaled.core.stateLine
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -230,12 +233,16 @@ fun TailcatScreen(onBack: () -> Unit, page: ServePage? = null, importText: Strin
             }
         }
     }
-    // The output of the open card, read while it is on screen.
+    // The output of the open card, read while it is on screen — and only while the screen is
+    // on show: a stopped activity asks the bridge nothing, and a return reads at once.
     val watched = openId
-    if (!inPreview && watched != null) LaunchedEffect(watched) {
-        while (true) {
-            output = withContext(Dispatchers.IO) { runCatching { Appctr.tailcatLog(watched) }.getOrDefault("") }
-            delay(1000)
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    if (!inPreview && watched != null) LaunchedEffect(watched, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                output = withContext(Dispatchers.IO) { runCatching { Appctr.tailcatLog(watched) }.getOrDefault("") }
+                delay(1000)
+            }
         }
     }
 

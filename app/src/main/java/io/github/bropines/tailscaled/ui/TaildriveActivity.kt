@@ -29,7 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
@@ -969,7 +969,9 @@ fun TaildriveTabContent(onBack: (() -> Unit)? = null) {
             } else if (shares.isEmpty()) {
                 item { noSharesNote() }
             } else {
-                items(shares) { share -> shareCard(share) }
+                // Keyed by name; nothing stops two shares carrying one, so uniquely (LazyKeys.kt).
+                val shareKeys = uniqueKeys(shares) { "share:${it.name}" }
+                itemsIndexed(shares, key = { i, _ -> shareKeys[i] }) { _, share -> shareCard(share) }
             }
         }
 

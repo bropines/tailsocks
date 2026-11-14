@@ -455,16 +455,16 @@ class DriveProxy(val enabled: Boolean, val host: String, val port: Int, val auth
 
         /** The proxy of profile [accountId]. */
         fun read(context: Context, accountId: String): DriveProxy =
-            read(context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE))
+            read(AccountManager.profilePrefs(context, accountId))
 
         /** The profile preference that says the share browser opens files through the link before the document road. */
         const val KEY_OPEN_VIA_LINK = "taildrive_open_via_link"
 
         fun openViaLink(context: Context, accountId: String): Boolean =
-            context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE).getBoolean(KEY_OPEN_VIA_LINK, false)
+            AccountManager.profilePrefs(context, accountId).getBoolean(KEY_OPEN_VIA_LINK, false)
 
         fun setOpenViaLink(context: Context, accountId: String, on: Boolean) {
-            context.getSharedPreferences("appctr_$accountId", Context.MODE_PRIVATE).edit().putBoolean(KEY_OPEN_VIA_LINK, on).apply()
+            AccountManager.profilePrefs(context, accountId).edit().putBoolean(KEY_OPEN_VIA_LINK, on).apply()
         }
 
         /** The address to connect to a listener bound to [bind]: a wildcard is reached over loopback. */
@@ -774,6 +774,30 @@ class TaildriveBrowse(private val retryDelayMs: Long = RETRY_DELAY_MS, private v
          */
         internal fun isStale(e: Exception, depth: Int): Boolean =
             e is WebDavHttpException && (e.code == 502 || e.code == 503) && depth >= DriveError.DEVICE_DEPTH
+
+        /**
+         * [request], at [depth], asked again once after [delayMs] when it fails with what a
+         * device's restarted daemon gives the first request ([isStale]) — the rule of [list],
+         * for a caller that lists without the browser (the documents provider). Any other
+         * failure, the second one included, is thrown; so is the first when the wait is
+         * interrupted.
+         */
+        internal fun <T> retryingStale(depth: Int, delayMs: Long = RETRY_DELAY_MS, request: () -> T): T {
+            try {
+                return request()
+            } catch (e: Exception) {
+                if (!isStale(e, depth)) throw e
+                try {
+                    Thread.sleep(delayMs)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw e
+                }
+                Log.i(TAG, "listing at depth $depth got a stale gateway, asking again")
+                return request()
+            }
+        }
+
 
         /** Browsing as the profile [accountId]'s daemon sees the tailnet. */
         fun forAccount(context: Context, accountId: String): TaildriveBrowse {

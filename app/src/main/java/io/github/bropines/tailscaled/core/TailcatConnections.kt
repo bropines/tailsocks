@@ -137,9 +137,12 @@ object TailcatConnections {
         localPorts(conn.ports) + listOfNotNull(conn.socks.takeIf { it in 1..65535 })
 
     /** The connections other than [conn] that listen on one of its local ports. */
-    fun clashes(context: Context, conn: TailcatConnection): List<Pair<Int, TailcatConnection>> {
+    fun clashes(context: Context, conn: TailcatConnection): List<Pair<Int, TailcatConnection>> = clashesIn(load(context), conn)
+
+    /** [clashes] among [all]; pure. */
+    internal fun clashesIn(all: List<TailcatConnection>, conn: TailcatConnection): List<Pair<Int, TailcatConnection>> {
         val wanted = localPorts(conn)
-        return load(context).filter { it.id != conn.id }.flatMap { other ->
+        return all.filter { it.id != conn.id }.flatMap { other ->
             localPorts(other).intersect(wanted).map { it to other }
         }
     }
@@ -149,20 +152,38 @@ object TailcatConnections {
      * check to the connections that hold their ports now. The address and the
      * mappings are checked by the bridge, the same parser that starts them.
      */
-    fun problem(context: Context, conn: TailcatConnection, running: Set<String>? = null): Problem? {
-        val addr = runCatching { Appctr.tailcatCheckAddress(conn.address.trim()) }.getOrDefault("?")
+    fun problem(context: Context, conn: TailcatConnection, running: Set<String>? = null): Problem? =
+        problemOf(
+            conn, load(context), running,
+            checkAddress = { runCatching { Appctr.tailcatCheckAddress(it) }.getOrDefault("?") },
+            checkMappings = { runCatching { Appctr.tailcatCheckMappings(it) }.getOrDefault("?") }
+        )
+
+    /**
+     * [problem] with the bridge's two parsers handed in (each answers "" for fine, else what is
+     * wrong) and the saved connections as [all]; pure, so a unit test runs it.
+     */
+    internal fun problemOf(
+        conn: TailcatConnection,
+        all: List<TailcatConnection>,
+        running: Set<String>?,
+        checkAddress: (String) -> String,
+        checkMappings: (String) -> String
+    ): Problem? {
+        val addr = checkAddress(conn.address.trim())
         if (conn.address.isBlank() || addr.isNotEmpty()) return Problem.Address(addr)
         // A proxy alone is a connection too; with neither, the bridge says "no port mappings".
         if (conn.ports.isNotBlank() || conn.socks == 0) {
-            val mappings = runCatching { Appctr.tailcatCheckMappings(conn.ports) }.getOrDefault("?")
+            val mappings = checkMappings(conn.ports)
             if (mappings.isNotEmpty()) return Problem.Ports(mappings)
         }
         if (conn.socks !in 0..65535) return Problem.Socks
         if (conn.socks != 0 && conn.socks in localPorts(conn.ports)) return Problem.Clash(conn.socks, conn.name)
-        val clash = clashes(context, conn).firstOrNull { (_, other) -> running == null || other.id in running }
+        val clash = clashesIn(all, conn).firstOrNull { (_, other) -> running == null || other.id in running }
         if (clash != null) return Problem.Clash(clash.first, clash.second.name)
         return null
     }
+
 
     sealed interface Problem {
         data class Address(val detail: String) : Problem

@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
@@ -36,7 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -48,13 +46,11 @@ import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.BridgeRemotePeerApi
 import io.github.bropines.tailscaled.core.Feature
-import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.RemoteClient
 import io.github.bropines.tailscaled.core.RemoteElevate
 import io.github.bropines.tailscaled.core.RemoteJson
 import io.github.bropines.tailscaled.core.RemoteManage
 import io.github.bropines.tailscaled.core.RemoteQr
-import io.github.bropines.tailscaled.core.TailscaledService
 import io.github.bropines.tailscaled.core.sendTaildropFiles
 import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.models.PeerData
@@ -237,16 +233,10 @@ private fun localView(peerId: String): Pair<ManagePeer, PeerData?> = runCatching
 }.getOrDefault(ManagePeer() to null)
 
 /** Starts this device's own TailSocks the way the main screen's switch does; false when it could not be asked to. */
-private fun startOwnTailSocks(context: Context): Boolean {
-    // The same refusal the main screen makes: the service would start with nowhere to listen.
-    if (GlobalSettings.getString(context, "socks5", "127.0.0.1:48115").isBlank()) {
-        Toast.makeText(context, context.getString(R.string.main_error_socks5_empty), Toast.LENGTH_LONG).show()
-        return false
-    }
-    return runCatching {
-        ContextCompat.startForegroundService(context, Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" })
-    }.isSuccess
-}
+private fun startOwnTailSocks(context: Context): Boolean =
+    // The shared start refuses an empty SOCKS5 address with a toast (ServiceStart.kt); a
+    // system refusal of the foreground start is a plain false here.
+    runCatching { startTailSocks(context) }.getOrDefault(false)
 
 /**
  * The page that pairs with a device and manages it, in a window of its own over the screen
