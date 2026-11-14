@@ -1,5 +1,7 @@
 package io.github.bropines.tailscaled.core
 
+import io.github.bropines.tailscaled.core.RootHosts.hostsMarker
+import io.github.bropines.tailscaled.core.RootHosts.hostsUnbindScript
 import io.github.bropines.tailscaled.core.RootRouting.CATCH_ALL_MASK
 import io.github.bropines.tailscaled.core.RootRouting.CATCH_ALL_PRIO
 import io.github.bropines.tailscaled.core.RootRouting.CGNAT_V4
@@ -24,8 +26,6 @@ import io.github.bropines.tailscaled.core.RootRouting.UIDRANGE_MISSING_V4
 import io.github.bropines.tailscaled.core.RootRouting.UIDRANGE_MISSING_V6
 import io.github.bropines.tailscaled.core.RootUtils.DAEMON_NO_ADDRESS
 import io.github.bropines.tailscaled.core.RootUtils.DAEMON_NO_EXIT_ROUTE
-import io.github.bropines.tailscaled.core.RootUtils.hostsMarker
-import io.github.bropines.tailscaled.core.RootUtils.hostsUnbindScript
 import io.github.bropines.tailscaled.core.RootUtils.paths
 import io.github.bropines.tailscaled.core.RootUtils.shQuote
 
