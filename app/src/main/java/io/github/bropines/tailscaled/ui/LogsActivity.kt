@@ -58,6 +58,11 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.OutputStreamWriter
@@ -73,15 +78,51 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 /**
  * One log line as the Go bridge reports it. [unix] is epoch milliseconds and
  * the key the merged list is ordered by; [timestamp] is the `HH:MM:SS` shown.
+ * [seq] numbers the bridge's entries in the order they were added (from 1);
+ * lines from the root file and logcat have none (0).
  */
 @Serializable
 data class LogEntry(
+    @SerialName("seq") val seq: Long = 0L,
     @SerialName("unix") val unix: Long = 0L,
     @SerialName("timestamp") val timestamp: String = "",
     @SerialName("level") val level: String = "",
     @SerialName("category") val category: String = "",
     @SerialName("message") val message: String = ""
 )
+
+/**
+ * What `Appctr.getLogsJSONSince(gen, seq)` answers: the bridge's entries after
+ * [seq], or its whole buffer when [reset] — a first read (gen −1) or a clear
+ * since the last one. [first] is the oldest entry the buffer still holds (it
+ * drops its older half when full); [gen] and [last] go into the next call.
+ */
+@Serializable
+internal data class LogDelta(
+    @SerialName("gen") val gen: Long = 0L,
+    @SerialName("reset") val reset: Boolean = false,
+    @SerialName("first") val first: Long = 0L,
+    @SerialName("last") val last: Long = 0L,
+    @SerialName("entries") val entries: List<LogEntry> = emptyList()
+)
+
+/**
+ * The bridge's buffer as the Logs screen holds it, brought up to date by [delta]: replaced on
+ * a reset, otherwise trimmed where the buffer trimmed itself and extended by the new entries.
+ * The same list comes back when nothing changed, so the screen can tell.
+ */
+internal fun mergeLogDelta(current: List<LogEntry>, delta: LogDelta): List<LogEntry> {
+    if (delta.reset) return delta.entries
+    val kept = if (current.isNotEmpty() && current.first().seq < delta.first) current.dropWhile { it.seq < delta.first } else current
+    return if (delta.entries.isEmpty()) kept else kept + delta.entries
+}
+
+/** Where the Logs screen's read of the bridge's buffer stands, between two reads. */
+private class GoLogCursor {
+    var gen = -1L
+    var seq = 0L
+    var entries: List<LogEntry> = emptyList()
+}
 
 class LogsActivity : ComponentActivity() {
     companion object {
@@ -585,37 +626,54 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
         if (!pickerOffered || !saveFileLauncher.tryLaunch("tailsocks_logs_${System.currentTimeMillis()}.txt")) pickingFolder = true
     }
 
-    fun loadLogsData(manual: Boolean = false) {
+    // The bridge's buffer as read so far, and the lock that keeps two reads — the 2 s tick, a
+    // pull, a clear — from running at once: a read that overtook another used to land the
+    // older list last.
+    val goLogs = remember { GoLogCursor() }
+    val readLock = remember { Mutex() }
+
+    /**
+     * One read of every source. The bridge is asked only for what it added since the last
+     * read (until 6.1 the whole buffer, up to 10,000 entries, was marshalled, copied and
+     * decoded every 2 s); the root daemon's file and logcat are read as before.
+     */
+    suspend fun loadLogsData(manual: Boolean = false) {
         if (manual) isRefreshing = true
-        coroutineScope.launch(Dispatchers.IO) {
-            var jsonString = try { Appctr.getLogsJSON() } catch (e: Exception) { "[]" }
-            var logsList: List<LogEntry> = if (jsonString.isBlank()) emptyList()
-                else runCatching { AppJson.decodeFromString<List<LogEntry>>(jsonString) }.getOrDefault(emptyList())
-
-            if (GlobalSettings.isRootModeEnabled(context)) {
-                val parsed = RootDaemonLog.tailEntries(RootUtils.rootDaemonLogFile(context))
-                if (parsed.isNotEmpty()) {
-                    // Both sources carry epoch millis, so the merge is by that.
-                    // Until 4.1.1 this sorted by seconds since midnight, which put
-                    // yesterday's "16:43" from the Go buffer (alive as long as the
-                    // app process) after today's "11:27" from the daemon file
-                    // (only its last minutes are read) — the bottom of the screen
-                    // was stale. sortedBy is stable: entries from one source keep
-                    // their original order when they share a millisecond.
-                    logsList = (logsList + parsed).sortedBy { it.unix }
+        val logsList = readLock.withLock {
+            withContext(Dispatchers.IO) {
+                val json = try { Appctr.getLogsJSONSince(goLogs.gen, goLogs.seq) } catch (e: Exception) { "" }
+                val delta = if (json.isBlank()) null else runCatching { AppJson.decodeFromString<LogDelta>(json) }.getOrNull()
+                if (delta != null) {
+                    goLogs.entries = mergeLogDelta(goLogs.entries, delta)
+                    goLogs.gen = delta.gen
+                    goLogs.seq = delta.last
                 }
-            }
-            if (includeLogcat) {
-                val lines = LogcatSource.entries(logcatSince)
-                if (lines.isNotEmpty()) logsList = (logsList + lines).sortedBy { it.unix }
-            }
+                var logsList = goLogs.entries
 
-            withContext(Dispatchers.Main) {
-                allLogs = logsList
-                loaded = true
-                if (manual) isRefreshing = false
+                if (GlobalSettings.isRootModeEnabled(context)) {
+                    val parsed = RootDaemonLog.tailEntries(RootUtils.rootDaemonLogFile(context))
+                    if (parsed.isNotEmpty()) {
+                        // Both sources carry epoch millis, so the merge is by that.
+                        // Until 4.1.1 this sorted by seconds since midnight, which put
+                        // yesterday's "16:43" from the Go buffer (alive as long as the
+                        // app process) after today's "11:27" from the daemon file
+                        // (only its last minutes are read) — the bottom of the screen
+                        // was stale. sortedBy is stable: entries from one source keep
+                        // their original order when they share a millisecond.
+                        logsList = (logsList + parsed).sortedBy { it.unix }
+                    }
+                }
+                if (includeLogcat) {
+                    val lines = LogcatSource.entries(logcatSince)
+                    if (lines.isNotEmpty()) logsList = (logsList + lines).sortedBy { it.unix }
+                }
+                logsList
             }
         }
+        // The same list as last time is the same state: no recomposition, no re-filter.
+        if (logsList !== allLogs) allLogs = logsList
+        loaded = true
+        if (manual) isRefreshing = false
     }
 
     /**
@@ -625,7 +683,8 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
      * the file, or the file alone) used to do this.
      */
     fun clearLogs(scope: ClearScope) {
-        coroutineScope.launch(Dispatchers.IO) {
+        // Under the read lock: a read in flight would otherwise put back what was just cleared.
+        coroutineScope.launch(Dispatchers.IO) { readLock.withLock {
             val fileOk = scope == ClearScope.APP ||
                 !GlobalSettings.isRootModeEnabled(context) || clearRootDaemonLogFile(context)
             when (scope) {
@@ -643,14 +702,19 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
                 val message = if (fileOk) R.string.logs_cleared else R.string.logs_root_clear_failed
                 Toast.makeText(context, context.getString(message), if (fileOk) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
             }
-        }
+        } }
     }
 
-    LaunchedEffect(Unit) {
+    // STARTED, not just composed: the screen left open under another app kept reading every
+    // source every 2 s for nobody. Each read finishes before the next delay begins.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle) {
         if (inPreview || demoLines != null) return@LaunchedEffect
-        while (true) {
-            loadLogsData()
-            delay(2000)
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                loadLogsData()
+                delay(2000)
+            }
         }
     }
 
@@ -898,7 +962,7 @@ fun LogsScreen(onBack: () -> Unit, initialCategory: String = "ALL") {
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { loadLogsData(true) },
+            onRefresh = { coroutineScope.launch { loadLogsData(true) } },
             modifier = Modifier.fillMaxSize().padding(padding),
             // A remote does not pull, and its held arrow is taken for one; the log reads
             // itself again every two seconds anyway.
