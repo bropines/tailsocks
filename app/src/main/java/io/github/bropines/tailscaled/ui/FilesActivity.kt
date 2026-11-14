@@ -76,6 +76,8 @@ class FilesActivity : ComponentActivity() {
  * [inboxSeenAt] and [folderStateAtStart] are a preview's too: when the inbox was last looked
  * at — on a television what came after it is listed as new — and whether the default
  * folder can be written; the app remembers the one and finds out the other.
+ * [taildropAtEnd] opens the Taildrop page scrolled to its end, for a preview of the last rows
+ * clear of the send button; the app opens it at the top.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -85,7 +87,8 @@ fun FilesScreen(
     openEntryAt: Long? = null,
     inboxOpen: Boolean = false,
     inboxSeenAt: Long? = null,
-    folderStateAtStart: TaildropFolder.State? = null
+    folderStateAtStart: TaildropFolder.State? = null,
+    taildropAtEnd: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -512,7 +515,8 @@ fun FilesScreen(
                                 folderLine = folderLine,
                                 newSince = inboxSeen.takeIf { tv },
                                 outgoing = outgoing,
-                                onCancelOutgoing = { TaildropOutbox.cancel(it.key) }
+                                onCancelOutgoing = { TaildropOutbox.cancel(it.key) },
+                                startAtEnd = taildropAtEnd
                             )
                         }
                     }

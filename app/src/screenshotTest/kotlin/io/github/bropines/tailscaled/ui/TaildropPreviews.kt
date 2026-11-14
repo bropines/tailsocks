@@ -236,6 +236,18 @@ fun TaildropPageInboxOpenShowcase() = TaildropShowcase(TaildropDemo.data) { File
 @Composable
 fun TaildropPageTallShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(onBack = {}, openTaildrop = true) }
 
+// Scrolled to its end, in each layout the page has — a phone upright and on its side, a medium
+// window's columns, a large window's two panes: the last history row and "All history" stand
+// above the send button, never under it.
+@PreviewTest
+@Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
+@Preview(name = "2-phone-landscape", device = "spec:width=891dp,height=411dp,dpi=420")
+@Preview(name = "3-tablet7", device = "spec:width=600dp,height=960dp,dpi=213")
+@Preview(name = "4-foldable", device = "spec:width=840dp,height=900dp,dpi=420")
+@Preview(name = "5-tablet", device = "spec:width=1280dp,height=800dp,dpi=240")
+@Composable
+fun TaildropPageAtEndShowcase() = TaildropShowcase(TaildropDemo.data) { FilesScreen(onBack = {}, openTaildrop = true, taildropAtEnd = true) }
+
 // No default folder: both files wait in the app, and the inbox offers to choose a folder.
 @PreviewTest @StatesPhoneBothLanguages @Composable
 fun TaildropPageNoFolderShowcase() = TaildropShowcase(TaildropDemo.noFolder) { FilesScreen(onBack = {}, openTaildrop = true) }

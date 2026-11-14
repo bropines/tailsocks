@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -258,8 +259,18 @@ internal fun TaildropPage(
     newSince: Long? = null,
     /** The files on their way out (TaildropOutbox): on top while they go, each with its Cancel. */
     outgoing: List<OutgoingTransfer> = emptyList(),
-    onCancelOutgoing: (OutgoingTransfer) -> Unit = {}
+    onCancelOutgoing: (OutgoingTransfer) -> Unit = {},
+    /**
+     * Starts the page scrolled to its end: a preview's way to show the last rows clear of the
+     * send button, which every layout leaves room for under them. The app starts at the top.
+     */
+    startAtEnd: Boolean = false
 ) {
+    // Past the end, which each holds to its last pixel: a scroll to its length, a lazy list from
+    // its first item on (an index past the last is reset to that item's top, which leaves the
+    // history group of a phone on its side, taller than the window, hanging below it).
+    val start = if (startAtEnd) Int.MAX_VALUE else 0
+    val startOffset = if (startAtEnd) 1_000_000 else 0
     val saved = remember(files, history) { TaildropInbox.savedEntries(files, history) }
     var inboxOpen by rememberSaveable { mutableStateOf(inboxOpenAtStart) }
     val inbox = InboxContent(
@@ -303,7 +314,7 @@ internal fun TaildropPage(
                         Modifier
                             .fillMaxSize()
                             .tvFocusGroup()
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(rememberScrollState(start))
                             // The bottom leaves the last row clear of the send button.
                             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp)
                     ) {
@@ -323,6 +334,7 @@ internal fun TaildropPage(
         window.multiColumn -> LazyVerticalStaggeredGrid(
             columns = StaggeredGridCells.Adaptive(320.dp),
             modifier = modifier.fillMaxSize(),
+            state = rememberLazyStaggeredGridState(initialFirstVisibleItemIndex = 0, initialFirstVisibleItemScrollOffset = startOffset),
             contentPadding = PaddingValues(start = window.margin, end = window.margin, top = 8.dp, bottom = 96.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalItemSpacing = 8.dp
@@ -336,6 +348,7 @@ internal fun TaildropPage(
         }
         else -> LazyColumn(
             modifier = modifier.fillMaxSize(),
+            state = rememberLazyListState(initialFirstVisibleItemIndex = 0, initialFirstVisibleItemScrollOffset = startOffset),
             // The bottom leaves the last row clear of the send button.
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
