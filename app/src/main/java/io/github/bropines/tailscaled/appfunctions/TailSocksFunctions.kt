@@ -373,17 +373,20 @@ class TailSocksFunctions {
             )
         }
 
-        val wasRunning = ProxyState.isActualRunning(context)
-        if (wasRunning) {
-            val stopIntent = Intent(context, TailscaledService::class.java).apply { action = "STOP_ACTION" }
-            context.startService(stopIntent)
-        }
-
-        AccountManager.setActiveAccount(context, found.id)
-
-        if (wasRunning) {
-            val startIntent = Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" }
-            androidx.core.content.ContextCompat.startForegroundService(context, startIntent)
+        // The same path as Tasker's switch (TaskerReceiver.handleSwitchAccount):
+        // the profile is changed first, then a running service is restarted in
+        // place with RESTART_ACTION. This used to be STOP followed by START,
+        // which ran the whole manual-stop path in between — desired_running
+        // cleared, the watchdog cancelled, Tailcat suspended — and worked only
+        // because the START happened to join the stop's teardown. Switching to
+        // the profile that is already active restarts nothing, as in Tasker.
+        val current = AccountManager.getActiveAccount(context)
+        if (found.id != current.id) {
+            AccountManager.setActiveAccount(context, found.id)
+            if (ProxyState.isActualRunning(context)) {
+                val restartIntent = Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" }
+                androidx.core.content.ContextCompat.startForegroundService(context, restartIntent)
+            }
         }
 
         return AccountSwitchResult(
