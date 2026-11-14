@@ -93,8 +93,9 @@ class SourceTree private constructor(val text: String, val root: SrcObject, val 
         fun parse(text: String): SourceTree {
             // HuJson.check reports unterminated strings and brackets with better positions than
             // a plain descent would; run it first so both parsers reject exactly the same texts.
-            HuJson.check(text).firstOrNull()?.let { throw HuParseException(it) }
+            // One tokenization serves the check, its grammar descent and the builder.
             val tokens = HuJson.tokenize(text)
+            HuJson.check(text, tokens).firstOrNull()?.let { throw HuParseException(it) }
             val root = Builder(text, tokens).document()
             return SourceTree(text, root, tokens)
         }
