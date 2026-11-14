@@ -481,6 +481,34 @@ class TaildriveBrowseTest {
         assertEquals(1, closed)
     }
 
+    // --- A device that shares nothing ------------------------------------------------------------
+
+    @Test
+    fun a404AtADeviceRootIsADeviceThatSharesNothing() {
+        val device = DriveLocation(listOf(tn, "phone"))
+        val result = TaildriveBrowse(retryDelayMs = 0) { throw WebDavHttpException("PROPFIND", 404, "") }.list(device)
+        assertEquals(DriveResult.Ok(DriveListing(device, emptyList())), result)
+    }
+
+    @Test
+    fun a404InsideAShareOrAFolderIsStillNotFound() {
+        val gone = TaildriveBrowse(retryDelayMs = 0) { throw WebDavHttpException("PROPFIND", 404, "") }
+        assertEquals(DriveResult.Err(DriveError.NotFound), gone.list(shareLocation))
+        assertEquals(DriveResult.Err(DriveError.NotFound), gone.list(shareLocation.child("2024")))
+    }
+
+    @Test
+    fun onlyA404AtTheDeviceDepthMeansSharesNothing() {
+        val notFound = WebDavHttpException("PROPFIND", 404, "")
+        assertTrue(TaildriveBrowse.sharesNothing(notFound, DriveError.DEVICE_DEPTH))
+        for (depth in listOf(0, 1, 3, 4)) assertFalse("depth $depth", TaildriveBrowse.sharesNothing(notFound, depth))
+        // Other answers at a device keep their meaning.
+        for (code in listOf(403, 410, 500, 502)) {
+            assertFalse("HTTP $code", TaildriveBrowse.sharesNothing(WebDavHttpException("PROPFIND", code, ""), DriveError.DEVICE_DEPTH))
+        }
+        assertFalse(TaildriveBrowse.sharesNothing(java.io.IOException("closed"), DriveError.DEVICE_DEPTH))
+    }
+
     @Test
     fun aGatewayAboveTheDevicesIsNotAStalePeer() {
         // Nothing was forwarded at the root or in the tailnet: our own daemon failing is not a peer's old connection.

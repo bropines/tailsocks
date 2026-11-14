@@ -11,4 +11,7 @@
     <string name="netcheck_starting_service">Starting the service…</string>
     <string name="netcheck_starting_service_desc">Diagnostics run once it is connected.</string>
     <string name="netcheck_service_stopped">The service stopped instead of starting. The logs say why.</string>
+    <!-- The verdict right after a start: Running, but control has not marked this node online yet. -->
+    <string name="netcheck_confirming">CONNECTING</string>
+    <string name="netcheck_confirming_desc">The coordination server has not confirmed this device yet.</string>
 </resources>
