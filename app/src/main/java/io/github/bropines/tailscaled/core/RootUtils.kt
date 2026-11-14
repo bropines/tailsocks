@@ -3175,56 +3175,28 @@ object RootUtils {
         }
     }
 
+    /**
+     * One A query to 1.1.1.1 over UDP, for when the system resolver could not
+     * answer. The reply is parsed ([DnsWire.firstA]): it must answer this query's
+     * id with NOERROR, and the address is the first A record's. The packet used
+     * to be scanned from its end for any four bytes that looked like an address,
+     * which a trailing CNAME, SOA or OPT record turned into a wrong one — handed
+     * to the root daemon as the control proxy's address. The socket is closed on
+     * every path; a timeout, the common failure, used to leak it.
+     */
     private fun resolveHostViaUdpDns(host: String): String? {
         return try {
-            val socket = java.net.DatagramSocket()
-            socket.soTimeout = 2000
-            val dnsServer = java.net.InetAddress.getByName("1.1.1.1")
-
-            val baos = java.io.ByteArrayOutputStream()
-            val dos = java.io.DataOutputStream(baos)
-            dos.writeShort(0x1234)
-            dos.writeShort(0x0100)
-            dos.writeShort(0x0001)
-            dos.writeShort(0x0000)
-            dos.writeShort(0x0000)
-            dos.writeShort(0x0000)
-
-            for (part in host.split(".")) {
-                val bytes = part.toByteArray(Charsets.US_ASCII)
-                dos.writeByte(bytes.size)
-                dos.write(bytes)
+            val id = java.security.SecureRandom().nextInt(0x10000)
+            val query = DnsWire.aQuery(host, id) ?: return null
+            java.net.DatagramSocket().use { socket ->
+                socket.soTimeout = 2000
+                val dnsServer = java.net.InetAddress.getByName("1.1.1.1")
+                socket.send(java.net.DatagramPacket(query, query.size, dnsServer, 53))
+                val buf = ByteArray(512)
+                val reply = java.net.DatagramPacket(buf, buf.size)
+                socket.receive(reply)
+                DnsWire.firstA(reply.data, reply.length, id)
             }
-            dos.writeByte(0)
-            dos.writeShort(0x0001)
-            dos.writeShort(0x0001)
-
-            val query = baos.toByteArray()
-            val packet = java.net.DatagramPacket(query, query.size, dnsServer, 53)
-            socket.send(packet)
-
-            val buf = ByteArray(512)
-            val recvPacket = java.net.DatagramPacket(buf, buf.size)
-            socket.receive(recvPacket)
-            socket.close()
-
-            val data = recvPacket.data
-            val length = recvPacket.length
-            if (length > 12) {
-                val ancnt = ((data[6].toInt() and 0xff) shl 8) or (data[7].toInt() and 0xff)
-                if (ancnt > 0) {
-                    for (i in (length - 4) downTo 12) {
-                        val b0 = data[i].toInt() and 0xff
-                        val b1 = data[i + 1].toInt() and 0xff
-                        val b2 = data[i + 2].toInt() and 0xff
-                        val b3 = data[i + 3].toInt() and 0xff
-                        if (b0 in 1..254 && b3 in 1..254 && b0 != 127) {
-                            return "$b0.$b1.$b2.$b3"
-                        }
-                    }
-                }
-            }
-            null
         } catch (e: Exception) {
             Log.w(TAG, "Direct UDP DNS resolution failed for '$host': ${e.message}")
             null
