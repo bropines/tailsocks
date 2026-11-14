@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -118,69 +121,18 @@ private fun MainAccountAddDialog(state: MainAccountsState): Unit = with(state) {
     // A secret: never in the saved state, which the system writes out with the task.
     var newAccountAuthKey by remember { mutableStateOf("") }
     // Dialog strings are resolved out here, in the parent composition — see wrapContextWithLocale().
-    val dlgTitle = stringResource(R.string.main_add_account_title)
-    val dlgNameLabel = stringResource(R.string.main_account_name_label)
-    val dlgServerLabel = stringResource(R.string.settings_login_server_title)
-    val dlgServerPlaceholder = stringResource(R.string.settings_login_server_placeholder)
-    val dlgAuthKeyLabel = stringResource(R.string.main_add_account_authkey_label)
-    val dlgAuthKeyPlaceholder = stringResource(R.string.main_add_account_authkey_placeholder)
-    // Without a key a television signs in by a code for a phone, not in a browser.
-    val dlgAuthKeyHint = stringResource(
-        if (Feature.BROWSER_SIGN_IN.offered()) R.string.main_add_account_authkey_hint else R.string.tv_add_account_authkey_hint
-    )
-    val dlgAdd = stringResource(R.string.action_add)
-    val dlgCancel = stringResource(R.string.action_cancel)
-    val dlgHonestTitle = stringResource(R.string.settings_honest_hostinfo_title)
-    val dlgHonestDesc = stringResource(R.string.honest_hostinfo_checkbox_desc)
+    val words = mainAccountAddWords()
     AppAlertDialog(
         onDismissRequest = { showAddAccountDialog = false; newAccountHonest = true },
-        title = { Text(dlgTitle) },
+        title = { Text(words.title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // PageTextField: three fields in a row are a page of them, which a remote
-                // has to cross on its way to the buttons.
-                PageTextField(
-                    value = newAccountName,
-                    onValueChange = { newAccountName = it },
-                    label = dlgNameLabel,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                PageTextField(
-                    value = newAccountServer,
-                    onValueChange = { newAccountServer = it },
-                    label = dlgServerLabel,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = dlgServerPlaceholder
-                )
-                // Optional: with a key the profile registers on its first start,
-                // without one it goes through the browser like before.
-                PageTextField(
-                    value = newAccountAuthKey,
-                    onValueChange = { newAccountAuthKey = it },
-                    label = dlgAuthKeyLabel,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = dlgAuthKeyPlaceholder
-                )
-                Text(
-                    dlgAuthKeyHint,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { newAccountHonest = !newAccountHonest },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // The row is the remote's stop; the box inside it would be a second one.
-                    Checkbox(checked = newAccountHonest, onCheckedChange = { newAccountHonest = it }, modifier = Modifier.tvNoFocus())
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(dlgHonestTitle, style = MaterialTheme.typography.bodyMedium)
-                        Text(dlgHonestDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            MainAccountAddForm(
+                words = words,
+                name = newAccountName, onName = { newAccountName = it },
+                server = newAccountServer, onServer = { newAccountServer = it },
+                authKey = newAccountAuthKey, onAuthKey = { newAccountAuthKey = it },
+                honest = newAccountHonest, onHonest = { newAccountHonest = it },
+            )
         },
         confirmButton = {
             Button(onClick = {
@@ -209,10 +161,113 @@ private fun MainAccountAddDialog(state: MainAccountsState): Unit = with(state) {
                         context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
                     }
                 }
-            }) { Text(dlgAdd) }
+            }) { Text(words.add) }
         },
-        dismissButton = { TextButton(onClick = { showAddAccountDialog = false; newAccountHonest = true }) { Text(dlgCancel) } }
+        dismissButton = { TextButton(onClick = { showAddAccountDialog = false; newAccountHonest = true }) { Text(words.cancel) } }
     )
+}
+
+/** The words of "Add account", resolved where the dialog is composed (see wrapContextWithLocale()). */
+@Immutable
+internal class MainAccountAddWords(
+    val title: String,
+    val name: String,
+    val server: String,
+    val serverPlaceholder: String,
+    val authKey: String,
+    val authKeyPlaceholder: String,
+    val authKeyHint: String,
+    val honestTitle: String,
+    val honestDesc: String,
+    val add: String,
+    val cancel: String,
+)
+
+@Composable
+internal fun mainAccountAddWords() = MainAccountAddWords(
+    title = stringResource(R.string.main_add_account_title),
+    name = stringResource(R.string.main_account_name_label),
+    server = stringResource(R.string.settings_login_server_title),
+    serverPlaceholder = stringResource(R.string.settings_login_server_placeholder),
+    authKey = stringResource(R.string.main_add_account_authkey_label),
+    authKeyPlaceholder = stringResource(R.string.main_add_account_authkey_placeholder),
+    // Without a key a television signs in by a code for a phone, not in a browser.
+    authKeyHint = stringResource(
+        if (Feature.BROWSER_SIGN_IN.offered()) R.string.main_add_account_authkey_hint else R.string.tv_add_account_authkey_hint
+    ),
+    honestTitle = stringResource(R.string.settings_honest_hostinfo_title),
+    honestDesc = stringResource(R.string.honest_hostinfo_checkbox_desc),
+    add = stringResource(R.string.action_add),
+    cancel = stringResource(R.string.action_cancel),
+)
+
+/**
+ * What "Add account" holds: three fields, the key's hint and "Report the real OS". It
+ * scrolls, as the app's other forms in a dialog do: a phone on its side leaves the dialog's
+ * text slot less height than the form needs, and an unscrolled Column squeezed the key field
+ * and gave the row under it no height at all — the checkbox, which keeps its touch size,
+ * stood over the field's outline and the row's label was not drawn. On a phone held upright
+ * it fits, and the scroll changes nothing. Drawn on its own by the screenshot previews.
+ */
+@Composable
+internal fun MainAccountAddForm(
+    words: MainAccountAddWords,
+    name: String,
+    onName: (String) -> Unit,
+    server: String,
+    onServer: (String) -> Unit,
+    authKey: String,
+    onAuthKey: (String) -> Unit,
+    honest: Boolean,
+    onHonest: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    scroll: ScrollState = rememberScrollState(),
+) {
+    Column(modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // PageTextField: three fields in a row are a page of them, which a remote
+        // has to cross on its way to the buttons.
+        PageTextField(
+            value = name,
+            onValueChange = onName,
+            label = words.name,
+            modifier = Modifier.fillMaxWidth()
+        )
+        PageTextField(
+            value = server,
+            onValueChange = onServer,
+            label = words.server,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = words.serverPlaceholder
+        )
+        // Optional: with a key the profile registers on its first start,
+        // without one it goes through the browser like before.
+        PageTextField(
+            value = authKey,
+            onValueChange = onAuthKey,
+            label = words.authKey,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = words.authKeyPlaceholder
+        )
+        Text(
+            words.authKeyHint,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onHonest(!honest) },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // The row is the remote's stop; the box inside it would be a second one.
+            Checkbox(checked = honest, onCheckedChange = onHonest, modifier = Modifier.tvNoFocus())
+            Column(modifier = Modifier.weight(1f)) {
+                Text(words.honestTitle, style = MaterialTheme.typography.bodyMedium)
+                Text(words.honestDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 @Composable
