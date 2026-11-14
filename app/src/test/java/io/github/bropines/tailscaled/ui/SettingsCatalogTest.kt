@@ -153,11 +153,12 @@ class SettingsCatalogTest {
 
     // ─── The pages ───────────────────────────────────────────────────────────────────────
 
-    private val settingsActivity: String get() = appSources.getValue("ui/SettingsActivity.kt")
+    /** The table of the hub and the Advanced page (the category rows and the links to screens). */
+    private val categoryTable: String get() = appSources.getValue("ui/SettingsCategories.kt")
 
     @Test
     fun thePagesAreTheOnesSettingsHas() {
-        val declared = Regex("SettingsCategory\\(\"(\\w+)\", R\\.string\\.(\\w+), R\\.string\\.(\\w+), Icons\\.Default\\.(\\w+)").findAll(settingsActivity).toList()
+        val declared = Regex("SettingsCategory\\(\"(\\w+)\", R\\.string\\.(\\w+), R\\.string\\.(\\w+), Icons\\.Default\\.(\\w+)").findAll(categoryTable).toList()
         assertEquals(SettingsPage.entries.map { it.id }.sorted(), declared.map { it.groupValues[1] }.sorted())
         for (match in declared) {
             val (id, title, summary, icon) = match.destructured
@@ -169,14 +170,14 @@ class SettingsCatalogTest {
             // Advanced is described by what a handheld has on it, which the hub says in other words there.
             if (page != SettingsPage.ADVANCED) assertEquals(id, summary, stringName(entry.summary))
         }
-        assertTrue(settingsActivity.contains("advancedCategory.copy(descRes = R.string.${stringName(SettingsCatalog.byId("advanced")!!.summary)}"))
+        assertTrue(categoryTable.contains("advancedCategory.copy(descRes = R.string.${stringName(SettingsCatalog.byId("advanced")!!.summary)}"))
         // A link may name every page, and nothing else is one.
         assertEquals(DeepLinks.SETTINGS_SECTIONS, SettingsPage.entries.map { it.id }.toSet())
     }
 
     @Test
     fun theAdvancedPageLinksAreEntries() {
-        val tools = Regex("AdvancedTool\\(Feature\\.(\\w+), R\\.string\\.(\\w+)").findAll(settingsActivity).toList()
+        val tools = Regex("AdvancedTool\\(Feature\\.(\\w+), R\\.string\\.(\\w+)").findAll(categoryTable).toList()
         assertEquals(4, tools.size)
         for (tool in tools) {
             val (feature, title) = tool.destructured
