@@ -124,65 +124,6 @@ import java.lang.Runtime
 
 import io.github.bropines.tailscaled.ui.theme.TailSocksTheme
 
-fun launchApkInstaller(context: Context, apkFile: java.io.File) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !context.packageManager.canRequestPackageInstalls()) {
-        Toast.makeText(context, context.getString(R.string.main_update_grant_perm), Toast.LENGTH_LONG).show()
-        try {
-            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")))
-        } catch (e: Exception) {
-            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
-        }
-        return
-    }
-
-    try {
-        val apkUri = androidx.core.content.FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            apkFile
-        )
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        context.startActivity(installIntent)
-    } catch (e: Exception) {
-        android.util.Log.e("MainActivity", "FileProvider install intent failed, falling back to PackageInstaller session", e)
-        try {
-            val packageInstaller = context.packageManager.packageInstaller
-            val params = android.content.pm.PackageInstaller.SessionParams(
-                android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
-            )
-            val sessionId = packageInstaller.createSession(params)
-            val session = packageInstaller.openSession(sessionId)
-
-            session.openWrite("tailsocks_update", 0, apkFile.length()).use { output ->
-                apkFile.inputStream().use { input ->
-                    input.copyTo(output)
-                }
-                session.fsync(output)
-            }
-
-            val intent = Intent(context, MainActivity::class.java).apply {
-                action = "ACTION_INSTALL_COMPLETE"
-            }
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
-            } else {
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT
-            }
-            val pendingIntent = android.app.PendingIntent.getActivity(context, 0, intent, flags)
-
-            session.commit(pendingIntent.intentSender)
-            session.close()
-        } catch (fallbackEx: Exception) {
-            Toast.makeText(context, context.getString(R.string.main_installer_failed_format, fallbackEx.message), Toast.LENGTH_SHORT).show()
-        }
-    }
-}
-
 fun downloadAndCacheAvatar(context: Context, accountId: String, urlStr: String) {
     try {
         val url = java.net.URL(urlStr)
@@ -2702,26 +2643,6 @@ private fun Context.isSystemInstallerConfirm(confirm: Intent): Boolean {
 
 /** Where the Claude credit in About leads. */
 private const val CLAUDE_URL = "https://claude.ai"
-
-/**
- * The in-app updater kept every APK it ever downloaded in the external files
- * dir — five releases later that was 118 MB of "app storage". Drop every
- * download that is not newer than the installed version (installed or
- * superseded) and every stale .tmp; keepVersion names the download in flight.
- */
-internal fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) {
-    val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return
-    val installed = try {
-        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
-    } catch (_: Exception) { "0.0.0" }
-    // In the order of versions, where a beta is newer than the beta before it and older than its release.
-    fun newerThanInstalled(v: String): Boolean = isVersionNewer(installed, v)
-    dir.listFiles { f -> f.name.startsWith("tailsocks-update-") }?.forEach { f ->
-        val ver = f.name.removePrefix("tailsocks-update-").substringBefore(".apk").substringBefore(".tmp")
-        val keep = f.name.endsWith(".apk") && (ver == keepVersion || newerThanInstalled(ver))
-        if (!keep) f.delete()
-    }
-}
 
 /**
  * One account in the switcher. The active one carries what its node is doing
