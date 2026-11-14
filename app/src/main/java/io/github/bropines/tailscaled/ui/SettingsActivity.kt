@@ -374,16 +374,13 @@ fun SettingsScreen(
     var socks5User by remember { mutableStateOf(GlobalSettings.getString(context, "socks5_user", "")) }
     var socks5Pass by remember { mutableStateOf(GlobalSettings.getString(context, "socks5_pass", "")) }
     var httpProxy by remember { mutableStateOf(GlobalSettings.getString(context, "httpproxy", "")) }
-    var dnsProxy by remember { mutableStateOf(GlobalSettings.getString(context, "dns_proxy", "127.0.0.1:1053")) }
+    val dns = remember { SettingsDnsState(context) }
     var lanAccessEnabled by remember { mutableStateOf(GlobalSettings.isLanAccessEnabled(context)) }
     // The local proxies opened to the tailnet (Local proxies → Reachable from the tailnet).
     var tailnetOpen by remember { mutableStateOf(TailnetReach.opened(context)) }
-    var dnsFallbacks by remember { mutableStateOf(GlobalSettings.getString(context, "dns_fallbacks", "8.8.8.8:53,1.1.1.1:53")) }
-    var dohUrl by remember { mutableStateOf(GlobalSettings.getString(context, "doh_url", "https://1.1.1.1/dns-query")) }
     var loginServer by remember { mutableStateOf(profilePrefs.getString("login_server", "") ?: "") }
     
     var acceptRoutes by remember { mutableStateOf(GlobalSettings.getBoolean(context, "accept_routes", false)) }
-    var acceptDns by remember { mutableStateOf(GlobalSettings.getBoolean(context, "accept_dns", true)) }
     var forceBg by remember { mutableStateOf(GlobalSettings.getBoolean(context, "force_bg", false)) }
     var detailedLogs by remember { mutableStateOf(GlobalSettings.getBoolean(context, "detailed_logs", false)) }
     var extraArgs by remember { mutableStateOf(GlobalSettings.getString(context, "extra_args_raw", "")) }
@@ -1932,91 +1929,6 @@ fun SettingsScreen(
         }
     }
 
-    // D. DNS
-    val sectionDns: @Composable () -> Unit = {
-        // Root Mode owns the resolver itself, so both gates below read the
-        // stored value the same way the old TS-Core tab did.
-        val isRootModeActive = GlobalSettings.isRootModeEnabled(context)
-        val isRootTunActive = GlobalSettings.isRootTunEnabled(context)
-        var rootDnsRedirect by remember { mutableStateOf(GlobalSettings.isRootDnsRedirectEnabled(context)) }
-        // The switch can be on while the redirect is not installed: another VPN
-        // owns the resolver and Root Mode yielded it. Say so instead of letting
-        // the row claim something that is not on the device. Shared is the third
-        // case — the redirect is installed, minus that client's own queries.
-        val rootDnsShared = GlobalSettings.isRootRoutingShared(context)
-        val rootDnsYielded = GlobalSettings.isRootRoutingYielded(context) && !rootDnsShared
-
-        SettingsCard(title = stringResource(R.string.settings_sect_resolver)) {
-            SettingsSwitchItem(stringResource(R.string.settings_magicdns_title), stringResource(R.string.settings_accept_dns_desc), Icons.Default.Dns, acceptDns) { acceptDns = it; saveGlobalPref("accept_dns", it) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsEditItem(
-                title = stringResource(R.string.settings_dns_proxy_address_title),
-                value = dnsProxy,
-                icon = Icons.Default.Toll,
-                enabled = !isRootModeActive,
-                description = if (isRootModeActive) stringResource(R.string.settings_root_disabled_general_note) else ""
-            ) { dnsProxy = it; saveGlobalPref("dns_proxy", it) }
-
-            if (isRootModeActive && isRootTunActive) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsSwitchItem(
-                    title = stringResource(R.string.settings_root_dns_redirect_title),
-                    subtitle = when {
-                        rootDnsRedirect && rootDnsYielded -> stringResource(R.string.settings_root_yielded_banner)
-                        rootDnsRedirect && rootDnsShared -> stringResource(R.string.settings_root_dns_shared_desc)
-                        else -> stringResource(R.string.settings_root_dns_redirect_desc)
-                    },
-                    icon = Icons.Default.Dns,
-                    checked = rootDnsRedirect
-                ) { enabled ->
-                    rootDnsRedirect = enabled
-                    GlobalSettings.setRootDnsRedirectEnabled(context, enabled)
-                    if (ProxyState.isUserLetRunning(context)) {
-                        val intent = Intent(context, TailscaledService::class.java).apply {
-                            action = "RESTART_ACTION"
-                        }
-                        context.startService(intent)
-                    }
-                }
-            }
-        }
-
-        SettingsCardGap()
-
-        SettingsCard(title = stringResource(R.string.settings_sect_fallback_dns)) {
-            SettingsEditItem(stringResource(R.string.settings_dns_fallbacks_title), dnsFallbacks, Icons.AutoMirrored.Filled.List, placeholder = stringResource(R.string.settings_dns_fallbacks_placeholder)) { dnsFallbacks = it; saveGlobalPref("dns_fallbacks", it) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsEditItem(stringResource(R.string.settings_doh_fallback_title), dohUrl, Icons.Default.Link, placeholder = stringResource(R.string.settings_doh_fallback_placeholder)) { dohUrl = it; saveGlobalPref("doh_url", it) }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            var dnsRescue by remember { mutableStateOf(GlobalSettings.isDnsRescueEnabled(context)) }
-            SettingsSwitchItem(
-                stringResource(R.string.settings_dns_rescue_title),
-                stringResource(R.string.settings_dns_rescue_desc),
-                Icons.Default.HealthAndSafety,
-                dnsRescue
-            ) {
-                dnsRescue = it
-                GlobalSettings.setDnsRescueEnabled(context, it)
-                // The daemon reads it at start, hence RESTART rather than APPLY.
-                if (ProxyState.isUserLetRunning(context)) {
-                    context.startService(Intent(context, TailscaledService::class.java).apply { action = "RESTART_ACTION" })
-                }
-            }
-        }
-
-        if (place(Feature.DNS_SCREEN) == Availability.OFFERED) {
-            SettingsCardGap()
-
-            SettingsCard(title = stringResource(R.string.settings_sect_tools)) {
-                SettingsClickableItem(
-                    stringResource(R.string.dns_title),
-                    stringResource(R.string.settings_link_dns_desc),
-                    Icons.Default.Troubleshoot
-                ) { context.startActivity(Intent(context, DnsActivity::class.java)) }
-            }
-        }
-    }
-
     // F. Sharing & access
     val sectionSharing: @Composable () -> Unit = {
         SettingsCard(title = stringResource(R.string.settings_sect_storage)) {
@@ -2836,7 +2748,7 @@ fun SettingsScreen(
                         "tunnel" -> sectionTunnel(place(Feature.ROOT_MODE) == Availability.OFFERED)
                         rootPage.id -> sectionTunnel(true)
                         "proxies" -> sectionProxies()
-                        "dns" -> sectionDns()
+                        "dns" -> SettingsDnsPage(env, dns)
                         "bypass" -> SettingsBypassPage(context, bypass)
                         "sharing" -> sectionSharing()
                         "background" -> sectionBackground()
