@@ -245,6 +245,7 @@ func GetHealthWarningsJSON() string {
 func resetBusState() {
 	busStateMu.Lock()
 	busState = busStateSnapshot{}
+	busEngineAt = time.Time{}
 	lastHealthFingerprint = ""
 	busStateMu.Unlock()
 }
@@ -391,8 +392,10 @@ func EnsureIPNBusListener() {
 	}()
 }
 
-// StopIPNBusListener cancels the running bus listener.
+// StopIPNBusListener cancels the running bus listener, and the engine watch
+// with it.
 func StopIPNBusListener() {
+	stopEngineWatch()
 	busMu.Lock()
 	defer busMu.Unlock()
 	if busCancel != nil {
@@ -550,7 +553,7 @@ func listenToBus(ctx context.Context, tr *http.Transport) (connected bool, err e
 		}
 	}}
 	req, _ := http.NewRequestWithContext(httptrace.WithClientTrace(ctx, trace), "GET",
-		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask="+strconv.Itoa(busWatchMask), nil)
+		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask="+strconv.Itoa(busWatchMaskNow()), nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, err
@@ -665,6 +668,7 @@ func applyNotifyLocked(msg *BusNotify) {
 	if msg.Engine != nil {
 		e := *msg.Engine
 		busState.Engine = &e
+		busEngineAt = time.Now()
 	}
 	if msg.Health != nil {
 		busState.Health = make([]BusHealthWarning, 0, len(msg.Health.Warnings))
@@ -828,7 +832,13 @@ func updateNodeCacheFromPeer(p *BusPeer) bool {
 // live peers, live relay connections — as JSON, or "{}" before the first one.
 // A tunnel that is up with no live relay is the state the relay recovery and
 // the diagnostics card are about.
+//
+// With engine updates on demand (SetEngineUpdatesOnDemand) a call is also
+// what keeps the daemon sending them: see engine_watch.go.
 func GetEngineStatusJSON() string {
+	if engineOnDemand.Load() && IsRunning() {
+		awaitEngineStatus(wantEngineUpdates(), engineFirstWait)
+	}
 	busStateMu.RLock()
 	e := busState.Engine
 	busStateMu.RUnlock()
