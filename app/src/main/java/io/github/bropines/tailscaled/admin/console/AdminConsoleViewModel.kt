@@ -146,6 +146,22 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         localLogRead = false
         backend = null
         runner = null
+        // A change waiting at a gate belongs to the session that planned it: activate() resets
+        // the safety step to Idle with a fresh state, and its callbacks (and whatever they
+        // captured) would otherwise stay here until the ViewModel dies. A change already being
+        // applied keeps them: its outcome still lands (the policy's revert copy is saved).
+        dropCallbacksAtGate()
+    }
+
+    /** Forgets the callbacks of the change waiting at Confirm or Unlock, if one is. */
+    private fun dropCallbacksAtGate() {
+        val planned = when (val step = _state.value.safety) {
+            is SafetyStep.Confirm -> step.planned
+            is SafetyStep.Unlock -> step.planned
+            else -> return
+        }
+        afterApply.remove(planned)
+        onOutcome.remove(planned)
     }
 
     private suspend fun activate(profile: AdminProfile) {
@@ -501,11 +517,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cancelChange() {
-        when (val step = _state.value.safety) {
-            is SafetyStep.Confirm -> { afterApply.remove(step.planned); onOutcome.remove(step.planned) }
-            is SafetyStep.Unlock -> { afterApply.remove(step.planned); onOutcome.remove(step.planned) }
-            else -> Unit
-        }
+        dropCallbacksAtGate()
         _state.update { it.copy(safety = SafetyStep.Idle) }
     }
 
@@ -528,8 +540,16 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val r = runner ?: return
         _state.update { it.copy(safety = SafetyStep.Applying(planned.change)) }
         viewModelScope.launch {
-            // Off the main thread: the runner appends to the audit log file.
-            val out = withContext(Dispatchers.IO) { r.run(planned, gates) }
+            // Off the main thread: the runner appends to the audit log file. Whatever it throws
+            // past what it catches itself, the spinner does not stay up and the callbacks go.
+            val out = try {
+                withContext(Dispatchers.IO) { r.run(planned, gates) }
+            } catch (e: Throwable) {
+                afterApply.remove(planned)
+                onOutcome.remove(planned)
+                if (runner === r) _state.update { if (it.safety is SafetyStep.Applying) it.copy(safety = SafetyStep.Idle) else it }
+                throw e
+            }
             val then = afterApply.remove(planned)
             _state.update { it.copy(safety = SafetyStep.Idle) }
             say(ConsoleText.outcome(text, planned.change.title, out), undo = planned.undo.takeIf { out is ChangeOutcome.Applied })
