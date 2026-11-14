@@ -239,8 +239,9 @@ internal object PeerPathSource {
 
     @Volatile private var derp: Pair<Long, Map<String, String>>? = null
 
-    /** Blocking; call it off the main thread. Nothing it fails to learn is an error. */
-    fun load(context: Context, peers: Collection<PeerData>): PeerPathFacts {
+    /** Blocking reads and a cancellable wait on the Admin API list: call it from an IO coroutine, and
+     *  a screen that leaves stops waiting (PeerVersionSource). Nothing it fails to learn is an error. */
+    suspend fun load(context: Context, peers: Collection<PeerData>): PeerPathFacts {
         val relayed = peers.any { !it.peerRelay.isNullOrBlank() }
         return PeerPathFacts(
             derpCities = derpCities(),
