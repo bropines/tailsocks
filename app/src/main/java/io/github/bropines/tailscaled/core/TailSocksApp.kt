@@ -21,6 +21,14 @@ class TailSocksApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ProxyState.init(this)
+        // Engine statuses only while something reads them (appctr/engine_watch.go): otherwise
+        // the bridge's bus subscription makes the daemon walk its WireGuard peers and broadcast
+        // the result every 2 s for its whole uptime, screen off included, for one reader — the
+        // diagnostics card (Diagnostics.live), which asks every 2 s while it is shown and so
+        // keeps the watch open; a one-off read (the issue report) opens it and waits for the
+        // first status. Nothing else reads it, and nothing is pushed to the app. Read when the
+        // bus listener connects, so it is set here, before any component can start the daemon.
+        runCatching { Appctr.setEngineUpdatesOnDemand(true) }
         TaskRecents.watch(this)
         ProfileHostinfo.migrateGlobalKey(this)
         // A key sent from a phone that the last process did not live to clear (KeyHandover).
