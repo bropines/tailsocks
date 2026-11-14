@@ -566,7 +566,7 @@
     <string name="settings_sect_personalization">Персонализация</string>
     <string name="settings_theme_system">Системная</string>
     <string name="settings_theme_light">Светлая</string>
-    <string name="settings_theme_dark">Темная</string>
+    <string name="settings_theme_dark">Тёмная</string>
     <string name="settings_theme_title">Тема оформления</string>
     <string name="settings_ui_scale_title">Масштаб интерфейса</string>
     <string name="settings_ui_scale_desc">Всё приложение — текст, кнопки и отступы — крупнее или мельче системного размера экрана. 100% — как в системе.</string>
@@ -582,7 +582,7 @@
     <string name="settings_palette_title">Цветовая палитра</string>
     <string name="settings_dynamic_color_title">Динамические цвета</string>
     <string name="settings_dynamic_color_desc">Использовать системные цвета Material You</string>
-    <string name="settings_amoled_black_title">AMOLED черный</string>
+    <string name="settings_amoled_black_title">AMOLED чёрный</string>
     <string name="settings_sect_storage">Хранилище</string>
     <string name="settings_taildrop_folder_title">Папка для Taildrop</string>
     <string name="settings_autostart_title">Автозапуск при загрузке</string>
@@ -630,7 +630,7 @@
     <string name="settings_sect_fallback_dns">Резервные DNS-серверы</string>
     <string name="settings_dns_fallbacks_title">Резервные DNS</string>
     <string name="settings_doh_fallback_title">DoH URL резервного DNS</string>
-    <string name="settings_sect_flags_logs">Флаги и Логи</string>
+    <string name="settings_sect_flags_logs">Флаги и логи</string>
     <string name="settings_accept_routes_desc">Разрешить сети настраивать маршруты</string>
     <string name="settings_accept_dns_desc">Разрешить сети настраивать DNS</string>
     <string name="settings_force_bg_desc">Удерживает wake lock на всю сессию, чтобы соединение переживало глубокий сон. Повышает расход энергии.</string>
@@ -649,7 +649,7 @@
     <string name="settings_sect_adv_profile">Расширенный профиль</string>
     <string name="settings_logout_reset_title">Выйти и сбросить узел</string>
     <string name="settings_password_empty">Пароль не может быть пустым</string>
-    <string name="settings_backup_action">Бекап</string>
+    <string name="settings_backup_action">Бэкап</string>
     <string name="settings_restore_action">Восстановить</string>
     <string name="settings_control_proxy_title">Прокси Control Plane</string>
     <string name="settings_control_proxy_enable">Включить прокси</string>

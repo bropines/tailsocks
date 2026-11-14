@@ -1227,7 +1227,7 @@ fun DerpLatencyRow(item: DerpLatencyItem) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "${"%.1f".format(item.latencyMs)} ms",
+                text = stringResource(R.string.netcheck_latency_ms, "%.1f".format(item.latencyMs)),
                 fontWeight = FontWeight.SemiBold,
                 color = tint,
                 style = MaterialTheme.typography.bodyMedium
