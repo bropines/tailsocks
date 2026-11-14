@@ -1,0 +1,330 @@
+package io.github.bropines.tailscaled.ui
+
+import io.github.bropines.tailscaled.R
+import io.github.bropines.tailscaled.core.*
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import io.github.bropines.tailscaled.ui.theme.findActivity
+
+/**
+ * The app's theme as the activity holds it ([SettingsActivity] keeps it, to redraw the whole
+ * screen in it), with the way to change each part: what the theme rows show and change.
+ */
+@Immutable
+internal class SettingsThemeChoice(
+    val currentTheme: String,
+    val onThemeChange: (String) -> Unit,
+    val currentPreset: String,
+    val onPresetChange: (String) -> Unit,
+    val currentDynamicColor: Boolean,
+    val onDynamicColorChange: (Boolean) -> Unit,
+    val currentAmoledMode: Boolean,
+    val onAmoledModeChange: (Boolean) -> Unit,
+)
+
+// H. Appearance & language
+//
+// The theme and the icon are a feature of their own (Feature.THEME_AND_ICON): four
+// blocks that stand among the rest of Appearance where the device is offered them
+// there, and on a page of their own — Advanced → Theme and icon — where it is not.
+
+// Theme selector (Chips row)
+@Composable
+private fun ThemeChips(theme: SettingsThemeChoice) {
+    with(theme) {
+        val themeOptions = listOf(
+            Triple("system", Icons.Default.Settings, stringResource(R.string.settings_theme_system)),
+            Triple("light", Icons.Default.LightMode, stringResource(R.string.settings_theme_light)),
+            Triple("dark", Icons.Default.DarkMode, stringResource(R.string.settings_theme_dark))
+        )
+        val selectedThemeIdx = themeOptions.indexOfFirst { it.first == currentTheme }.coerceAtLeast(0)
+        Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_theme_title), outset = 6.dp)) {
+            Text(stringResource(R.string.settings_theme_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            SlidingSegmentedChips(
+                items = themeOptions.map { SegmentedChipItem(it.third, it.second) },
+                selectedIndex = selectedThemeIdx,
+                onOptionSelected = { idx -> onThemeChange(themeOptions[idx].first) },
+                modifier = Modifier.fillMaxWidth(),
+                height = 38.dp
+            )
+        }
+    }
+}
+
+// Theme preset selector (Color Circles)
+@Composable
+private fun ThemePalette(theme: SettingsThemeChoice) {
+    with(theme) {
+        val tv = isTv
+        if (!currentDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+            Spacer(Modifier.height(12.dp))
+            val presets = listOf(
+                PresetItem("default", Color(0xFF6750A4), stringResource(R.string.settings_preset_default)),
+                PresetItem("lavender", Color(0xFF704E9B), stringResource(R.string.settings_preset_lavender)),
+                PresetItem("emerald", Color(0xFF006B54), stringResource(R.string.settings_preset_emerald)),
+                PresetItem("sapphire", Color(0xFF005FAF), stringResource(R.string.settings_preset_sapphire)),
+                PresetItem("amber", Color(0xFF825500), stringResource(R.string.settings_preset_amber)),
+                PresetItem("monochrome", Color(0xFF1D2023), stringResource(R.string.settings_preset_monochrome)),
+                PresetItem("tokionight", Color(0xFF7AA2F7), stringResource(R.string.settings_preset_tokionight))
+            )
+            Column(Modifier.settingAnchor(stringResource(R.string.settings_palette_title), outset = 6.dp)) {
+                Text(stringResource(R.string.settings_palette_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    presets.forEach { item ->
+                        val isSelected = currentPreset == item.id
+                        val source = remember { MutableInteractionSource() }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                // A television rings the circle the remote is on, and clips Material's
+                                // own square ring to it; a handheld's chain is the one it always was.
+                                .tvFocusRing(source, CircleShape)
+                                .then(if (tv) Modifier.clip(CircleShape) else Modifier)
+                                .background(item.color, shape = CircleShape)
+                                .clickable(interactionSource = source, indication = LocalIndication.current) { onPresetChange(item.id) }
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Dynamic Colors switcher (Android 12+)
+@Composable
+private fun DynamicColorRow(theme: SettingsThemeChoice) {
+    with(theme) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_dynamic_color_title), outset = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_dynamic_color_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.settings_dynamic_color_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                }
+                FocusSwitch(checked = currentDynamicColor, onCheckedChange = onDynamicColorChange)
+            }
+        }
+    }
+}
+
+// AMOLED Black switcher
+@Composable
+private fun AmoledRow(theme: SettingsThemeChoice) {
+    with(theme) {
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth().settingAnchor(stringResource(R.string.settings_amoled_black_title), outset = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_amoled_black_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_amoled_black_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            }
+            FocusSwitch(checked = currentAmoledMode, onCheckedChange = onAmoledModeChange)
+        }
+    }
+}
+
+/** [onOpenRemote]: opens remote management, a page of its own over Settings, from the row that puts its tile back. */
+@Composable
+internal fun SettingsAppearancePage(env: SettingsPageEnv, theme: SettingsThemeChoice, onOpenRemote: () -> Unit) {
+    with(env) {
+        val themeHere = place(Feature.THEME_AND_ICON) == Availability.OFFERED
+        // One card in two halves, cut where they come out about as tall: one column on a
+        // phone, side by side where the section stands in columns — the card is the whole
+        // section, and alone in a column it would leave the pane's other half empty.
+        val firstHalf: @Composable () -> Unit = {
+            if (themeHere) ThemeChips(theme)
+
+            // The language: a row that opens a sheet — see LanguagePicker.
+            if (themeHere) Spacer(Modifier.height(12.dp))
+            Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_lang_title), outset = 6.dp)) {
+                Text(stringResource(R.string.settings_lang_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                LanguagePicker(height = 38.dp)
+            }
+
+            // Interface scale (Chips row): a density of the app's own, applied by
+            // wrapContextWithLocale(); the screen is recreated to take it.
+            var currentScale by remember { mutableStateOf(GlobalSettings.getUiScale(context)) }
+            Spacer(Modifier.height(12.dp))
+            Column(Modifier.padding(bottom = 8.dp).settingAnchor(stringResource(R.string.settings_ui_scale_title), outset = 6.dp)) {
+                Text(stringResource(R.string.settings_ui_scale_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HelpText(stringResource(R.string.settings_ui_scale_desc))
+                Spacer(Modifier.height(8.dp))
+                SlidingSegmentedChips(
+                    options = GlobalSettings.UI_SCALES.map { "$it%" },
+                    selectedIndex = GlobalSettings.UI_SCALES.indexOf(currentScale).coerceAtLeast(0),
+                    onOptionSelected = { idx ->
+                        val percent = GlobalSettings.UI_SCALES[idx]
+                        if (percent != currentScale) {
+                            currentScale = percent
+                            GlobalSettings.setUiScale(context, percent)
+                            context.findActivity()?.recreate()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    height = 38.dp,
+                    recreates = true
+                )
+            }
+            DeviceInterfaceSetting()
+
+            if (themeHere) {
+                ThemePalette(theme)
+
+                Spacer(Modifier.height(12.dp))
+                AppIconRow()
+            }
+        }
+        val secondHalf: @Composable () -> Unit = {
+            QrStyleSetting()
+
+            if (themeHere) {
+                DynamicColorRow(theme)
+                AmoledRow(theme)
+            }
+
+            Spacer(Modifier.height(12.dp))
+            var showChangelogAfterUpdate by remember { mutableStateOf(GlobalSettings.isShowChangelogAfterUpdate(context)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_show_changelog_title),
+                stringResource(R.string.settings_show_changelog_desc),
+                Icons.Default.NewReleases,
+                showChangelogAfterUpdate
+            ) {
+                GlobalSettings.setShowChangelogAfterUpdate(context, it)
+                showChangelogAfterUpdate = it
+            }
+            // The summary is a block of the main screen's layout now; this switch is its older
+            // handle and stays one, reading and changing the same arrangement the editor does.
+            val remoteOnHome = !Feature.REMOTE_MANAGEMENT_ONLY_IN_SETTINGS.offered()
+            // Bumped when the list of what is off the screen puts something back (MainHiddenRow).
+            var layoutChanged by remember { mutableIntStateOf(0) }
+            var connectionSummaryShown by remember(layoutChanged) { mutableStateOf(MainItem.SUMMARY in MainLayoutStore.load(context, remoteOnHome)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_connection_summary_title),
+                stringResource(R.string.settings_connection_summary_desc),
+                Icons.Default.Summarize,
+                connectionSummaryShown
+            ) {
+                MainLayoutStore.setSummaryShown(context, remoteOnHome, it)
+                connectionSummaryShown = it
+            }
+            MainBlocksRow()
+            MainHiddenRow(
+                remoteTile = remoteOnHome,
+                openHere = { item ->
+                    when (item) {
+                        MainItem.REMOTE -> { onOpenRemote(); true }
+                        MainItem.DNS_SETTINGS -> { open("dns"); true }
+                        MainItem.ROOT -> { open("root"); true }
+                        else -> false
+                    }
+                },
+                onRestored = { layoutChanged++ },
+            )
+            // Like the summary's: the block of the layout now, and this switch its older handle.
+            var managedOnMainShown by remember(layoutChanged) { mutableStateOf(MainItem.MANAGED in MainLayoutStore.load(context, remoteOnHome)) }
+            SettingsSwitchItem(
+                stringResource(R.string.settings_managed_on_main_title),
+                stringResource(R.string.settings_managed_on_main_desc),
+                Icons.Default.SettingsRemote,
+                managedOnMainShown
+            ) {
+                MainLayoutStore.setManagedShown(context, remoteOnHome, it)
+                managedOnMainShown = it
+            }
+            if (UpdateChannel.selfUpdate(context)) {
+                var updateCheckOnLaunch by remember { mutableStateOf(GlobalSettings.isUpdateCheckOnLaunch(context)) }
+                SettingsSwitchItem(
+                    stringResource(R.string.settings_update_check_title),
+                    stringResource(R.string.settings_update_check_desc),
+                    Icons.Default.SystemUpdate,
+                    updateCheckOnLaunch
+                ) {
+                    GlobalSettings.setUpdateCheckOnLaunch(context, it)
+                    updateCheckOnLaunch = it
+                }
+                // Under the check it widens: betas of the next version, for whoever asks (docs/RELEASING.md).
+                var betaUpdates by remember { mutableStateOf(GlobalSettings.isBetaUpdates(context)) }
+                SettingsSwitchItem(
+                    stringResource(R.string.settings_update_beta_title),
+                    stringResource(R.string.settings_update_beta_desc),
+                    Icons.Default.Science,
+                    betaUpdates
+                ) {
+                    GlobalSettings.setBetaUpdates(context, it)
+                    betaUpdates = it
+                }
+            }
+        }
+        SettingsCard(title = stringResource(R.string.settings_sect_personalization)) {
+            if (LocalSettingsColumns.current) {
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(Modifier.weight(1f)) { firstHalf() }
+                    Column(Modifier.weight(1f)) { secondHalf() }
+                }
+            } else {
+                firstHalf()
+                Spacer(Modifier.height(12.dp))
+                secondHalf()
+            }
+        }
+    }
+}
+
+// The theme and the icon alone, where Appearance does not carry them.
+@Composable
+internal fun SettingsThemePage(theme: SettingsThemeChoice) {
+    SettingsCard(title = stringResource(R.string.tv_settings_theme)) {
+        ThemeChips(theme)
+        ThemePalette(theme)
+        DynamicColorRow(theme)
+        AmoledRow(theme)
+        Spacer(Modifier.height(12.dp))
+        AppIconRow()
+    }
+}
