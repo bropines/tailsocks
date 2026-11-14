@@ -261,18 +261,25 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        checkNotificationPermission()
+        // Once per launch, not per recreation: a rotation, a language or an interface-scale
+        // change (recreate() in onResume) is the same launch, and repeated the permission
+        // request — until the system starts denying it by itself — and the update check
+        // with its toast.
+        val firstCreate = savedInstanceState == null
+        if (firstCreate) checkNotificationPermission()
         // Runs only past the onboarding gate above, so the wizard is never
         // interrupted; a fresh install records its version and shows nothing.
         // Must run before handleAppStartup(): that launches an IO coroutine which
         // writes last_update_time, and checkWhatsNew() reads it to tell a fresh
         // install from an upgrade.
-        if (savedInstanceState == null) checkWhatsNew()
+        if (firstCreate) checkWhatsNew()
         handleAppStartup()
         // A network request on every launch, so it is the user's to switch off
         // (and off by default where a store handles updates).
-        if (GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
-        else kotlinx.coroutines.MainScope().launch(Dispatchers.IO) { pruneUpdateDownloads(this@MainActivity) }
+        if (firstCreate) {
+            if (GlobalSettings.isUpdateCheckOnLaunch(this)) checkForUpdatesSilent()
+            else UpdateDownload.scope.launch { pruneUpdateDownloads(applicationContext) }
+        }
         handleIntent(intent)
 
         setContent {
@@ -494,18 +501,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * The launch-time update check. In the process's scope with the application's context (in
+     * the app's language): it used to run in a MainScope of its own that held this activity for
+     * as long as a slow request took, past a rotation or a close.
+     */
     private fun checkForUpdatesSilent() {
-        val scope = kotlinx.coroutines.MainScope()
-        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            pruneUpdateDownloads(this@MainActivity)
+        val app = wrapContextWithLocale(applicationContext)
+        UpdateDownload.scope.launch {
+            pruneUpdateDownloads(app)
             try {
-                val currentVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.0"
+                val currentVersion = app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "0.0.0"
                 // Releases, and betas too for whoever asked for them (core/UpdateCheck.kt).
-                val betas = GlobalSettings.isBetaUpdates(this@MainActivity)
+                val betas = GlobalSettings.isBetaUpdates(app)
                 val tag = UpdateCheck.offer(currentVersion, UpdateCheck.fetch(betas), betas)?.tag
                 if (tag != null) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
+                        Toast.makeText(app, app.getString(R.string.main_update_available_format, tag), Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {}
@@ -2230,11 +2242,14 @@ fun MainScreen(
         val coreVer = remember {
             try { appctr.Appctr.getCoreVersion() } catch (e: Exception) { "unknown" }
         }
-        var latestVersion by remember { mutableStateOf<String?>(null) }
-        var downloadUrl by remember { mutableStateOf<String?>(null) }
+        // Saveable: the answer of a check outlives a rotation, so a dialog that comes back
+        // still offers the update — and the download under way, which UpdateDownload holds.
+        var latestVersion by rememberSaveable { mutableStateOf<String?>(null) }
+        var downloadUrl by rememberSaveable { mutableStateOf<String?>(null) }
         var isCheckingUpdate by remember { mutableStateOf(false) }
-        var isDownloading by remember { mutableStateOf(false) }
-        var downloadProgress by remember { mutableIntStateOf(0) }
+        val download by UpdateDownload.progress.collectAsState()
+        val isDownloading = download != null
+        val downloadProgress = download?.percent ?: 0
 
         // The one question the dialog answers first: is an update waiting?
         val updateReady = latestVersion?.let { isVersionNewer(versionName, it) } == true
@@ -2358,19 +2373,13 @@ fun MainScreen(
                                         // An update is waiting: the action is a real button, not a line of text.
                                         val destDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
                                         val cleanVer = latestVersion!!.removePrefix("v")
-                                        val destFile = java.io.File(destDir, "tailsocks-update-$cleanVer.apk")
+                                        val destFile = UpdateDownload.apkFile(destDir, cleanVer)
 
-                                        var isApkCached by remember(destFile.absolutePath) {
-                                            mutableStateOf(
-                                                if (destFile.exists() && destFile.length() > 0) {
-                                                    try {
-                                                        val pInfo = context.packageManager.getPackageArchiveInfo(destFile.absolutePath, 0)
-                                                        pInfo != null && pInfo.packageName == context.packageName
-                                                    } catch (e: Exception) {
-                                                        false
-                                                    }
-                                                } else false
-                                            )
+                                        // Whether it is already downloaded parses the APK: off the main thread, not in
+                                        // a frame. The button reads Download for the moment that takes.
+                                        var isApkCached by remember(destFile.absolutePath) { mutableStateOf(false) }
+                                        LaunchedEffect(destFile.absolutePath) {
+                                            isApkCached = withContext(Dispatchers.IO) { UpdateDownload.isOwnApk(context, destFile) }
                                         }
 
                                         Button(
@@ -2396,63 +2405,9 @@ fun MainScreen(
                                                     links.open(UpdateCheck.page(latestVersion!!), dlgGithub)
                                                     return@Button
                                                 }
-                                                val targetUrl = downloadUrl
-                                                isDownloading = true
-                                                downloadProgress = 0
-                                                scope.launch(Dispatchers.IO) {
-                                                    pruneUpdateDownloads(context, keepVersion = cleanVer)
-                                                    val tempFile = java.io.File(destDir, "tailsocks-update-$cleanVer.tmp")
-                                                    try {
-                                                        val url = java.net.URL(targetUrl)
-                                                        val conn = url.openConnection() as java.net.HttpURLConnection
-                                                        conn.instanceFollowRedirects = true
-                                                        // A server that stops answering must end the download, not leave its progress bar up for ever.
-                                                        conn.connectTimeout = 15_000
-                                                        conn.readTimeout = 30_000
-                                                        conn.connect()
-                                                        val totalLength = conn.contentLength
-
-                                                        conn.inputStream.use { input ->
-                                                            tempFile.outputStream().use { output ->
-                                                                val buffer = ByteArray(8192)
-                                                                var read: Int
-                                                                var totalRead = 0L
-                                                                while (input.read(buffer).also { read = it } != -1) {
-                                                                    output.write(buffer, 0, read)
-                                                                    totalRead += read
-                                                                    if (totalLength > 0) {
-                                                                        val pct = (totalRead * 100 / totalLength).toInt()
-                                                                        withContext(Dispatchers.Main) { downloadProgress = pct }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        val pInfo = context.packageManager.getPackageArchiveInfo(tempFile.absolutePath, 0)
-                                                        if (pInfo != null && pInfo.packageName == context.packageName) {
-                                                            if (destFile.exists()) destFile.delete()
-                                                            tempFile.renameTo(destFile)
-                                                            withContext(Dispatchers.Main) {
-                                                                isDownloading = false
-                                                                isApkCached = true
-                                                                Toast.makeText(context, context.getString(R.string.main_update_installing), Toast.LENGTH_SHORT).show()
-                                                                launchApkInstaller(context, destFile)
-                                                            }
-                                                        } else {
-                                                            if (tempFile.exists()) tempFile.delete()
-                                                            withContext(Dispatchers.Main) {
-                                                                isDownloading = false
-                                                                Toast.makeText(context, context.getString(R.string.main_check_failed_format, "Corrupted APK downloaded"), Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        if (tempFile.exists()) tempFile.delete()
-                                                        withContext(Dispatchers.Main) {
-                                                            isDownloading = false
-                                                            Toast.makeText(context, context.getString(R.string.main_check_failed_format, e.message), Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    }
-                                                }
+                                                // In the process's scope (UpdateDownload): a rotation or a
+                                                // closed dialog no longer cancels it halfway.
+                                                UpdateDownload.start(context, downloadUrl!!, cleanVer, destDir)
                                             },
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
@@ -3696,7 +3651,7 @@ private fun AboutBackdrop(onDismiss: () -> Unit) {
  * download that is not newer than the installed version (installed or
  * superseded) and every stale .tmp; keepVersion names the download in flight.
  */
-private fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) {
+internal fun pruneUpdateDownloads(context: Context, keepVersion: String? = null) {
     val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return
     val installed = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
