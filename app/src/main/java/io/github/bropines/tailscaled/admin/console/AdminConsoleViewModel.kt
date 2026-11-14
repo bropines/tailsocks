@@ -89,6 +89,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
     /** The session's first loads went out (they may, behind the unlock to view: nothing shows). */
     private var started = false
     private var viewUnlocked = false
+    /** A screen of this session asked for the phone's change log ([reloadLocalLog]): writes keep it current. */
+    private var localLogRead = false
     /** What to do once a change applied (show a returned secret, reload a sheet), by change. */
     private val afterApply = mutableMapOf<PlannedChange, () -> Unit>()
     /** What to do with a change's outcome, whatever it is: the policy editor answers a 412. */
@@ -141,6 +143,7 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         capsJob?.cancel()
         cacheJob?.cancel()
         started = false
+        localLogRead = false
         backend = null
         runner = null
     }
@@ -171,8 +174,11 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
                 rememberRefusals(profile, caps)
             }
         }
-        val (log, kept) = withContext(Dispatchers.IO) { audit.records(profile.id) to cache.read(profile.id) }
-        _state.update { ConsoleCache.seed(it.copy(phase = phaseAfterLoad(), localLog = log), kept) }
+        // The phone's own change log is not read here: every line is a Keystore round trip, and
+        // the lists kept from the last session should not wait for it. It is read when a screen
+        // that shows it loads (LOGS, a Headscale server's SERVER tab).
+        val kept = withContext(Dispatchers.IO) { cache.read(profile.id) }
+        _state.update { ConsoleCache.seed(it.copy(phase = phaseAfterLoad()), kept) }
         keepCopies(profile.id)
         // Behind the unlock to view as well: the person is busy with the prompt, the lists arrive meanwhile.
         if (_state.value.phase == ConsolePhase.READY || _state.value.phase == ConsolePhase.LOCKED) start()
@@ -283,6 +289,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             ConsoleTab.SETTINGS -> loadOne(force, { it.settings }, { s, v -> s.copy(settings = v) }) { it.tailnetSettings() }
             ConsoleTab.SERVER -> {
                 headscale.refresh(force)
+                // The server tab shows the phone's change log too.
+                reloadLocalLog()
                 loadList(force, { it.users }, { s, v -> s.copy(users = v) }) { it.listUsers(UserListType.ALL) }
             }
         }
@@ -329,8 +337,14 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * The phone's change log into the state. After the first read the log answers from memory
+     * (AdminAuditLog keeps what it opened and adds its own appends), so a reload after a write
+     * opens no line again.
+     */
     fun reloadLocalLog() {
         val id = _state.value.active?.id ?: return
+        localLogRead = true
         viewModelScope.launch(Dispatchers.IO) {
             val records = audit.records(id)
             // A read that finishes after a profile switch is the old profile's log.
@@ -522,7 +536,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
             if (out is ChangeOutcome.Applied) then?.invoke()
             onOutcome.remove(planned)?.invoke(out)
             refreshAfter(planned.change.kind)
-            reloadLocalLog()
+            // Only once a screen has shown the log: before that, nothing reads it.
+            if (localLogRead) reloadLocalLog()
         }
     }
 
