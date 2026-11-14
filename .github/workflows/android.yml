@@ -102,6 +102,16 @@ jobs:
           cp "$BUILD_DIR/appctr/tmp/appctr.aar" "$GITHUB_WORKSPACE/appctr/tmp/"
           cp -a "$BUILD_DIR/app/src/main/jniLibs/." "$GITHUB_WORKSPACE/app/src/main/jniLibs/"
 
+      # After the build, which has already copied what it made into the
+      # workspace: the tests cannot change the core that ships, and a failure
+      # still stops the release, since the APK job needs this one. They run in
+      # the build directory, against the tree build.sh patched, with the same Go.
+      - name: Go tests
+        run: |
+          cd /home/vagrant/build/io.github.bropines.tailscaled/appctr
+          export GOTOOLCHAIN=go$(awk '$1 == "go" { print $2 }' go.mod)
+          bash "$GITHUB_WORKSPACE/.github/workflows/go-tests.sh" .
+
       - name: Upload Go Core Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -211,6 +221,30 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ANDROID_HOME: /usr/local/lib/android/sdk
+
+      # The JVM unit tests, a gate before anything is published. A step of
+      # their own, after the APKs are built, so the command that builds them
+      # stays what it was: the test tasks only add test compilations beside the
+      # variant's, which Gradle reuses as they are. A release is tested as a
+      # release (testReleaseUnitTest), a debug build as a debug build.
+      - name: Unit tests
+        run: |
+          case "${{ steps.gradle_command.outputs.command }}" in
+            *assembleRelease*) TESTS=app:testReleaseUnitTest ;;
+            *) TESTS=app:testDebugUnitTest ;;
+          esac
+          ./gradlew $TESTS --stacktrace
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
+      - name: Upload the test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
 
       # The Open-source licenses screen lists what ships (scripts/licenses/generate.py).
       # A dependency that changed without a regenerated list is flagged, not fatal.
