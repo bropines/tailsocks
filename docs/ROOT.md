@@ -109,7 +109,7 @@ WAN address inside it, and another VPN client can put its `tun` there. The
 priority-100 destination rule sits above every per-app exclusion, so without the
 guard nothing on the device could take that traffic back out of the tunnel.
 Upstream Tailscale guards the same case with netmon's `HasCGNATInterface()`;
-`RootUtils.cgnatInterfacePrefixes()` is the same walk, done from Java.
+`RootExclusions.cgnatInterfacePrefixes()` is the same walk, done from Java.
 
 - **Trigger.** An interface that is up, is not named `tailscale*`, and holds an
   IPv4 address inside `100.64.0.0/10` with a prefix from `/11` to `/32`. IPv4
@@ -243,7 +243,7 @@ platform, so the LAN stays local while an exit node is on.
   **Excluded Apps**, while **Native Linux TUN (tailscale0)** is on — the same
   list (`tun_excluded_cidrs`) as the VPN (TUN) card's, by default
   `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` and
-  `fe80::/10`, is always added (`RootUtils.manualExclusions`).
+  `fe80::/10`, is always added (`RootExclusions.manualExclusions`).
 - **Two mechanisms, for two different conflicts.** The user's list is written as
   `ip route replace throw <prefix> table 52`: table 52 is searched with
   longest-prefix match, so a broad exclusion such as `192.168.0.0/16` still lets

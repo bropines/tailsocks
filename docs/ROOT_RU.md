@@ -97,7 +97,7 @@ DNS, — требует разрешения имён пакетов в uid'ы, 
 `tun`. Правило priority 100 по адресу назначения стоит выше любых исключений
 приложений, так что без этой защиты ничто на устройстве не могло бы вернуть
 такой трафик из туннеля. Upstream Tailscale закрывает тот же случай через
-`HasCGNATInterface()` в netmon; `RootUtils.cgnatInterfacePrefixes()` — тот же
+`HasCGNATInterface()` в netmon; `RootExclusions.cgnatInterfacePrefixes()` — тот же
 обход интерфейсов, сделанный из Java. В логе ROOT она называется `CGNAT guard`.
 
 - **Когда срабатывает.** Интерфейс поднят, его имя не начинается с `tailscale`,
@@ -284,7 +284,7 @@ DNS, — требует разрешения имён пакетов в uid'ы, 
   (tailscale0)**, — тот же список (`tun_excluded_cidrs`), что на карточке
   VPN (TUN), по умолчанию
   `192.168.0.0/16,10.0.0.0/8,172.16.0.0/12`. Link-local, `169.254.0.0/16` и
-  `fe80::/10`, добавляется всегда (`RootUtils.localExclusions`).
+  `fe80::/10`, добавляется всегда (`RootExclusions.manualExclusions`).
 - **Что пишется.** `ip route replace throw <префикс> table 52` для каждого
   обычного CIDR из списка: IPv4 всегда, IPv6 — только если IPv6 на устройстве
   включён. Throw завершает поиск в таблице 52 и отдаёт его правилам netd, так что
