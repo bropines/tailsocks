@@ -814,7 +814,9 @@ private fun NetcheckOverviewCard(status: ConnectionStatus, modifier: Modifier = 
                     style = MaterialTheme.typography.titleMedium,
                     color = when (status.verdict) {
                         NetcheckVerdict.CONNECTED -> MaterialTheme.colorScheme.onPrimaryContainer
-                        NetcheckVerdict.CONFIRMING -> MaterialTheme.colorScheme.onTertiaryContainer
+                        // The card is a 40% tint over the background, so in a dark theme
+                        // whose tertiary container is light, its on-colour is dark on dark.
+                        NetcheckVerdict.CONFIRMING -> MaterialTheme.colorScheme.tertiary
                         NetcheckVerdict.OFFLINE -> MaterialTheme.colorScheme.onErrorContainer
                     }
                 )
