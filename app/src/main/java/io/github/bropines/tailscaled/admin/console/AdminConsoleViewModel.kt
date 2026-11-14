@@ -303,7 +303,9 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val id = device.pathId
         _state.update { it.copy(routes = it.routes + (id to (it.routes[id] ?: Loadable()).copy(loading = true, error = null))) }
         viewModelScope.launch {
-            val r = runCatching { b.deviceRoutes(id) }
+            val r = attempt { b.deviceRoutes(id) }
+            // An answer from the profile the person has just left belongs to no device here.
+            if (backend !== b) return@launch
             _state.update {
                 it.copy(routes = it.routes + (id to Loadable(r.getOrNull(), false, r.exceptionOrNull(), loadedAt = System.currentTimeMillis())))
             }
@@ -315,7 +317,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val name = service.name
         _state.update { it.copy(serviceHosts = it.serviceHosts + (name to (it.serviceHosts[name] ?: Loadable()).copy(loading = true, error = null))) }
         viewModelScope.launch {
-            val r = runCatching { b.serviceHosts(name) }
+            val r = attempt { b.serviceHosts(name) }
+            if (backend !== b) return@launch
             _state.update {
                 it.copy(
                     serviceHosts = it.serviceHosts + (name to Loadable(
@@ -330,7 +333,8 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val id = _state.value.active?.id ?: return
         viewModelScope.launch(Dispatchers.IO) {
             val records = audit.records(id)
-            _state.update { it.copy(localLog = records) }
+            // A read that finishes after a profile switch is the old profile's log.
+            _state.update { if (it.active?.id == id) it.copy(localLog = records) else it }
         }
     }
 
@@ -389,8 +393,11 @@ class AdminConsoleViewModel(app: Application) : AndroidViewModel(app) {
         val b = backend ?: return
         if (!force && _state.value.policyTags.isNotEmpty()) return
         viewModelScope.launch {
-            val tags = runCatching { b.policyTags() }.getOrDefault(emptyList())
-            _state.update { it.copy(policyTags = tags) }
+            val read = attempt { b.policyTags() }
+            // Another profile's tags would land in this one's state and, through keepCopies, in
+            // its copy on disk — and loadTags(force = false) would never correct them.
+            if (backend !== b) return@launch
+            _state.update { it.copy(policyTags = ConsoleLoads.tagsAfter(it.policyTags, read)) }
         }
     }
 
