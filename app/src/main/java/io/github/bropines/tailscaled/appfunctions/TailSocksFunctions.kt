@@ -9,12 +9,10 @@ import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.GlobalSettings
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.TailscaledService
-import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.ExitNodeApply
 import io.github.bropines.tailscaled.core.ExitNodeSuggestion
-import io.github.bropines.tailscaled.models.StatusResponse
 import appctr.Appctr
-import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -167,9 +165,8 @@ class TailSocksFunctions {
         
         val exitNodeItems = mutableListOf<ExitNodeItem>()
         try {
-            val statusJson = Appctr.getStatusJSON(true)
-            if (!statusJson.isNullOrEmpty()) {
-                val status = AppJson.decodeFromString<StatusResponse>(statusJson)
+            val status = DaemonStatus.readOrNull()
+            if (status != null) {
                 val peers = status.peers ?: emptyMap()
 
                 for ((_, p) in peers) {
@@ -208,9 +205,8 @@ class TailSocksFunctions {
     suspend fun getTailnetPeers(appFunctionContext: AppFunctionContext): PeersResult {
         val peerItems = mutableListOf<PeerItem>()
         try {
-            val statusJson = Appctr.getStatusJSON(true)
-            if (!statusJson.isNullOrEmpty()) {
-                val status = AppJson.decodeFromString<StatusResponse>(statusJson)
+            val status = DaemonStatus.readOrNull()
+            if (status != null) {
                 val peers = status.peers ?: emptyMap()
 
                 for ((_, p) in peers) {

@@ -15,7 +15,6 @@ import androidx.core.content.edit
 import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.models.PeerData
-import io.github.bropines.tailscaled.models.StatusResponse
 import io.github.bropines.tailscaled.ui.MainActivity
 
 /**
@@ -140,9 +139,7 @@ object ExitNodeGuard {
         val now = System.currentTimeMillis()
         if (now - lastReadAt < READ_INTERVAL_MS) return
         lastReadAt = now
-        val status = runCatching {
-            AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI())
-        }.getOrNull()
+        val status = DaemonStatus.readOrNull()
         val peers = status?.peers
         // No netmap yet, or no status at all: that says nothing about the node.
         if (peers.isNullOrEmpty()) return
@@ -207,7 +204,7 @@ object ExitNodeGuard {
             return@synchronized
         }
         val name = runCatching {
-            val peers = AppJson.decodeFromString<StatusResponse>(Appctr.getStatusFromAPI()).peers
+            val peers = DaemonStatus.readOrNull()?.peers
             displayName(peers?.values?.firstOrNull { it.id == id }, ip)
         }.getOrDefault(ip)
         ExitNodeApply.select(app, "", "")

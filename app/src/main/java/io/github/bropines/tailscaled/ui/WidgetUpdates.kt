@@ -17,6 +17,7 @@ import appctr.Appctr
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.AccountManager
 import io.github.bropines.tailscaled.core.AppJson
+import io.github.bropines.tailscaled.core.DaemonStatus
 import io.github.bropines.tailscaled.core.ExitNodeCache
 import io.github.bropines.tailscaled.core.ProxyState
 import io.github.bropines.tailscaled.core.TailscaledService
@@ -304,11 +305,8 @@ object WidgetUpdates {
         status?.peers?.values.orEmpty()
             .mapNotNull { p -> p.id?.takeIf { it.isNotEmpty() }?.let { it to (p.online == true) } }.toMap()
 
-    private fun readStatus(): StatusResponse? = runCatching {
-        val json = Appctr.getStatusFromAPI()
-        if (json.isBlank() || json.startsWith("{\"Error\"")) null
-        else AppJson.decodeFromString(StatusResponse.serializer(), json)
-    }.getOrNull()
+    /** Null on a failed read, so the cached exit nodes stay instead of an empty list replacing them. */
+    private fun readStatus(): StatusResponse? = DaemonStatus.readOrNull()
 
     private fun statusRes(status: WidgetStatus): Int = when (status) {
         WidgetStatus.STOPPED -> R.string.status_stopped
