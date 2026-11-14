@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The exit-node list in groups by country (ui/ExitNodeGroups.kt, #27). -->
+    <string name="exit_groups_locations">位置</string>
+    <string name="exit_groups_search">按名称、国家或城市搜索</string>
+    <string name="exit_groups_no_match">没有匹配项</string>
+    <string name="exit_groups_best_in">%1$s 最佳</string>
+    <string name="exit_groups_best_node">当前：%1$s</string>
+    <plurals name="exit_groups_nodes">
+        <item quantity="other">%d 个节点</item>
+    </plurals>
+    <plurals name="exit_groups_cities">
+        <item quantity="other">%d 个城市</item>
+    </plurals>
+</resources>

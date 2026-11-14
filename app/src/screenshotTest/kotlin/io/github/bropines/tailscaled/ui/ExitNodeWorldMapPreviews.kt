@@ -61,7 +61,7 @@ private val mapNodes: List<PeerData> by lazy {
 private val relays = mapOf("fra" to DerpPlace("Frankfurt", 50.1109, 8.6821))
 
 @Composable
-private fun MapPicker(selectedIp: String, nodes: List<PeerData> = mapNodes) {
+private fun MapPicker(selectedIp: String, nodes: List<PeerData> = mapNodes, view: String = ExitNodePickerView.MAP) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxSize()) {
         Box(contentAlignment = Alignment.BottomCenter) {
             ExitNodePicker(
@@ -79,7 +79,7 @@ private fun MapPicker(selectedIp: String, nodes: List<PeerData> = mapNodes) {
                 onClose = {},
                 modifier = Modifier.fillMaxWidth(),
                 derpPlaces = relays,
-                initialView = ExitNodePickerView.MAP,
+                initialView = view,
             )
         }
     }
@@ -112,3 +112,26 @@ fun ExitNodeMapEurope() = AdaptiveShowcase {
 fun ExitNodeMapLight() = io.github.bropines.tailscaled.ui.theme.TailSocksTheme(
     appTheme = "light", themePreset = "emerald", dynamicColorEnabled = false, amoledModeEnabled = false
 ) { MapPicker(selectedIp = "100.64.1.10") }
+
+/**
+ * The list of a tailnet with Mullvad (#27): the tailnet's own nodes, then the countries, the one
+ * in use opened — two cities, each with its nodes, and the line that picks the country's best.
+ */
+@PreviewTest
+@Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
+@Preview(name = "1-phone-ru", device = "spec:width=411dp,height=891dp,dpi=420", locale = "ru")
+@Composable
+fun ExitNodeListByCountry() = AdaptiveShowcase { MapPicker(selectedIp = "100.64.1.24", view = ExitNodePickerView.LIST) }
+
+/** Only Mullvad's nodes, the country in use opened: its best, then each city with its own. */
+@PreviewTest
+@Preview(name = "1-phone", device = "spec:width=411dp,height=891dp,dpi=420")
+@Preview(name = "1-phone-ru", device = "spec:width=411dp,height=891dp,dpi=420", locale = "ru")
+@Composable
+fun ExitNodeListCountryOpen() = AdaptiveShowcase {
+    MapPicker(
+        selectedIp = "100.64.1.24",
+        nodes = mapNodes.filter { it.location?.countryCode in setOf("US", "GB", "SE", "NL") },
+        view = ExitNodePickerView.LIST,
+    )
+}

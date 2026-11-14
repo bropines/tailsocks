@@ -6,6 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
+- Exit nodes: a tailnet with hundreds of located exit nodes — Mullvad's — gets them by country instead of one endless list. Each country shows its flag and how many nodes it has in how many cities; a tap opens it, with a **Best in …** line that picks the node its operator ranks highest and the nodes grouped by city. The country in use opens by itself. Past a dozen nodes a search field finds them by name, country or city. The tailnet's own exit nodes stay a plain list on top. Thanks to [@squidds](https://github.com/squidds) for the idea ([#27](https://github.com/bropines/tailsocks/issues/27)).
 - Root Mode: **Keep the local network** (on by default, in the Root Mode card). When a peer advertises the same subnet this device is on — a `192.168.1.0/24` at home and on the tailnet's router — the exit-node catch-all no longer pulls the local network into the tunnel: the device's own prefixes are handed back to Android's routing by priority-150 rules, rebuilt when the network changes. Off lets the accepted route win, as before. Check Routing lists the rules. Thanks to [@minortex](https://github.com/minortex) ([#26](https://github.com/bropines/tailsocks/pull/26)).
 
 ## [6.0.4] - 2026-11-13

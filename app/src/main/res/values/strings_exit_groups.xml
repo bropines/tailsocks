@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The exit-node list in groups by country (ui/ExitNodeGroups.kt, #27). -->
+    <string name="exit_groups_locations">Locations</string>
+    <string name="exit_groups_search">Search by name, country or city</string>
+    <string name="exit_groups_no_match">Nothing matches</string>
+    <string name="exit_groups_best_in">Best in %1$s</string>
+    <string name="exit_groups_best_node">Now: %1$s</string>
+    <plurals name="exit_groups_nodes">
+        <item quantity="one">%d node</item>
+        <item quantity="other">%d nodes</item>
+    </plurals>
+    <plurals name="exit_groups_cities">
+        <item quantity="one">%d city</item>
+        <item quantity="other">%d cities</item>
+    </plurals>
+</resources>

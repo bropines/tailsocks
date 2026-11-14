@@ -44,6 +44,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,6 +94,18 @@ internal data class ExitNodePickerStrings(
     val ping: ExitNodePingStrings,
     val best: BestExitNodeStrings,
     val map: ExitNodeMapStrings,
+    val groups: ExitNodeGroupStrings = ExitNodeGroupStrings(),
+)
+
+/** The words of the grouped list (ui/ExitNodeGroups.kt). Defaults for a preview that does not care. */
+internal data class ExitNodeGroupStrings(
+    val locations: String = "Locations",
+    val search: String = "Search by name, country or city",
+    val noMatch: String = "Nothing matches",
+    val bestIn: (country: String) -> String = { "Best in $it" },
+    val bestNode: (node: String) -> String = { "Now: $it" },
+    val nodes: (Int) -> String = { "$it nodes" },
+    val cities: (Int) -> String = { "$it cities" },
 )
 
 @Composable
@@ -107,7 +125,22 @@ internal fun exitNodePickerStrings() = ExitNodePickerStrings(
     ),
     best = bestExitNodeStrings(),
     map = exitNodeMapStrings(),
+    groups = exitNodeGroupStrings(),
 )
+
+@Composable
+internal fun exitNodeGroupStrings(): ExitNodeGroupStrings {
+    val res = LocalContext.current.resources
+    return ExitNodeGroupStrings(
+        locations = stringResource(R.string.exit_groups_locations),
+        search = stringResource(R.string.exit_groups_search),
+        noMatch = stringResource(R.string.exit_groups_no_match),
+        bestIn = { res.getString(R.string.exit_groups_best_in, it) },
+        bestNode = { res.getString(R.string.exit_groups_best_node, it) },
+        nodes = { res.getQuantityString(R.plurals.exit_groups_nodes, it, it) },
+        cities = { res.getQuantityString(R.plurals.exit_groups_cities, it, it) },
+    )
+}
 
 /**
  * The list of the exit-node sheet. [nodes] are the peers that offer an exit; [loading] is the
@@ -247,12 +280,39 @@ internal fun ExitNodePicker(
                 ExitNodeRow(node, selectedIp, pings[node.getPrimaryIp()], fastestIp, best, strings, onChoose, onPing)
             }
         } else {
+            // Hundreds of located nodes (Mullvad's) go by country, the one in use opened; a few are
+            // a list as they always were. A search, past a screenful, finds through all of them.
+            var query by rememberSaveable { mutableStateOf("") }
+            val searchable = !tv && nodes.size > SEARCH_FROM
+            val found = remember(nodes, query) { searchExitNodes(nodes, query) }
+            val groups = remember(found) { groupExitNodes(found) }
+            val grouped = remember(nodes) { groupExitNodes(nodes).countries.sumOf { it.nodes.size } >= GROUP_FROM }
+            var open by rememberSaveable { mutableStateOf(listOfNotNull(countryOf(groupExitNodes(nodes), selectedIp))) }
+            val searching = query.isNotBlank()
+            val entries = remember(groups, grouped, open, searching) {
+                if (grouped) exitNodeEntries(groups, if (searching) null else open.toSet())
+                else found.map { ExitNodeEntry.Node(it) }
+            }
             // On a television the list opens on the node in use: from the top while that
             // row is on the first screen, and scrolled to it when it is further down.
-            val selectedRow = nodes.indexOfFirst { it.getPrimaryIp() == selectedIp } + LEADING_ROWS
+            val selectedRow = entries.indexOfFirst { it is ExitNodeEntry.Node && it.node.getPrimaryIp() == selectedIp } + LEADING_ROWS
             val listState = rememberLazyListState(
                 initialFirstVisibleItemIndex = if (tv && selectedRow >= FIRST_SCREEN_ROWS) selectedRow else 0
             )
+            if (searchable) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    placeholder = { Text(strings.groups.search) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = if (searching) ({
+                        IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, contentDescription = strings.close) }
+                    }) else null,
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 4.dp),
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -350,8 +410,35 @@ internal fun ExitNodePicker(
                             }
                         }
 
-                        items(nodes) { node ->
-                            ExitNodeRow(node, selectedIp, pings[node.getPrimaryIp()], fastestIp, best, strings, onChoose, onPing)
+                        if (searching && entries.isEmpty()) {
+                            item {
+                                Text(
+                                    strings.groups.noMatch,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                                )
+                            }
+                        }
+                        items(entries, key = { it.key }) { entry ->
+                            when (entry) {
+                                is ExitNodeEntry.Node ->
+                                    ExitNodeRow(entry.node, selectedIp, pings[entry.node.getPrimaryIp()], fastestIp, best, strings, onChoose, onPing)
+                                ExitNodeEntry.Locations -> ExitGroupHeading(strings.groups.locations)
+                                is ExitNodeEntry.Country -> ExitCountryRow(
+                                    country = entry.country,
+                                    open = entry.open,
+                                    holdsSelected = entry.country.nodes.any { it.getPrimaryIp() == selectedIp },
+                                    strings = strings.groups,
+                                    onToggle = {
+                                        val code = entry.country.code
+                                        open = if (code in open) open - code else open + code
+                                    },
+                                )
+                                is ExitNodeEntry.Best -> entry.country.best?.let { node ->
+                                    ExitBestInCountryRow(entry.country, node, strings.groups) { onChoose(node.id ?: "", node.getPrimaryIp()) }
+                                }
+                                is ExitNodeEntry.City -> ExitGroupHeading("${entry.city.name} · ${entry.city.nodes.size}", inset = true)
+                            }
                         }
                     }
                 }
@@ -490,6 +577,12 @@ private fun ExitNodeRow(
 /** The rows above the nodes: the suggestion and "None". */
 private const val LEADING_ROWS = 2
 
+/** Past this many nodes the list has a search field. */
+private const val SEARCH_FROM = 12
+
+/** From this many located nodes on, they go by country. */
+private const val GROUP_FROM = 12
+
 /** How many rows a television's sheet shows without scrolling. */
 private const val FIRST_SCREEN_ROWS = 4
 
@@ -572,3 +665,88 @@ private fun ExitNodePingChip(
         }
     }
 }
+
+// ─── The groups (ui/ExitNodeGroups.kt) ───────────────────────────────────────────────────────
+
+@Composable
+private fun ExitGroupHeading(text: String, inset: Boolean = false) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = if (inset) 32.dp else 24.dp, end = 24.dp, top = 14.dp, bottom = 4.dp)
+            .semantics { heading() },
+    )
+}
+
+/** A country: its flag, its name, how many nodes in how many cities; a press opens or closes it. */
+@Composable
+private fun ExitCountryRow(
+    country: ExitNodeCountry,
+    open: Boolean,
+    holdsSelected: Boolean,
+    strings: ExitNodeGroupStrings,
+    onToggle: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val count = country.nodes.size
+    val summary = if (country.cities.size > 1) "${strings.nodes(count)} · ${strings.cities(country.cities.size)}" else strings.nodes(count)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .shapedClickable(MaterialTheme.shapes.medium, onClick = onToggle),
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, if (holdsSelected) colors.primary.copy(alpha = 0.5f) else colors.onSurface.copy(alpha = 0.05f)),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant.copy(alpha = if (open) 0.3f else 0.15f)),
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(colors.onSurface.copy(alpha = 0.06f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                val flag = flagOf(country.code)
+                if (flag != null) Text(flag, fontSize = 20.sp)
+                else Icon(Icons.Default.Public, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.primary)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(country.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = if (holdsSelected) colors.primary else colors.onSurface)
+                Text(summary, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            }
+            if (holdsSelected) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(colors.primary))
+                Spacer(Modifier.width(8.dp))
+            }
+            Icon(
+                if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** The line that chooses a country's best node, naming the one it is now. */
+@Composable
+private fun ExitBestInCountryRow(country: ExitNodeCountry, node: PeerData, strings: ExitNodeGroupStrings, onChoose: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        onClick = onChoose,
+        shape = MaterialTheme.shapes.medium,
+        color = colors.primary.copy(alpha = 0.06f),
+        modifier = Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 2.dp),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Bolt, contentDescription = null, tint = colors.primary, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(strings.bestIn(country.name), fontWeight = FontWeight.Medium, color = colors.primary)
+                Text(strings.bestNode(node.getDisplayName()), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1)
+            }
+        }
+    }
+}
+

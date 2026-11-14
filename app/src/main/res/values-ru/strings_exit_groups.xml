@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The exit-node list in groups by country (ui/ExitNodeGroups.kt, #27). -->
+    <string name="exit_groups_locations">Локации</string>
+    <string name="exit_groups_search">Поиск по имени, стране или городу</string>
+    <string name="exit_groups_no_match">Ничего не найдено</string>
+    <string name="exit_groups_best_in">Лучший: %1$s</string>
+    <string name="exit_groups_best_node">Сейчас: %1$s</string>
+    <plurals name="exit_groups_nodes">
+        <item quantity="one">%d узел</item>
+        <item quantity="few">%d узла</item>
+        <item quantity="many">%d узлов</item>
+        <item quantity="other">%d узла</item>
+    </plurals>
+    <plurals name="exit_groups_cities">
+        <item quantity="one">%d город</item>
+        <item quantity="few">%d города</item>
+        <item quantity="many">%d городов</item>
+        <item quantity="other">%d города</item>
+    </plurals>
+</resources>
