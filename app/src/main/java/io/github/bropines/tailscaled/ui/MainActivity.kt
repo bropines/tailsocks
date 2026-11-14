@@ -571,7 +571,9 @@ fun MainScreen(
             }
         )
     }
-    var exitNodeIp by remember(activeAccount.id) { mutableStateOf(demo?.exitNodeIp ?: prefs.getString("exit_node_ip", "") ?: "") }
+    // The profile's exit node and the picker sheet (MainExitNode.kt).
+    val exitNode = rememberMainExitNode(activeAccount.id, prefs, demo, scope)
+    var exitNodeIp by exitNode::exitNodeIp
     // What the daemon says about itself beyond "the service is running": its
     // backend state, the health warnings worth showing, and a summary of the
     // tailnet. The service state above cannot tell "connected" from "stuck
@@ -629,22 +631,9 @@ fun MainScreen(
     // The old `tun_full_tunnel` pref was never written by anything and always read false,
     // so derive the indicator from the live exit-node state to keep the UI truthful.
     val isFullTunnel = exitNodeIp.isNotEmpty()
-    // An exit node the guard took off because it is offline and will select again
-    // by itself (ExitNodeGuard): the row must not read as a plain "no exit node".
-    var exitNodePausedName by remember(activeAccount.id) {
-        mutableStateOf(if (demo != null) "" else prefs.getString(ExitNodeGuard.KEY_PAUSED_NAME, "").orEmpty())
-    }
+    var exitNodePausedName by exitNode::exitNodePausedName
 
-    val profilePrefsListener = remember(activeAccount.id) {
-        android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-            if (key == "exit_node_ip") {
-                exitNodeIp = sharedPreferences.getString("exit_node_ip", "") ?: ""
-            }
-            if (key == ExitNodeGuard.KEY_PAUSED_NAME) {
-                exitNodePausedName = sharedPreferences.getString(ExitNodeGuard.KEY_PAUSED_NAME, "").orEmpty()
-            }
-        }
-    }
+    val profilePrefsListener = exitNode.profilePrefsListener
     var isProcessing by remember { mutableStateOf(false) }
     var loginUrl by remember { mutableStateOf<String?>(null) }
     // Saveable: the bridge's last error is cleared by the read that found it (getLastError), so
@@ -698,24 +687,10 @@ fun MainScreen(
         ContextCompat.startForegroundService(context, Intent(context, TailscaledService::class.java).apply { action = "START_ACTION" })
     }
 
-    var showExitNodeSheet by rememberSaveable { mutableStateOf(false) }
-    var exitNodes by remember { mutableStateOf<List<PeerData>>(emptyList()) }
-    var isExitNodesLoading by remember { mutableStateOf(false) }
-    fun openExitNodeSheet() {
-        showExitNodeSheet = true
-        isExitNodesLoading = true
-        scope.launch(Dispatchers.IO) {
-            try {
-                // A failed read keeps the list the sheet already has.
-                val status = DaemonStatus.readOrNull()
-                if (status != null) {
-                    val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
-                    withContext(Dispatchers.Main) { exitNodes = nodes }
-                }
-            } catch (e: Exception) {}
-            withContext(Dispatchers.Main) { isExitNodesLoading = false }
-        }
-    }
+    var showExitNodeSheet by exitNode::showExitNodeSheet
+    val exitNodes by exitNode::exitNodes
+    val isExitNodesLoading by exitNode::isExitNodesLoading
+    fun openExitNodeSheet() = exitNode.openExitNodeSheet()
     LaunchedEffect(exitNodeRequest.value) {
         if (exitNodeRequest.value) {
             exitNodeRequest.value = false
@@ -758,21 +733,6 @@ fun MainScreen(
     // "Its row" is the first tile that takes a row, which is where the menu stands them.
     val remoteLeadsWideTiles = layout.shown(itemOffered).firstOrNull { it.item.isTile && it.wide }?.item == MainItem.REMOTE
     fun managedBeside(columns: Int) = remoteTileOffered && remoteLeadsWideTiles && columns >= 4 && managed.devices.isNotEmpty()
-
-    fun applyExitNode(id: String, ip: String) {
-        // A peer listed without its StableID: selecting it would clear the exit node.
-        if (!ExitNodeApply.isSelectable(id, ip)) return
-        // The confirm haptic: choosing where all traffic goes is the one
-        // selection on this screen whose effect is not visible at once.
-        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-        exitNodeIp = ip
-        scope.launch(Dispatchers.IO) {
-            val result = ExitNodeApply.select(context, id, ip)
-            if (result is ExitNodeApply.Result.Refused) withContext(Dispatchers.Main) {
-                Toast.makeText(context, context.getString(R.string.settings_local_api_error_format, result.message), Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     // The watchdog lives as long as the screen, and an account switch replaces the profile's
     // store and its exit node without restarting it (the activity is not recreated): it reads
@@ -2260,72 +2220,7 @@ fun MainScreen(
         )
     }
 
-    if (showExitNodeSheet) {
-        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-        val maxHeight = (configuration.screenHeightDp * 0.85f).dp
-
-        // The picker's words, resolved out here in the parent composition — see
-        // wrapContextWithLocale().
-        val pickerStrings = exitNodePickerStrings()
-        // The daemon's raw answer per node address, for as long as the sheet is open. A
-        // reopened sheet starts clean: a figure measured minutes ago is not the figure now.
-        // The pings run in the sheet's own scope, not the screen's, so closing the sheet
-        // also drops the answers that were still on their way to this map.
-        val exitNodePings = remember { mutableStateMapOf<String, String>() }
-        val sheetScope = rememberCoroutineScope()
-        fun pingExitNode(ip: String) {
-            // A ping already in flight is not started again: the second answer would
-            // overwrite the state the first one is about to write.
-            if (exitNodePings[ip] == PING_IN_FLIGHT) return
-            exitNodePings[ip] = PING_IN_FLIGHT
-            sheetScope.launch { exitNodePings[ip] = pingPeer(ip) }
-        }
-
-        var pingingAllExitNodes by remember { mutableStateOf(false) }
-        // The node Tailscale itself recommends, asked once the list is in: the row at the
-        // top names it and the node's own row carries a mark. Held by the sheet, so a
-        // reopened sheet asks again — the answer follows the network.
-        var bestExitNode by remember { mutableStateOf<ExitNodeSuggestion.Outcome?>(null) }
-        var bestAsked by remember { mutableIntStateOf(0) }
-        LaunchedEffect(isExitNodesLoading, bestAsked) {
-            if (isExitNodesLoading || exitNodes.isEmpty()) return@LaunchedEffect
-            bestExitNode = null
-            bestExitNode = fetchBestExitNode(exitNodes)
-        }
-        AppModalSheet(
-            onDismissRequest = { showExitNodeSheet = false },
-            // Without this the sheet opens half height and settles to its content a frame
-            // later, which reads as a jump; the list also arrives after the spinner, so the
-            // height it settles at is held from the start by the minimum below.
-            sheetState = rememberFullSheetState()
-        ) {
-            ExitNodePicker(
-                nodes = exitNodes,
-                loading = isExitNodesLoading,
-                selectedIp = exitNodeIp,
-                pings = exitNodePings,
-                pingingAll = pingingAllExitNodes,
-                best = bestExitNode,
-                strings = pickerStrings,
-                onPingAll = {
-                    pingingAllExitNodes = true
-                    StatusAsides.bump(context, StatusAsides.PINGS)
-                    sheetScope.launch {
-                        pingAll(exitNodes.map { it.getPrimaryIp() }, exitNodePings)
-                        pingingAllExitNodes = false
-                    }
-                },
-                onPing = { pingExitNode(it) },
-                onRetryBest = { bestAsked++ },
-                onChoose = { id, ip -> applyExitNode(id, ip); showExitNodeSheet = false },
-                onClose = { showExitNodeSheet = false },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 280.dp, max = maxHeight)
-                    .navigationBarsPadding()
-            )
-        }
-    }
+    if (showExitNodeSheet) MainExitNodeSheet(exitNode, haptics)
 }
 
 /** One destination on the main screen. */
