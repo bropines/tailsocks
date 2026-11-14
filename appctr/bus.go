@@ -6,7 +6,9 @@ package appctr
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -429,21 +431,31 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 	}
 	defer tr.CloseIdleConnections()
 
-	delay := 2 * time.Second
+	delay := busRetryBase
+	var lastRefusal string
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			err := listenToBus(ctx, tr)
-			if err == nil {
-				delay = 2 * time.Second
-				continue
-			}
-
+			connected, err := listenToBus(ctx, tr)
 			if ctx.Err() != nil {
 				return
+			}
+			if err == nil {
+				// listenToBus ends only with an error; a nil one would be a
+				// stream that closed cleanly, which is a disconnect all the same.
+				err = io.EOF
+			}
+			// The backoff is for a daemon that keeps refusing or dropping the
+			// stream, not for one that served it: an attempt that got its 200
+			// starts the schedule again. Only failures used to be counted and
+			// the delay never came down, so after five disconnects in a
+			// process's life every later reconnect waited 30 s, the snapshot
+			// stale meanwhile, however long the stream had been healthy.
+			if connected {
+				delay = busRetryBase
 			}
 
 			errStr := err.Error()
@@ -459,7 +471,19 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 				return
 			}
 
-			slog.Warn("Bus listener disconnected, retrying", "err", err, "backoff", delay)
+			// A refusal (4xx) is the daemon saying the subscription itself is
+			// wrong — a mask bit it no longer supports, a caller it does not
+			// accept — and retrying will not change its mind: say so at Error,
+			// once per distinct answer, instead of a Warn every 30 s.
+			var refused *busRefusedError
+			if errors.As(err, &refused) && refused.code >= 400 && refused.code < 500 {
+				if errStr != lastRefusal {
+					slog.Error("Bus listener: the daemon refuses the subscription", "err", err)
+					lastRefusal = errStr
+				}
+			} else {
+				slog.Warn("Bus listener disconnected, retrying", "err", err, "backoff", delay)
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -467,11 +491,30 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 			}
 
 			delay *= 2
-			if delay > 30*time.Second {
-				delay = 30 * time.Second
+			if delay > busRetryMax {
+				delay = busRetryMax
 			}
 		}
 	}
+}
+
+// busRetryBase and busRetryMax bound the listener's reconnect backoff;
+// variables so a test can shorten them.
+var (
+	busRetryBase = 2 * time.Second
+	busRetryMax  = 30 * time.Second
+)
+
+// busRefusedError is a watch-ipn-bus request the daemon answered with
+// something other than 200: its status and what it said, which is the only
+// place the reason for a refusal is written.
+type busRefusedError struct {
+	code int
+	body string
+}
+
+func (e *busRefusedError) Error() string {
+	return fmt.Sprintf("watch-ipn-bus: HTTP %d: %s", e.code, e.body)
 }
 
 // listenToBus opens the streaming LocalAPI connection and processes all Notify
@@ -487,32 +530,37 @@ func startIPNBusListener(ctx context.Context, gen uint64) {
 // state, no health, the card stuck on a connection problem.
 const busWatchMask = 1<<0 | 1<<1 | 1<<2 | 1<<4 | 1<<5 | 1<<6 | 1<<7 | 1<<9 | 1<<10 | 1<<11 | 1<<12 | 1<<14 | 1<<15
 
-func listenToBus(ctx context.Context, tr *http.Transport) error {
+func listenToBus(ctx context.Context, tr *http.Transport) (connected bool, err error) {
 	client := http.Client{Transport: tr}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET",
 		"http://local-tailscaled.sock/localapi/v0/watch-ipn-bus?mask="+strconv.Itoa(busWatchMask), nil)
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK {
-		busConnected.Store(true)
-		defer busConnected.Store(false)
+	if resp.StatusCode != http.StatusOK {
+		// The body is the daemon's reason in plain text. Handed to the JSON
+		// decoder below it became a syntax error and the reason was lost —
+		// which is how 1.104's refusal of the old mask stayed invisible.
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return false, &busRefusedError{code: resp.StatusCode, body: strings.TrimSpace(string(body))}
 	}
+	busConnected.Store(true)
+	defer busConnected.Store(false)
 
 	dec := json.NewDecoder(resp.Body)
 	for {
 		var msg BusNotify
 		if err := dec.Decode(&msg); err != nil {
-			return err
+			return true, err
 		}
 		// A message decoded just as the listener was stopped belongs to the
 		// daemon being released; applying it would repopulate the snapshot
 		// releaseGoResources has just reset.
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return true, ctx.Err()
 		}
 		applyNotify(&msg)
 	}
