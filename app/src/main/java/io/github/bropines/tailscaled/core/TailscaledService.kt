@@ -339,6 +339,8 @@ class TailscaledService : Service() {
         // Through the event refresher's card worker while it runs, so the read
         // never doubles one already in flight.
         if (!eventRefresher.requestCard()) Thread { refreshLiveCard() }.start()
+        // The exit-node guard does not judge while the network is away; it may now.
+        eventRefresher.requestExitNodeGuard()
     }
 
     /**
@@ -377,7 +379,7 @@ class TailscaledService : Service() {
     /**
      * The daemon-facing refreshes, driven by the daemon's change events instead of
      * the tick: the card (and the coordinator's OS refusal), the share sheet's
-     * devices, the widgets, the exit node's name. Started where the tick is
+     * devices, the widgets, the exit node's name, the exit-node guard. Started where the tick is
      * started and stopped where it is cancelled ([scheduleRefreshTick],
      * [cancelRefreshTick]); see ServiceEventRefresher.
      */
@@ -414,18 +416,27 @@ class TailscaledService : Service() {
         }
 
         override fun requestWidgets() = WidgetUpdates.request(this@TailscaledService)
+
+        override fun exitNodeGuardMayRun(): Boolean = !waitingForNetwork &&
+            runCatching { Appctr.isRunning() && Appctr.getBackendState() == "Running" }.getOrDefault(false)
+
+        override fun checkExitNode(mayRead: (ExitNodeGuard.Watch) -> Boolean, current: () -> Boolean) =
+            ExitNodeGuard.check(this@TailscaledService, mayRead, current)
     })
 
     /**
      * (Re)schedules the tick [delayMs] from now and makes sure the event refresher
      * runs beside it — a new run reads everything at once; one already going reads
-     * the card again, as the tick used to after a start, a second START or an
-     * apply. Main thread, like every lifecycle command; never after a teardown began.
+     * the card again and has the exit-node guard look, as the tick used to after a
+     * start, a second START or an apply. Main thread, like every lifecycle command; never after a teardown began.
      */
     private fun scheduleRefreshTick(delayMs: Long) {
         refreshHandler.removeCallbacks(refreshRunnable)
         refreshHandler.postDelayed(refreshRunnable, delayMs)
-        if (!teardownStarted && !eventRefresher.start()) eventRefresher.requestCard()
+        if (!teardownStarted && !eventRefresher.start()) {
+            eventRefresher.requestCard()
+            eventRefresher.requestExitNodeGuard()
+        }
     }
 
     /** Cancels the tick and stops the event refresher. Main thread, after teardownStarted was set. */
@@ -466,11 +477,11 @@ class TailscaledService : Service() {
      *
      * The Root Mode routing re-checks and what they feed (the other-VPN probe, the
      * DNS health gate and its three misses), the auto-reconnect check and its three
-     * unhealthy ticks, the exit-node guard, the TUN rebuild check, Taildrive's
-     * first-Running registration and the timeline's heartbeat. The card, the share
-     * sheet's devices, the widgets and the exit node's name are not read here any
-     * more: the daemon's change events drive them ([eventRefresher],
-     * ServiceRefreshPlan.kt), with a 30-second safety net of their own.
+     * unhealthy ticks, the TUN rebuild check, Taildrive's first-Running registration
+     * and the timeline's heartbeat. The card, the share sheet's devices, the widgets,
+     * the exit node's name and the exit-node guard are not read here any more: the
+     * daemon's change events drive them ([eventRefresher], ServiceRefreshPlan.kt),
+     * with safety nets of their own.
      */
     private fun runRefreshTick(): Long {
         // No longer need to manually check and reset Exit Nodes here,
@@ -579,12 +590,6 @@ class TailscaledService : Service() {
 
         // Lets the timeline tell a process that died from a connection that held.
         ConnectionHistory.heartbeat(this@TailscaledService)
-
-        // The exit node itself: selected and offline is a phone without internet.
-        if (isRunning && backendState == "Running" && !waitingForNetwork) {
-            runCatching { ExitNodeGuard.onTick(this@TailscaledService) }
-                .onFailure { Log.w(TAG, "Exit-node guard tick failed: ${it.message}") }
-        }
 
         // The VPN follows the netmap: a native start that waited for the node's
         // addresses, new addresses after a re-login, accepted subnet routes.
@@ -1895,8 +1900,9 @@ class TailscaledService : Service() {
             Log.i(TAG, "Device left Doze, re-checking connection")
             refreshHandler.removeCallbacks(refreshRunnable)
             refreshHandler.post(refreshRunnable)
-            // The card is the event refresher's: read it now too, as the tick used to.
+            // The card and the exit-node guard are the event refresher's: now too, as the tick used to.
             eventRefresher.requestCard()
+            eventRefresher.requestExitNodeGuard()
         }
     }
 

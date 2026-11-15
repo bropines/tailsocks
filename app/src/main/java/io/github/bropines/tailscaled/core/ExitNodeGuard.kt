@@ -22,14 +22,16 @@ import io.github.bropines.tailscaled.ui.MainActivity
  *
  * An exit node that goes offline takes the device's internet with it — the
  * daemon keeps routing into it, which is the point of an exit node and looks
- * exactly like a dead network. The service's tick already runs, so it asks here
- * whether the node is still online — as the coordination server reports it,
- * and only while this device is itself in touch with that server; after
- * [OFFLINE_GRACE_MS] of "no" a
+ * exactly like a dead network. The service asks here whether the node is still
+ * online — as the coordination server reports it, and only while this device is
+ * itself in touch with that server — when the daemon's change events say
+ * something that could change the answer did (ServiceEventRefresher, with
+ * [check]; which event reads in which [Watch] is ServiceRefreshPlan.kt's
+ * [exitNodeGuardReads]). After [OFFLINE_GRACE_MS] of "no" a
  * notification names the node and offers two ways out:
  *
  * - **Go direct until it's back** — the exit node is taken off and remembered
- *   as *paused*. The tick keeps looking for it and selects it again the moment
+ *   as *paused*. The guard keeps looking for it and selects it again the moment
  *   the coordination server reports it online, with nothing for the person to
  *   remember.
  * - **Turn off exit node** — an ordinary "None".
@@ -73,11 +75,58 @@ object ExitNodeGuard {
     }
 
     /**
-     * What a tick does, from what it read. [online] is the flag of the node in
+     * Where the guard stands, from the profile's choice and what it last read. Decides
+     * which daemon events are worth a full status read and when the next timed look is
+     * due (ServiceRefreshPlan.kt: [exitNodeGuardReads], [exitNodeGuardNextLookMs]).
+     */
+    enum class Watch {
+        /** No exit node selected and none paused: nothing to watch, nothing is read. */
+        IDLE,
+        /**
+         * A node is selected, but no read has judged it yet: none since the service
+         * started, the profile changed or a node was selected after none, or the last
+         * one had no netmap or found this device out of touch with the coordination
+         * server.
+         */
+        UNJUDGED,
+        /** The selected node was online at the last read. */
+        WATCHING,
+        /** The selected node is offline and the grace is running. */
+        TIMING,
+        /** The selected node is offline past the grace and the person was told. */
+        WARNED,
+        /** No node selected; a paused one is waited for. */
+        PAUSED,
+    }
+
+    /**
+     * What one [check] found: where the guard stands after it, whether it read the
+     * status, and how long the selected node has been seen offline (0 while it is not).
+     */
+    data class Look(val watch: Watch, val read: Boolean, val offlineForMs: Long)
+
+    /**
+     * Where the guard stands, as a plain function of what it holds: the stored choice
+     * ([selectedId], [pausedId]), whether the last read could judge the selected node,
+     * whether an outage is being timed, and whether it was already told.
+     */
+    internal fun watch(selectedId: String, pausedId: String, judged: Boolean, timing: Boolean, warned: Boolean): Watch = when {
+        selectedId.isNotEmpty() -> when {
+            !judged -> Watch.UNJUDGED
+            !timing -> Watch.WATCHING
+            warned -> Watch.WARNED
+            else -> Watch.TIMING
+        }
+        pausedId.isNotEmpty() -> Watch.PAUSED
+        else -> Watch.IDLE
+    }
+
+    /**
+     * What a look does, from what it read. [online] is the flag of the node in
      * question — the selected one, or the paused one while nothing is selected —
      * and null when the netmap does not list it at all, which is as offline as
      * a node gets. [offlineForMs] is how long the selected node has been seen
-     * offline, this tick included.
+     * offline, this look included.
      */
     internal fun step(selectedId: String, pausedId: String, online: Boolean?, offlineForMs: Long): Step = when {
         selectedId.isNotEmpty() -> when {
@@ -103,59 +152,79 @@ object ExitNodeGuard {
     @Volatile private var pausedShownFor = ""
     /** The profile all of the above is about; another one starts from nothing. */
     @Volatile private var watchedProfile = ""
-    @Volatile private var lastReadAt = 0L
+    /**
+     * Whether the last read could judge the selected node: there was a netmap and this
+     * device was in touch with the coordination server. False until the first such read
+     * of a run, a profile or a selection, so that one is never skipped ([Watch.UNJUDGED]).
+     */
+    @Volatile private var judged = false
 
-    /** The status with every peer is a LocalAPI round trip and a decode of the whole
-     *  tailnet — hundreds of peers with Mullvad — so it is not read on every tick. */
-    internal const val READ_INTERVAL_MS = 20_000L
-
-    /** The tick and the notification's buttons both change the choice; one at a time. */
+    /** A look and the notification's buttons both change the choice; one at a time. */
     private val lock = Any()
 
     /**
-     * One look, from the service's refresh tick while the backend is Running
-     * and a network is up. Free while no exit node is selected or paused;
-     * otherwise one status read every [READ_INTERVAL_MS]. Blocking — call it
-     * off the main thread.
+     * One look, from the service's event refresher while the backend is Running and a
+     * network is up. Reads the full status — a LocalAPI round trip and a decode of the
+     * whole tailnet, hundreds of peers with Mullvad — only when [mayRead] says the guard's
+     * current [Watch] calls for it; free otherwise, and always free while no exit node is
+     * selected or paused. Nothing is posted once [current] turns false (a teardown began).
+     * Blocking — call it off the main thread.
      */
-    fun onTick(context: Context) {
+    fun check(context: Context, mayRead: (Watch) -> Boolean, current: () -> Boolean = { true }): Look {
         val app = context.applicationContext
         val profile = AccountManager.getActiveAccount(app).id
         if (profile != watchedProfile) synchronized(lock) {
             // Another profile's outage, pause and notification are not this one's.
             watchedProfile = profile
             offlineSince = 0L
-            lastReadAt = 0L
+            judged = false
             dismiss(app)
         }
         val prefs = profilePrefs(app)
-        if (prefs.getString("exit_node_id", "").isNullOrEmpty() && prefs.getString(KEY_PAUSED_ID, "").isNullOrEmpty()) {
-            synchronized(lock) {
+        val before = synchronized(lock) {
+            val selectedId = prefs.getString("exit_node_id", "").orEmpty()
+            val pausedId = prefs.getString(KEY_PAUSED_ID, "").orEmpty()
+            val w = watch(selectedId, pausedId, judged, offlineSince != 0L, warnedFor.isNotEmpty() && warnedFor == selectedId)
+            if (w == Watch.IDLE) {
                 if (warnedFor.isNotEmpty() || pausedShownFor.isNotEmpty()) dismiss(app)
                 offlineSince = 0L
+                // A node selected after none is judged afresh.
+                judged = false
             }
-            return
+            w
         }
+        if (before == Watch.IDLE || !mayRead(before)) return Look(before, false, offlineFor(System.currentTimeMillis()))
+
         val now = System.currentTimeMillis()
-        if (now - lastReadAt < READ_INTERVAL_MS) return
-        lastReadAt = now
         val status = DaemonStatus.readOrNull()
         val peers = status?.peers
         // No netmap yet, or no status at all: that says nothing about the node.
-        if (peers.isNullOrEmpty()) return
         // "Online" is what the coordination server last said. A daemon that
         // started from its cached netmap, or lost the server on the way, holds
         // yesterday's answer: a node that was offline then would be reported
         // dead over a working tunnel. Judge only while this node hears the server.
-        if (status.self?.online != true) {
-            offlineSince = 0L
-            return
-        }
+        val judgeable = !peers.isNullOrEmpty() && status.self?.online == true
 
         synchronized(lock) {
             // Read again: a button may have changed the choice while the status was fetched.
             val selectedId = prefs.getString("exit_node_id", "").orEmpty()
             val pausedId = prefs.getString(KEY_PAUSED_ID, "").orEmpty()
+            if (!judgeable) {
+                // An unanswered status says nothing and changes nothing: the outage's
+                // clock runs on and the watch stays where it was. A server out of touch
+                // restarts the clock, as its "offline" cannot be trusted, and the next
+                // read is the one that judges again.
+                if (!peers.isNullOrEmpty()) {
+                    offlineSince = 0L
+                    judged = false
+                }
+                // Either way the next look is the fallback's, not the grace's: a status that
+                // did not answer must not be asked again at once.
+                val w = watch(selectedId, pausedId, judged, offlineSince != 0L, warnedFor == selectedId && selectedId.isNotEmpty())
+                return Look(if (w == Watch.IDLE || w == Watch.PAUSED) w else Watch.UNJUDGED, true, offlineFor(now))
+            }
+            judged = true
+            if (!current()) return Look(watch(selectedId, pausedId, true, offlineSince != 0L, warnedFor == selectedId && selectedId.isNotEmpty()), true, offlineFor(now))
             val watchedId = selectedId.ifEmpty { pausedId }
             val peer = peers.values.firstOrNull { it.id == watchedId }
             if (selectedId.isNotEmpty() && peer?.online != true) {
@@ -163,7 +232,7 @@ object ExitNodeGuard {
             } else {
                 offlineSince = 0L
             }
-            val offlineFor = if (offlineSince == 0L) 0L else now - offlineSince
+            val offlineFor = offlineFor(now)
 
             when (step(selectedId, pausedId, peer?.online, offlineFor)) {
                 Step.QUIET -> if (warnedFor.isNotEmpty() || pausedShownFor.isNotEmpty()) dismiss(app)
@@ -183,13 +252,22 @@ object ExitNodeGuard {
                 }
                 Step.RESTORE -> restore(app, prefs, pausedId, peer)
             }
+            // Where it stands now: a warning, a pause or a restore may have moved it.
+            val nowSelected = prefs.getString("exit_node_id", "").orEmpty()
+            val nowPaused = prefs.getString(KEY_PAUSED_ID, "").orEmpty()
+            return Look(
+                watch(nowSelected, nowPaused, true, offlineSince != 0L, warnedFor == nowSelected && nowSelected.isNotEmpty()),
+                true, offlineFor(System.currentTimeMillis())
+            )
         }
     }
+
+    private fun offlineFor(now: Long): Long = offlineSince.let { if (it == 0L) 0L else (now - it).coerceAtLeast(0L) }
 
     /** The service stopped: nothing is watched, so nothing is claimed. A pause stays stored. */
     fun onStopped(context: Context) = synchronized(lock) {
         offlineSince = 0L
-        lastReadAt = 0L
+        judged = false
         dismiss(context.applicationContext)
     }
 
@@ -246,7 +324,7 @@ object ExitNodeGuard {
     private fun restore(app: Context, prefs: SharedPreferences, id: String, peer: PeerData?) {
         val ip = prefs.getString(KEY_PAUSED_IP, "").orEmpty()
         val name = displayName(peer, prefs.getString(KEY_PAUSED_NAME, "").orEmpty().ifEmpty { ip })
-        // Asked first: a refusal leaves the pause standing, and the next tick tries again.
+        // Asked first: a refusal leaves the pause standing, and the next look tries again.
         when (val result = ExitNodeApply.select(app, id, ip, pushFirst = true)) {
             ExitNodeApply.Result.Applied -> {
                 pausedShownFor = ""

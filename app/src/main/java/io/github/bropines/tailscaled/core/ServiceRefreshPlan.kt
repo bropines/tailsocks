@@ -8,8 +8,9 @@ package io.github.bropines.tailscaled.core
  * Until the bridge sent change events (core/DaemonEvents.kt, appctr/events.go) all of this ran
  * in the service's refresh tick, every 15 seconds for as long as the service was up, screen off
  * included. The tick keeps what has to count ticks or look at the device — the Root Mode routing
- * re-checks and the DNS gate, the auto-reconnect check, the exit-node guard, the TUN rebuild
- * check — and everything below only happens when an event or the safety net asks for it.
+ * re-checks and the DNS gate, the auto-reconnect check, the TUN rebuild check — and everything
+ * below only happens when an event, a timer the state calls for, or the safety net asks for it.
+ * The exit-node guard is at the end of the file.
  */
 
 /** One daemon-facing refresh of the service. */
@@ -125,3 +126,156 @@ internal fun serviceCardWakeDelayMs(nowMs: Long, lastCardReadAtMs: Long, warning
  */
 internal fun exitNodeNameRetryDue(nameResolved: Boolean, nowMs: Long, lastFetchAtMs: Long): Boolean =
     !nameResolved && nowMs - lastFetchAtMs >= EXIT_NODE_NAME_RETRY_MS
+
+/*
+ * The exit-node guard (ExitNodeGuard): whether the selected exit node is still online. Its one
+ * fact is in the full status, so every look that judges it is a full read — hundreds of peers
+ * with Mullvad. Until the events it read every 20 seconds of the 15-second tick (in practice
+ * every 30) for as long as a node was selected, the screen off included; now the daemon's events
+ * say when the answer may have changed, and a timer runs only while something is being timed.
+ */
+
+/** Why the guard's worker looks. */
+internal enum class GuardTrigger {
+    /** A run began, the service was asked to start again, the network or the CPU (Doze) came back. */
+    START,
+
+    /** The backend state changed or the bridge attached to or lost a daemon. */
+    STATE,
+
+    /** The health warnings changed — losing the coordination server is one ("not-in-map-poll"). */
+    HEALTH,
+
+    /** The daemon's prefs changed: the exit node chosen or cleared, here or elsewhere. */
+    PREFS,
+
+    /** A peer came or went or changed its online flag: perhaps the exit node. */
+    NETMAP,
+
+    /** The timed look the guard's state called for came due ([exitNodeGuardNextLookMs]). */
+    TIMER,
+}
+
+/** The triggers the changed kinds are: one for one. */
+internal fun exitNodeGuardTriggersFor(changed: Set<DaemonEventKind>): Set<GuardTrigger> =
+    changed.mapTo(mutableSetOf()) {
+        when (it) {
+            DaemonEventKind.STATE -> GuardTrigger.STATE
+            DaemonEventKind.HEALTH -> GuardTrigger.HEALTH
+            DaemonEventKind.PREFS -> GuardTrigger.PREFS
+            DaemonEventKind.NETMAP -> GuardTrigger.NETMAP
+        }
+    }
+
+/**
+ * Whether [triggers] are worth a full status read in [watch].
+ *
+ * - [ExitNodeGuard.Watch.IDLE]: never. Nothing selected, nothing paused — the look is the
+ *   stored choice alone.
+ * - Every other state reads on START, STATE, PREFS, NETMAP and TIMER: a node's online flag
+ *   travels in a netmap event, the choice in a prefs event, a new daemon or a new backend
+ *   state may bring a new netmap, and TIMER is what the state itself asked for.
+ * - HEALTH reads only in [ExitNodeGuard.Watch.UNJUDGED]. Losing or regaining the coordination
+ *   server shows as a health warning, not as a state event (the backend stays Running), and
+ *   only a guard that could not judge is waiting for that server: elsewhere losing it changes
+ *   nothing the guard says until a netmap event or the timer, and regaining it brings a netmap.
+ *   Health warnings come and go with every relay hiccup; they are not worth a read each.
+ */
+internal fun exitNodeGuardReads(triggers: Set<GuardTrigger>, watch: ExitNodeGuard.Watch): Boolean = when (watch) {
+    ExitNodeGuard.Watch.IDLE -> false
+    ExitNodeGuard.Watch.UNJUDGED -> triggers.isNotEmpty()
+    else -> triggers.any { it != GuardTrigger.HEALTH }
+}
+
+/**
+ * With an exit node online and nothing changing, the guard reads anyway after this long. Only a
+ * missed or misread event leaves it to the net, and the cost of that is a person not told their
+ * exit node is dead — so a few minutes, not never: five is twelve reads an hour where there were
+ * a hundred and twenty.
+ */
+internal const val EXIT_GUARD_SAFETY_MS = 5 * 60_000L
+
+/**
+ * The timed look while the guard waits for something to come back: a node offline past the
+ * grace (its notification goes when it returns), a paused node (selected again when it
+ * returns), a node not yet judged (no netmap, or the coordination server out of touch). The
+ * netmap event announces a return; this is the fallback, at the cadence the 20-second read on
+ * the 15-second tick actually had, so nothing is noticed later than before if every event
+ * were lost.
+ */
+internal const val EXIT_GUARD_AWAIT_MS = 30_000L
+
+/**
+ * The least time between two reads asked for by events. The bridge already folds a netmap burst
+ * into at most one event per 2 s; a large tailnet that keeps changing (Mullvad: hundreds of
+ * peers) can still send one every few seconds for as long as it likes. 30 s is the old
+ * cadence: no stream of events makes the guard read more often than it did when it polled, and
+ * an event inside the floor is carried out when the floor ends — never dropped — so an outage
+ * is seen at most 30 s late, as before. Timed looks (the grace, the fallback, the net) are not
+ * held back by it.
+ */
+internal const val EXIT_GUARD_FLOOR_MS = 30_000L
+
+/**
+ * Whether a look may read now: [triggers] call for it in [watch] ([exitNodeGuardReads]) and,
+ * unless the timer is among them, [floorMs] has passed since the last read. A timed look is
+ * what the state asked for at a time it chose; only event-driven reads are spaced out.
+ */
+internal fun exitNodeGuardMayRead(
+    triggers: Set<GuardTrigger>,
+    watch: ExitNodeGuard.Watch,
+    nowMs: Long,
+    lastReadAtMs: Long,
+    floorMs: Long = EXIT_GUARD_FLOOR_MS,
+): Boolean = exitNodeGuardReads(triggers, watch) &&
+    (GuardTrigger.TIMER in triggers || nowMs - lastReadAtMs >= floorMs)
+
+/**
+ * How long after a look the next timed one is due in [watch]; null for none ([offlineForMs]:
+ * how long the selected node has been seen offline).
+ *
+ * - IDLE: none — nothing is watched; a prefs event (or a start) is what selects a node.
+ * - WATCHING: the safety net, [EXIT_GUARD_SAFETY_MS].
+ * - TIMING: the end of the grace, so the warning comes [ExitNodeGuard.OFFLINE_GRACE_MS] after
+ *   the node was first seen offline even if no other event arrives.
+ * - WARNED, PAUSED, UNJUDGED: [EXIT_GUARD_AWAIT_MS].
+ */
+internal fun exitNodeGuardNextLookMs(watch: ExitNodeGuard.Watch, offlineForMs: Long): Long? = when (watch) {
+    ExitNodeGuard.Watch.IDLE -> null
+    ExitNodeGuard.Watch.WATCHING -> EXIT_GUARD_SAFETY_MS
+    ExitNodeGuard.Watch.TIMING -> (ExitNodeGuard.OFFLINE_GRACE_MS - offlineForMs).coerceAtLeast(0L)
+    ExitNodeGuard.Watch.WARNED, ExitNodeGuard.Watch.PAUSED, ExitNodeGuard.Watch.UNJUDGED -> EXIT_GUARD_AWAIT_MS
+}
+
+/**
+ * When the guard looks next, on one monotonic clock; null to wait for an event alone.
+ *
+ * [previousDueAtMs] is the timed look already scheduled. A look that read schedules afresh
+ * from [nowMs]; one that did not (a health event outside UNJUDGED, a trigger held back by the
+ * floor) keeps the one scheduled, so a stream of unread events never postpones the safety net.
+ * [heldBack] — the look wanted a read and the floor refused it — brings the next look forward
+ * to the floor's end ([lastReadAtMs] + [floorMs]), where the read is carried out.
+ */
+internal fun exitNodeGuardDueAt(
+    watch: ExitNodeGuard.Watch,
+    offlineForMs: Long,
+    read: Boolean,
+    heldBack: Boolean,
+    nowMs: Long,
+    lastReadAtMs: Long,
+    previousDueAtMs: Long?,
+    floorMs: Long = EXIT_GUARD_FLOOR_MS,
+    nextLook: (ExitNodeGuard.Watch, Long) -> Long? = ::exitNodeGuardNextLookMs,
+): Long? {
+    val next = nextLook(watch, offlineForMs)
+    var due = when {
+        next == null -> null
+        read || previousDueAtMs == null -> nowMs + next
+        else -> previousDueAtMs
+    }
+    if (heldBack) {
+        val floorEnd = lastReadAtMs + floorMs
+        due = if (due == null) floorEnd else minOf(due, floorEnd)
+    }
+    return due
+}
