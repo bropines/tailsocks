@@ -91,6 +91,10 @@ object DemoNetcheck {
      */
     val statusWithoutHomeDerp: String = DemoTailnet.statusJson
         .replaceFirst("\"Active\": true, \"Relay\": \"fra\"", "\"Active\": true, \"Relay\": \"\"")
+
+    /** DemoTailnet's status a few seconds after a start: Self not yet marked online, the rest working. */
+    val statusNotYetOnline: String = DemoTailnet.statusJson
+        .replaceFirst("\"Online\": true, \"Active\": true, \"Relay\": \"fra\"", "\"Online\": false, \"Active\": true, \"Relay\": \"fra\"")
 }
 
 @PreviewTest
@@ -118,6 +122,26 @@ fun NetcheckTroubledLightPreview() = TailSocksTheme(
         LocalDemo provides DemoTailnet.data.copy(
             statusJson = DemoNetcheck.statusWithoutHomeDerp,
             netcheckJson = DemoNetcheck.troubled
+        )
+    ) {
+        NetcheckScreen(onBack = {})
+    }
+}
+
+/**
+ * Right after a start: the backend is Running and the tailnet answers (peers online, a home
+ * relay), but the coordination server has not yet marked this node online — the overview
+ * card says "Connecting", not "Offline" (netcheckVerdict).
+ */
+@PreviewTest
+@Preview(name = "confirming-phone", device = "spec:width=411dp,height=891dp,dpi=420")
+@Preview(name = "confirming-phone-ru", device = "spec:width=411dp,height=891dp,dpi=420", locale = "ru")
+@Composable
+fun NetcheckConfirmingShowcase() = Showcase {
+    CompositionLocalProvider(
+        LocalDemo provides DemoTailnet.data.copy(
+            statusJson = DemoNetcheck.statusNotYetOnline,
+            netcheckJson = DemoNetcheck.healthy
         )
     ) {
         NetcheckScreen(onBack = {})

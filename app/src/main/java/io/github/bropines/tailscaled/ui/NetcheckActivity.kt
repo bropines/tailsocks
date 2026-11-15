@@ -205,8 +205,9 @@ internal fun decodeNetcheckStatus(rawStatus: String): StatusResponse = when (val
  * screen shows. The live run and a preview's LocalDemo both come through here,
  * so a render cannot show something the app would read differently. [link] is the
  * link MTU read beside the netcheck, which the daemon knows nothing about.
- * [backendRunning] and [daemonAgeMs] feed [netcheckVerdict]; a preview passes neither and
- * gets the plain online/offline verdict.
+ * [backendRunning] and [daemonAgeMs] feed [netcheckVerdict]; a preview passes its demo's
+ * backend state and no age, so a node not yet marked online reads as being confirmed only
+ * when the same status shows the tailnet working, as it would past the grace time.
  */
 internal fun parseNetcheck(
     context: Context,
@@ -420,7 +421,12 @@ fun NetcheckScreen(onBack: () -> Unit) {
     val demoLink = LocalDemoLinkMtu.current
     val demoOutcome = remember(demo, demoLink) {
         demo?.let { d ->
-            runCatching { parseNetcheck(context, decodeNetcheckStatus(d.statusJson ?: ""), d.netcheckJson ?: "", demoLink) }
+            runCatching {
+                parseNetcheck(
+                    context, decodeNetcheckStatus(d.statusJson ?: ""), d.netcheckJson ?: "", demoLink,
+                    backendRunning = d.backendState == "Running"
+                )
+            }
         }
     }
     var isRunning by remember { mutableStateOf(false) }

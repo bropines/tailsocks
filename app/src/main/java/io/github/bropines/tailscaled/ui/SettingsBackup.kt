@@ -662,16 +662,12 @@ internal fun SettingsBackupDialogs(flow: SettingsBackupFlow) {
         if (showRestartDialog && BackupRestore.PendingRestart.pending) {
             // Neither a tap outside nor Back closes it: the restore is only finished by a
             // restart, and "Later" says what waiting means.
-            val strTitle = stringResource(R.string.settings_restore_restart_title)
-            val strBody = stringResource(R.string.settings_restore_restart_body)
-            val strNow = stringResource(R.string.settings_restore_restart_now)
-            val strLater = stringResource(R.string.settings_restore_restart_later)
-            val strRestarting = stringResource(R.string.settings_restore_restarting)
+            val words = restoreRestartWords()
             AppAlertDialog(
                 onDismissRequest = {},
                 properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-                title = { Text(strTitle) },
-                text = { Text(strBody, style = MaterialTheme.typography.bodyMedium) },
+                title = { Text(words.title) },
+                text = { Text(words.body, style = MaterialTheme.typography.bodyMedium) },
                 confirmButton = {
                     Button(
                         enabled = !restarting,
@@ -682,7 +678,7 @@ internal fun SettingsBackupDialogs(flow: SettingsBackupFlow) {
                             val app = context.applicationContext
                             settingsWork.launch { BackupRestore.PendingRestart.restartNow(app) }
                         }
-                    ) { Text(if (restarting) strRestarting else strNow) }
+                    ) { Text(if (restarting) words.restarting else words.now) }
                 },
                 dismissButton = {
                     TextButton(
@@ -691,9 +687,32 @@ internal fun SettingsBackupDialogs(flow: SettingsBackupFlow) {
                             BackupRestore.PendingRestart.drop()
                             showRestartDialog = false
                         }
-                    ) { Text(strLater) }
+                    ) { Text(words.later) }
                 }
             )
         }
     }
 }
+
+/**
+ * What the "Restart the app?" dialog after a full restore says
+ * ([BackupRestore.PendingRestart]), resolved in the composition that shows it. Its own
+ * function so the screenshot previews (RestoreRestartPreviews) draw the dialog's content
+ * without a window, which a preview cannot render over a page.
+ */
+internal class RestoreRestartWords(
+    val title: String,
+    val body: String,
+    val now: String,
+    val later: String,
+    val restarting: String,
+)
+
+@Composable
+internal fun restoreRestartWords() = RestoreRestartWords(
+    title = stringResource(R.string.settings_restore_restart_title),
+    body = stringResource(R.string.settings_restore_restart_body),
+    now = stringResource(R.string.settings_restore_restart_now),
+    later = stringResource(R.string.settings_restore_restart_later),
+    restarting = stringResource(R.string.settings_restore_restarting),
+)
