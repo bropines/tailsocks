@@ -59,6 +59,30 @@ internal class SettingsTunnelState(context: Context) {
 // sees it either way: the mode in use is never hidden.
 //
 // socks5: the Local proxies page's SOCKS5 address, which the VPN rows name.
+
+/** The one command a switch between the tunnel modes sends to [TailscaledService]. */
+internal enum class ModeSwitchCommand { NONE, APPLY_SETTINGS, RESTART }
+
+/**
+ * Which command carries a switch from mode [from] to mode [to] (0 Proxy, 1 VPN, 2 Root).
+ *
+ * Exactly one per switch. A switch into or out of Root restarts the connection (only
+ * while the user wants one — the caller checks that when it sends): the root daemon is
+ * a separate process the bridge cannot reconfigure in place. Proxy <-> VPN is a settings
+ * apply, which relaunches the daemon on or off the VpnService device.
+ *
+ * Root -> VPN used to send both: the restart from the Root teardown and an
+ * APPLY_SETTINGS from writing the TUN key. The apply ran against the root daemon being
+ * killed, then started the TUN; the restart's teardown stopped it a moment later and its
+ * start established the tunnel again — two native TUN starts about a second apart, each
+ * a VpnService establish and a daemon hand-over, and the two commands raced.
+ */
+internal fun modeSwitchCommand(from: Int, to: Int): ModeSwitchCommand = when {
+    from == to -> ModeSwitchCommand.NONE
+    from == 2 || to == 2 -> ModeSwitchCommand.RESTART
+    else -> ModeSwitchCommand.APPLY_SETTINGS
+}
+
 @Composable
 internal fun SettingsTunnelPage(
     env: SettingsPageEnv,
@@ -144,10 +168,18 @@ internal fun SettingsTunnelPage(
         // Exactly what the old "Enable Native Root Mode" switch ran when it was
         // switched off. The selector calls it for both of the other two modes, so
         // the teardown lives in one place instead of being duplicated per branch.
-        fun disableRootMode() {
+        //
+        // thenTun: the switch is Root -> VPN. The TUN key is written here, after the
+        // Root key and before the restart below is sent, and without an APPLY_SETTINGS
+        // of its own: the restart starts the connection in VPN mode (modeSwitchCommand).
+        fun disableRootMode(thenTun: Boolean = false) {
             rootModeEnabled = false
             val hadRouting = GlobalSettings.isRootRoutingInstalled(context)
             GlobalSettings.setRootModeEnabled(context, false)
+            if (thenTun) {
+                tunModeEnabled = true
+                GlobalSettings.setTunModeEnabled(context, true)
+            }
             val hadScript = serviceScriptInstalled
             serviceScriptInstalled = false
             Toast.makeText(context, context.getString(R.string.settings_root_mode_disabled_toast), Toast.LENGTH_SHORT).show()
@@ -199,12 +231,16 @@ internal fun SettingsTunnelPage(
                 confirmButton = {
                     Button(onClick = {
                         showTunWarningDialog = false
-                        // Same order the selector used: Root down first, then the
-                        // TUN key, so no APPLY_SETTINGS lands with both set.
-                        if (rootModeEnabled) disableRootMode()
-                        if (!tunModeEnabled) {
-                            tunModeEnabled = true
-                            saveGlobalPref("tun_mode_enabled", true)
+                        // Root down first, then the TUN key, so the two are never
+                        // set together. One command carries the switch: from Root
+                        // the restart disableRootMode sends, otherwise the apply.
+                        when (modeSwitchCommand(selectedMode, 1)) {
+                            ModeSwitchCommand.RESTART -> disableRootMode(thenTun = true)
+                            ModeSwitchCommand.APPLY_SETTINGS -> if (!tunModeEnabled) {
+                                tunModeEnabled = true
+                                saveGlobalPref("tun_mode_enabled", true)
+                            }
+                            ModeSwitchCommand.NONE -> {}
                         }
                     }) {
                         Text(strSettingsTunWarningConfirm)
