@@ -443,7 +443,7 @@ done
 TS_LAUNCH_LOCK='/data/user/0/app/files/root-daemon-launch.lock'
 TS_LAUNCH_PAT='--socket=/data/user/0/app/files/tailscaled.sock'
 ts_launch_lock() {
-    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null && { echo $$ > "$TS_LAUNCH_LOCK/pid"; return 0; }
+    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null && (set -C; echo $$ > "$TS_LAUNCH_LOCK/pid") 2>/dev/null && return 0
     h=$(cat "$TS_LAUNCH_LOCK/pid" 2>/dev/null)
     b=$(stat -c %Y "$TS_LAUNCH_LOCK" 2>/dev/null) || b=$(date +%s)
     if [ $(($(date +%s) - b)) -le 60 ]; then
@@ -452,7 +452,7 @@ ts_launch_lock() {
     fi
     rm -rf "$TS_LAUNCH_LOCK"
     mkdir "$TS_LAUNCH_LOCK" 2>/dev/null || return 1
-    echo $$ > "$TS_LAUNCH_LOCK/pid"
+    (set -C; echo $$ > "$TS_LAUNCH_LOCK/pid") 2>/dev/null
 }
 ts_launch_lock || { echo 'launch: skipped, another launch for this socket is in progress'; exit 0; }
 trap 'rm -rf "$TS_LAUNCH_LOCK"' EXIT

@@ -51,11 +51,25 @@ class RootLaunchGuardTest {
     private fun launches(): Int = File(dir, "launches").takeIf { it.exists() }?.readLines()?.size ?: 0
 
     @Test
-    fun `two concurrent launches start one daemon`() {
+    fun `two concurrent launches start one daemon`() = concurrentLaunches()
+
+    /**
+     * uutils coreutils' mkdir (Ubuntu 26.04, 0.10) reports success to both of two concurrent calls
+     * for one directory, and this test launched two daemons on CI. The stand-in does the same on
+     * every call — success whether the directory was there or not — so the lock must hold by its
+     * pid file alone, wherever the test runs.
+     */
+    @Test
+    fun `two concurrent launches start one daemon where mkdir does not refuse an existing directory`() =
+        concurrentLaunches("mkdir() { command mkdir -p \"${'$'}@\"; }")
+
+    private fun concurrentLaunches(extra: String = "") {
         repeat(10) { round ->
             File(dir, "procs").delete(); File(dir, "launches").delete(); File(dir, "go").delete()
-            // Both shells spin until the go file appears, so they reach the guard together.
-            val barrier = "while [ ! -e \"\$D/go\" ]; do :; done"
+            // Both shells spin until the go file appears, so they reach the guard together. One
+            // may still come late, after the other has launched and let the lock go: it then finds
+            // the daemon. Either way one launches and the other says why it did not.
+            val barrier = "$extra\nwhile [ ! -e \"\$D/go\" ]; do :; done"
             val a = start(script(barrier))
             val b = start(script(barrier))
             Thread.sleep(150)

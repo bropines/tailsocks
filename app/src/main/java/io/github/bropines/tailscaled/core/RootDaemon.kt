@@ -437,8 +437,15 @@ internal object RootDaemon {
      * must not depend on that: it takes a lock, then looks for the process, and
      * launches only with the lock held and no process found.
      *
-     * The lock is a directory, because `mkdir` is atomic and exists in every
-     * shell; it holds the owner's pid and is removed when the shell exits (the
+     * The lock is a directory holding the owner's pid, and the pid file is what
+     * decides who owns it: the shell creates it with `set -C` (noclobber), an
+     * O_EXCL open done by the shell itself, so of two launchers only one can
+     * write it. `mkdir` alone is not trusted with that: toybox's fails on an
+     * existing directory as POSIX asks, but uutils coreutils (Ubuntu 26.04's
+     * mkdir, 0.10) reports success to both of two concurrent calls, and two
+     * daemons were launched on CI. The subshell keeps noclobber from leaking
+     * into the rest of the script, and `$$` in it is still the launcher's pid.
+     * The directory is removed when the shell exits (the
      * EXIT trap, which INT/TERM/HUP are routed through). A shell killed outright
      * — su's timeout — leaves it behind, so a lock whose owner is gone, or one
      * older than any launch can take, is taken over. A lock with no pid yet is
@@ -451,7 +458,7 @@ internal object RootDaemon {
         append("TS_LAUNCH_LOCK=").append(shQuote(lockDir)).append('\n')
         append("TS_LAUNCH_PAT=").append(shQuote("--socket=$socketPath")).append('\n')
         append("ts_launch_lock() {\n")
-        append("    mkdir \"\$TS_LAUNCH_LOCK\" 2>/dev/null && { echo \$\$ > \"\$TS_LAUNCH_LOCK/pid\"; return 0; }\n")
+        append("    mkdir \"\$TS_LAUNCH_LOCK\" 2>/dev/null && (set -C; echo \$\$ > \"\$TS_LAUNCH_LOCK/pid\") 2>/dev/null && return 0\n")
         append("    h=\$(cat \"\$TS_LAUNCH_LOCK/pid\" 2>/dev/null)\n")
         // An age that cannot be read counts as fresh: only the owner's pid can then free it.
         append("    b=\$(stat -c %Y \"\$TS_LAUNCH_LOCK\" 2>/dev/null) || b=\$(date +%s)\n")
@@ -461,7 +468,7 @@ internal object RootDaemon {
         append("    fi\n")
         append("    rm -rf \"\$TS_LAUNCH_LOCK\"\n")
         append("    mkdir \"\$TS_LAUNCH_LOCK\" 2>/dev/null || return 1\n")
-        append("    echo \$\$ > \"\$TS_LAUNCH_LOCK/pid\"\n")
+        append("    (set -C; echo \$\$ > \"\$TS_LAUNCH_LOCK/pid\") 2>/dev/null\n")
         append("}\n")
         append("ts_launch_lock || { echo ").append(shQuote(LAUNCH_SKIPPED_LOCKED)).append("; exit 0; }\n")
         append("trap 'rm -rf \"\$TS_LAUNCH_LOCK\"' EXIT\n")

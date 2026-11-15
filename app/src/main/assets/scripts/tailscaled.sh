@@ -103,7 +103,9 @@ case "$TUN_MODE" in tailscale0|userspace-networking) ;; *) TUN_MODE="tailscale0"
 
 # One launcher at a time per socket, and none while a daemon for it runs — the
 # same guard as the app's (RootUtils.launchGuardScript): a lock directory made
-# with mkdir, then a look for the process. The app's start can run while this
+# with mkdir and owned by whoever creates its pid file under set -C (an O_EXCL
+# open by the shell, so a mkdir that does not fail on an existing directory
+# cannot let two in), then a look for the process. The app's start can run while this
 # script does (BootReceiver, the user opening the app); two daemons on one
 # socket strip each other's tailnet addresses from tailscale0. A lock whose
 # owner is gone, or one older than a minute, is a leftover and is taken over.
@@ -111,7 +113,7 @@ case "$TUN_MODE" in tailscale0|userspace-networking) ;; *) TUN_MODE="tailscale0"
 # writes the tailnet tier for the daemon that is there.
 TS_LAUNCH_LOCK="$DATA_DIR/files/root-daemon-launch.lock"
 ts_launch_lock() {
-    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null && { echo $$ > "$TS_LAUNCH_LOCK/pid"; return 0; }
+    mkdir "$TS_LAUNCH_LOCK" 2>/dev/null && (set -C; echo $$ > "$TS_LAUNCH_LOCK/pid") 2>/dev/null && return 0
     h=$(cat "$TS_LAUNCH_LOCK/pid" 2>/dev/null)
     b=$(stat -c %Y "$TS_LAUNCH_LOCK" 2>/dev/null) || b=$(date +%s)
     if [ $(($(date +%s) - b)) -le 60 ]; then
@@ -120,7 +122,7 @@ ts_launch_lock() {
     fi
     rm -rf "$TS_LAUNCH_LOCK"
     mkdir "$TS_LAUNCH_LOCK" 2>/dev/null || return 1
-    echo $$ > "$TS_LAUNCH_LOCK/pid"
+    (set -C; echo $$ > "$TS_LAUNCH_LOCK/pid") 2>/dev/null
 }
 TS_LAUNCH=0
 if ts_launch_lock; then
