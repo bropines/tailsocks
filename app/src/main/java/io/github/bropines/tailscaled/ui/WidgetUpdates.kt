@@ -70,6 +70,13 @@ object WidgetUpdates {
     private val painted = HashMap<Int, String>()
     private var lastForcedAt = 0L
     private var lastLiveAt = 0L
+    /**
+     * Who was online at the last live read. A pass that does not read the daemon reuses it:
+     * without it the rows would lose their online marks between reads and get them back a
+     * minute later, a different model each time, so the widget was rewritten and repainted
+     * for nothing. Dropped when the daemon is gone, where nobody's state is known.
+     */
+    private var lastOnline: Map<String, Boolean> = emptyMap()
 
     /** Asks for a pass soon; a pass already waiting absorbs this one. [force] repaints every instance. */
     fun request(context: Context, force: Boolean = false) {
@@ -172,7 +179,8 @@ object WidgetUpdates {
         if (wantLive) lastLiveAt = now
         val liveNodes = status?.let { liveExitNodes(it) }
         liveNodes?.let { ExitNodeCache.replace(prefs, it) }
-        val online = onlineById(status)
+        if (status != null) lastOnline = onlineById(status) else if (!attached) lastOnline = emptyMap()
+        val online = lastOnline
         val options = exitNodeOptions(
             liveNodes, cached,
             prefs.getString("last_exit_node_id", "").orEmpty(), prefs.getString("last_exit_node_ip", "").orEmpty()
@@ -288,7 +296,8 @@ object WidgetUpdates {
         val status = if (Appctr.isRunning()) readStatus() else null
         val live = status?.let { liveExitNodes(it) }
         live?.let { ExitNodeCache.replace(prefs, it) }
-        val online = onlineById(status)
+        if (status != null) lastOnline = onlineById(status) else if (!attached) lastOnline = emptyMap()
+        val online = lastOnline
         val options = exitNodeOptions(
             live, ExitNodeCache.read(prefs),
             prefs.getString("last_exit_node_id", "").orEmpty(), prefs.getString("last_exit_node_ip", "").orEmpty()
