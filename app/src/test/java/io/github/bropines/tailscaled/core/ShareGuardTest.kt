@@ -68,8 +68,35 @@ class ShareGuardTest {
     @Test
     fun theProcessAsAFileIsRefused() {
         assertFalse(file("/proc/self/environ"))
-        assertFalse(file("/proc/self/root/etc/hosts"))
+        // On Linux and Android /proc/self/root is a link to `/`: the canonical path is /etc/hosts.
+        assertFalse("a link out of /proc", file("/proc/self/root/etc/hosts"))
+        assertFalse(file("/proc/self/root/sdcard/photo.jpg"))
+        assertFalse(file("/proc/self/cwd/.."))
+        assertFalse(file("/proc/self/fd/0"))
+        assertFalse(file("/proc"))
+        assertFalse(file("/proc/"))
+        assertFalse(file("/proc/./self/environ"))
+        assertFalse("climbing into /proc by name", file("/sdcard/../proc/self/environ"))
+        assertFalse(file("/storage/emulated/0/../../../proc/self/environ"))
+        assertFalse(file("${shared.path}/../../../../../../../../proc/self/environ"))
         assertFalse(ShareGuard.allows("file", null, null, emptyList(), own))
+    }
+
+    @Test
+    fun thePathAsWrittenIsFoldedByName() {
+        assertEquals(File("/proc/self/environ"), ShareGuard.folded(File("/sdcard/../proc/./self//environ")))
+        assertEquals(File("/proc"), ShareGuard.folded(File("/proc/self/cwd/../..")))
+        assertEquals(File("/"), ShareGuard.folded(File("/../..")))
+        assertEquals(File("/a/b"), ShareGuard.folded(File("/a/b/")))
+    }
+
+    @Test
+    fun aNameThatOnlyLooksLikeProcIsRead() {
+        assertTrue(file("/procedures/a.txt"))
+        assertTrue(file("/sdcard/proc/self/environ"))
+        assertTrue(file("/storage/emulated/0/proc/x"))
+        assertTrue(file("/storage/emulated/0/Download/film.mp4"))
+        assertTrue(file("/sdcard/Download/../DCIM/photo.jpg"))
     }
 
     @Test
@@ -98,6 +125,8 @@ class ShareGuardTest {
         assertFalse(storage("emulated", "0", "Android", "data", "io.github.bropines.tailscaled", "files", "Download", "app.apk"))
         assertFalse(storage("emulated", "0", "Download", "..", "Android", "data", "io.github.bropines.tailscaled", "cache", "x"))
         assertFalse("out of /storage and into the process", storage("..", "proc", "self", "environ"))
+        assertFalse("and out of the process again", storage("..", "proc", "self", "root", "etc", "hosts"))
+        assertTrue(storage("emulated", "0", "proc", "x"))
     }
 
     @Test

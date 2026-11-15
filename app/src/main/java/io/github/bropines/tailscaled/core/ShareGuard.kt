@@ -63,11 +63,36 @@ internal object ShareGuard {
      * path: a link or a `..` that leads into the app's data is followed before the answer.
      * /proc/self is this process to whoever reads it here, and nothing there is another app's to
      * ask for. A path that cannot be resolved is refused.
+     *
+     * /proc is judged twice: by the path as written (absolute, `.` and `..` folded by name) and by
+     * the canonical path. The canonical one alone is not enough, because /proc holds links that
+     * lead out of it — /proc/self/root is `/`, /proc/self/cwd and /proc/self/fd/N are wherever they
+     * point — so `/proc/self/root/etc/hosts` resolves to `/etc/hosts` and would pass. A path
+     * written into /proc is refused whatever it leads to; one that only leads there by a link
+     * elsewhere is caught by the canonical check. The app's own directories are judged by the
+     * canonical path only: that is where a link into them is followed.
      */
     fun isOutside(file: File, privateDirs: List<File>): Boolean {
+        if (isWithin(folded(file), PROC)) return false
         val real = runCatching { file.canonicalFile }.getOrNull() ?: return false
-        if (isWithin(real, File("/proc"))) return false
+        if (isWithin(real, PROC)) return false
         return privateDirs.none { dir -> isWithin(real, runCatching { dir.canonicalFile }.getOrDefault(dir)) }
+    }
+
+    private val PROC = File("/proc")
+
+    /**
+     * [file]'s absolute path with `.` and `..` folded by name, no link followed. By hand, as
+     * java.nio's Path.normalize would do: File.toPath is API 26 and minSdk is 24.
+     */
+    internal fun folded(file: File): File {
+        val names = ArrayList<String>()
+        for (name in file.absolutePath.split('/')) when (name) {
+            "", "." -> Unit
+            ".." -> if (names.isNotEmpty()) names.removeAt(names.lastIndex)
+            else -> names.add(name)
+        }
+        return File(names.joinToString("/", prefix = "/"))
     }
 
     /** Whether [file] is [dir] or below it, name by name: `/data/app` does not hold `/data/app2`. */
