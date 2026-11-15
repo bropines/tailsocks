@@ -108,8 +108,14 @@ class PolicyPipelineTest {
     fun theChecksRunOnTheCpuDispatcherAndTheReviewIsPublishedOnTheCallers() = runBlocking {
         val t = FakeTransport().ok("POST", "/acl/validate", "")
         val caller = Thread.currentThread()
-        val cpuThreads = mutableSetOf<Thread>()
-        val pool = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "cpu-test") }
+        // Written on the pool's thread, read here: a concurrent set, not a plain one.
+        val cpuThreads: MutableSet<Thread> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+        // The pool's thread itself, compared by identity: with assertions on (Gradle's default),
+        // kotlinx.coroutines runs in debug mode and renames a thread to "cpu-test @coroutine#N"
+        // while a coroutine runs on it, and that thread can still be finishing the last dispatch
+        // when the caller resumes and reads the name.
+        val poolThread = java.util.concurrent.atomic.AtomicReference<Thread>()
+        val pool = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "cpu-test").also { poolThread.set(it) } }
         val cpu = pool.asCoroutineDispatcher()
         val counting = object : kotlinx.coroutines.CoroutineDispatcher() {
             override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) =
@@ -125,7 +131,7 @@ class PolicyPipelineTest {
         } finally {
             pool.shutdown()
         }
-        assertEquals("the check, the diff and the lint left the caller's thread", "cpu-test", cpuThreads.single().name)
+        assertEquals("the check, the diff and the lint left the caller's thread", setOf(poolThread.get()), cpuThreads.toSet())
         assertTrue("every step was published where the review was asked", published.isNotEmpty() && published.all { it === caller })
     }
 
