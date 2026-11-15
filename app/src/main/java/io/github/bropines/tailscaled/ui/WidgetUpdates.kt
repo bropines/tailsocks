@@ -293,7 +293,8 @@ object WidgetUpdates {
     internal fun exitNodeChoices(context: Context): List<ExitRow> {
         val app = context.applicationContext
         val prefs = app.getSharedPreferences("appctr_${AccountManager.getActiveAccount(app).id}", Context.MODE_PRIVATE)
-        val status = if (Appctr.isRunning()) readStatus() else null
+        val attached = Appctr.isRunning()
+        val status = if (attached) readStatus() else null
         val live = status?.let { liveExitNodes(it) }
         live?.let { ExitNodeCache.replace(prefs, it) }
         if (status != null) lastOnline = onlineById(status) else if (!attached) lastOnline = emptyMap()
