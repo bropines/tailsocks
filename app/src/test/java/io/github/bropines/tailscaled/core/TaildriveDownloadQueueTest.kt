@@ -539,10 +539,18 @@ class TaildriveDownloadQueueTest {
         val world = World(slotCount = 1)
         world.running = false
         val queue = queue(world)
-        world.files[path("a1")] = Spec(bytes(10), failOpen = { RangeIoException("HTTP 502", 502) })
+        // a1 fails only once b is in the queue: the stop is of what is there when the node goes,
+        // and a download added after it begins as any other (its own reads then find the node gone;
+        // these succeed). Without the latch a1 could fail before the second add on a slow machine.
+        val bQueued = CountDownLatch(1)
+        world.files[path("a1")] = Spec(bytes(10), failOpen = {
+            assertTrue("b was queued", bQueued.await(TIMEOUT_MS, TimeUnit.MILLISECONDS))
+            RangeIoException("HTTP 502", 502)
+        })
         world.files[path("a2")] = Spec(bytes(10))
         val a = queue.add(request(listOf(file("a1", 10), file("a2", 10))), "Movies")
         val b = queue.add(request(share(world, listOf("b1"))), "Movies")
+        bQueued.countDown()
         queue.awaitStage(a, DownloadStage.STOPPED)
         queue.awaitStage(b, DownloadStage.STOPPED)
         settle()
