@@ -47,6 +47,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Root Mode: routing rules removed from outside the app (for example by the system) are noticed within a minute and put back, instead of staying gone until Stop and Start.
 - Accounts: the "Add account" dialog scrolls on a phone held sideways; the "Report the real OS" checkbox no longer sits over the auth key field with its label hidden.
 - Netcheck: relay latency uses the translated unit; Russian spelling made consistent in a few settings labels.
+- VPN: switching from Root Mode to VPN sets up the tunnel once instead of twice in a row.
+- Widgets: the exit-node widget is no longer rewritten and redrawn every minute while nothing changes.
 
 ## [6.1.0] - 2026-11-14
 
