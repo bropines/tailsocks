@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Fixed
+
+- Share sheet: the shortened device names from 6.3.1 now show there. The sheet reads a shortcut's long label, which still held the full name, so it kept showing `personal-pi…`; both labels now carry the short name.
+
 ## [6.3.1] - 2026-11-23
 
 ### Changed

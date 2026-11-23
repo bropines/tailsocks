@@ -193,10 +193,12 @@ object ShareTargets {
         Log.i(TAG, "Published ${targets.size} share targets")
     }
 
-    private fun build(context: Context, id: String, t: ShareCandidate, shortLabel: String, rank: Int): ShortcutInfoCompat =
+    private fun build(context: Context, id: String, t: ShareCandidate, label: String, rank: Int): ShortcutInfoCompat =
         ShortcutInfoCompat.Builder(context, id)
-            .setShortLabel(shortLabel)
-            .setLongLabel(t.label)
+            // Both labels get the trimmed name: the share sheet shows the long label when one
+            // is set (ShortcutInfo.getLabel), so a full long label put `personal-pi…` back.
+            .setShortLabel(label)
+            .setLongLabel(label)
             .setIcon(IconCompat.createWithResource(context, t.os.icon))
             // The share sheet sends its own SEND intent with this id; a launcher that shows
             // the shortcut (see below) opens the file picker for that device.
