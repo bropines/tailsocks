@@ -2,6 +2,13 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Devices show their OS by its logo — Windows, Apple, iOS, Linux's Tux — in the device lists, the tailnet map, the exit-node lists and the share sheet. 6.3.0 drew macOS and Windows as two monitors that differed only in colour and a stand, which on a real share sheet read alike.
+- Share sheet: devices whose names start alike drop the shared part, so `personal-pinus-pc` and `personal-pinus-macbook-air` read `pc` and `macbook-air` instead of two cut-off `personal-pi…`. The full name stays where the launcher has room for it.
+
 ## [6.3.0] - 2026-11-23
 
 ### Changed

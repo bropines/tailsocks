@@ -62,6 +62,29 @@ internal fun pickShareTargets(candidates: List<ShareCandidate>, recentPeerIds: L
     return (online + offline).take(limit.coerceAtLeast(0))
 }
 
+/**
+ * The share sheet's short labels for [names], in order. The sheet cuts a label after about ten
+ * characters, so a tailnet of `personal-pinus-pc`, `personal-pinus-macbook-air` showed one
+ * `personal-pi…` after another. A name loses the longest prefix, ending at a `-`, that it
+ * shares with another name of the row — `pc`, `macbook-air` — and keeps the rest; a name that
+ * shares none, or would be left empty or the same as another, stays whole. The long label
+ * (shown where there is room) is always the full name.
+ */
+internal fun shareTargetLabels(names: List<String>): List<String> {
+    val short = names.mapIndexed { i, name ->
+        var cut = 0
+        var at = name.indexOf('-')
+        while (at in 0 until name.length - 1) {
+            val prefix = name.substring(0, at + 1)
+            if (names.withIndex().any { (j, other) -> j != i && other.startsWith(prefix) }) cut = at + 1
+            at = name.indexOf('-', at + 1)
+        }
+        name.substring(cut)
+    }
+    val counts = short.groupingBy { it }.eachCount()
+    return short.mapIndexed { i, label -> if (label.isEmpty() || counts.getValue(label) > 1) names[i] else label }
+}
+
 /** The devices sent to successfully, newest first, by StableNodeID. */
 internal fun recentRecipients(history: List<TaildropHistoryEntry>): List<String> =
     history.filter { it.direction == TaildropDirection.SENT && it.ok }.mapNotNull { it.peerId }.distinct()
@@ -161,17 +184,18 @@ object ShareTargets {
         val stale = ShortcutManagerCompat.getDynamicShortcuts(context).map { it.id }.filter { it.startsWith(ID_PREFIX) && it !in ids }
         if (stale.isNotEmpty()) ShortcutManagerCompat.removeLongLivedShortcuts(context, stale)
         // pushDynamicShortcut is the call the system does not rate-limit for a background app.
+        val labels = shareTargetLabels(targets.map { it.label })
         targets.forEachIndexed { rank, t ->
-            ShortcutManagerCompat.pushDynamicShortcut(context, build(context, ids[rank], t, rank))
+            ShortcutManagerCompat.pushDynamicShortcut(context, build(context, ids[rank], t, labels[rank], rank))
         }
         published = targets
         publishedProfile = profile
         Log.i(TAG, "Published ${targets.size} share targets")
     }
 
-    private fun build(context: Context, id: String, t: ShareCandidate, rank: Int): ShortcutInfoCompat =
+    private fun build(context: Context, id: String, t: ShareCandidate, shortLabel: String, rank: Int): ShortcutInfoCompat =
         ShortcutInfoCompat.Builder(context, id)
-            .setShortLabel(t.label)
+            .setShortLabel(shortLabel)
             .setLongLabel(t.label)
             .setIcon(IconCompat.createWithResource(context, t.os.icon))
             // The share sheet sends its own SEND intent with this id; a launcher that shows

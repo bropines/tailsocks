@@ -68,10 +68,10 @@ fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
     val osLower = os?.lowercase().orEmpty()
     val icon = when {
         osLower.contains("android") -> Icons.Default.Android
-        osLower.contains("windows") -> Icons.Default.DesktopWindows
-        osLower.contains("linux") -> Icons.Default.Terminal
-        osLower.contains("macos") || osLower.contains("darwin") -> Icons.Default.DesktopMac
-        osLower.contains("ios") -> Icons.Default.PhoneIphone
+        osLower.contains("windows") -> OsIcons.Windows
+        osLower.contains("linux") -> OsIcons.Linux
+        osLower.contains("macos") || osLower.contains("darwin") -> OsIcons.Apple
+        osLower.contains("ios") -> OsIcons.Ios
         else -> Icons.Default.Devices
     }
     val color = when {

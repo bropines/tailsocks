@@ -47,6 +47,10 @@ EXTRA = [
     # The Tailscale web client's bundle (github.com/tailscale/web-client-prebuilt) embeds it.
     {"section": "other", "name": "Inter typeface", "version": "", "url": "https://rsms.me/inter/",
      "license": "OFL-1.1", "texts": ["OFL-1.1-Inter.txt"], "includes": ["in the Tailscale web client (github.com/tailscale/web-client-prebuilt)"]},
+    # The Windows, Apple, iOS and Linux logos of the device lists and the share sheet
+    # (ui/OsIcons.kt, res/drawable/ic_share_target_*.xml), copied as path data.
+    {"section": "other", "name": "Material Design Icons", "version": "7.4.47", "url": "https://pictogrammers.com/library/mdi/",
+     "license": "Apache-2.0", "texts": ["Apache-2.0.txt"], "includes": ["OS logos in ui/OsIcons.kt and the share sheet's icons"]},
 ]
 # Maven artifacts whose files and POM carry no license text of their own.
 MAVEN_TEXT = {

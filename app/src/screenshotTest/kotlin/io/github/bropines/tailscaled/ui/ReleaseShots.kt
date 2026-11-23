@@ -113,10 +113,10 @@ fun ReleaseTailcat() = Showcase {
 private data class ShareDemoTarget(val name: String, val os: io.github.bropines.tailscaled.core.ShareTargetOs)
 
 private val shareDemoTargets = listOf(
-    ShareDemoTarget("desktop-home", io.github.bropines.tailscaled.core.ShareTargetOs.WINDOWS),
+    ShareDemoTarget("home-alex-desktop", io.github.bropines.tailscaled.core.ShareTargetOs.WINDOWS),
+    ShareDemoTarget("home-alex-macbook-air", io.github.bropines.tailscaled.core.ShareTargetOs.MACOS),
     ShareDemoTarget("pixel-8", io.github.bropines.tailscaled.core.ShareTargetOs.ANDROID),
     ShareDemoTarget("homelab-nas", io.github.bropines.tailscaled.core.ShareTargetOs.LINUX),
-    ShareDemoTarget("macbook-air", io.github.bropines.tailscaled.core.ShareTargetOs.MACOS),
 )
 
 /** The background and foreground of each OS's adaptive icon, as the launcher stacks them. */
@@ -186,14 +186,15 @@ fun ReleaseShareSheet() = Showcase {
             androidx.compose.material3.HorizontalDivider(color = androidx.compose.ui.graphics.Color(0xFF2E322C))
             androidx.compose.foundation.layout.Spacer(Modifier.height(20.dp))
             androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
-                shareDemoTargets.forEach { t ->
+                val labels = io.github.bropines.tailscaled.core.shareTargetLabels(shareDemoTargets.map { it.name })
+                shareDemoTargets.forEachIndexed { i, t ->
                     androidx.compose.foundation.layout.Column(
                         Modifier.width(80.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
                         ShareDemoIcon(t.os)
                         androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
                         androidx.compose.material3.Text(
-                            t.name, color = onSheet, fontSize = 13.sp, maxLines = 1,
+                            labels[i], color = onSheet, fontSize = 13.sp, maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }

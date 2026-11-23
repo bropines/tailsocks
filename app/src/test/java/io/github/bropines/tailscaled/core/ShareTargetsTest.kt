@@ -63,4 +63,32 @@ class ShareTargetsTest {
         assertEquals(ShareTargetOs.OTHER, shareTargetOsOf("freebsd"))
         assertEquals(ShareTargetOs.OTHER, shareTargetOsOf(null))
     }
+
+    @Test
+    fun labelsDropThePrefixSimilarNamesShare() {
+        assertEquals(
+            listOf("pc", "macbook-air", "23030rac7y"),
+            shareTargetLabels(listOf("personal-pinus-pc", "personal-pinus-macbook-air", "23030rac7y")),
+        )
+        // The longest shared prefix, cut at a hyphen, per name.
+        assertEquals(
+            listOf("pc", "macbook-air", "laptop"),
+            shareTargetLabels(listOf("home-pinus-pc", "home-pinus-macbook-air", "home-laptop")),
+        )
+        assertEquals(listOf("8", "8-1"), shareTargetLabels(listOf("pixel-8", "pixel-8-1")))
+    }
+
+    @Test
+    fun labelsStayWholeWhenCuttingWouldConfuse() {
+        // Nothing shared, a single device; a trailing hyphen is no cut that leaves nothing.
+        assertEquals(listOf("nas", "desktop"), shareTargetLabels(listOf("nas", "desktop")))
+        assertEquals(listOf("personal-pinus-pc"), shareTargetLabels(listOf("personal-pinus-pc")))
+        assertEquals(listOf("pc-", "2"), shareTargetLabels(listOf("pc-", "pc-2")))
+        // Two names that would be cut to the same label keep their full names.
+        assertEquals(
+            listOf("a-c", "a-b-c", "d"),
+            shareTargetLabels(listOf("a-c", "a-b-c", "a-b-d")),
+        )
+        assertEquals(emptyList<String>(), shareTargetLabels(emptyList()))
+    }
 }

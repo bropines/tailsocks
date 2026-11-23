@@ -1769,6 +1769,18 @@
      "includes": [
       "in the Tailscale web client (github.com/tailscale/web-client-prebuilt)"
      ]
+    },
+    {
+     "name": "Material Design Icons",
+     "version": "7.4.47",
+     "url": "https://pictogrammers.com/library/mdi/",
+     "license": "Apache-2.0",
+     "texts": [
+      "c71d239df917"
+     ],
+     "includes": [
+      "OS logos in ui/OsIcons.kt and the share sheet's icons"
+     ]
     }
    ]
   }
