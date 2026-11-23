@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Changed
+
+- Share sheet: each device shows its OS — Android, Windows, Linux, macOS, iOS — with the same icon and colour as in the app's device list, instead of a generic phone or computer, so devices with long, similar names are easy to tell apart.
+
 ## [6.2.0] - 2026-11-19
 
 ### Added

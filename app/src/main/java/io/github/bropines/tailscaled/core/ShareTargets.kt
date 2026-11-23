@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import androidx.annotation.DrawableRes
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -20,10 +21,33 @@ import io.github.bropines.tailscaled.ui.taildropStatusOf
 internal data class ShareCandidate(
     val peerId: String,
     val label: String,
-    val phone: Boolean,
+    val os: ShareTargetOs,
     /** The daemon will take a file for it now; otherwise it is offline. */
     val available: Boolean,
 )
+
+/** The OS a share target's icon shows: the glyph and colour of the app's own device list. */
+internal enum class ShareTargetOs(@DrawableRes val icon: Int) {
+    ANDROID(R.drawable.ic_share_target_android),
+    WINDOWS(R.drawable.ic_share_target_windows),
+    LINUX(R.drawable.ic_share_target_linux),
+    MACOS(R.drawable.ic_share_target_macos),
+    IOS(R.drawable.ic_share_target_ios),
+    OTHER(R.drawable.ic_share_target_other),
+}
+
+/** The order of ui/PeerRow.kt getOsVisuals, so a device looks the same in the sheet and in the app. */
+internal fun shareTargetOsOf(os: String?): ShareTargetOs {
+    val o = os?.lowercase().orEmpty()
+    return when {
+        o.contains("android") -> ShareTargetOs.ANDROID
+        o.contains("windows") -> ShareTargetOs.WINDOWS
+        o.contains("linux") -> ShareTargetOs.LINUX
+        o.contains("macos") || o.contains("darwin") -> ShareTargetOs.MACOS
+        o.contains("ios") -> ShareTargetOs.IOS
+        else -> ShareTargetOs.OTHER
+    }
+}
 
 /**
  * The share sheet's row: the devices a file can go to now first — those sent to most
@@ -99,8 +123,7 @@ object ShareTargets {
                 val id = p.id?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                 val st = taildropStatusOf(p, strings)
                 if (st is TaildropStatus.Blocked) return@mapNotNull null
-                val os = p.iconOs()?.lowercase().orEmpty()
-                ShareCandidate(id, p.getDisplayName(), os.contains("android") || os.contains("ios"), st is TaildropStatus.Available)
+                ShareCandidate(id, p.getDisplayName(), shareTargetOsOf(p.iconOs()), st is TaildropStatus.Available)
             }
             val targets = pickShareTargets(candidates, recentRecipients(TaildropHistory.read(context)), limit(context))
             if (targets == published && profile == publishedProfile) return
@@ -150,7 +173,7 @@ object ShareTargets {
         ShortcutInfoCompat.Builder(context, id)
             .setShortLabel(t.label)
             .setLongLabel(t.label)
-            .setIcon(IconCompat.createWithResource(context, if (t.phone) R.drawable.ic_share_target_phone else R.drawable.ic_share_target_computer))
+            .setIcon(IconCompat.createWithResource(context, t.os.icon))
             // The share sheet sends its own SEND intent with this id; a launcher that shows
             // the shortcut (see below) opens the file picker for that device.
             .setIntent(

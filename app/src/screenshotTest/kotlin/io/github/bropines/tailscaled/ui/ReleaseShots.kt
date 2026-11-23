@@ -110,24 +110,35 @@ fun ReleaseTailcat() = Showcase {
  * shortcut icons as published, the app's badge on each — with the made-up devices of
  * DemoTailnet. Illustration only: no screen of the app looks like this.
  */
-private data class ShareDemoTarget(val name: String, val phone: Boolean)
+private data class ShareDemoTarget(val name: String, val os: io.github.bropines.tailscaled.core.ShareTargetOs)
 
 private val shareDemoTargets = listOf(
-    ShareDemoTarget("desktop-home", phone = false),
-    ShareDemoTarget("pixel-8", phone = true),
-    ShareDemoTarget("homelab-nas", phone = false),
-    ShareDemoTarget("macbook-air", phone = false),
+    ShareDemoTarget("desktop-home", io.github.bropines.tailscaled.core.ShareTargetOs.WINDOWS),
+    ShareDemoTarget("pixel-8", io.github.bropines.tailscaled.core.ShareTargetOs.ANDROID),
+    ShareDemoTarget("homelab-nas", io.github.bropines.tailscaled.core.ShareTargetOs.LINUX),
+    ShareDemoTarget("macbook-air", io.github.bropines.tailscaled.core.ShareTargetOs.MACOS),
 )
 
+/** The background and foreground of each OS's adaptive icon, as the launcher stacks them. */
+private fun shareDemoLayers(os: io.github.bropines.tailscaled.core.ShareTargetOs): Pair<Int, Int> = when (os) {
+    io.github.bropines.tailscaled.core.ShareTargetOs.ANDROID -> io.github.bropines.tailscaled.R.color.share_target_android_background to io.github.bropines.tailscaled.R.drawable.ic_share_target_android_fg
+    io.github.bropines.tailscaled.core.ShareTargetOs.WINDOWS -> io.github.bropines.tailscaled.R.color.share_target_windows_background to io.github.bropines.tailscaled.R.drawable.ic_share_target_windows_fg
+    io.github.bropines.tailscaled.core.ShareTargetOs.LINUX -> io.github.bropines.tailscaled.R.color.share_target_linux_background to io.github.bropines.tailscaled.R.drawable.ic_share_target_linux_fg
+    io.github.bropines.tailscaled.core.ShareTargetOs.MACOS -> io.github.bropines.tailscaled.R.color.share_target_macos_background to io.github.bropines.tailscaled.R.drawable.ic_share_target_macos_fg
+    io.github.bropines.tailscaled.core.ShareTargetOs.IOS -> io.github.bropines.tailscaled.R.color.share_target_ios_background to io.github.bropines.tailscaled.R.drawable.ic_share_target_ios_fg
+    io.github.bropines.tailscaled.core.ShareTargetOs.OTHER -> io.github.bropines.tailscaled.R.color.share_target_other_background to io.github.bropines.tailscaled.R.drawable.ic_share_target_other_fg
+}
+
 @Composable
-private fun ShareDemoIcon(phone: Boolean) {
+private fun ShareDemoIcon(os: io.github.bropines.tailscaled.core.ShareTargetOs) {
+    val (background, glyph) = shareDemoLayers(os)
     androidx.compose.foundation.layout.Box(Modifier.size(64.dp)) {
         androidx.compose.foundation.layout.Box(
             Modifier.size(60.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                .background(colorResource(io.github.bropines.tailscaled.R.color.shortcut_background))
+                .background(colorResource(background))
         ) {
             Image(
-                painterResource(if (phone) io.github.bropines.tailscaled.R.drawable.ic_share_target_phone_fg else io.github.bropines.tailscaled.R.drawable.ic_share_target_computer_fg),
+                painterResource(glyph),
                 contentDescription = null, modifier = Modifier.fillMaxSize()
             )
         }
@@ -179,7 +190,7 @@ fun ReleaseShareSheet() = Showcase {
                     androidx.compose.foundation.layout.Column(
                         Modifier.width(80.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
                     ) {
-                        ShareDemoIcon(t.phone)
+                        ShareDemoIcon(t.os)
                         androidx.compose.foundation.layout.Spacer(Modifier.height(8.dp))
                         androidx.compose.material3.Text(
                             t.name, color = onSheet, fontSize = 13.sp, maxLines = 1,

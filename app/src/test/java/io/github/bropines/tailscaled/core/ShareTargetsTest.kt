@@ -9,7 +9,7 @@ import org.junit.Test
 /** Which devices the system share sheet offers, in what order, and whose they are. */
 class ShareTargetsTest {
 
-    private fun c(id: String, available: Boolean = true) = ShareCandidate(id, id, phone = false, available = available)
+    private fun c(id: String, available: Boolean = true) = ShareCandidate(id, id, ShareTargetOs.OTHER, available = available)
 
     @Test
     fun recentFirstThenPickerOrder() {
@@ -50,5 +50,17 @@ class ShareTargetsTest {
         assertNull(ShareTargets.peerIdFor(id, "acc"))
         assertNull(ShareTargets.peerIdFor("toggle", "acc1"))
         assertNull(ShareTargets.peerIdFor(null, "acc1"))
+    }
+
+    @Test
+    fun iconFollowsTheDeviceListsOs() {
+        assertEquals(ShareTargetOs.ANDROID, shareTargetOsOf("android"))
+        assertEquals(ShareTargetOs.WINDOWS, shareTargetOsOf("windows"))
+        assertEquals(ShareTargetOs.LINUX, shareTargetOsOf("linux"))
+        assertEquals(ShareTargetOs.MACOS, shareTargetOsOf("macOS"))
+        assertEquals(ShareTargetOs.MACOS, shareTargetOsOf("darwin"))
+        assertEquals(ShareTargetOs.IOS, shareTargetOsOf("iOS"))
+        assertEquals(ShareTargetOs.OTHER, shareTargetOsOf("freebsd"))
+        assertEquals(ShareTargetOs.OTHER, shareTargetOsOf(null))
     }
 }

@@ -3,4 +3,18 @@
     <!-- Launcher shortcuts (core/AppShortcuts.kt): the brand purple on lavender. -->
     <color name="shortcut_background">#FFEDE5FF</color>
     <color name="shortcut_glyph">#FF5B3FB0</color>
+    <!-- Direct Share targets (core/ShareTargets.kt): each OS in its colour of ui/PeerRow.kt
+         getOsVisuals on a light tint of it, the glyph darkened where the tint would swallow it. -->
+    <color name="share_target_android_background">#FFDDF8E8</color>
+    <color name="share_target_android_glyph">#FF0F8A4A</color>
+    <color name="share_target_windows_background">#FFD9EBFA</color>
+    <color name="share_target_windows_glyph">#FF0078D4</color>
+    <color name="share_target_linux_background">#FFFEF3C8</color>
+    <color name="share_target_linux_glyph">#FF8A6A00</color>
+    <color name="share_target_macos_background">#FFF2E3FA</color>
+    <color name="share_target_macos_glyph">#FF8E36BC</color>
+    <color name="share_target_ios_background">#FFF2E3FA</color>
+    <color name="share_target_ios_glyph">#FF8E36BC</color>
+    <color name="share_target_other_background">#FFEDE5FF</color>
+    <color name="share_target_other_glyph">#FF5B3FB0</color>
 </resources>
