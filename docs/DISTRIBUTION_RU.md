@@ -2,7 +2,7 @@
 
 *English version: [DISTRIBUTION.md](DISTRIBUTION.md)*
 
-> **Состояние на 2026-11-01:** TailSocks [есть в F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/): воспроизводимая сборка, опубликована с подписью автора ([fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), принят 2026-10-30). Новые релизы F-Droid находит сам по тегам `v*`, рецепт править не нужно. Ниже — исследование, которое к этому привело.
+> **Состояние на 2026-11-01:** TailSocks [есть в F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/): воспроизводимая сборка, опубликована с подписью автора ([fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), принят 2026-10-30). Новые релизы F-Droid находит сам по тегам `v*`, рецепт править не нужно — когда проверка обновлений работает. С 5.8.2 по 6.2.0 она застряла: MR бота на 5.8.2 упал на сканере (бинарник `world_land.bin`, заменённый исходником в 6.0.2) и на следующие теги так и не перешёл, поэтому одиннадцать дней F-Droid раздавал 5.7.0. 6.3.0 отправлен вручную ([fdroiddata!58807](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/58807), все четыре ABI воспроизвелись в CI форка). После релиза проверяйте, что раздаёт F-Droid (`https://f-droid.org/api/v1/packages/io.github.bropines.tailscaled`) и нет ли открытого MR бота. Ниже — исследование, которое к этому привело.
 
 Исследование от 2026-09-30; номера строк — по коммиту `730ff4e`. Что уже подготовлено:
 

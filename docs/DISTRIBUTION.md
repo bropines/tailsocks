@@ -2,7 +2,7 @@
 
 *Русская версия: [DISTRIBUTION_RU.md](DISTRIBUTION_RU.md)*
 
-> **Status, 2026-11-01:** TailSocks is [on F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/), built reproducibly and published with the author's signature ([fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), merged 2026-10-30). New releases reach it by F-Droid's update check from the `v*` tags; the recipe needs no edits. What follows is the research that led there.
+> **Status, 2026-11-01:** TailSocks is [on F-Droid](https://f-droid.org/packages/io.github.bropines.tailscaled/), built reproducibly and published with the author's signature ([fdroiddata!50707](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50707), merged 2026-10-30). New releases reach it by F-Droid's update check from the `v*` tags; the recipe needs no edits — when the check works. It stalled from 5.8.2 to 6.2.0: the bot's MR for 5.8.2 failed on the scanner (a binary `world_land.bin`, replaced by source in 6.0.2) and was never moved to later tags, so F-Droid served 5.7.0 for eleven days. 6.3.0 went in by hand ([fdroiddata!58807](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/58807), all four ABIs reproduced in the fork's CI). After a release, check what F-Droid serves (`https://f-droid.org/api/v1/packages/io.github.bropines.tailscaled`) and any open bot MR. What follows is the research that led there.
 
 Research from 2026-09-30; line numbers are as of commit `730ff4e`. What's already in place:
 
