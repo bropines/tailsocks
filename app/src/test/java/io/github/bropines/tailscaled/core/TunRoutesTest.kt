@@ -3,6 +3,7 @@ package io.github.bropines.tailscaled.core
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class TunRoutesTest {
@@ -131,5 +132,22 @@ class TunRoutesTest {
         assertNull(TunRoutes.daemonPrefs("""{"Error": "nope"}"""))
         assertNull(TunRoutes.daemonPrefs("""{"RouteAll": true}"""))
         assertNull(TunRoutes.daemonPrefs(""))
+    }
+
+    @Test
+    fun routeCheckFollowsTheRoutesEvent() {
+        val t0 = 1_000_000L
+        // The first tick after a start reads.
+        assertTrue(tunRouteCheckDue(t0, 0L, 0, 0, held = false))
+        // Nothing moved: no read until the safety interval.
+        assertFalse(tunRouteCheckDue(t0 + 60_000, t0, 3, 3, held = false))
+        assertFalse(tunRouteCheckDue(t0 + TUN_ROUTE_SAFETY_MS - 1, t0, 3, 3, held = false))
+        assertTrue(tunRouteCheckDue(t0 + TUN_ROUTE_SAFETY_MS, t0, 3, 3, held = false))
+        // A routes event: read, but not closer than the minimum gap.
+        assertFalse(tunRouteCheckDue(t0 + 10_000, t0, 4, 3, held = false))
+        assertTrue(tunRouteCheckDue(t0 + TUN_ROUTE_CHECK_MIN_GAP_MS, t0, 4, 3, held = false))
+        // A change held back for the rebuild gap is looked at every minute.
+        assertFalse(tunRouteCheckDue(t0 + 59_000, t0, 3, 3, held = true))
+        assertTrue(tunRouteCheckDue(t0 + TUN_ROUTE_HELD_RECHECK_MS, t0, 3, 3, held = true))
     }
 }

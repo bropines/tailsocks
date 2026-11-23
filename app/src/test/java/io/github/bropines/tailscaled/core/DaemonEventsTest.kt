@@ -15,6 +15,7 @@ class DaemonEventsTest {
         assertEquals(DaemonEventKind.HEALTH, DaemonEventKind.fromWire("health"))
         assertEquals(DaemonEventKind.PREFS, DaemonEventKind.fromWire("prefs"))
         assertEquals(DaemonEventKind.NETMAP, DaemonEventKind.fromWire("netmap"))
+        assertEquals(DaemonEventKind.ROUTES, DaemonEventKind.fromWire("routes"))
         // A kind a newer bridge might add, and engine statistics, which are no event.
         assertNull(DaemonEventKind.fromWire("engine"))
     }

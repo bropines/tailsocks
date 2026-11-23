@@ -102,9 +102,10 @@ class TunVpnService : VpnService() {
         @Volatile private var builtRoutes = ""
         @Volatile private var lastRouteCheckAt = 0L
         @Volatile private var lastRouteRebuildAt = 0L
-
-        /** A full LocalAPI status read; the tick asks for routes no more often than this. */
-        private const val ROUTE_CHECK_INTERVAL_MS = 60_000L
+        /** The routes revision ([DaemonEvents.revision]) the last check read. */
+        @Volatile private var checkedRoutesRevision = 0L
+        /** The last check found a change it had to hold back for the minimum gap. */
+        @Volatile private var routeRebuildHeld = false
 
         /**
          * At most one route-driven rebuild per this long while a rebuild may cost
@@ -256,8 +257,11 @@ class TunVpnService : VpnService() {
                 else "transparent mode is no longer wanted"
             }
             val now = SystemClock.elapsedRealtime()
-            if (lastRouteCheckAt != 0L && now - lastRouteCheckAt < ROUTE_CHECK_INTERVAL_MS) return null
+            val revision = DaemonEvents.revision.value.routes
+            if (!tunRouteCheckDue(now, lastRouteCheckAt, revision, checkedRoutesRevision, routeRebuildHeld)) return null
             lastRouteCheckAt = now
+            checkedRoutesRevision = revision
+            routeRebuildHeld = false
             val routeAll = routePrefs(context).first
             if (!routeAll && builtRoutes.isEmpty()) return null
             val offered = if (routeAll) {
@@ -269,6 +273,7 @@ class TunVpnService : VpnService() {
             val gap = if (builtEngine == ENGINE_NATIVE && lastSwapWorked) ROUTE_SWAP_MIN_GAP_MS else ROUTE_REBUILD_MIN_GAP_MS
             if (lastRouteRebuildAt != 0L && now - lastRouteRebuildAt < gap) {
                 Log.i(TAG, "Accepted subnet routes changed; rebuilding after the minimum gap")
+                routeRebuildHeld = true
                 return null
             }
             lastRouteRebuildAt = now

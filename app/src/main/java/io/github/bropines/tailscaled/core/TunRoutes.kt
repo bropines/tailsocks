@@ -249,3 +249,30 @@ object TunRoutes {
     fun decode(text: String?): List<Cidr> =
         text.orEmpty().split(',').mapNotNull { if (it.isBlank()) null else parse(it) }
 }
+
+/** A full status read for routes no more often than this, however often the routes move. */
+internal const val TUN_ROUTE_CHECK_MIN_GAP_MS = 30_000L
+
+/** A change held back for the minimum rebuild gap is looked at again this often. */
+internal const val TUN_ROUTE_HELD_RECHECK_MS = 60_000L
+
+/** The safety read when no routes event came: a lost event costs at most this long. */
+internal const val TUN_ROUTE_SAFETY_MS = 5 * 60_000L
+
+/**
+ * Whether the TUN tick reads the full status for the accepted subnet routes now. The bridge
+ * says when some peer's routes changed (the `routes` event, appctr/events.go); a peer going
+ * online or offline is not one, so on a large tailnet the read follows the routes, not the
+ * churn. A change held back for the minimum rebuild gap ([held]) is looked at again every
+ * minute, as before, and a safety read every five covers an event that never came.
+ */
+internal fun tunRouteCheckDue(now: Long, lastCheckAt: Long, revision: Long, checkedRevision: Long, held: Boolean): Boolean {
+    if (lastCheckAt == 0L) return true
+    val since = now - lastCheckAt
+    return when {
+        since >= TUN_ROUTE_SAFETY_MS -> true
+        held -> since >= TUN_ROUTE_HELD_RECHECK_MS
+        revision != checkedRevision -> since >= TUN_ROUTE_CHECK_MIN_GAP_MS
+        else -> false
+    }
+}

@@ -42,7 +42,11 @@ import (
 // "state" (backend state, the login link, the bridge attaching to or losing a
 // daemon), "health" (the set of health warnings), "prefs" (the prefs the app
 // shows: exit node, routes, DNS, hostname…) and "netmap" (peers added or
-// removed, or a peer's online, exit-node-option, address or name changed).
+// removed, or a peer's online, exit-node-option, address or name changed) and
+// "routes" (the subnet routes some peer may be reached for — its AllowedIPs
+// past its own addresses and the default routes — changed; a peer going online
+// or offline is no routes event, so a TUN device that follows the routes reads
+// the full status only when they move).
 // Engine statistics are not events: they are read on demand
 // (GetEngineStatusJSON).
 //
@@ -67,12 +71,17 @@ const (
 	eventHealth
 	eventPrefs
 	eventNetmap
+	eventRoutes
 	eventKinds
 )
 
-var eventKindNames = [eventKinds]string{"state", "health", "prefs", "netmap"}
+var eventKindNames = [eventKinds]string{"state", "health", "prefs", "netmap", "routes"}
 
 func (k eventKind) String() string { return eventKindNames[k] }
+
+// debounced says whether k comes in peer bursts and waits them out. netmap and
+// routes share one burst window: a netmap that names many peers carries both.
+func (k eventKind) debounced() bool { return k == eventNetmap || k == eventRoutes }
 
 // daemonEventNetmapDebounce is how long the dispatcher waits after the last
 // netmap change before telling the app; daemonEventNetmapMaxWait bounds the
@@ -134,8 +143,8 @@ func (d *eventDispatcher) publish(kinds ...eventKind) {
 	now := time.Now()
 	d.mu.Lock()
 	for _, k := range kinds {
-		if k == eventNetmap {
-			if !d.pending[eventNetmap] {
+		if k.debounced() {
+			if !d.pending[eventNetmap] && !d.pending[eventRoutes] {
 				d.netmapFirst = now
 			}
 			d.netmapLast = now
@@ -160,7 +169,7 @@ func (d *eventDispatcher) dueLocked(now time.Time) (ready []eventKind, wait time
 		if !d.pending[k] {
 			continue
 		}
-		if k == eventNetmap {
+		if k.debounced() {
 			at := d.netmapLast.Add(d.debounce)
 			if limit := d.netmapFirst.Add(d.maxWait); limit.Before(at) {
 				at = limit
@@ -246,6 +255,7 @@ type eventSignatures struct {
 	state, health, prefs string
 	netmapPeers          int
 	netmapSum            uint64
+	routesSum            uint64
 }
 
 var lastEventSigs eventSignatures
@@ -261,10 +271,17 @@ var lastEventSigs eventSignatures
 //
 // busPeerRest is each node's hash before the online bit is folded in, so a
 // patch that only flips Online needs no copy of the node.
+//
+// busPeerRoutes is each node's hash of the subnet routes it may be reached for
+// (peerRoutesHash), 0 for none, and busRoutesSum their sum: the routes
+// signature, kept the same way and apart from the netmap one, so a peer going
+// online or offline moves only the netmap one.
 var (
-	busPeerFacts = map[int64]uint64{}
-	busPeerRest  = map[int64]uint64{}
-	busNetmapSum uint64
+	busPeerFacts  = map[int64]uint64{}
+	busPeerRest   = map[int64]uint64{}
+	busNetmapSum  uint64
+	busPeerRoutes = map[int64]uint64{}
+	busRoutesSum  uint64
 )
 
 // setPeerFacts records p's facts. Caller holds busStateMu.
@@ -284,6 +301,9 @@ func setPeerFacts(p *BusPeer) {
 	busPeerFacts[id] = h
 	busPeerRest[id] = rest
 	busNetmapSum += h
+	r := peerRoutesHash(p)
+	busRoutesSum += r - busPeerRoutes[id]
+	busPeerRoutes[id] = r
 }
 
 // patchPeerOnline applies a PeerChangedPatch's Online to the recorded facts.
@@ -310,12 +330,18 @@ func removePeerFacts(id int64) {
 		delete(busPeerFacts, id)
 		delete(busPeerRest, id)
 	}
+	if old, ok := busPeerRoutes[id]; ok {
+		busRoutesSum -= old
+		delete(busPeerRoutes, id)
+	}
 }
 
 func resetPeerFacts() {
 	busPeerFacts = map[int64]uint64{}
 	busPeerRest = map[int64]uint64{}
 	busNetmapSum = 0
+	busPeerRoutes = map[int64]uint64{}
+	busRoutesSum = 0
 }
 
 // peerRestHash hashes the facts of p the app shows, but Online, the same for
@@ -366,6 +392,50 @@ func foldOnline(rest uint64, online bool) uint64 {
 	return h.Sum64()
 }
 
+// peerRoutesHash hashes the subnet routes p may be reached for, the same for
+// both shapes: its AllowedIPs without its own addresses (a PeerStatus's bare
+// TailscaleIPs, a Node's Addresses prefixes) and without the default routes,
+// which are the exit-node offer. 0 when there are none, so a peer without
+// routes adds nothing to the sum. What TunRoutes.offeredRoutes keeps of them
+// (nothing inside the tailnet ranges, no expired peer) is the app's to decide:
+// this only says when it is worth asking again.
+func peerRoutesHash(p *BusPeer) uint64 {
+	if len(p.AllowedIPs) == 0 {
+		return 0
+	}
+	own := make(map[string]bool, len(p.Addresses)+len(p.TailscaleIPs))
+	for _, a := range p.Addresses {
+		own[a] = true
+	}
+	for _, ip := range p.TailscaleIPs {
+		if strings.IndexByte(ip, ':') >= 0 {
+			own[ip+"/128"] = true
+		} else {
+			own[ip+"/32"] = true
+		}
+	}
+	var routes []string
+	for _, r := range p.AllowedIPs {
+		if own[r] || r == "0.0.0.0/0" || r == "::/0" {
+			continue
+		}
+		routes = append(routes, r)
+	}
+	if len(routes) == 0 {
+		return 0
+	}
+	sort.Strings(routes)
+	h := fnv.New64a()
+	for _, r := range routes {
+		h.Write([]byte(r))
+		h.Write([]byte{0})
+	}
+	if v := h.Sum64(); v != 0 {
+		return v
+	}
+	return 1
+}
+
 // containsExitRoutes is tsaddr.ContainsExitRoutes on strings: a node offers
 // itself as an exit node when it may route both default routes.
 func containsExitRoutes(allowed []string) bool {
@@ -384,7 +454,7 @@ func containsExitRoutes(allowed []string) bool {
 // currentEventSigsLocked reads the signatures off the snapshot. Caller holds
 // busStateMu (read or write).
 func currentEventSigsLocked() eventSignatures {
-	s := eventSignatures{netmapPeers: len(busPeerFacts), netmapSum: busNetmapSum}
+	s := eventSignatures{netmapPeers: len(busPeerFacts), netmapSum: busNetmapSum, routesSum: busRoutesSum}
 
 	// The bridge attaching to a daemon or losing it is a state change too:
 	// the app's "is anything running" changes with it.
@@ -434,6 +504,9 @@ func takeEventChangesLocked() []eventKind {
 	}
 	if cur.netmapPeers != prev.netmapPeers || cur.netmapSum != prev.netmapSum {
 		kinds = append(kinds, eventNetmap)
+	}
+	if cur.routesSum != prev.routesSum {
+		kinds = append(kinds, eventRoutes)
 	}
 	return kinds
 }

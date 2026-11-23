@@ -64,6 +64,7 @@ internal const val EXIT_NODE_NAME_RETRY_MS = 10_000L
  *   read again; the widgets show the exit node too.
  * - `netmap`: the share sheet lists the peers; an exit node not found by name may be in the
  *   netmap now; the exit-node widget lists the exit nodes and whether they are online.
+ * - `routes`: nothing here; the tick's TUN rebuild check follows it.
  *
  * Widgets only while the screen is on ([interactive]), as the tick did: the service's screen-on
  * receiver repaints them the moment it wakes, and the card's own state changes request them
@@ -88,6 +89,8 @@ internal fun serviceRefreshesFor(changed: Set<DaemonEventKind>, interactive: Boo
             out += ServiceRefresh.RETRY_EXIT_NODE_NAME
             out += ServiceRefresh.WIDGETS
         }
+        // The TUN rebuild check on the tick reads it (tunRouteCheckDue); nothing here shows routes.
+        DaemonEventKind.ROUTES -> Unit
     }
     if (!interactive) out -= ServiceRefresh.WIDGETS
     return out
@@ -158,12 +161,14 @@ internal enum class GuardTrigger {
 
 /** The triggers the changed kinds are: one for one. */
 internal fun exitNodeGuardTriggersFor(changed: Set<DaemonEventKind>): Set<GuardTrigger> =
-    changed.mapTo(mutableSetOf()) {
+    changed.mapNotNullTo(mutableSetOf()) {
         when (it) {
             DaemonEventKind.STATE -> GuardTrigger.STATE
             DaemonEventKind.HEALTH -> GuardTrigger.HEALTH
             DaemonEventKind.PREFS -> GuardTrigger.PREFS
             DaemonEventKind.NETMAP -> GuardTrigger.NETMAP
+            // Subnet routes say nothing about the exit node: an exit-node offer is a netmap change.
+            DaemonEventKind.ROUTES -> null
         }
     }
 

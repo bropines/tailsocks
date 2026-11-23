@@ -23,7 +23,10 @@ enum class DaemonEventKind(val wire: String) {
     PREFS("prefs"),
 
     /** Peers added or removed, or a peer's online, exit-node offer, address or name. */
-    NETMAP("netmap");
+    NETMAP("netmap"),
+
+    /** The subnet routes some peer may be reached for; a peer going online or offline is not one. */
+    ROUTES("routes");
 
     companion object {
         fun fromWire(kind: String): DaemonEventKind? = entries.firstOrNull { it.wire == kind }
@@ -38,12 +41,19 @@ data class DaemonEvent(val kind: DaemonEventKind, val seq: Long)
  * that was stopped — compares the revisions it last handled with these to learn what changed
  * meanwhile, without having been there for the events.
  */
-data class Revisions(val state: Long = 0, val health: Long = 0, val prefs: Long = 0, val netmap: Long = 0) {
+data class Revisions(
+    val state: Long = 0,
+    val health: Long = 0,
+    val prefs: Long = 0,
+    val netmap: Long = 0,
+    val routes: Long = 0,
+) {
     operator fun get(kind: DaemonEventKind): Long = when (kind) {
         DaemonEventKind.STATE -> state
         DaemonEventKind.HEALTH -> health
         DaemonEventKind.PREFS -> prefs
         DaemonEventKind.NETMAP -> netmap
+        DaemonEventKind.ROUTES -> routes
     }
 
     /** These revisions with [event] recorded, or unchanged when it is no newer than what they hold. */
@@ -54,6 +64,7 @@ data class Revisions(val state: Long = 0, val health: Long = 0, val prefs: Long 
             DaemonEventKind.HEALTH -> copy(health = event.seq)
             DaemonEventKind.PREFS -> copy(prefs = event.seq)
             DaemonEventKind.NETMAP -> copy(netmap = event.seq)
+            DaemonEventKind.ROUTES -> copy(routes = event.seq)
         }
     }
 

@@ -7,6 +7,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Changed
 
 - Share sheet: each device shows its OS — Android, Windows, Linux, macOS, iOS — with the same icon and colour as in the app's device list, instead of a generic phone or computer, so devices with long, similar names are easy to tell apart.
+- Battery: in VPN (TUN) mode the app no longer reads the full tailnet status every minute to look for new subnet routes; the daemon now says when a peer's routes change, and the app checks then (and every five minutes as a safety net). On large tailnets peers going online and offline no longer cause these reads.
 
 ## [6.2.0] - 2026-11-19
 

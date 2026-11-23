@@ -284,10 +284,21 @@ func TestDaemonEventChangeDetection(t *testing.T) {
 	expect(`{"PeerChangedPatch":[{"NodeID":2,"Online":true}]}`, "netmap")
 	// Stops offering an exit node.
 	expect(`{"PeersChanged":[{"ID":3,"StableID":"nThree","Name":"exit.ts.net.","Addresses":["100.64.0.3/32"],"AllowedIPs":["100.64.0.3/32"]}]}`, "netmap")
+	// Starts offering a subnet route: routes, not netmap — nothing the peer
+	// list shows moved. The route going away is one too; the exit-node offer
+	// and the peer's own address are never routes.
+	expect(`{"PeersChanged":[{"ID":3,"StableID":"nThree","Name":"exit.ts.net.","Addresses":["100.64.0.3/32"],"AllowedIPs":["100.64.0.3/32","192.168.7.0/24"]}]}`, "routes")
+	expect(`{"PeersChanged":[{"ID":3,"StableID":"nThree","Name":"exit.ts.net.","Addresses":["100.64.0.3/32"],"AllowedIPs":["192.168.7.0/24","100.64.0.3/32"]}]}`)
+	expect(`{"PeersChanged":[{"ID":3,"StableID":"nThree","Name":"exit.ts.net.","Addresses":["100.64.0.3/32"],"AllowedIPs":["100.64.0.3/32","192.168.7.0/24","0.0.0.0/0","::/0"]}]}`, "netmap")
+	expect(`{"PeerChangedPatch":[{"NodeID":3,"Online":true}]}`, "netmap")
+	expect(`{"PeersChanged":[{"ID":3,"StableID":"nThree","Name":"exit.ts.net.","Addresses":["100.64.0.3/32"],"AllowedIPs":["100.64.0.3/32"]}]}`, "netmap", "routes")
 	// A new peer, a removed one, an unknown one removed.
 	expect(`{"PeersChanged":[{"ID":4,"StableID":"nFour","Name":"four.ts.net.","Addresses":["100.64.0.4/32"]}]}`, "netmap")
 	expect(`{"PeersRemoved":[4]}`, "netmap")
 	expect(`{"PeersRemoved":[99]}`)
+	// A peer with a route leaving takes its route along.
+	expect(`{"PeersChanged":[{"ID":5,"StableID":"nFive","Name":"five.ts.net.","Addresses":["100.64.0.5/32"],"AllowedIPs":["100.64.0.5/32","10.9.0.0/16"]}]}`, "netmap", "routes")
+	expect(`{"PeersRemoved":[5]}`, "netmap", "routes")
 	// Engine statistics are no event.
 	expect(`{"Engine":{"RBytes":10,"NumLive":2}}`)
 
@@ -311,6 +322,22 @@ func TestDaemonEventChangeDetection(t *testing.T) {
 
 // The netmap signature is kept, not recomputed: a large tailnet's peers each
 // cost one entry, and a patch that names one peer touches only that one.
+// Both shapes a node comes in give one routes hash: a PeerStatus's bare
+// TailscaleIPs and a Node's Addresses prefixes are both the node's own.
+func TestPeerRoutesHashShapes(t *testing.T) {
+	status := &BusPeer{TailscaleIPs: []string{"100.64.0.9", "fd7a:115c:a1e0::9"},
+		AllowedIPs: []string{"100.64.0.9/32", "fd7a:115c:a1e0::9/128", "10.0.0.0/8"}}
+	node := &BusPeer{Addresses: []string{"100.64.0.9/32", "fd7a:115c:a1e0::9/128"},
+		AllowedIPs: []string{"10.0.0.0/8", "fd7a:115c:a1e0::9/128", "100.64.0.9/32"}}
+	if a, b := peerRoutesHash(status), peerRoutesHash(node); a != b || a == 0 {
+		t.Fatalf("routes hash differs by shape: %x vs %x", a, b)
+	}
+	none := &BusPeer{TailscaleIPs: []string{"100.64.0.9"}, AllowedIPs: []string{"100.64.0.9/32", "0.0.0.0/0", "::/0"}}
+	if h := peerRoutesHash(none); h != 0 {
+		t.Fatalf("own address and default routes hashed as routes: %x", h)
+	}
+}
+
 func TestDaemonEventNetmapSignatureIsOrderFree(t *testing.T) {
 	t.Cleanup(func() { resetBusState(); FlushDNS() })
 	resetBusState()

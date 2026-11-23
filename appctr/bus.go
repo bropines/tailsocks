@@ -111,7 +111,7 @@ type BusPeer struct {
 	Active         bool            `json:"Active,omitempty"`
 	ExitNode       bool            `json:"ExitNode,omitempty"`
 	ExitNodeOption bool            `json:"ExitNodeOption,omitempty"`
-	AllowedIPs     []string        `json:"AllowedIPs,omitempty"` // a Node's exit-node offer, for the netmap signature (events.go)
+	AllowedIPs     []string        `json:"AllowedIPs,omitempty"` // exit-node offer and subnet routes, for the netmap and routes signatures (events.go)
 	Tags           []string        `json:"Tags,omitempty"`
 	Capabilities   []string        `json:"Capabilities,omitempty"`
 	Relay          string          `json:"Relay,omitempty"` // preferred DERP region
