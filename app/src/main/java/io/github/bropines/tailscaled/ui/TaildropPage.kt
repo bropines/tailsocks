@@ -51,6 +51,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.Delete
@@ -496,7 +498,10 @@ private class InboxContent(
         SwipeableFileCard(
             onOpen = { onOpenFile(f) },
             onShare = { shareTaildropFile(context) { TaildropInbox.viewIntent(context, f) } },
-            onHide = null
+            onHide = null,
+            // Not saved anywhere yet: no folder to show or name.
+            onShowInFolder = null,
+            onCopyFolderPath = null,
         ) {
             FileCard(
                 f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) },
@@ -514,7 +519,9 @@ private class InboxContent(
             onOpen = { onOpenSaved(e) },
             // Only a copy the folder still has a URI for can be handed on.
             onShare = e.savedUri?.let { { shareTaildropFile(context) { TaildropInbox.viewIntent(context, e) } } },
-            onHide = { onHideSaved(e) }
+            onHide = { onHideSaved(e) },
+            onShowInFolder = onShowSavedInFolder?.let { show -> { show(e) } },
+            onCopyFolderPath = onCopySavedFolderPath?.let { copy -> { copy(e) } },
         ) {
             TaildropSavedCard(
                 e,
@@ -526,17 +533,28 @@ private class InboxContent(
         }
     }
 
-    /** [content] with [swipes] wired to the card's own Open, Share and Hide; a null one leaves that direction still. */
+    /** [content] with [swipes] wired to the card's own actions; a null one leaves that direction still. */
     @Composable
-    private fun SwipeableFileCard(onOpen: () -> Unit, onShare: (() -> Unit)?, onHide: (() -> Unit)?, content: @Composable () -> Unit) {
+    private fun SwipeableFileCard(
+        onOpen: () -> Unit,
+        onShare: (() -> Unit)?,
+        onHide: (() -> Unit)?,
+        onShowInFolder: (() -> Unit)?,
+        onCopyFolderPath: (() -> Unit)?,
+        content: @Composable () -> Unit,
+    ) {
         val hide = stringResource(R.string.gesture_file_hide)
         val open = stringResource(R.string.gesture_file_open)
         val share = stringResource(R.string.gesture_file_share)
+        val showInFolder = stringResource(R.string.gesture_file_show_in_folder)
+        val copyFolder = stringResource(R.string.gesture_file_copy_folder_path)
         fun actionOf(kind: FileSwipe): SwipeAction? = when (kind) {
             FileSwipe.NONE -> null
             FileSwipe.HIDE -> onHide?.let { SwipeAction(hide, Icons.Default.VisibilityOff, onAction = it) }
             FileSwipe.OPEN -> SwipeAction(open, Icons.AutoMirrored.Filled.OpenInNew, onAction = onOpen)
             FileSwipe.SHARE -> onShare?.let { SwipeAction(share, Icons.Default.Share, onAction = it) }
+            FileSwipe.SHOW_IN_FOLDER -> onShowInFolder?.let { SwipeAction(showInFolder, Icons.Default.FolderOpen, onAction = it) }
+            FileSwipe.COPY_FOLDER_PATH -> onCopyFolderPath?.let { SwipeAction(copyFolder, Icons.Default.ContentCopy, onAction = it) }
         }
         // The cards' own corners: the panel behind is cut to the card it shows under.
         SwipeActionBox(actionOf(swipes.first), actionOf(swipes.second), MaterialTheme.shapes.large) { content() }

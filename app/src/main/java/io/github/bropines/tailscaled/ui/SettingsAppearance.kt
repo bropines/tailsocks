@@ -358,6 +358,9 @@ private fun peerLabel(s: PeerSwipe) = when (s) {
     PeerSwipe.COPY_IP -> R.string.gesture_peer_copy_ip
     PeerSwipe.EXIT_NODE -> R.string.gesture_peer_exit_node
     PeerSwipe.DETAILS -> R.string.gesture_peer_details
+    PeerSwipe.COPY_NAME -> R.string.gesture_peer_copy_name
+    PeerSwipe.COPY_AS -> R.string.gesture_peer_copy_as
+    PeerSwipe.OPEN_WEB -> R.string.gesture_peer_open_web
 }
 
 private fun statusLabel(s: StatusSwipe) = when (s) {
@@ -365,6 +368,14 @@ private fun statusLabel(s: StatusSwipe) = when (s) {
     StatusSwipe.NEXT_ACCOUNT -> R.string.gesture_status_next_account
     StatusSwipe.EXIT_NODE_TOGGLE -> R.string.gesture_status_exit_toggle
     StatusSwipe.EXIT_NODE_PICKER -> R.string.gesture_status_exit_picker
+    StatusSwipe.PREV_ACCOUNT -> R.string.gesture_status_prev_account
+    StatusSwipe.RECONNECT_RELAYS -> R.string.gesture_status_reconnect_relays
+    StatusSwipe.OPEN_PEERS -> R.string.gesture_status_open_peers
+    StatusSwipe.OPEN_FILES -> R.string.gesture_status_open_files
+    StatusSwipe.OPEN_MAP -> R.string.gesture_status_open_map
+    StatusSwipe.OPEN_LOGS -> R.string.gesture_status_open_logs
+    StatusSwipe.OPEN_SETTINGS -> R.string.gesture_status_open_settings
+    StatusSwipe.SCAN_QR -> R.string.gesture_status_scan_qr
 }
 
 private fun fileLabel(s: FileSwipe) = when (s) {
@@ -372,6 +383,8 @@ private fun fileLabel(s: FileSwipe) = when (s) {
     FileSwipe.HIDE -> R.string.gesture_file_hide
     FileSwipe.OPEN -> R.string.gesture_file_open
     FileSwipe.SHARE -> R.string.gesture_file_share
+    FileSwipe.SHOW_IN_FOLDER -> R.string.gesture_file_show_in_folder
+    FileSwipe.COPY_FOLDER_PATH -> R.string.gesture_file_copy_folder_path
 }
 
 private val swipeAreas = listOf(
@@ -397,8 +410,9 @@ private val swipeAreas = listOf(
 
 /**
  * The Gestures card: the back preview's switch, and a row per swipe. A row's summary names
- * both directions; tapping it asks for the right swipe, then straight away for the left one —
- * one row and two short lists instead of six rows. Leaving the first list asks nothing more.
+ * both directions; tapping it opens one sheet with the two directions side by side, each a
+ * row of choices that applies at once. (Two lists one after the other read as the same list
+ * opening twice.)
  */
 @Composable
 private fun GesturesSettings() {
@@ -414,15 +428,13 @@ private fun GesturesSettings() {
         predictiveBack = it
     }
 
-    // The stored ids, by preference key: what the summaries show and the lists mark.
+    // The stored ids, by preference key: what the summaries show and the sheet marks.
     val chosen = remember {
         mutableStateMapOf<String, String>().apply {
             swipeAreas.forEach { put(it.keyToEnd, it.toEnd(context)); put(it.keyToStart, it.toStart(context)) }
         }
     }
-    // The open list: an area's index and its direction (true: right). The left one follows a pick.
-    var picking by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
-    var leftNext by remember { mutableStateOf<Int?>(null) }
+    var picking by remember { mutableStateOf<Int?>(null) }
     val toEndWord = stringResource(R.string.gestures_to_end)
     val toStartWord = stringResource(R.string.gestures_to_start)
 
@@ -436,31 +448,72 @@ private fun GesturesSettings() {
                 labels[chosen[area.keyToStart]].orEmpty(),
             ),
             area.icon
-        ) { picking = index to true }
+        ) { picking = index }
     }
 
-    picking?.let { (index, toEnd) ->
+    picking?.let { index ->
         val area = swipeAreas[index]
-        val prefKey = if (toEnd) area.keyToEnd else area.keyToStart
         // Resolved here, outside the sheet: a sheet is a window of its own (see PickerSheet).
-        val title = "${stringResource(area.title)} — ${if (toEnd) toEndWord else toStartWord}"
-        val options = area.choices.map { (id, res) -> PickerOption(id, stringResource(res)) }
-        // A new sheet for the second list: the first one is still sliding away when it is asked for.
-        key(picking) {
-            PickerSheet(
-                title = title,
-                options = options,
-                selected = chosen[prefKey],
-                onPick = { id ->
-                    Gestures.set(context, prefKey, id)
-                    chosen[prefKey] = id
-                    if (toEnd) leftNext = index
-                },
-                onDismiss = {
-                    picking = leftNext?.let { it to false }
-                    leftNext = null
-                },
-            )
+        val title = stringResource(area.title)
+        val options = area.choices.map { (id, res) -> id to stringResource(res) }
+        SwipeChoiceSheet(
+            title = title,
+            directions = listOf(toEndWord to area.keyToEnd, toStartWord to area.keyToStart),
+            options = options,
+            chosen = { chosen[it] },
+            onChoose = { key, id ->
+                Gestures.set(context, key, id)
+                chosen[key] = id
+            },
+            onDismiss = { picking = null },
+        )
+    }
+}
+
+/**
+ * One swipe's two directions in one sheet: under each direction's name, its choices as chips,
+ * the current one selected. A tap applies at once; the sheet stays until it is closed.
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeChoiceSheet(
+    title: String,
+    directions: List<Pair<String, String>>,
+    options: List<Pair<String, String>>,
+    chosen: (key: String) -> String?,
+    onChoose: (key: String, id: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AppModalSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            directions.forEachIndexed { i, (word, key) ->
+                Text(
+                    word,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = if (i == 0) 16.dp else 20.dp, bottom = 8.dp)
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    options.forEachIndexed { j, (id, label) ->
+                        FilterChip(
+                            selected = chosen(key) == id,
+                            onClick = { onChoose(key, id) },
+                            label = { Text(label) },
+                            shape = MaterialTheme.shapes.small,
+                            modifier = if (i == 0 && j == 0) Modifier.tvInitialFocus() else Modifier,
+                        )
+                    }
+                }
+            }
         }
     }
 }

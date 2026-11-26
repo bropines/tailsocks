@@ -26,4 +26,17 @@
     <string name="gesture_file_hide">Скрыть</string>
     <string name="gesture_file_open">Открыть</string>
     <string name="gesture_file_share">Поделиться</string>
+    <string name="gesture_peer_copy_name">Скопировать имя</string>
+    <string name="gesture_peer_copy_as">Скопировать как…</string>
+    <string name="gesture_peer_open_web">Открыть в браузере</string>
+    <string name="gesture_status_prev_account">Предыдущий аккаунт</string>
+    <string name="gesture_status_reconnect_relays">Переподключить реле</string>
+    <string name="gesture_status_open_peers">Открыть устройства</string>
+    <string name="gesture_status_open_files">Открыть файлы</string>
+    <string name="gesture_status_open_map">Открыть карту tailnet</string>
+    <string name="gesture_status_open_logs">Открыть логи</string>
+    <string name="gesture_status_open_settings">Открыть настройки</string>
+    <string name="gesture_status_scan_qr">Сканировать QR-код</string>
+    <string name="gesture_file_show_in_folder">Показать в папке</string>
+    <string name="gesture_file_copy_folder_path">Скопировать путь к папке</string>
 </resources>

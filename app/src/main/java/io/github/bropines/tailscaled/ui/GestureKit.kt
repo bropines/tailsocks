@@ -7,9 +7,13 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -84,8 +88,9 @@ private const val OVERDRAG = 0.35f
  * at — the row is not dismissed: what the action changes (a hidden file leaving its list, say)
  * the list animates by itself.
  *
- * A direction without an action does not drag beyond a short, resisting pull, so the row still
- * feels alive under the finger. With neither, or on a television, [content] is drawn as it is.
+ * A direction without an action is not a swipe at all: the drag is not claimed, so it goes to
+ * whatever is underneath (a pager's tabs, say), and a drag that started the other way stops at
+ * zero. With neither, or on a television, [content] is drawn as it is.
  */
 @Composable
 fun SwipeActionBox(
@@ -117,22 +122,28 @@ fun SwipeActionBox(
     val minArm = with(density) { 72.dp.toPx() }
     fun armAt(): Float = maxOf(width * 0.3f, minArm)
 
-    val dragState = rememberDraggableState { delta ->
+    /** The finger moved [delta] more; the content follows, never past zero into a direction with nothing to do. */
+    fun follow(delta: Float) {
         val arm = armAt()
-        val next = offset.value + delta
-        val action = actionFor(next)
-        val limited = when {
-            // No action this way: a short pull that resists, then stops.
-            action == null -> next.coerceIn(-arm * 0.15f, arm * 0.15f) * 0.5f + offset.value * 0.5f
-            abs(next) > arm -> sign(next) * (arm + (abs(next) - arm) * OVERDRAG)
-            else -> next
-        }
-        val nowArmed = action != null && abs(limited) >= arm
+        val raw = offset.value + delta
+        // The side the drag started on is the only one it may use: back across zero it stops.
+        val next = if (actionFor(raw) == null) 0f else raw
+        val limited = if (abs(next) > arm) sign(next) * (arm + (abs(next) - arm) * OVERDRAG) else next
+        val nowArmed = actionFor(limited) != null && abs(limited) >= arm
         if (nowArmed != armed) {
             armed = nowArmed
             haptics.performHapticFeedback(if (nowArmed) HapticFeedbackType.GestureThresholdActivate else HapticFeedbackType.GestureEnd)
         }
         scope.launch { offset.snapTo(limited) }
+    }
+
+    /** The finger lifted: the armed action fires and the content springs home with the finger's speed. */
+    fun release(velocity: Float) {
+        val fired = if (armed) actionFor(offset.value) else null
+        armed = false
+        fired?.onAction?.invoke()
+        // Seenly's settle spring: quick, a trace of overshoot, no wobble.
+        scope.launch { offset.animateTo(0f, GestureSpring, initialVelocity = velocity) }
     }
 
     // Which side shows is read in composition, and changes only when the drag crosses zero;
@@ -178,18 +189,32 @@ fun SwipeActionBox(
         Box(
             Modifier
                 .offset { IntOffset(offset.value.roundToInt(), 0) }
-                .draggable(
-                    state = dragState,
-                    orientation = Orientation.Horizontal,
-                    onDragStopped = { velocity ->
-                        val fired = if (armed) actionFor(offset.value) else null
-                        armed = false
-                        fired?.onAction?.invoke()
-                        // Back into place carrying the finger's speed, on the spring Seenly settles its
-                        // pictures with: quick, a trace of overshoot, no wobble.
-                        offset.animateTo(0f, GestureSpring, initialVelocity = velocity)
-                    },
-                )
+                // Not `draggable`: that takes every sideways drag, so a direction set to "Nothing"
+                // still swallowed the gesture (and the Peers tabs could not be swiped over a row).
+                // Here a drag is claimed only once it is past the touch slop towards a direction
+                // that has an action; otherwise it is left to whatever is underneath.
+                .pointerInput(Unit) {
+                    val tracker = VelocityTracker()
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        tracker.resetTracking()
+                        tracker.addPosition(down.uptimeMillis, down.position)
+                        var overSlop = 0f
+                        val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                            if (actionFor(over) != null) {
+                                change.consume()
+                                overSlop = over
+                            }
+                        } ?: return@awaitEachGesture
+                        follow(overSlop)
+                        val ended = horizontalDrag(drag.id) { change ->
+                            tracker.addPosition(change.uptimeMillis, change.position)
+                            follow(change.positionChange().x)
+                            change.consume()
+                        }
+                        release(if (ended) tracker.calculateVelocity().x else 0f)
+                    }
+                }
         ) { content() }
     }
 }

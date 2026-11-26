@@ -378,6 +378,14 @@ private fun statusSwipeAction(kind: StatusSwipe, exitNodeOn: Boolean, action: (S
             onAction = run,
         )
         StatusSwipe.EXIT_NODE_PICKER -> SwipeAction(stringResource(R.string.gesture_status_exit_picker), Icons.Default.VpnLock, onAction = run)
+        StatusSwipe.PREV_ACCOUNT -> SwipeAction(stringResource(R.string.gesture_status_prev_account), Icons.Default.SwitchAccount, onAction = run)
+        StatusSwipe.RECONNECT_RELAYS -> SwipeAction(stringResource(R.string.gesture_status_reconnect_relays), Icons.Default.Sync, onAction = run)
+        StatusSwipe.OPEN_PEERS -> SwipeAction(stringResource(R.string.gesture_status_open_peers), Icons.Default.Devices, onAction = run)
+        StatusSwipe.OPEN_FILES -> SwipeAction(stringResource(R.string.gesture_status_open_files), Icons.Default.Folder, onAction = run)
+        StatusSwipe.OPEN_MAP -> SwipeAction(stringResource(R.string.gesture_status_open_map), Icons.Default.Hub, onAction = run)
+        StatusSwipe.OPEN_LOGS -> SwipeAction(stringResource(R.string.gesture_status_open_logs), Icons.Default.Terminal, onAction = run)
+        StatusSwipe.OPEN_SETTINGS -> SwipeAction(stringResource(R.string.gesture_status_open_settings), Icons.Default.Settings, onAction = run)
+        StatusSwipe.SCAN_QR -> SwipeAction(stringResource(R.string.gesture_status_scan_qr), Icons.Default.QrCodeScanner, onAction = run)
         StatusSwipe.NONE -> null
     }
 }

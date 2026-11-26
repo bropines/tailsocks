@@ -26,4 +26,17 @@
     <string name="gesture_file_hide">Hide</string>
     <string name="gesture_file_open">Open</string>
     <string name="gesture_file_share">Share</string>
+    <string name="gesture_peer_copy_name">Copy name</string>
+    <string name="gesture_peer_copy_as">Copy as…</string>
+    <string name="gesture_peer_open_web">Open in browser</string>
+    <string name="gesture_status_prev_account">Previous account</string>
+    <string name="gesture_status_reconnect_relays">Reconnect relays</string>
+    <string name="gesture_status_open_peers">Open devices</string>
+    <string name="gesture_status_open_files">Open files</string>
+    <string name="gesture_status_open_map">Open tailnet map</string>
+    <string name="gesture_status_open_logs">Open logs</string>
+    <string name="gesture_status_open_settings">Open settings</string>
+    <string name="gesture_status_scan_qr">Scan a QR code</string>
+    <string name="gesture_file_show_in_folder">Show in folder</string>
+    <string name="gesture_file_copy_folder_path">Copy folder path</string>
 </resources>

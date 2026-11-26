@@ -7,6 +7,7 @@ import io.github.bropines.tailscaled.core.*
 import io.github.bropines.tailscaled.models.*
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -21,7 +22,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.QrCode2
@@ -284,6 +288,9 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
     val swipeCopyIp = stringResource(R.string.gesture_peer_copy_ip)
     val swipeExitNode = stringResource(R.string.gesture_peer_exit_node)
     val swipeDetails = stringResource(R.string.gesture_peer_details)
+    val swipeCopyName = stringResource(R.string.gesture_peer_copy_name)
+    val swipeCopyAs = stringResource(R.string.gesture_peer_copy_as)
+    val swipeOpenWeb = stringResource(R.string.gesture_peer_open_web)
 
     /**
      * One direction of [p]'s row: the same thing the details sheet, the long press or "Ping all"
@@ -326,6 +333,24 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
             }
         }
         PeerSwipe.DETAILS -> SwipeAction(swipeDetails, Icons.Default.Info) { selectedPeer = p }
+        // The MagicDNS name without its root dot, or the name the list shows when there is none.
+        PeerSwipe.COPY_NAME -> if (!clipboardOffered) null else {
+            val name = p.dnsName?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: p.getDisplayName()
+            SwipeAction(swipeCopyName, Icons.Default.Badge) {
+                copyToClipboard(context, p.getDisplayName(), name, context.getString(R.string.copied_to_clipboard, name))
+            }
+        }
+        // The long press's "Copy as…" sheet: names, addresses, ssh and ping commands.
+        PeerSwipe.COPY_AS -> if (!clipboardOffered) null
+            else SwipeAction(swipeCopyAs, Icons.Default.ContentPaste) { copyAsPeer = p }
+        // Whatever the device serves on port 80, in the browser; the tunnel carries it.
+        PeerSwipe.OPEN_WEB -> p.tailscaleIPs?.firstOrNull { !it.contains(':') }?.let { ip ->
+            SwipeAction(swipeOpenWeb, Icons.Default.OpenInBrowser) {
+                if (!context.tryStartActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://$ip/")))) {
+                    Toast.makeText(context, context.getString(R.string.cannot_open_browser), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     // How each peer is reached, named: which node a peer relay is, which city a DERP region.

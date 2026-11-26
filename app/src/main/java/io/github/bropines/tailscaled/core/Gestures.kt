@@ -11,7 +11,10 @@ enum class PeerSwipe(val id: String) {
     PING("ping"),
     COPY_IP("copy_ip"),
     EXIT_NODE("exit_node"),
-    DETAILS("details");
+    DETAILS("details"),
+    COPY_NAME("copy_name"),
+    COPY_AS("copy_as"),
+    OPEN_WEB("open_web");
 
     companion object {
         fun byId(id: String?) = entries.firstOrNull { it.id == id }
@@ -23,7 +26,15 @@ enum class StatusSwipe(val id: String) {
     NONE("none"),
     NEXT_ACCOUNT("next_account"),
     EXIT_NODE_TOGGLE("exit_node_toggle"),
-    EXIT_NODE_PICKER("exit_node_picker");
+    EXIT_NODE_PICKER("exit_node_picker"),
+    PREV_ACCOUNT("prev_account"),
+    RECONNECT_RELAYS("reconnect_relays"),
+    OPEN_PEERS("open_peers"),
+    OPEN_FILES("open_files"),
+    OPEN_MAP("open_map"),
+    OPEN_LOGS("open_logs"),
+    OPEN_SETTINGS("open_settings"),
+    SCAN_QR("scan_qr");
 
     companion object {
         fun byId(id: String?) = entries.firstOrNull { it.id == id }
@@ -35,7 +46,9 @@ enum class FileSwipe(val id: String) {
     NONE("none"),
     HIDE("hide"),
     OPEN("open"),
-    SHARE("share");
+    SHARE("share"),
+    SHOW_IN_FOLDER("show_in_folder"),
+    COPY_FOLDER_PATH("copy_folder_path");
 
     companion object {
         fun byId(id: String?) = entries.firstOrNull { it.id == id }

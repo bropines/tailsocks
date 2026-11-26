@@ -497,6 +497,40 @@ fun MainScreen(
                 }
             }
             StatusSwipe.EXIT_NODE_PICKER -> if (proxyState != "ACTIVE") null else ({ act { exitNode.openExitNodeSheet() } })
+            StatusSwipe.PREV_ACCOUNT -> {
+                val list = acc.accounts.value
+                val prev = if (list.size < 2 || daemon.isProcessing) null
+                    else list[(list.indexOfFirst { it.id == acc.activeAccount.id } - 1).mod(list.size)]
+                prev?.let { account -> {
+                    act {
+                        StatusAsides.bump(context, StatusAsides.SWITCHES)
+                        if (ProxyState.isActualRunning()) acc.showSwitchConfirmDialog = account
+                        else {
+                            AccountManager.setActiveAccount(context, account.id)
+                            acc.activeAccount = account
+                        }
+                    }
+                } }
+            }
+            // The health banner's button, without waiting for the banner: the relays are dropped and found again.
+            StatusSwipe.RECONNECT_RELAYS -> if (proxyState != "ACTIVE") null else ({
+                act {
+                    scope.launch(Dispatchers.IO) {
+                        val err = runCatching { appctr.Appctr.reconnectRelays() }.getOrElse { it.message ?: "" }
+                        if (!err.isNullOrBlank()) withContext(Dispatchers.Main) {
+                            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            })
+            // The screens a tile opens, opened as that tile would.
+            StatusSwipe.OPEN_PEERS -> MainItem.PEERS.screen(context)?.let { intent -> { act { context.startActivity(intent) } } }
+            StatusSwipe.OPEN_FILES -> MainItem.FILES.screen(context)?.let { intent -> { act { context.startActivity(intent) } } }
+            StatusSwipe.OPEN_MAP -> MainItem.TAILNET_MAP.screen(context)?.let { intent -> { act { context.startActivity(intent) } } }
+            StatusSwipe.OPEN_LOGS -> if (!itemOffered(MainItem.LOGS)) null
+                else MainItem.LOGS.screen(context)?.let { intent -> { act { context.startActivity(intent) } } }
+            StatusSwipe.OPEN_SETTINGS -> MainItem.SETTINGS.screen(context)?.let { intent -> { act { context.startActivity(intent) } } }
+            StatusSwipe.SCAN_QR -> if (!canScan) null else ({ act { scanQr() } })
         }
 
         val banners: @Composable () -> Unit = {
