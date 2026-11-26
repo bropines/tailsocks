@@ -155,19 +155,23 @@ fun SwipeActionBox(
                 contentAlignment = if (towardsRight) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 Row(
-                    Modifier.padding(horizontal = 20.dp).graphicsLayer {
+                    Modifier.padding(horizontal = 24.dp).graphicsLayer {
                         val p = progress()
-                        val grow = if (armed) 1.15f else 0.85f + 0.15f * p
+                        val grow = if (armed) 1.12f else 0.88f + 0.12f * p
                         scaleX = grow
                         scaleY = grow
                         alpha = 0.4f + 0.6f * p
+                        // Grown from the edge it stands at: from its centre a long label ran off that edge.
+                        transformOrigin = TransformOrigin(if (towardsRight) 0f else 1f, 0.5f)
                     },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     val tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    Icon(action.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+                    // The icon stands at the edge the row uncovers first, so it shows before the words do.
+                    if (towardsRight) Icon(action.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
                     Text(action.label, color = tint, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    if (!towardsRight) Icon(action.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
                 }
             }
         }
