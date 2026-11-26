@@ -24,7 +24,7 @@ internal class SettingsBackgroundState(context: Context) {
     var autoReconnect by mutableStateOf(GlobalSettings.isAutoReconnectEnabled(context))
     var autoReconnectAttempts by mutableStateOf(GlobalSettings.getAutoReconnectAttempts(context).toString())
     var serviceWatchdog by mutableStateOf(GlobalSettings.isServiceWatchdogEnabled(context))
-    var forceBg by mutableStateOf(GlobalSettings.getBoolean(context, "force_bg", false))
+    var sleepMode by mutableStateOf(SleepMode.of(context))
 }
 
 // G. Background & permissions
@@ -96,7 +96,32 @@ internal fun SettingsBackgroundPage(env: SettingsPageEnv, state: SettingsBackgro
                 } else ServiceWatchdog.cancel(context)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-            SettingsSwitchItem(stringResource(R.string.settings_keep_awake_title), stringResource(R.string.settings_force_bg_desc), Icons.Default.BatteryFull, forceBg) { forceBg = it; saveGlobalPref("force_bg", it) }
+            // What the connection does while the phone sleeps (core/SleepMode.kt).
+            var pickingSleep by remember { mutableStateOf(false) }
+            val sleepLabels = mapOf(
+                SleepMode.OFF to stringResource(R.string.settings_sleep_off),
+                SleepMode.PERIODIC to stringResource(R.string.settings_sleep_periodic),
+                SleepMode.ALWAYS to stringResource(R.string.settings_sleep_always),
+            )
+            val sleepDescs = mapOf(
+                SleepMode.OFF to stringResource(R.string.settings_sleep_off_desc),
+                SleepMode.PERIODIC to stringResource(R.string.settings_sleep_periodic_desc),
+                SleepMode.ALWAYS to stringResource(R.string.settings_force_bg_desc),
+            )
+            SettingsClickableItem(
+                stringResource(R.string.settings_keep_awake_title),
+                "${sleepLabels.getValue(sleepMode)} — ${sleepDescs.getValue(sleepMode)}",
+                Icons.Default.BatteryFull
+            ) { pickingSleep = true }
+            if (pickingSleep) {
+                PickerSheet(
+                    title = stringResource(R.string.settings_keep_awake_title),
+                    options = SleepMode.entries.map { PickerOption(it, sleepLabels.getValue(it), supporting = sleepDescs.getValue(it)) },
+                    selected = sleepMode,
+                    onPick = { SleepMode.set(context, it); sleepMode = it },
+                    onDismiss = { pickingSleep = false },
+                )
+            }
         }
     }
     }

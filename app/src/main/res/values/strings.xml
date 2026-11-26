@@ -677,6 +677,11 @@
     <string name="settings_sect_flags_logs">Flags &amp; Logs</string>
     <string name="settings_accept_routes_desc">Allow network to configure routes</string>
     <string name="settings_accept_dns_desc">Allow network to configure DNS</string>
+    <string name="settings_sleep_off">Off</string>
+    <string name="settings_sleep_off_desc">Like the official Tailscale app: the connection sleeps with the phone and comes back as soon as it wakes. Least power; the device is not reachable from the tailnet while it sleeps.</string>
+    <string name="settings_sleep_periodic">Brief wake-ups (experimental)</string>
+    <string name="settings_sleep_periodic_desc">Wakes the phone for a few seconds every ten minutes so the connection can answer. Reachable more often, at a fraction of the power of always on.</string>
+    <string name="settings_sleep_always">Always awake</string>
     <string name="settings_force_bg_desc">Holds a wake lock for the whole session so the connection survives deep sleep. Uses more power.</string>
     <string name="settings_detailed_logs_title">Detailed Logs</string>
     <string name="settings_detailed_logs_desc">Disable log filtering (noisy!)</string>

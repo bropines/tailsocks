@@ -639,7 +639,7 @@ object GlobalSettings {
         "cp_enabled", "cp_type", "cp_host", "cp_port", "cp_user", "cp_pass", "cp_presets",
         "cp_byedpi_enabled", "cp_byedpi_flags", "cp_byedpi_ipv6_disabled",
         // Lifecycle and recovery
-        "force_bg", "auto_start", KEY_HIDE_FROM_RECENTS, "auto_reconnect", "auto_reconnect_attempts",
+        "force_bg", "sleep_wakeups", "auto_start", KEY_HIDE_FROM_RECENTS, "auto_reconnect", "auto_reconnect_attempts",
         "service_watchdog", "automation_enabled",
         // TUN mode
         "tun_mode_enabled", "tun_full_tunnel", "tun_excluded_apps", "tun_excluded_cidrs",

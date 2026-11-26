@@ -8,6 +8,11 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 - Share sheet: choose which devices it offers — each device is Auto, Pinned (always, first) or Hidden, per account.
 
+### Changed
+
+- Keep the connection awake: a choice of Off (like the official app, no wake lock), Brief wake-ups (experimental) or Always awake.
+- Without the wake lock the connection re-checks its network and relays when the phone wakes or the screen comes on.
+
 ## [6.3.2] - 2026-11-24
 
 ### Fixed

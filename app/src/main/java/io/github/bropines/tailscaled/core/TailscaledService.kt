@@ -1076,15 +1076,15 @@ class TailscaledService : Service() {
     }
 
     /**
-     * Holds the CPU awake for as long as the connection is wanted.
+     * Holds the CPU awake for as long as the connection is wanted — [SleepMode.ALWAYS].
      *
      * The setting is stored globally but used to be read from the per-profile
      * store, so the lock was never taken; and even when it was, it expired after
-     * ten minutes. Without it the CPU sleeps in Doze, the daemon stops servicing
-     * its DERP/WireGuard keepalives, and the connection is dead by morning.
+     * ten minutes. Without it the CPU sleeps in Doze and the daemon stops servicing
+     * its DERP/WireGuard keepalives until the phone wakes — the trade the official
+     * client makes, and [SleepMode.OFF] / [SleepMode.PERIODIC] here.
      */
     private fun acquireKeepAliveLock() {
-        if (!GlobalSettings.getBoolean(this, "force_bg", false)) return
         try {
             if (wakeLock?.isHeld != true) {
                 @Suppress("WakelockTimeout")
@@ -1094,6 +1094,27 @@ class TailscaledService : Service() {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to acquire wake lock: ${e.message}")
         }
+    }
+
+    /** Puts the session's sleep behaviour in line with [SleepMode]: the lock, the wake-ups, or neither. */
+    private fun applySleepMode() {
+        when (SleepMode.of(this)) {
+            SleepMode.ALWAYS -> {
+                SleepWakeups.cancel(this)
+                acquireKeepAliveLock()
+            }
+            SleepMode.PERIODIC -> {
+                releaseSleepHolds(keepWakeups = true)
+                SleepWakeups.schedule(this)
+            }
+            SleepMode.OFF -> releaseSleepHolds()
+        }
+    }
+
+    /** The session is over (or no longer wants the lock): no wake lock, and no wake-ups unless [keepWakeups]. */
+    private fun releaseSleepHolds(keepWakeups: Boolean = false) {
+        if (wakeLock?.isHeld == true) wakeLock?.release()
+        if (!keepWakeups) SleepWakeups.cancel(this)
     }
 
     @Volatile private var coordinatorOsRefusalReported = false
@@ -1502,7 +1523,7 @@ class TailscaledService : Service() {
                         Log.i(TAG, "Crash stand-down superseded by a newer start")
                         return@post
                     }
-                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    releaseSleepHolds()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     updateTile()
@@ -1898,6 +1919,9 @@ class TailscaledService : Service() {
                 return
             }
             Log.i(TAG, "Device left Doze, re-checking connection")
+            // The daemon's own timers barely moved while the CPU slept: wake its network
+            // monitor and relays now instead of waiting them out.
+            SleepWakeups.nudgeDaemon(this@TailscaledService, "left Doze")
             refreshHandler.removeCallbacks(refreshRunnable)
             refreshHandler.post(refreshRunnable)
             // The card and the exit-node guard are the event refresher's: now too, as the tick used to.
@@ -1939,6 +1963,10 @@ class TailscaledService : Service() {
             // that used to publish the devices next is the event refresher now, which no
             // event would wake.
             if (key != null && key.startsWith("share_")) eventRefresher.requestShareTargets()
+            // The sleep mode changed while connected: the lock and the wake-ups follow at once.
+            if (key == SleepMode.KEY_ALWAYS || key == SleepMode.KEY_PERIODIC) {
+                if (ProxyState.isUserLetRunning(this@TailscaledService)) refreshHandler.post { applySleepMode() }
+            }
         }
 
     /**
@@ -1948,6 +1976,11 @@ class TailscaledService : Service() {
     private val screenOnReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             WidgetUpdates.request(this@TailscaledService)
+            // Without the wake lock the CPU may have slept short of Doze too: the screen
+            // coming on is when the user is about to use the tunnel.
+            if (intent?.action == Intent.ACTION_SCREEN_ON && SleepMode.of(this@TailscaledService) != SleepMode.ALWAYS) {
+                SleepWakeups.nudgeDaemon(this@TailscaledService, "screen on")
+            }
         }
     }
 
@@ -2298,7 +2331,7 @@ class TailscaledService : Service() {
         val admitted = startGate.request(
             this, stopGen,
             onAdmitted = {
-                acquireKeepAliveLock()
+                applySleepMode()
                 taildriveAppliedForRun = TaildriveRun.NONE
                 // What was switched on in Tailcat comes up with the core, whichever way
                 // it starts (button, boot, watchdog): while this start is still inside
@@ -2790,7 +2823,7 @@ class TailscaledService : Service() {
                         Log.i(TAG, "Stop completion superseded by a newer start")
                         return@post
                     }
-                    if (wakeLock?.isHeld == true) wakeLock?.release()
+                    releaseSleepHolds()
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     updateTile()
@@ -3205,7 +3238,7 @@ class TailscaledService : Service() {
         try { unregisterReceiver(screenOnReceiver) } catch (e: Exception) {}
         try { globalPrefs.unregisterOnSharedPreferenceChangeListener(rootRulePrefsListener) } catch (e: Exception) {}
         TaildropEvents.detach()
-        if (wakeLock?.isHeld == true) wakeLock?.release()
+        releaseSleepHolds()
         // The card went with the service. Forgetting it lets the next start's
         // first post through, and keeps a TUN service that comes up on its own
         // from re-posting a card of a session that is over.

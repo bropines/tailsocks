@@ -633,6 +633,11 @@
     <string name="settings_sect_flags_logs">Флаги и логи</string>
     <string name="settings_accept_routes_desc">Разрешить сети настраивать маршруты</string>
     <string name="settings_accept_dns_desc">Разрешить сети настраивать DNS</string>
+    <string name="settings_sleep_off">Выключено</string>
+    <string name="settings_sleep_off_desc">Как в официальном Tailscale: соединение засыпает вместе с телефоном и возвращается, как только он проснётся. Меньше всего расход; пока телефон спит, из tailnet до него не достучаться.</string>
+    <string name="settings_sleep_periodic">Короткие пробуждения (эксперимент)</string>
+    <string name="settings_sleep_periodic_desc">Будит телефон на несколько секунд раз в десять минут, чтобы соединение успело ответить. Телефон доступен чаще, а расход — малая доля от «Всегда».</string>
+    <string name="settings_sleep_always">Всегда</string>
     <string name="settings_force_bg_desc">Удерживает wake lock на всю сессию, чтобы соединение переживало глубокий сон. Повышает расход энергии.</string>
     <string name="settings_detailed_logs_title">Подробные логи</string>
     <string name="settings_detailed_logs_desc">Отключить фильтрацию логов (шумно!)</string>

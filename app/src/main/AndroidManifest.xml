@@ -229,6 +229,8 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="tailscale node service" />
         </service>
 
+        <receiver android:name=".core.SleepWakeupReceiver" android:enabled="true" android:exported="false" />
+
         <receiver android:name=".core.WatchdogReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="io.github.bropines.tailscaled.WATCHDOG_CHECK" />
