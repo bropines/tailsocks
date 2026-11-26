@@ -225,13 +225,12 @@ private fun <T> PickerRow(
                     maxLines = labelMaxLines ?: if (machineText) 1 else 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                // Read in full: it is often the one place a choice is explained.
                 option.supporting?.let {
                     Text(
                         it,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

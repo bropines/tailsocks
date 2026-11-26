@@ -14,6 +14,10 @@ All notable changes to the TailSocks project will be documented in this file. Th
 - Keep the connection awake: a choice of Off (like the official app, no wake lock), Brief wake-ups (experimental) or Always awake.
 - Without the wake lock the connection re-checks its network and relays when the phone wakes or the screen comes on.
 
+### Fixed
+
+- Pickers show the whole explanation under each choice instead of cutting it after one line.
+
 ## [6.3.2] - 2026-11-24
 
 ### Fixed
