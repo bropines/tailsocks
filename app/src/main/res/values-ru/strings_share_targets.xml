@@ -3,4 +3,20 @@
     <!-- Settings → Sharing & access → Share with your tailnet (core/ShareTargets.kt). -->
     <string name="settings_share_targets_title">Устройства в меню «Поделиться»</string>
     <string name="settings_share_targets_desc">Устройства tailnet появляются в системном меню «Поделиться» — файл уходит в одно касание. Android 10+.</string>
+    <!-- Settings → Sharing & access → Choose devices (ui/ShareTargetsSheet.kt). -->
+    <string name="share_targets_pick_row">Выбрать устройства</string>
+    <string name="share_targets_pick_summary_auto">Автоматически: недавние и онлайн</string>
+    <string name="share_targets_pick_summary">Закреплено: %1$d · скрыто: %2$d</string>
+    <string name="share_targets_pick_title">Устройства в меню «Поделиться»</string>
+    <string name="share_targets_pick_desc">«Авто» показывает устройство, когда оно онлайн или недавно получало файл. Закреплённые всегда идут первыми, скрытые не показываются никогда. В меню попадёт до %1$d устройств, а системная панель может показать меньше.</string>
+    <string name="share_targets_pick_over_capacity">Закреплено больше, чем помещается: в меню попадут только первые %1$d.</string>
+    <string name="share_targets_pick_not_running">Подключитесь, чтобы увидеть устройства.</string>
+    <string name="share_targets_pick_empty">В этом tailnet нет устройств, которые принимают файлы.</string>
+    <string name="share_targets_mode_auto">Авто</string>
+    <string name="share_targets_mode_pinned">Закрепить</string>
+    <string name="share_targets_mode_hidden">Скрыть</string>
+    <string name="share_targets_pin_all">Закрепить все</string>
+    <string name="share_targets_reset">Сбросить в «Авто»</string>
+    <string name="share_targets_online">Онлайн</string>
+    <string name="share_targets_offline">Офлайн</string>
 </resources>

@@ -67,6 +67,27 @@ object GlobalSettings {
         if (enabled) ShareTargets.invalidate() else ShareTargets.clear(context)
     }
 
+    /**
+     * The devices pinned to or hidden from the share sheet, per account (StableNodeIDs belong
+     * to one tailnet). Keys start with `share_` so the service's listener republishes on a change;
+     * install-local and not exported, like the account list they hang off.
+     */
+    private fun sharePinnedKey(profileId: String) = "share_pinned/$profileId"
+    private fun shareHiddenKey(profileId: String) = "share_hidden/$profileId"
+    private fun readIds(context: Context, key: String): Set<String> =
+        getPrefs(context).getString(key, null).orEmpty().split(',').filter { it.isNotBlank() }.toSet()
+
+    fun getShareTargetPicks(context: Context, profileId: String) =
+        ShareTargetPicks(readIds(context, sharePinnedKey(profileId)), readIds(context, shareHiddenKey(profileId)))
+
+    fun setShareTargetPicks(context: Context, profileId: String, picks: ShareTargetPicks) {
+        getPrefs(context).edit()
+            .putString(sharePinnedKey(profileId), picks.pinned.sorted().joinToString(","))
+            .putString(shareHiddenKey(profileId), picks.hidden.sorted().joinToString(","))
+            .apply()
+        ShareTargets.invalidate()
+    }
+
     // Control Plane Proxy
     fun isCPProxyEnabled(context: Context) = getPrefs(context).getBoolean(KEY_CP_ENABLED, false)
     fun setCPProxyEnabled(context: Context, enabled: Boolean) = getPrefs(context).edit().putBoolean(KEY_CP_ENABLED, enabled).apply()

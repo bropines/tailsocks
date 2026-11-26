@@ -35,6 +35,38 @@ class ShareTargetsTest {
     }
 
     @Test
+    fun pinnedComeFirstEvenOfflineAndHiddenNeverShow() {
+        val picks = ShareTargetPicks(pinned = setOf("pin-off", "pin-on"), hidden = setOf("hid"))
+        val picked = pickShareTargets(
+            listOf(c("a"), c("hid"), c("pin-off", available = false), c("pin-on"), c("off", available = false)),
+            recentPeerIds = listOf("hid", "a"),
+            limit = 8,
+            picks = picks,
+        )
+        // Pinned: online before offline; then the automatic ones; the offline one never sent to stays out.
+        assertEquals(listOf("pin-on", "pin-off", "a"), picked.map { it.peerId })
+    }
+
+    @Test
+    fun pinnedTakeTheLimitFirst() {
+        val picked = pickShareTargets(listOf(c("a"), c("b"), c("c")), recentPeerIds = listOf("a"), limit = 2, picks = ShareTargetPicks(pinned = setOf("c", "b")))
+        assertEquals(listOf("b", "c"), picked.map { it.peerId })
+    }
+
+    @Test
+    fun picksSwitchModes() {
+        var p = ShareTargetPicks()
+        assertEquals(ShareTargetMode.AUTO, p.modeOf("x"))
+        p = p.with("x", ShareTargetMode.PINNED)
+        assertEquals(ShareTargetMode.PINNED, p.modeOf("x"))
+        p = p.with("x", ShareTargetMode.HIDDEN)
+        assertEquals(ShareTargetMode.HIDDEN, p.modeOf("x"))
+        assertEquals(emptySet<String>(), p.pinned)
+        p = p.with("x", ShareTargetMode.AUTO)
+        assertEquals(true, p.isEmpty)
+    }
+
+    @Test
     fun recentRecipientsAreSuccessfulSendsNewestFirst() {
         fun e(peer: String?, ok: Boolean = true, dir: TaildropDirection = TaildropDirection.SENT) =
             TaildropHistoryEntry(name = "f", peerName = "p", timestamp = 0, direction = dir, ok = ok, peerId = peer)

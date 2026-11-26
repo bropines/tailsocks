@@ -20,6 +20,7 @@
     <string name="search_need_http_proxy">Shown once the HTTP proxy is on</string>
     <string name="search_need_auto_reconnect">Shown once auto-reconnect is on</string>
     <string name="search_need_web_ui">Shown once the web interface is on</string>
+    <string name="search_need_share_targets">Shown once the share menu devices are on</string>
     <string name="search_need_automation">Shown once external automation is allowed</string>
     <string name="search_need_relay">Shown once the peer relay is on</string>
     <string name="search_need_static_colors">Shown while dynamic colours are off</string>
@@ -47,6 +48,7 @@
     <string name="search_sum_byedpi_flags">The desync options ByeByeDPI is started with</string>
     <string name="search_sum_taildrop_folder">Where files received over Taildrop are saved</string>
     <string name="search_sum_web_ui_address">The address and port the web interface listens on</string>
+    <string name="search_sum_share_targets_pick">Which devices the share menu offers: automatic, pinned or hidden</string>
     <string name="search_sum_auto_reconnect_attempts">How many times the daemon is restarted before giving up</string>
     <string name="search_sum_backup_full">Every account and every setting in one password-protected file</string>
     <string name="search_sum_restore_full">Replace every account and setting with those of a full backup</string>

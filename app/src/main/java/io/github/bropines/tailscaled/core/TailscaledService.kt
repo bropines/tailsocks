@@ -1935,9 +1935,10 @@ class TailscaledService : Service() {
             if (key != null && key in rootRulePrefKeys) {
                 scheduleRootRoutingReapply("a setting the rules are built from changed ($key)")
             }
-            // The share sheet's switch turned on: the tick that used to publish the
-            // devices next is the event refresher now, which no event would wake.
-            if (key == "share_targets") eventRefresher.requestShareTargets()
+            // The share sheet's switch turned on, or a device was pinned or hidden: the tick
+            // that used to publish the devices next is the event refresher now, which no
+            // event would wake.
+            if (key != null && key.startsWith("share_")) eventRefresher.requestShareTargets()
         }
 
     /**

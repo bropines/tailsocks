@@ -117,6 +117,7 @@ internal class StoredSettingsFacts(private val context: Context) : SettingsFacts
             Need.HTTP_PROXY -> GlobalSettings.getString(context, "httpproxy", "").isNotEmpty()
             Need.AUTO_RECONNECT -> GlobalSettings.isAutoReconnectEnabled(context)
             Need.WEB_UI -> profile().getBoolean("enable_webui", false)
+            Need.SHARE_TARGETS -> GlobalSettings.isShareTargetsEnabled(context)
             Need.AUTOMATION -> GlobalSettings.isAutomationEnabled(context)
             Need.RELAY -> ClientPrefs.stored(profile().all ?: emptyMap<String, Any>()).relay?.enabled == true
             Need.TAILNET_STRICT -> TailnetReach.isStrict(context)

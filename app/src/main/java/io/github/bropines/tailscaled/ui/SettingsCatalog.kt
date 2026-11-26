@@ -84,6 +84,7 @@ enum class Need(@param:StringRes val reason: Int = 0, val broughtBy: String? = n
     HTTP_PROXY(R.string.search_need_http_proxy, "http_enable"),
     AUTO_RECONNECT(R.string.search_need_auto_reconnect, "auto_reconnect"),
     WEB_UI(R.string.search_need_web_ui, "web_ui"),
+    SHARE_TARGETS(R.string.search_need_share_targets, "share_targets"),
     AUTOMATION(R.string.search_need_automation, "automation_enable"),
     RELAY(R.string.search_need_relay, "relay"),
     TAILNET_STRICT(R.string.search_need_tailnet_strict, "tailnet_strict"),
@@ -285,6 +286,7 @@ object SettingsCatalog {
         row("taildrive_seek", SettingsPage.SHARING, R.string.taildrive_seek_title, R.string.search_sum_taildrive_seek, R.string.search_kw_taildrive_seek, R.string.settings_sect_storage)
         val shares = R.string.settings_sect_share_links
         row("share_targets", SettingsPage.SHARING, R.string.settings_share_targets_title, R.string.settings_share_targets_desc, R.string.search_kw_share_targets, shares)
+        row("share_targets_pick", SettingsPage.SHARING, R.string.share_targets_pick_row, R.string.search_sum_share_targets_pick, R.string.search_kw_share_targets_pick, shares, needs = Need.SHARE_TARGETS)
         row("taildrive", SettingsPage.SHARING, R.string.taildrive_title, R.string.settings_link_taildrive_desc, R.string.search_kw_taildrive, shares)
         row("serve", SettingsPage.SHARING, R.string.serve_title, R.string.settings_link_serve_desc, R.string.search_kw_serve, shares, feature = Feature.SERVE_EDIT, aside = SettingsPage.ADVANCED)
         val web = R.string.settings_sect_web

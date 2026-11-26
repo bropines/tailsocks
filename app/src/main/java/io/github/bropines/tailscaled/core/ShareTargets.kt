@@ -49,17 +49,45 @@ internal fun shareTargetOsOf(os: String?): ShareTargetOs {
     }
 }
 
+/** What the user chose for one device in Settings → Devices in the share menu. */
+enum class ShareTargetMode { AUTO, PINNED, HIDDEN }
+
+/** The user's choices for one account's devices, by StableNodeID; a device in neither set is [ShareTargetMode.AUTO]. */
+data class ShareTargetPicks(val pinned: Set<String> = emptySet(), val hidden: Set<String> = emptySet()) {
+    fun modeOf(peerId: String) = when (peerId) {
+        in hidden -> ShareTargetMode.HIDDEN
+        in pinned -> ShareTargetMode.PINNED
+        else -> ShareTargetMode.AUTO
+    }
+
+    fun with(peerId: String, mode: ShareTargetMode) = ShareTargetPicks(
+        pinned = if (mode == ShareTargetMode.PINNED) pinned + peerId else pinned - peerId,
+        hidden = if (mode == ShareTargetMode.HIDDEN) hidden + peerId else hidden - peerId,
+    )
+
+    val isEmpty get() = pinned.isEmpty() && hidden.isEmpty()
+}
+
 /**
- * The share sheet's row: the devices a file can go to now first — those sent to most
- * recently ahead, the rest in the picker's own order — then the offline ones only when
- * they were sent to before, at most [limit]. [recentPeerIds] is newest first.
+ * The share sheet's row: the pinned devices first, whether or not they are online; then the
+ * devices a file can go to now — those sent to most recently ahead, the rest in the picker's
+ * own order — then the offline ones only when they were sent to before, at most [limit].
+ * Hidden devices never show. [recentPeerIds] is newest first.
  */
-internal fun pickShareTargets(candidates: List<ShareCandidate>, recentPeerIds: List<String>, limit: Int): List<ShareCandidate> {
+internal fun pickShareTargets(
+    candidates: List<ShareCandidate>,
+    recentPeerIds: List<String>,
+    limit: Int,
+    picks: ShareTargetPicks = ShareTargetPicks(),
+): List<ShareCandidate> {
     val recency = recentPeerIds.distinct().withIndex().associate { it.value to it.index }
     val byRecency = compareBy<ShareCandidate> { recency[it.peerId] ?: Int.MAX_VALUE }
-    val online = candidates.filter { it.available }.sortedWith(byRecency)
-    val offline = candidates.filter { !it.available && it.peerId in recency }.sortedWith(byRecency)
-    return (online + offline).take(limit.coerceAtLeast(0))
+    val shown = candidates.filter { picks.modeOf(it.peerId) != ShareTargetMode.HIDDEN }
+    val (pinned, auto) = shown.partition { picks.modeOf(it.peerId) == ShareTargetMode.PINNED }
+    val pinnedRow = pinned.sortedWith(compareBy<ShareCandidate> { !it.available }.then(byRecency))
+    val online = auto.filter { it.available }.sortedWith(byRecency)
+    val offline = auto.filter { !it.available && it.peerId in recency }.sortedWith(byRecency)
+    return (pinnedRow + online + offline).take(limit.coerceAtLeast(0))
 }
 
 /**
@@ -148,7 +176,8 @@ object ShareTargets {
                 if (st is TaildropStatus.Blocked) return@mapNotNull null
                 ShareCandidate(id, p.getDisplayName(), shareTargetOsOf(p.iconOs()), st is TaildropStatus.Available)
             }
-            val targets = pickShareTargets(candidates, recentRecipients(TaildropHistory.read(context)), limit(context))
+            val picks = GlobalSettings.getShareTargetPicks(context, profile)
+            val targets = pickShareTargets(candidates, recentRecipients(TaildropHistory.read(context)), capacity(context), picks)
             if (targets == published && profile == publishedProfile) return
             publish(context, profile, targets)
         } catch (e: Exception) {
@@ -173,10 +202,13 @@ object ShareTargets {
         }.onFailure { Log.w(TAG, "Share targets not cleared: ${it.message}") }
     }
 
-    /** The launcher's per-activity limit counts the static shortcuts as well. */
-    private fun limit(context: Context): Int {
+    /**
+     * How many devices are published at most. The launcher's per-activity limit counts the
+     * static shortcuts as well; the share sheet itself may show fewer of them.
+     */
+    fun capacity(context: Context): Int {
         val static = runCatching { ShortcutManagerCompat.getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_MANIFEST).size }.getOrDefault(4)
-        return minOf(MAX_TARGETS, ShortcutManagerCompat.getMaxShortcutCountPerActivity(context) - static)
+        return minOf(MAX_TARGETS, ShortcutManagerCompat.getMaxShortcutCountPerActivity(context) - static).coerceAtLeast(0)
     }
 
     private fun publish(context: Context, profile: String, targets: List<ShareCandidate>) {

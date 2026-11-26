@@ -2,6 +2,12 @@
 
 All notable changes to the TailSocks project will be documented in this file. This project follows the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) standard.
 
+## [Unreleased]
+
+### Added
+
+- Share sheet: choose which devices it offers — each device is Auto, Pinned (always, first) or Hidden, per account.
+
 ## [6.3.2] - 2026-11-24
 
 ### Fixed

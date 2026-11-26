@@ -66,6 +66,20 @@ internal fun SettingsSharingPage(env: SettingsPageEnv, state: SettingsSharingSta
                 GlobalSettings.setShareTargetsEnabled(context, it)
                 shareTargets = it
             }
+            if (shareTargets) {
+                // Which devices the menu offers: per account, since the IDs are one tailnet's.
+                val profileId = activeAccount.id
+                var picks by remember(profileId) { mutableStateOf(GlobalSettings.getShareTargetPicks(context, profileId)) }
+                var picking by remember { mutableStateOf(false) }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                SettingsClickableItem(
+                    stringResource(R.string.share_targets_pick_row),
+                    if (picks.isEmpty) stringResource(R.string.share_targets_pick_summary_auto)
+                    else stringResource(R.string.share_targets_pick_summary, picks.pinned.size, picks.hidden.size),
+                    Icons.Default.Checklist
+                ) { picking = true }
+                if (picking) ShareTargetsSheet(profileId, onChanged = { picks = it }, onDismiss = { picking = false })
+            }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
             SettingsClickableItem(
                 stringResource(R.string.taildrive_title),

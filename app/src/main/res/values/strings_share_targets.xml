@@ -3,4 +3,20 @@
     <!-- Settings → Sharing & access → Share with your tailnet (core/ShareTargets.kt). -->
     <string name="settings_share_targets_title">Devices in the share menu</string>
     <string name="settings_share_targets_desc">Tailnet devices appear in the system share menu; one tap sends the file. Android 10+.</string>
+    <!-- Settings → Sharing & access → Choose devices (ui/ShareTargetsSheet.kt). -->
+    <string name="share_targets_pick_row">Choose devices</string>
+    <string name="share_targets_pick_summary_auto">Automatic: recent and online devices</string>
+    <string name="share_targets_pick_summary">Pinned: %1$d · hidden: %2$d</string>
+    <string name="share_targets_pick_title">Devices in the share menu</string>
+    <string name="share_targets_pick_desc">Auto shows a device when it is online or got a file recently. Pinned ones always come first; hidden ones never show. Up to %1$d go into the menu, and the system sheet may show fewer.</string>
+    <string name="share_targets_pick_over_capacity">More devices are pinned than fit: only the first %1$d go into the menu.</string>
+    <string name="share_targets_pick_not_running">Connect to see your devices.</string>
+    <string name="share_targets_pick_empty">No device in this tailnet can take files.</string>
+    <string name="share_targets_mode_auto">Auto</string>
+    <string name="share_targets_mode_pinned">Pinned</string>
+    <string name="share_targets_mode_hidden">Hidden</string>
+    <string name="share_targets_pin_all">Pin all</string>
+    <string name="share_targets_reset">Reset to auto</string>
+    <string name="share_targets_online">Online</string>
+    <string name="share_targets_offline">Offline</string>
 </resources>

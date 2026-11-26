@@ -20,6 +20,7 @@
     <string name="search_need_http_proxy">Появляется, когда включён HTTP-прокси</string>
     <string name="search_need_auto_reconnect">Появляется, когда включено автопереподключение</string>
     <string name="search_need_web_ui">Появляется, когда включён веб-интерфейс</string>
+    <string name="search_need_share_targets">Появляется, когда включены устройства в меню «Поделиться»</string>
     <string name="search_need_automation">Появляется, когда разрешена внешняя автоматизация</string>
     <string name="search_need_relay">Появляется, когда включён ретранслятор</string>
     <string name="search_need_static_colors">Доступна, пока динамические цвета выключены</string>
@@ -47,6 +48,7 @@
     <string name="search_sum_byedpi_flags">Параметры десинхронизации, с которыми запускается ByeByeDPI</string>
     <string name="search_sum_taildrop_folder">Куда сохраняются файлы, полученные по Taildrop</string>
     <string name="search_sum_web_ui_address">Адрес и порт, на которых слушает веб-интерфейс</string>
+    <string name="search_sum_share_targets_pick">Какие устройства показывать в меню «Поделиться»: авто, закреплённые, скрытые</string>
     <string name="search_sum_auto_reconnect_attempts">Сколько раз перезапускать демон, прежде чем сдаться</string>
     <string name="search_sum_backup_full">Все аккаунты и все настройки в одном файле под паролем</string>
     <string name="search_sum_restore_full">Заменить все аккаунты и настройки теми, что в полном бэкапе</string>
