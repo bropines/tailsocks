@@ -21,11 +21,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NetworkPing
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -272,6 +276,58 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
 
     LaunchedEffect(Unit) { if (demo == null && !inPreview) loadPeers() }
 
+    // What a swipe on a peer's row does (Settings → Gestures), read once per visit to the list.
+    val peerSwipes = remember(context) { Gestures.peerToEnd(context) to Gestures.peerToStart(context) }
+    val taildropReasons = remember(context) { TaildropReasonStrings.from(context) }
+    val swipeSendFile = stringResource(R.string.gesture_peer_send_file)
+    val swipePing = stringResource(R.string.gesture_peer_ping)
+    val swipeCopyIp = stringResource(R.string.gesture_peer_copy_ip)
+    val swipeExitNode = stringResource(R.string.gesture_peer_exit_node)
+    val swipeDetails = stringResource(R.string.gesture_peer_details)
+
+    /**
+     * One direction of [p]'s row: the same thing the details sheet, the long press or "Ping all"
+     * does for it. Null where it cannot apply to this peer, so the row does not offer it.
+     */
+    fun peerSwipe(kind: PeerSwipe, p: PeerData): SwipeAction? = when (kind) {
+        PeerSwipe.NONE -> null
+        // The details' Send file, minus the tooltip: a peer the daemon refuses has nothing to pick for.
+        PeerSwipe.SEND_FILE -> if (taildropStatusOf(p, taildropReasons) is TaildropStatus.Blocked) null
+            else SwipeAction(swipeSendFile, Icons.Default.UploadFile) {
+                peerForFileDrop = p
+                filePicker.pick(to = p.getDisplayName())
+            }
+        // As "Ping all" does it: offline peers are skipped, the figure lands in the row.
+        PeerSwipe.PING -> if (p.online != true) null
+            else SwipeAction(swipePing, Icons.Default.NetworkPing) {
+                coroutineScope.launch { pingAll(listOf(p.getPrimaryIp()), peerPings) }
+            }
+        PeerSwipe.COPY_IP -> p.tailscaleIPs?.firstOrNull()?.takeIf { clipboardOffered }?.let { ip ->
+            SwipeAction(swipeCopyIp, Icons.Default.ContentCopy) {
+                copyToClipboard(context, p.getDisplayName(), ip, context.getString(R.string.copied_to_clipboard, ip))
+            }
+        }
+        // Only a peer that offers exit routes and is not already the one; the exit-node
+        // picker's apply, then a reload so the row's badge moves.
+        PeerSwipe.EXIT_NODE -> {
+            val id = p.id
+            val ip = p.tailscaleIPs?.firstOrNull()
+            if (p.exitNodeOption != true || p.exitNode == true || id.isNullOrEmpty() || ip == null) null
+            else SwipeAction(swipeExitNode, Icons.Default.VpnKey) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    val result = ExitNodeApply.select(context, id, ip)
+                    withContext(Dispatchers.Main) {
+                        if (result is ExitNodeApply.Result.Refused) {
+                            Toast.makeText(context, context.getString(R.string.settings_local_api_error_format, result.message), Toast.LENGTH_SHORT).show()
+                        }
+                        loadPeers()
+                    }
+                }
+            }
+        }
+        PeerSwipe.DETAILS -> SwipeAction(swipeDetails, Icons.Default.Info) { selectedPeer = p }
+    }
+
     // How each peer is reached, named: which node a peer relay is, which city a DERP region.
     // Fetched beside the list whenever the relays in use change; the rows and the details
     // read them through LocalPeerPathNames.
@@ -443,7 +499,10 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         // so a refresh that re-sorts slides the rows rather than swapping them.
                         modifier = Modifier.animateItem().then(
                             if (index == 0 && rows.self == null) Modifier.tvFocusOnce(initialFocusSpent) else Modifier
-                        )
+                        ),
+                        // This device's own row has none: nothing here is done to oneself.
+                        swipeToEnd = peerSwipe(peerSwipes.first, p),
+                        swipeToStart = peerSwipe(peerSwipes.second, p)
                     ) { selectedPeer = p }
                 }
                 when {

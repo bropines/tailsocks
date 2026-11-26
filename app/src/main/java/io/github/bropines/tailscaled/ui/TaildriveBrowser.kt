@@ -371,7 +371,8 @@ fun TaildriveBrowserPage(
         val parent = location.parent
         if (parent != null && location.depth > top) go(parent, focus = location.name) else onClose()
     }
-    BackHandler(onBack = up)
+    // The folder being left shrinks under the finger; the parent replaces it on release.
+    val back = rememberPredictiveBack(true, up)
     // Back in selection mode leaves it, before it climbs anywhere.
     BackHandler(enabled = selection != null) { selection = null }
 
@@ -574,7 +575,7 @@ fun TaildriveBrowserPage(
         linkDown = viaLink && proxy != null && proxy != ProxyCondition.READY,
         refocus = refocus,
     )
-    TaildriveBrowserContent(location, phase, focusName, notice, actions, modifier, extras)
+    TaildriveBrowserContent(location, phase, focusName, notice, actions, modifier.predictiveBackPreview(back), extras)
 
     question?.let { q ->
         var totals by remember(q) { mutableStateOf(WalkTotals()) }

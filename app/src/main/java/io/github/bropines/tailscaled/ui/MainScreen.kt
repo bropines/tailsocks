@@ -266,6 +266,8 @@ fun MainScreen(
         if (tv) confirmStop = true else stopNow()
     }
     val siblingFoundState = remember { mutableStateOf<SiblingBuild.Found?>(null) }
+    // The status card's two swipes (core/Gestures.kt): read again on coming back, from Settings too.
+    var statusSwipes by remember { mutableStateOf(Gestures.statusToEnd(context) to Gestures.statusToStart(context)) }
     var siblingFound by siblingFoundState
     fun startNow() {
         daemon.isProcessing = true
@@ -322,6 +324,7 @@ fun MainScreen(
         daemon, acc, exitNode, flags, prefs, globalPrefs, demo, inPreview,
         onResumed = {
             if (previewLayout == null && !layoutState.editing) layoutState.layout = MainLayoutStore.load(context, remoteTileOffered, arrangeable)
+            statusSwipes = Gestures.statusToEnd(context) to Gestures.statusToStart(context)
         },
     )
 
@@ -462,6 +465,40 @@ fun MainScreen(
             if (!layoutState.editing) action()
         }
 
+        // What a swipe on the status card does now, or null where it can do nothing — and then
+        // the card does not drag that way. The exit node is the connected daemon's to change.
+        fun statusSwipe(kind: StatusSwipe): (() -> Unit)? = when (kind) {
+            StatusSwipe.NONE -> null
+            StatusSwipe.NEXT_ACCOUNT -> {
+                val list = acc.accounts.value
+                val next = if (list.size < 2 || daemon.isProcessing) null
+                    else list[(list.indexOfFirst { it.id == acc.activeAccount.id } + 1).mod(list.size)]
+                // As a row of the accounts sheet does: a running service asks before it restarts.
+                next?.let { account -> {
+                    act {
+                        StatusAsides.bump(context, StatusAsides.SWITCHES)
+                        if (ProxyState.isActualRunning()) acc.showSwitchConfirmDialog = account
+                        else {
+                            AccountManager.setActiveAccount(context, account.id)
+                            acc.activeAccount = account
+                        }
+                    }
+                } }
+            }
+            StatusSwipe.EXIT_NODE_TOGGLE -> when {
+                proxyState != "ACTIVE" -> null
+                exitNodeIp.isNotEmpty() -> ({ act { exitNode.applyExitNode("", "", haptics) } })
+                else -> {
+                    // The node in use before, as ExitNodeApply remembers it for the widget.
+                    val lastIp = prefs.getString("last_exit_node_ip", "").orEmpty()
+                    val lastId = prefs.getString("last_exit_node_id", "").orEmpty()
+                    if (lastIp.isEmpty() || lastId.isEmpty()) null
+                    else ({ act { exitNode.applyExitNode(lastId, lastIp, haptics) } })
+                }
+            }
+            StatusSwipe.EXIT_NODE_PICKER -> if (proxyState != "ACTIVE") null else ({ act { exitNode.openExitNodeSheet() } })
+        }
+
         val banners: @Composable () -> Unit = {
             MainBanners(
                 isBatteryOptimizationsIgnored = flags.isBatteryOptimizationsIgnored,
@@ -487,7 +524,7 @@ fun MainScreen(
             )
         }
 
-        val statusCell: @Composable ColumnScope.(Modifier, Boolean) -> Unit = { cardModifier, bare ->
+        val statusCell: @Composable ColumnScope.(Modifier, Boolean, Boolean) -> Unit = { cardModifier, bare, fillHeight ->
             MainStatusCell(
                 cardModifier = cardModifier,
                 bare = bare,
@@ -515,6 +552,10 @@ fun MainScreen(
                 scope = scope,
                 requestStop = { requestStop() },
                 startNow = { startNow() },
+                fillHeight = fillHeight,
+                swipeToEnd = statusSwipes.first,
+                swipeToStart = statusSwipes.second,
+                swipeAction = ::statusSwipe,
             )
         }
 
@@ -529,7 +570,7 @@ fun MainScreen(
         }
         val block: @Composable ColumnScope.(MainItem, Modifier) -> Unit = { item, cardModifier ->
             when (item) {
-                MainItem.STATUS -> statusCell(cardModifier, editing)
+                MainItem.STATUS -> statusCell(cardModifier, editing, false)
                 MainItem.EXIT_NODE -> exitNodeLine(Modifier)
                 MainItem.SUMMARY -> connectionSummary?.let { ConnectionSummaryRow(it) }
                 MainItem.SPEED_GRAPH -> SpeedGraphCard(Modifier.fillMaxWidth()) {
@@ -561,7 +602,9 @@ fun MainScreen(
             drawn.forEachIndexed { i, item ->
                 if (i > 0) Spacer(modifier = Modifier.height(mainGap(drawn[i - 1], item)))
                 if (item == anchor) banners()
-                block(item, if (fillHeight) Modifier.weight(1f) else Modifier)
+                val weight = if (fillHeight) Modifier.weight(1f) else Modifier
+                // The card is told it fills the pane: in a swipe box it fills the box that does.
+                if (item == MainItem.STATUS) statusCell(weight, editing, fillHeight) else block(item, weight)
             }
         }
 

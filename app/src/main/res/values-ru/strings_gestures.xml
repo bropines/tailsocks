@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Appearance → Gestures (core/Gestures.kt, ui/GestureKit.kt). -->
+    <string name="gestures_section">Жесты</string>
+    <string name="gestures_back_title">«Назад» с предпросмотром</string>
+    <string name="gestures_back_desc">Жест «назад» внутри экрана — на странице настроек, в папке — уменьшает страницу под пальцем: видно, куда он ведёт, и можно передумать. Android 14 и новее.</string>
+    <string name="gestures_to_end">Смахнуть вправо</string>
+    <string name="gestures_to_start">Смахнуть влево</string>
+    <string name="gestures_peer_title">Смахивание по устройству</string>
+    <string name="gestures_peer_desc">В списке узлов</string>
+    <string name="gestures_status_title">Смахивание по карточке статуса</string>
+    <string name="gestures_status_desc">На главном экране</string>
+    <string name="gestures_file_title">Смахивание по файлу</string>
+    <string name="gestures_file_desc">В «Файлах», по принятому или сохранённому файлу</string>
+    <string name="gestures_summary">Вправо: %1$s · влево: %2$s</string>
+
+    <string name="gesture_none">Ничего</string>
+    <string name="gesture_peer_send_file">Отправить файл</string>
+    <string name="gesture_peer_ping">Пинг</string>
+    <string name="gesture_peer_copy_ip">Скопировать IP</string>
+    <string name="gesture_peer_exit_node">Сделать выходным узлом</string>
+    <string name="gesture_peer_details">Подробности</string>
+    <string name="gesture_status_next_account">Следующий аккаунт</string>
+    <string name="gesture_status_exit_toggle">Выходной узел вкл / выкл</string>
+    <string name="gesture_status_exit_picker">Выбрать выходной узел</string>
+    <string name="gesture_file_hide">Скрыть</string>
+    <string name="gesture_file_open">Открыть</string>
+    <string name="gesture_file_share">Поделиться</string>
+</resources>

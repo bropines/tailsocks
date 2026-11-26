@@ -1,5 +1,9 @@
 package io.github.bropines.tailscaled.ui
 
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.runtime.key
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -44,6 +48,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -60,6 +65,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
@@ -114,6 +120,8 @@ import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.CompactSearchBar
 import io.github.bropines.tailscaled.core.Feature
+import io.github.bropines.tailscaled.core.FileSwipe
+import io.github.bropines.tailscaled.core.Gestures
 import io.github.bropines.tailscaled.core.IncomingPhase
 import io.github.bropines.tailscaled.core.IncomingTransfer
 import io.github.bropines.tailscaled.core.OutgoingPhase
@@ -122,6 +130,7 @@ import io.github.bropines.tailscaled.core.outgoingDetail
 import io.github.bropines.tailscaled.core.TaildropFolder
 import io.github.bropines.tailscaled.core.TaildropInbox
 import io.github.bropines.tailscaled.core.formatFileSize
+import io.github.bropines.tailscaled.core.tryStartActivity
 import io.github.bropines.tailscaled.core.incomingDetail
 import io.github.bropines.tailscaled.models.PeerData
 import io.github.bropines.tailscaled.models.TaildropDirection
@@ -275,11 +284,14 @@ internal fun TaildropPage(
     val startOffset = if (startAtEnd) 1_000_000 else 0
     val saved = remember(files, history) { TaildropInbox.savedEntries(files, history) }
     var inboxOpen by rememberSaveable { mutableStateOf(inboxOpenAtStart) }
+    // What a swipe on an inbox card does (Settings → Gestures), read once per visit to the page.
+    val context = LocalContext.current
+    val fileSwipes = remember(context) { Gestures.fileToEnd(context) to Gestures.fileToStart(context) }
     val inbox = InboxContent(
         incoming, files, history, saved, loaded, onOpenFile, onSaveFile, onDeleteFile,
         onOpenSaved, onShowSavedInFolder, onCopySavedFolderPath, onHideSaved,
         showFolderHint, onChooseFolder, onDismissFolderHint, folderLine, newSince,
-        open = inboxOpen, onToggle = { inboxOpen = !inboxOpen }
+        open = inboxOpen, onToggle = { inboxOpen = !inboxOpen }, swipes = fileSwipes
     )
     when {
         // The inbox down one side, sending and the history on the other, both in view at once;
@@ -438,7 +450,9 @@ private class InboxContent(
     newSince: Long?,
     /** Whether the folded inbox is open; only the list and the grid fold it. */
     val open: Boolean = true,
-    val onToggle: () -> Unit = {}
+    val onToggle: () -> Unit = {},
+    /** The cards' swipes, to the end and to the start; NONE both ways is a card that does not drag. */
+    val swipes: Pair<FileSwipe, FileSwipe> = FileSwipe.NONE to FileSwipe.NONE
 ) {
     val count: Int get() = incoming.size + files.size + saved.size
 
@@ -477,23 +491,75 @@ private class InboxContent(
             entry?.saveError != null -> stringResource(R.string.taildrop_save_failed)
             else -> null
         }
-        FileCard(
-            f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) },
-            sender = entry?.peerName?.takeIf { it.isNotEmpty() },
-            note = note,
-            noteIsError = entry?.savedTo == null && entry?.saveError != null
-        )
+        val context = LocalContext.current
+        // A waiting file has no Hide: its card goes with Delete, which a swipe must not do by accident.
+        SwipeableFileCard(
+            onOpen = { onOpenFile(f) },
+            onShare = { shareTaildropFile(context) { TaildropInbox.viewIntent(context, f) } },
+            onHide = null
+        ) {
+            FileCard(
+                f, { onOpenFile(f) }, { onSaveFile(f) }, { onDeleteFile(f) },
+                sender = entry?.peerName?.takeIf { it.isNotEmpty() },
+                note = note,
+                noteIsError = entry?.savedTo == null && entry?.saveError != null
+            )
+        }
     }
 
     @Composable
     fun SavedCard(e: TaildropHistoryEntry) {
-        TaildropSavedCard(
-            e,
+        val context = LocalContext.current
+        SwipeableFileCard(
             onOpen = { onOpenSaved(e) },
-            onShowInFolder = onShowSavedInFolder?.let { show -> { show(e) } },
-            onCopyFolderPath = onCopySavedFolderPath?.let { copy -> { copy(e) } },
+            // Only a copy the folder still has a URI for can be handed on.
+            onShare = e.savedUri?.let { { shareTaildropFile(context) { TaildropInbox.viewIntent(context, e) } } },
             onHide = { onHideSaved(e) }
-        )
+        ) {
+            TaildropSavedCard(
+                e,
+                onOpen = { onOpenSaved(e) },
+                onShowInFolder = onShowSavedInFolder?.let { show -> { show(e) } },
+                onCopyFolderPath = onCopySavedFolderPath?.let { copy -> { copy(e) } },
+                onHide = { onHideSaved(e) }
+            )
+        }
+    }
+
+    /** [content] with [swipes] wired to the card's own Open, Share and Hide; a null one leaves that direction still. */
+    @Composable
+    private fun SwipeableFileCard(onOpen: () -> Unit, onShare: (() -> Unit)?, onHide: (() -> Unit)?, content: @Composable () -> Unit) {
+        val hide = stringResource(R.string.gesture_file_hide)
+        val open = stringResource(R.string.gesture_file_open)
+        val share = stringResource(R.string.gesture_file_share)
+        fun actionOf(kind: FileSwipe): SwipeAction? = when (kind) {
+            FileSwipe.NONE -> null
+            FileSwipe.HIDE -> onHide?.let { SwipeAction(hide, Icons.Default.VisibilityOff, onAction = it) }
+            FileSwipe.OPEN -> SwipeAction(open, Icons.AutoMirrored.Filled.OpenInNew, onAction = onOpen)
+            FileSwipe.SHARE -> onShare?.let { SwipeAction(share, Icons.Default.Share, onAction = it) }
+        }
+        // The cards' own corners: the panel behind is cut to the card it shows under.
+        SwipeActionBox(actionOf(swipes.first), actionOf(swipes.second), MaterialTheme.shapes.large) { content() }
+    }
+}
+
+/**
+ * A received file to another app, through the system's share sheet: the URI and type the
+ * card's Open hands a viewer ([view]), sent instead of viewed, with the same read grant.
+ */
+private fun shareTaildropFile(context: Context, view: () -> Intent?) {
+    try {
+        val viewIntent = view() ?: return
+        val uri = viewIntent.data ?: return
+        val send = Intent(Intent.ACTION_SEND)
+            .setType(viewIntent.type ?: "*/*")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            // The clip carries the grant to whichever app the chooser picks (setClipData returns nothing).
+            .apply { clipData = ClipData.newRawUri(null, uri) }
+        context.tryStartActivity(Intent.createChooser(send, null))
+    } catch (e: Exception) {
+        Toast.makeText(context, context.getString(R.string.files_error_cant_open, e.message), Toast.LENGTH_SHORT).show()
     }
 }
 

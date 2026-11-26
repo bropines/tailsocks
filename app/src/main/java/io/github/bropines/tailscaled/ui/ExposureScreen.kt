@@ -3,7 +3,6 @@ package io.github.bropines.tailscaled.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -182,22 +181,25 @@ fun ExposureScreen(onBack: () -> Unit) {
         }
     }
 
-    BackHandler(onBack = onBack)
-    ExposureContent(
-        facts = facts,
-        pending = pending,
-        onBack = onBack,
-        onTurnOff = { row ->
-            facts?.let { read ->
-                pending = pending + row.key
-                scope.launch {
-                    withContext(Dispatchers.IO) { runCatching { ExposureSwitches.turnOff(context, row, read) } }
-                    wake.trySend(Unit)
+    // A sub-page of Settings: it shrinks under the finger on its way back to the list.
+    val back = rememberPredictiveBack(true, onBack)
+    Box(Modifier.fillMaxSize().predictiveBackPreview(back)) {
+        ExposureContent(
+            facts = facts,
+            pending = pending,
+            onBack = onBack,
+            onTurnOff = { row ->
+                facts?.let { read ->
+                    pending = pending + row.key
+                    scope.launch {
+                        withContext(Dispatchers.IO) { runCatching { ExposureSwitches.turnOff(context, row, read) } }
+                        wake.trySend(Unit)
+                    }
                 }
-            }
-        },
-        onOpen = { item -> openSettingOf(context, item) },
-    )
+            },
+            onOpen = { item -> openSettingOf(context, item) },
+        )
+    }
 }
 
 /** The page for [facts]: null while the first reading is on its way. Previews draw it with made-up facts. */

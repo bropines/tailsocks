@@ -57,4 +57,7 @@
     <string name="search_sum_automation_token">The secret other apps must send with every command</string>
     <string name="search_sum_live_state">What the daemon, the proxies and the tunnel are doing right now</string>
     <string name="search_sum_root_daemon_info">Socket and log paths, the daemon\'s status, a routing check</string>
+    <string name="search_sum_gesture_peer">What a swipe right or left on a device of the Peers list does</string>
+    <string name="search_sum_gesture_status">What a swipe right or left on the main screen\'s status card does</string>
+    <string name="search_sum_gesture_file">What a swipe right or left on a received or saved file does</string>
 </resources>

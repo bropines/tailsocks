@@ -6,6 +6,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Added
 
+- Gestures: swipe a device, a file or the status card to act on it, and back inside a screen previews where it leads; each is chosen in Settings → Appearance & language → Gestures.
 - Share sheet: choose which devices it offers — each device is Auto, Pinned (always, first) or Hidden, per account.
 
 ### Changed

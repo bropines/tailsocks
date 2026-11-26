@@ -512,7 +512,10 @@ fun PredictiveBackContainer(
     val settleScope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
     var swipeEdge by remember { mutableIntStateOf(BackEventCompat.EDGE_LEFT) }
-    val reducedMotion = rememberReducedMotion()
+    // Settings → Appearance → Gestures → "Back with a preview" off is the same as no motion:
+    // the gesture still goes back, only the page no longer shrinks under the finger.
+    val previewOff = LocalContext.current.let { remember(it) { !Gestures.predictiveBack(it) } }
+    val reducedMotion = rememberReducedMotion() || previewOff
 
     PredictiveBackHandler(enabled = true) { backEvents ->
         try {

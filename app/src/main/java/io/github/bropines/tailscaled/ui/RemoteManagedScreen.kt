@@ -1,6 +1,5 @@
 package io.github.bropines.tailscaled.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -401,8 +400,9 @@ fun RemoteManagedScreen(onBack: () -> Unit) {
         }
     }
     // A television's top bar has no arrow: the remote's Back key is the way out.
-    BackHandler(onBack = onBack)
-    RemoteManagedContent(ui, actions, onBack)
+    // Also the predictive back: the page shrinks under the finger on its way to the screen it came from.
+    val back = rememberPredictiveBack(true, onBack)
+    Box(Modifier.fillMaxSize().predictiveBackPreview(back)) { RemoteManagedContent(ui, actions, onBack) }
 }
 
 private fun noticeOf(answer: RemoteRevoked): RemoteNotice? =

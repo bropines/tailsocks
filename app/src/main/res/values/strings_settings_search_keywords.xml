@@ -154,4 +154,8 @@
     <string name="search_kw_main_blocks">main screen, home screen, hide, show, blocks, cards, tiles, layout, speed graph, timeline, tailnet map, customize</string>
     <string name="search_kw_dns_rescue">dns rescue, fallback, bypass, filter, nextdns, pihole, pi-hole, adguard, dns leak, servfail, refused</string>
     <string name="search_kw_main_hidden">hidden, removed, taken off, main screen, home screen, tiles, open, put back, restore</string>
+    <string name="search_kw_gestures_back">back gesture, predictive back, swipe back, preview, animation, android 14, return</string>
+    <string name="search_kw_gesture_peer">swipe, gesture, slide, devices, peers, nodes, send file, copy ip, shortcut</string>
+    <string name="search_kw_gesture_status">swipe, gesture, slide, main screen, home screen, status card, next account, switch account, exit node, shortcut</string>
+    <string name="search_kw_gesture_file">swipe, gesture, slide, files, taildrop, hide, open, share, received, shortcut</string>
 </resources>

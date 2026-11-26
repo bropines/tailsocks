@@ -229,6 +229,12 @@ internal fun ColumnScope.MainStatusCell(
     scope: CoroutineScope,
     requestStop: () -> Unit,
     startNow: () -> Unit,
+    /** The card takes the height its column has left (a weight in [cardModifier]). */
+    fillHeight: Boolean = false,
+    swipeToEnd: StatusSwipe = StatusSwipe.NONE,
+    swipeToStart: StatusSwipe = StatusSwipe.NONE,
+    /** What a swipe of that kind does right now; null where it can do nothing (see MainScreen). */
+    swipeAction: (StatusSwipe) -> (() -> Unit)? = { null },
 ): Unit = with(daemon) { with(flags) { with(layoutState) {
     val context = LocalContext.current
     var statusAside by statusAsideState
@@ -240,11 +246,19 @@ internal fun ColumnScope.MainStatusCell(
     if (!bare && proxyState == "ACTIVE" && MainItem.EXIT_NODE !in layout && MainItem.EXIT_PICKER !in layout && (exitNodeIp.isNotEmpty() || exitNodePaused)) {
         exitNodeLine(Modifier.padding(bottom = 16.dp))
     }
-    StatusCard(
+    // The swipes of Settings → Appearance → Gestures. Not while the screen is being arranged,
+    // where a drag moves the card, and not on a television, which has nothing to swipe with.
+    val swipes = !bare && !editing && !isTv
+    val toEnd = if (swipes) statusSwipeAction(swipeToEnd, exitNodeIp.isNotEmpty(), swipeAction) else null
+    val toStart = if (swipes) statusSwipeAction(swipeToStart, exitNodeIp.isNotEmpty(), swipeAction) else null
+    val swiped = toEnd != null || toStart != null
+    // In a swipe box the weight goes on the box; the card then fills it, as it filled the column.
+    val focusModifier = Modifier.tvInitialFocus()
+        .then(if (remoteTileOffered) Modifier.focusProperties { right = menuStart } else Modifier)
+    val card: @Composable (Modifier) -> Unit = { shapeModifier -> StatusCard(
         state = cardState,
         // Where the remote starts on this screen.
-        modifier = cardModifier.tvInitialFocus()
-            .then(if (remoteTileOffered) Modifier.focusProperties { right = menuStart } else Modifier),
+        modifier = shapeModifier.then(focusModifier),
         issueTitle = shownWarnings.firstOrNull()?.let { healthTitle(it) },
         isProcessing = isProcessing,
         isTunEnabled = isTunEnabled,
@@ -283,6 +297,16 @@ internal fun ColumnScope.MainStatusCell(
                 if (found == null) startNow() else { isProcessing = false; siblingFound = found }
             }
         }
+    } }
+    // One card wherever it stands: a swipe that becomes possible (on connecting, say) moves it
+    // into the swipe box without starting its colours and animations over.
+    val placeCard = remember { movableContentOf<Modifier, @Composable (Modifier) -> Unit> { m, draw -> draw(m) } }
+    if (swiped) {
+        SwipeActionBox(toEnd = toEnd, toStart = toStart, shape = MaterialTheme.shapes.extraLarge, modifier = cardModifier) {
+            placeCard(if (fillHeight) Modifier.fillMaxHeight() else Modifier, card)
+        }
+    } else {
+        placeCard(cardModifier, card)
     }
 
     if (!bare) {
@@ -337,6 +361,26 @@ androidx.compose.animation.AnimatedVisibility(visible = proxyState == "CONNECTIO
         } }
     }
 } } }
+
+/**
+ * The status card's swipe of [kind], or null when it is set to nothing or can do nothing now.
+ * [exitNodeOn] picks the toggle's icon: the one for what the swipe is about to do.
+ */
+@Composable
+private fun statusSwipeAction(kind: StatusSwipe, exitNodeOn: Boolean, action: (StatusSwipe) -> (() -> Unit)?): SwipeAction? {
+    if (kind == StatusSwipe.NONE) return null
+    val run = action(kind) ?: return null
+    return when (kind) {
+        StatusSwipe.NEXT_ACCOUNT -> SwipeAction(stringResource(R.string.gesture_status_next_account), Icons.Default.SwitchAccount, onAction = run)
+        StatusSwipe.EXIT_NODE_TOGGLE -> SwipeAction(
+            stringResource(R.string.gesture_status_exit_toggle),
+            if (exitNodeOn) Icons.Default.PublicOff else Icons.Default.Public,
+            onAction = run,
+        )
+        StatusSwipe.EXIT_NODE_PICKER -> SwipeAction(stringResource(R.string.gesture_status_exit_picker), Icons.Default.VpnLock, onAction = run)
+        StatusSwipe.NONE -> null
+    }
+}
 
 /**
  * How a banner or card of the main screen comes and goes: it opens out and fades in, so the

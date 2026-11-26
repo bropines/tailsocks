@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -325,6 +328,140 @@ internal fun SettingsAppearancePage(env: SettingsPageEnv, theme: SettingsThemeCh
                 secondHalf()
             }
         }
+        // Swipes and the back preview are touch gestures: a television has neither.
+        if (place(Feature.TOUCH_GESTURES_HINTS) == Availability.OFFERED) {
+            SettingsCardGap()
+            SettingsCard(title = stringResource(R.string.gestures_section)) { GesturesSettings() }
+        }
+    }
+}
+
+/**
+ * Where a swipe can be set up (core/Gestures.kt): its row, its two preferences, and what it
+ * may do — each choice by its stored id and the label it is shown with.
+ */
+private class SwipeArea(
+    val title: Int,
+    val desc: Int,
+    val icon: ImageVector,
+    val keyToEnd: String,
+    val keyToStart: String,
+    val choices: List<Pair<String, Int>>,
+    val toEnd: (android.content.Context) -> String,
+    val toStart: (android.content.Context) -> String,
+)
+
+private fun peerLabel(s: PeerSwipe) = when (s) {
+    PeerSwipe.NONE -> R.string.gesture_none
+    PeerSwipe.SEND_FILE -> R.string.gesture_peer_send_file
+    PeerSwipe.PING -> R.string.gesture_peer_ping
+    PeerSwipe.COPY_IP -> R.string.gesture_peer_copy_ip
+    PeerSwipe.EXIT_NODE -> R.string.gesture_peer_exit_node
+    PeerSwipe.DETAILS -> R.string.gesture_peer_details
+}
+
+private fun statusLabel(s: StatusSwipe) = when (s) {
+    StatusSwipe.NONE -> R.string.gesture_none
+    StatusSwipe.NEXT_ACCOUNT -> R.string.gesture_status_next_account
+    StatusSwipe.EXIT_NODE_TOGGLE -> R.string.gesture_status_exit_toggle
+    StatusSwipe.EXIT_NODE_PICKER -> R.string.gesture_status_exit_picker
+}
+
+private fun fileLabel(s: FileSwipe) = when (s) {
+    FileSwipe.NONE -> R.string.gesture_none
+    FileSwipe.HIDE -> R.string.gesture_file_hide
+    FileSwipe.OPEN -> R.string.gesture_file_open
+    FileSwipe.SHARE -> R.string.gesture_file_share
+}
+
+private val swipeAreas = listOf(
+    SwipeArea(
+        R.string.gestures_peer_title, R.string.gestures_peer_desc, Icons.Default.Devices,
+        Gestures.KEY_PEER_TO_END, Gestures.KEY_PEER_TO_START,
+        PeerSwipe.entries.map { it.id to peerLabel(it) },
+        { Gestures.peerToEnd(it).id }, { Gestures.peerToStart(it).id },
+    ),
+    SwipeArea(
+        R.string.gestures_status_title, R.string.gestures_status_desc, Icons.Default.Swipe,
+        Gestures.KEY_STATUS_TO_END, Gestures.KEY_STATUS_TO_START,
+        StatusSwipe.entries.map { it.id to statusLabel(it) },
+        { Gestures.statusToEnd(it).id }, { Gestures.statusToStart(it).id },
+    ),
+    SwipeArea(
+        R.string.gestures_file_title, R.string.gestures_file_desc, Icons.AutoMirrored.Filled.InsertDriveFile,
+        Gestures.KEY_FILE_TO_END, Gestures.KEY_FILE_TO_START,
+        FileSwipe.entries.map { it.id to fileLabel(it) },
+        { Gestures.fileToEnd(it).id }, { Gestures.fileToStart(it).id },
+    ),
+)
+
+/**
+ * The Gestures card: the back preview's switch, and a row per swipe. A row's summary names
+ * both directions; tapping it asks for the right swipe, then straight away for the left one —
+ * one row and two short lists instead of six rows. Leaving the first list asks nothing more.
+ */
+@Composable
+private fun GesturesSettings() {
+    val context = LocalContext.current
+    var predictiveBack by remember { mutableStateOf(Gestures.predictiveBack(context)) }
+    SettingsSwitchItem(
+        stringResource(R.string.gestures_back_title),
+        stringResource(R.string.gestures_back_desc),
+        Icons.Default.SwipeLeft,
+        predictiveBack
+    ) {
+        Gestures.setPredictiveBack(context, it)
+        predictiveBack = it
+    }
+
+    // The stored ids, by preference key: what the summaries show and the lists mark.
+    val chosen = remember {
+        mutableStateMapOf<String, String>().apply {
+            swipeAreas.forEach { put(it.keyToEnd, it.toEnd(context)); put(it.keyToStart, it.toStart(context)) }
+        }
+    }
+    // The open list: an area's index and its direction (true: right). The left one follows a pick.
+    var picking by remember { mutableStateOf<Pair<Int, Boolean>?>(null) }
+    var leftNext by remember { mutableStateOf<Int?>(null) }
+    val toEndWord = stringResource(R.string.gestures_to_end)
+    val toStartWord = stringResource(R.string.gestures_to_start)
+
+    swipeAreas.forEachIndexed { index, area ->
+        val labels = area.choices.associate { (id, res) -> id to stringResource(res) }
+        SwipeAreaRow(
+            area.title,
+            "${stringResource(area.desc)}. " + stringResource(
+                R.string.gestures_summary,
+                labels[chosen[area.keyToEnd]].orEmpty(),
+                labels[chosen[area.keyToStart]].orEmpty(),
+            ),
+            area.icon
+        ) { picking = index to true }
+    }
+
+    picking?.let { (index, toEnd) ->
+        val area = swipeAreas[index]
+        val prefKey = if (toEnd) area.keyToEnd else area.keyToStart
+        // Resolved here, outside the sheet: a sheet is a window of its own (see PickerSheet).
+        val title = "${stringResource(area.title)} — ${if (toEnd) toEndWord else toStartWord}"
+        val options = area.choices.map { (id, res) -> PickerOption(id, stringResource(res)) }
+        // A new sheet for the second list: the first one is still sliding away when it is asked for.
+        key(picking) {
+            PickerSheet(
+                title = title,
+                options = options,
+                selected = chosen[prefKey],
+                onPick = { id ->
+                    Gestures.set(context, prefKey, id)
+                    chosen[prefKey] = id
+                    if (toEnd) leftNext = index
+                },
+                onDismiss = {
+                    picking = leftNext?.let { it to false }
+                    leftNext = null
+                },
+            )
+        }
     }
 }
 
@@ -339,4 +476,10 @@ internal fun SettingsThemePage(theme: SettingsThemeChoice) {
         Spacer(Modifier.height(12.dp))
         AppIconRow()
     }
+}
+
+// A row of the Gestures card. Its title is a resource passed on, the way SettingsCatalogTest reads it.
+@Composable
+private fun SwipeAreaRow(title: Int, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
+    SettingsClickableItem(stringResource(title), subtitle, icon, onClick = onClick)
 }

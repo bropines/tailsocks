@@ -190,6 +190,13 @@ object SettingsCatalog {
         row("managed_on_main", SettingsPage.APPEARANCE, R.string.settings_managed_on_main_title, R.string.settings_managed_on_main_desc, R.string.search_kw_managed_on_main, look)
         row("update_check", SettingsPage.APPEARANCE, R.string.settings_update_check_title, R.string.settings_update_check_desc, R.string.search_kw_update_check, look, needs = Need.SELF_UPDATE)
         row("update_beta", SettingsPage.APPEARANCE, R.string.settings_update_beta_title, R.string.settings_update_beta_desc, R.string.search_kw_update_beta, look, needs = Need.SELF_UPDATE)
+        // The Gestures card: touch gestures, so not on a television.
+        val gestures = R.string.gestures_section
+        val touch = Feature.TOUCH_GESTURES_HINTS
+        row("gestures_back", SettingsPage.APPEARANCE, R.string.gestures_back_title, R.string.gestures_back_desc, R.string.search_kw_gestures_back, gestures, feature = touch)
+        row("gesture_peer", SettingsPage.APPEARANCE, R.string.gestures_peer_title, R.string.search_sum_gesture_peer, R.string.search_kw_gesture_peer, gestures, feature = touch)
+        row("gesture_status", SettingsPage.APPEARANCE, R.string.gestures_status_title, R.string.search_sum_gesture_status, R.string.search_kw_gesture_status, gestures, feature = touch)
+        row("gesture_file", SettingsPage.APPEARANCE, R.string.gestures_file_title, R.string.search_sum_gesture_file, R.string.search_kw_gesture_file, gestures, feature = touch)
 
         // ─── Account & connection ────────────────────────────────────────────────────────
         // The first card is titled with the account's name, which a result has no room for.

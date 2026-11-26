@@ -148,4 +148,8 @@
     <string name="search_kw_main_blocks">главный экран, скрыть, показать, блоки, карточки, плитки, раскладка, график скорости, лента, карта tailnet, настроить</string>
     <string name="search_kw_dns_rescue">запасной dns, обход, фильтр, nextdns, pihole, pi-hole, adguard, утечка dns, servfail, refused, rescue</string>
     <string name="search_kw_main_hidden">скрытые, убранные, главный экран, плитки, открыть, вернуть, восстановить</string>
+    <string name="search_kw_gestures_back">жест назад, предиктивный назад, смахнуть назад, предпросмотр, анимация, android 14, вернуться</string>
+    <string name="search_kw_gesture_peer">смахивание, свайп, жест, устройства, узлы, пиры, отправить файл, скопировать ip, быстрое действие</string>
+    <string name="search_kw_gesture_status">смахивание, свайп, жест, главный экран, карточка статуса, следующий аккаунт, сменить аккаунт, выходной узел, быстрое действие</string>
+    <string name="search_kw_gesture_file">смахивание, свайп, жест, файлы, taildrop, скрыть, открыть, поделиться, принятые, быстрое действие</string>
 </resources>

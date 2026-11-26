@@ -295,6 +295,9 @@ internal fun PeerItem(
     pathWords: PeerPathWords = peerPathWords(),
     /** For the screen to place the row: the remote's first stop, say. */
     modifier: Modifier = Modifier,
+    /** The row's swipes (Settings → Gestures); null both ways is a row that does not drag. */
+    swipeToEnd: SwipeAction? = null,
+    swipeToStart: SwipeAction? = null,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -317,71 +320,78 @@ internal fun PeerItem(
     val shape = MaterialTheme.shapes.large
     // A remote's ring goes before the clip, or it loses its corners.
     val focusSource = remember { MutableInteractionSource() }
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .tvFocusRing(focusSource, shape)
-            .clip(shape)
-            .combinedClickable(
-                interactionSource = focusSource,
-                indication = LocalIndication.current,
-                role = Role.Button,
-                onLongClickLabel = onLongClickLabel,
-                onLongClick = onLongClick,
-                onClick = onClick
-            )
-            .semantics {
-                stateDescription = spokenState
-                if (selected) this.selected = true
-            },
+    // The margin goes outside the swipe, so the panel behind the row is the card's own size.
+    SwipeActionBox(
+        toEnd = swipeToEnd,
+        toStart = swipeToStart,
         shape = shape,
-        color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-        border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            PeerOsIcon(
-                peer,
-                size = 40.dp,
-                iconSize = 20.dp,
-                ring = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
-            )
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                val displayName = peer.getDisplayName()
-                val primaryIp = peer.getPrimaryIp()
-                // Long names travel across the row rather than being cut off.
-                Text(
-                    displayName,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .tvFocusRing(focusSource, shape)
+                .clip(shape)
+                .combinedClickable(
+                    interactionSource = focusSource,
+                    indication = LocalIndication.current,
+                    role = Role.Button,
+                    onLongClickLabel = onLongClickLabel,
+                    onLongClick = onLongClick,
+                    onClick = onClick
                 )
-                if (displayName != primaryIp) {
-                    PeerAddressLine(primaryIp, path, ago, ping, pathWords)
-                }
-                if (!peer.tags.isNullOrEmpty()) {
+                .semantics {
+                    stateDescription = spokenState
+                    if (selected) this.selected = true
+                },
+            shape = shape,
+            color = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+            border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                PeerOsIcon(
+                    peer,
+                    size = 40.dp,
+                    iconSize = 20.dp,
+                    ring = if (isSelf) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer
+                )
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    val displayName = peer.getDisplayName()
+                    val primaryIp = peer.getPrimaryIp()
+                    // Long names travel across the row rather than being cut off.
                     Text(
-                        text = peer.tags.joinToString(", "),
-                        fontSize = if (isTv) 13.sp else 11.sp,
+                        displayName,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
+                        softWrap = false,
+                        modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
                     )
+                    if (displayName != primaryIp) {
+                        PeerAddressLine(primaryIp, path, ago, ping, pathWords)
+                    }
+                    if (!peer.tags.isNullOrEmpty()) {
+                        Text(
+                            text = peer.tags.joinToString(", "),
+                            fontSize = if (isTv) 13.sp else 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-            }
-            // Icon-only here: the label is unweighted, so at a large font scale the words
-            // would win the width contest against the name column and squeeze it to nothing.
-            ExitNodeBadge(
-                peer = peer,
-                selectedLabel = stringResource(R.string.peer_exit_node_selected),
-                offeredLabel = stringResource(R.string.peer_exit_node_offered),
-                modifier = Modifier.padding(start = 8.dp)
-            )
-            if (online) {
-                Box(Modifier.padding(start = 8.dp).size(10.dp).clip(CircleShape).background(PEER_ONLINE_GREEN))
+                // Icon-only here: the label is unweighted, so at a large font scale the words
+                // would win the width contest against the name column and squeeze it to nothing.
+                ExitNodeBadge(
+                    peer = peer,
+                    selectedLabel = stringResource(R.string.peer_exit_node_selected),
+                    offeredLabel = stringResource(R.string.peer_exit_node_offered),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+                if (online) {
+                    Box(Modifier.padding(start = 8.dp).size(10.dp).clip(CircleShape).background(PEER_ONLINE_GREEN))
+                }
             }
         }
     }

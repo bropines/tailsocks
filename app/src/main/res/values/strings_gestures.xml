@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings → Appearance → Gestures (core/Gestures.kt, ui/GestureKit.kt). -->
+    <string name="gestures_section">Gestures</string>
+    <string name="gestures_back_title">Back with a preview</string>
+    <string name="gestures_back_desc">The back gesture inside a screen — a settings page, a folder — shrinks the page under your finger, so you see where it leads and can change your mind. Android 14 and later.</string>
+    <string name="gestures_to_end">Swipe right</string>
+    <string name="gestures_to_start">Swipe left</string>
+    <string name="gestures_peer_title">Swipe on a device</string>
+    <string name="gestures_peer_desc">In the Peers list</string>
+    <string name="gestures_status_title">Swipe on the status card</string>
+    <string name="gestures_status_desc">On the main screen</string>
+    <string name="gestures_file_title">Swipe on a file</string>
+    <string name="gestures_file_desc">In Files, on a received or saved file</string>
+    <string name="gestures_summary">Right: %1$s · left: %2$s</string>
+
+    <string name="gesture_none">Nothing</string>
+    <string name="gesture_peer_send_file">Send a file</string>
+    <string name="gesture_peer_ping">Ping</string>
+    <string name="gesture_peer_copy_ip">Copy IP</string>
+    <string name="gesture_peer_exit_node">Use as exit node</string>
+    <string name="gesture_peer_details">Details</string>
+    <string name="gesture_status_next_account">Next account</string>
+    <string name="gesture_status_exit_toggle">Exit node on / off</string>
+    <string name="gesture_status_exit_picker">Choose an exit node</string>
+    <string name="gesture_file_hide">Hide</string>
+    <string name="gesture_file_open">Open</string>
+    <string name="gesture_file_share">Share</string>
+</resources>

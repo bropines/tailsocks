@@ -288,7 +288,9 @@ fun FileBrowserScreen(
         val above = FileBrowse.up(here, places)
         if (above == null) onCancel() else go(above, (here as? BrowseLocation.Dir)?.dir)
     }
-    if (!inspection) BackHandler { up() }
+    // The folder shrinks under the finger before it gives way to its parent. Previews have no
+    // back dispatcher, so they get a still state instead of a handler.
+    val back = if (!inspection) rememberPredictiveBack(true) { up() } else remember { PredictiveBackState() }
 
     // The answer is checked against the disk once more: a stick may have been pulled meanwhile.
     var finishing by remember { mutableStateOf(false) }
@@ -339,7 +341,7 @@ fun FileBrowserScreen(
             remoteName = remoteName,
             canGrant = remoteName == null || onGrantAccess != null,
         ),
-        actions, modifier
+        actions, modifier.predictiveBackPreview(back)
     )
 }
 

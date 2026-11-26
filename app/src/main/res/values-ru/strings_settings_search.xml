@@ -57,4 +57,7 @@
     <string name="search_sum_automation_token">Секрет, который другие приложения передают с каждой командой</string>
     <string name="search_sum_live_state">Что прямо сейчас делают демон, прокси и туннель</string>
     <string name="search_sum_root_daemon_info">Пути к сокету и журналу, состояние демона, проверка маршрутизации</string>
+    <string name="search_sum_gesture_peer">Что делает смахивание вправо или влево по устройству в списке узлов</string>
+    <string name="search_sum_gesture_status">Что делает смахивание вправо или влево по карточке статуса на главном экране</string>
+    <string name="search_sum_gesture_file">Что делает смахивание вправо или влево по принятому или сохранённому файлу</string>
 </resources>
