@@ -161,7 +161,45 @@ class MainLayoutTest {
         val layout = MainLayout.default(false)
         assertSame(layout, layout.remove(STATUS))
         assertSame(layout, layout.remove(SETTINGS))
-        assertEquals(listOf(STATUS, SETTINGS), MainItem.entries.filter { !it.removable })
+        assertEquals(listOf(STATUS, EXIT_NODE, SETTINGS), MainItem.entries.filter { !it.removable })
+    }
+
+    // ─── The exit node: a line or a tile ─────────────────────────────────────────────────────
+
+    @Test
+    fun theExitNodeGoesLineCellRowLineInItsPlace() {
+        val line = MainLayout(listOf(Placed(STATUS), Placed(EXIT_NODE), Placed(PEERS)))
+        val cell = line.resize(EXIT_NODE)
+        assertEquals(listOf(STATUS, EXIT_PICKER, PEERS), ids(cell))
+        assertFalse(cell.items[1].wide)
+        val row = cell.resize(EXIT_PICKER)
+        assertEquals(listOf(STATUS, EXIT_PICKER, PEERS), ids(row))
+        assertTrue(row.items[1].wide)
+        assertEquals(line, row.resize(EXIT_PICKER))
+    }
+
+    @Test
+    fun aSecondExitNodeFormJustGoes() {
+        val both = MainLayout(listOf(Placed(EXIT_NODE), Placed(STATUS), Placed(EXIT_PICKER, wide = true)))
+        assertEquals(listOf(STATUS, EXIT_PICKER), ids(both.resize(EXIT_NODE)))
+        assertEquals(listOf(EXIT_NODE, STATUS), ids(both.resize(EXIT_PICKER)))
+    }
+
+    @Test
+    fun otherTilesOnlyChangeWidth() {
+        val layout = MainLayout(listOf(Placed(STATUS), Placed(PEERS)))
+        assertTrue(layout.resize(PEERS).items[1].wide)
+        assertSame(layout.items.size, layout.resize(STATUS).items.size)
+    }
+
+    @Test
+    fun aLayoutWithoutTheExitNodeGetsItAboveTheCard() {
+        val layout = MainLayout(listOf(Placed(PEERS), Placed(STATUS), Placed(SETTINGS)))
+        assertEquals(listOf(PEERS, EXIT_NODE, STATUS, SETTINGS), ids(layout.withExitNode()))
+        val withTile = MainLayout(listOf(Placed(STATUS), Placed(EXIT_PICKER)))
+        assertSame(withTile, withTile.withExitNode())
+        val withLine = MainLayout(listOf(Placed(STATUS), Placed(EXIT_NODE)))
+        assertSame(withLine, withLine.withExitNode())
     }
 
     @Test

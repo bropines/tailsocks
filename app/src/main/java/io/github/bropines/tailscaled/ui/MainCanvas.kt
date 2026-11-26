@@ -27,8 +27,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloseFullscreen
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.ViewStream
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -177,7 +179,7 @@ private class MainCanvasState {
         val fromRight = slot.right - p.x <= target
         val atStart = if (rtl) fromRight else fromLeft
         val atEnd = if (rtl) fromLeft else fromRight
-        return if (item.isTile) atEnd || (atStart && item.removable) else atEnd && item.removable
+        return if (item.isTile) atEnd || (atStart && item.removable) else atEnd && (item.removable || item.resizable)
     }
 
     /**
@@ -472,7 +474,18 @@ private fun CanvasCell(
     val earlier = stringResource(R.string.main_layout_move_earlier)
     val later = stringResource(R.string.main_layout_move_later)
     val removeLabel = stringResource(R.string.main_layout_remove_cd, title)
-    val sizeLabel = stringResource(if (placed.wide) R.string.main_layout_narrow_cd else R.string.main_layout_wide_cd, title)
+    // The exit node changes form rather than width at two of its steps (MainLayout.resize).
+    val toLine = item == MainItem.EXIT_PICKER && placed.wide
+    val toTile = item == MainItem.EXIT_NODE
+    val sizeLabel = stringResource(
+        when {
+            toLine -> R.string.main_layout_exit_line_cd
+            toTile -> R.string.main_layout_exit_tile_cd
+            placed.wide -> R.string.main_layout_narrow_cd
+            else -> R.string.main_layout_wide_cd
+        },
+        title
+    )
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
@@ -523,8 +536,13 @@ private fun CanvasCell(
             onClick = onRemove,
         )
         EditBadge(
-            visible = editing && item.isTile,
-            icon = if (placed.wide) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
+            visible = editing && item.resizable,
+            icon = when {
+                toLine -> Icons.Default.ViewStream
+                toTile -> Icons.Default.GridView
+                placed.wide -> Icons.Default.CloseFullscreen
+                else -> Icons.Default.OpenInFull
+            },
             label = sizeLabel,
             container = colors.secondaryContainer,
             content = colors.onSecondaryContainer,

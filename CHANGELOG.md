@@ -10,6 +10,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
+- Main screen editor: the exit-node line can be moved like any block, and its size button turns it into a tile and back.
 - Keep the connection awake: a choice of Off (like the official app, no wake lock), Brief wake-ups (experimental) or Always awake.
 - Without the wake lock the connection re-checks its network and relays when the phone wakes or the screen comes on.
 

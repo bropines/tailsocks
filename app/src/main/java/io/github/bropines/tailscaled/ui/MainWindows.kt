@@ -183,7 +183,7 @@ internal fun MainFlowWindow(
                 onMove = { item, target -> changeLayout(layout.move(item, target)) },
                 onStep = { item, by -> changeLayout(layout.step(item, by, itemOffered)) },
                 onRemove = { changeLayout(layout.remove(it)) },
-                onSetWide = { item, wide -> changeLayout(layout.setWide(item, wide)) },
+                onSetWide = { item, _ -> changeLayout(layout.resize(item)) },
             ) { cell ->
                 val item = cell.item
                 when {

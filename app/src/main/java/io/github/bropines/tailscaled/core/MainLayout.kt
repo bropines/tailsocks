@@ -25,7 +25,12 @@ enum class MainItem(
     val wideByDefault: Boolean = false,
 ) {
     STATUS("status", Group.BLOCK, removable = false),
-    EXIT_NODE("exit_node", Group.BLOCK),
+    /**
+     * The exit-node line. Not taken off: it is drawn above the card whenever an exit node
+     * carries the traffic, so a layout without it still had it, only out of reach. Its size
+     * button turns it into the exit-node tile ([EXIT_PICKER]) and back ([MainLayout.resize]).
+     */
+    EXIT_NODE("exit_node", Group.BLOCK, removable = false),
     SUMMARY("summary", Group.BLOCK),
     /** The devices this one manages (ui/ManagedOnMain.kt): nothing is drawn until it manages one. */
     MANAGED("managed_devices", Group.BLOCK),
@@ -60,6 +65,9 @@ enum class MainItem(
     enum class Group { BLOCK, SCREEN, SHORTCUT, SETTING }
 
     val isTile: Boolean get() = group != Group.BLOCK
+
+    /** Has a size button in the editor: every tile, and the exit-node line, which becomes a tile. */
+    val resizable: Boolean get() = isTile || this == EXIT_NODE
 
     companion object {
         fun byId(id: String): MainItem? = entries.firstOrNull { it.id == id }
@@ -136,6 +144,36 @@ data class MainLayout(val items: List<Placed>, val columns: Int = AUTO) {
     /** A tile across the row, or back to one cell; a block has no size to set. */
     fun setWide(item: MainItem, wide: Boolean): MainLayout =
         if (!item.isTile) this else copy(items = items.map { if (it.item == item) it.copy(wide = wide) else it })
+
+    /**
+     * The editor's size button on [item]. A tile goes between one cell and the row — except
+     * the exit-node tile across the row, which becomes the exit-node line; the line becomes
+     * that tile in one cell. So the exit node goes line → cell → row → line, in its place.
+     */
+    fun resize(item: MainItem): MainLayout {
+        val placed = items.firstOrNull { it.item == item } ?: return this
+        return when {
+            item == MainItem.EXIT_NODE -> swap(MainItem.EXIT_NODE, MainLayout.Placed(MainItem.EXIT_PICKER, wide = false))
+            item == MainItem.EXIT_PICKER && placed.wide -> swap(MainItem.EXIT_PICKER, MainLayout.Placed(MainItem.EXIT_NODE))
+            else -> setWide(item, !placed.wide)
+        }
+    }
+
+    /** [replacement] where [item] is; if it is already elsewhere on the screen, [item] just goes. */
+    private fun swap(item: MainItem, replacement: Placed): MainLayout =
+        if (replacement.item in this) copy(items = items.filter { it.item != item })
+        else copy(items = items.map { if (it.item == item) replacement else it })
+
+    /**
+     * The exit-node line put where it was drawn anyway — just above the card — when the layout
+     * has neither it nor the exit-node tile: older layouts could take it off, and it stayed on
+     * the screen out of the editor's reach.
+     */
+    fun withExitNode(): MainLayout {
+        if (MainItem.EXIT_NODE in this || MainItem.EXIT_PICKER in this) return this
+        val card = items.indexOfFirst { it.item == MainItem.STATUS }.coerceAtLeast(0)
+        return copy(items = items.toMutableList().apply { add(card, Placed(MainItem.EXIT_NODE)) })
+    }
 
     fun withColumns(columns: Int): MainLayout = copy(columns = columns.takeIf { it in 1..MAX_COLUMNS } ?: AUTO)
 
@@ -257,8 +295,9 @@ object MainLayoutStore {
      * backup is left in the preference and not followed.
      */
     fun load(context: Context, remoteTile: Boolean, arranged: Boolean = true): MainLayout =
-        (if (arranged) MainLayout.decode(GlobalSettings.getString(context, KEY, ""), managed(context)) else null)
-            ?: MainLayout.legacy({ it.isShown(context) }, GlobalSettings.isConnectionSummaryShown(context), remoteTile, managed(context))
+        ((if (arranged) MainLayout.decode(GlobalSettings.getString(context, KEY, ""), managed(context)) else null)
+            ?: MainLayout.legacy({ it.isShown(context) }, GlobalSettings.isConnectionSummaryShown(context), remoteTile, managed(context)))
+            .withExitNode()
 
     fun save(context: Context, layout: MainLayout) = GlobalSettings.setString(context, KEY, layout.encode())
 

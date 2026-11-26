@@ -235,7 +235,7 @@ internal fun ColumnScope.MainStatusCell(
     var siblingFound by siblingFoundState
     // Taken off the screen, the line still shows while an exit node carries the
     // traffic or waits to come back: that is not something to find out later.
-    if (!bare && proxyState == "ACTIVE" && MainItem.EXIT_NODE !in layout && (exitNodeIp.isNotEmpty() || exitNodePaused)) {
+    if (!bare && proxyState == "ACTIVE" && MainItem.EXIT_NODE !in layout && MainItem.EXIT_PICKER !in layout && (exitNodeIp.isNotEmpty() || exitNodePaused)) {
         exitNodeLine(Modifier.padding(bottom = 16.dp))
     }
     StatusCard(

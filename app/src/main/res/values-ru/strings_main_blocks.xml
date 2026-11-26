@@ -17,6 +17,8 @@
     <string name="main_layout_remove_cd">Убрать: %1$s</string>
     <string name="main_layout_wide_cd">%1$s: на всю строку</string>
     <string name="main_layout_narrow_cd">%1$s: в одну ячейку</string>
+    <string name="main_layout_exit_tile_cd">%1$s: сделать плиткой</string>
+    <string name="main_layout_exit_line_cd">%1$s: вернуть строкой над карточкой</string>
     <string name="main_layout_move_earlier">Выше</string>
     <string name="main_layout_move_later">Ниже</string>
     <string name="main_layout_when_connected">Виден при подключении</string>

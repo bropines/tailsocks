@@ -17,6 +17,8 @@
     <string name="main_layout_remove_cd">Remove %1$s</string>
     <string name="main_layout_wide_cd">%1$s: take the full row</string>
     <string name="main_layout_narrow_cd">%1$s: back to one cell</string>
+    <string name="main_layout_exit_tile_cd">%1$s: make it a tile</string>
+    <string name="main_layout_exit_line_cd">%1$s: back to a line above the card</string>
     <string name="main_layout_move_earlier">Move earlier</string>
     <string name="main_layout_move_later">Move later</string>
     <string name="main_layout_when_connected">Shown while connected</string>
