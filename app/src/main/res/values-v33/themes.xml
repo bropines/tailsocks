@@ -1,0 +1,14 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        A screen over the main one, with a window the screen beneath shows through. Where the
+        system animates back between screens it is made opaque again at once (core/BackUnderlay.kt);
+        where it does not (HyperOS), the back gesture shrinks the page over the real main screen
+        instead of over a blank. The content draws its own background, so nothing else changes.
+    -->
+    <style name="Theme.Tailscaled.Page" parent="Theme.Tailscaled">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- Translucent windows otherwise open with no animation of their own. -->
+        <item name="android:windowAnimationStyle">@android:style/Animation.Activity</item>
+    </style>
+</resources>

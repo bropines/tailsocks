@@ -6,6 +6,10 @@
 
     <style name="Theme.Tailscaled" parent="Base.Theme.Tailscaled" />
 
+    <!-- A screen opened over the main one (core/BackUnderlay.kt). Opaque here; translucent
+         from Android 13 (values-v33), so the back gesture can show the real screen beneath. -->
+    <style name="Theme.Tailscaled.Page" parent="Theme.Tailscaled" />
+
     <style name="Theme.Tailscaled.Transparent" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>

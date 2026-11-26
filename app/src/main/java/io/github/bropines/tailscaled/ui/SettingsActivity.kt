@@ -569,6 +569,11 @@ fun SettingsScreen(
             style = PaneStyle.FLAT
         )
     } else
+    // Leaving Settings from the hub: drawn here, around both levels and the ground they fade
+    // over, so the whole screen shrinks over what is beneath — only where the system does not
+    // animate it (core/BackUnderlay.kt); elsewhere this stays out of the way. A section's own
+    // back, registered inside, is the one that answers while a section is open.
+    PredictiveBackContainer(onBack = onBack, popsInAppState = false) {
     AnimatedContent(
         targetState = openSection,
         transitionSpec = {
@@ -599,10 +604,7 @@ fun SettingsScreen(
             // already leaving — a back gesture in that window was swallowed instead of
             // closing the Activity, and it re-ran the pop with nothing left to pop, which
             // latched poppedByGesture and cost the next section its fade.
-            // On the hub, back leaves the Activity: the container draws that only where the
-            // system does not (HyperOS), and otherwise stays out of the way as before.
-            onBack = if (section != null && openSection != null) popSectionByGesture else onBack,
-            popsInAppState = section != null && openSection != null,
+            onBack = if (section != null && openSection != null) popSectionByGesture else null,
             modifier = Modifier.fillMaxSize(),
             // What the finger uncovers is the real hub, not a hint of it — for the eye
             // only: it is a second live copy of every category row, and a screen reader
@@ -613,6 +615,7 @@ fun SettingsScreen(
         ) {
             settingsSurface(section, true, section == openSection)
         }
+    }
     }
     }
 

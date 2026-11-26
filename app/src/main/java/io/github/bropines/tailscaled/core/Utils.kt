@@ -453,7 +453,7 @@ fun CompactSearchBar(
  */
 private val BackGestureEasing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
 /** How long a committed back takes to finish its move and fade: long enough to be seen as one motion. */
-private const val BACK_EXIT_MS = 280
+private const val BACK_EXIT_MS = 200
 
 /**
  * Whether the platform draws the predictive back animation between Activities: Android 14
@@ -467,18 +467,18 @@ fun systemAnimatesBack(context: android.content.Context): Boolean {
 }
 
 /**
- * [finish] (the screen's own back, which ends in finish()) with a short cross-fade to what
- * is under it instead of the window animation: the page has already shrunk and faded here,
- * and a second slide on top of that read as a jump.
+ * [finish] (the screen's own back, which ends in finish()) with no window animation: the
+ * page has already slid away and faded here, and a window fade on top of that showed it again
+ * over the screen beneath.
  */
 private fun finishSoftly(activity: android.app.Activity, finish: () -> Unit) {
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        activity.overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_CLOSE, android.R.anim.fade_in, android.R.anim.fade_out)
+        activity.overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
         finish()
     } else {
         finish()
         @Suppress("DEPRECATION")
-        activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        activity.overridePendingTransition(0, 0)
     }
 }
 private const val BACK_MIN_SCALE = 0.9f
@@ -545,6 +545,7 @@ fun PredictiveBackContainer(
         return
     }
     val leavesActivity = !popsInAppState
+    val underlay = remember(context) { BackUnderlay.showsThrough(context.findActivity()) }
 
     // The gesture coroutine is cancelled when the user changes their mind, so the settle
     // animation has to run somewhere that survives that.
@@ -565,8 +566,10 @@ fun PredictiveBackContainer(
                 progress.snapTo(backEvent.progress)
             }
             if (!reducedMotion) {
-                // The rest of the way, unhurried: the page shrinks the last bit and fades while
-                // what it uncovers comes up to full size, then the state changes under it.
+                // The page carries on the way the finger sent it — off towards the far edge,
+                // fading — so letting go is the end of one motion, not a jump. (Recorded frame by
+                // frame on the POCO: resetting here first put the page back at full size for a
+                // frame, then the window fade showed it over the screen beneath.)
                 coroutineScope {
                     launch { progress.animateTo(1f, tween(BACK_EXIT_MS, easing = FastOutSlowInEasing)) }
                     launch { exit.animateTo(1f, tween(BACK_EXIT_MS, easing = FastOutSlowInEasing)) }
@@ -575,8 +578,13 @@ fun PredictiveBackContainer(
             // The theme wraps the context (the app's own language), so the Activity is looked up
             // through the wrappers; without one, back still happens, only without the soft finish.
             val activity = if (leavesActivity) context.findActivity() else null
-            if (activity != null) finishSoftly(activity, onBack) else onBack()
-            settleScope.launch { progress.snapTo(0f); exit.snapTo(0f) }
+            if (activity != null) {
+                // Gone already: nothing to reset, and no window animation on top of the page's own.
+                finishSoftly(activity, onBack)
+            } else {
+                onBack()
+                settleScope.launch { progress.snapTo(0f); exit.snapTo(0f) }
+            }
         } catch (cancelled: CancellationException) {
             settleScope.launch { progress.animateTo(0f, BackSettleSpec) }
         }
@@ -592,8 +600,20 @@ fun PredictiveBackContainer(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            // Leaving over a translucent window the ground is the real screen beneath (BackUnderlay);
+            // otherwise the theme's background, as the page is drawn over.
+            .then(if (leavesActivity && underlay) Modifier else Modifier.background(MaterialTheme.colorScheme.background))
     ) {
+        if (gestureInFlight && !reducedMotion && leavesActivity && underlay) {
+            // The real screen beneath, dimmed a little as the page comes off it, so the two read as
+            // two layers: both are mostly black, and without it the page looked cut, not lifted.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = easedProgress() * (1f - exit.value) }
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f))
+            )
+        }
         if (gestureInFlight && !reducedMotion) {
             if (previousContent != null) {
                 Box(
@@ -611,10 +631,6 @@ fun PredictiveBackContainer(
                 }
             } else if (targetIcon != null || !targetTitle.isNullOrBlank()) {
                 PredictiveBackDestinationHint(targetTitle, targetIcon, easedProgress)
-            } else if (leavesActivity) {
-                // Leaving for the screen this one was opened from, which cannot be drawn here: its name.
-                val appName = remember(context) { context.applicationInfo.loadLabel(context.packageManager).toString() }
-                PredictiveBackDestinationHint(appName, null, easedProgress)
             }
         }
 
@@ -623,13 +639,16 @@ fun PredictiveBackContainer(
                 .fillMaxSize()
                 .graphicsLayer {
                     val p = easedProgress()
-                    val scale = 1f - ((1f - BACK_MIN_SCALE) * p) - 0.05f * exit.value
+                    val scale = 1f - ((1f - BACK_MIN_SCALE) * p)
                     scaleX = scale
                     scaleY = scale
-                    alpha = 1f - exit.value
                     val awayFromEdge = if (swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
-                    translationX = awayFromEdge * size.width * BACK_MAX_X_SHIFT_FRACTION * p
-                    shape = RoundedCornerShape(BackMaxCornerRadius * p)
+                    // Let go, the page keeps going: a third of the width more as it fades out.
+                    // Let go, the page slides the rest of the way off, opaque: a fade there showed it
+                    // half-transparent over the screen beneath for several frames.
+                    translationX = awayFromEdge * size.width * (BACK_MAX_X_SHIFT_FRACTION * p + exit.value)
+                    // Rounded from the first moments of the gesture, so the page reads as a card.
+                    shape = RoundedCornerShape(BackMaxCornerRadius * (p * 4f).coerceAtMost(1f))
                     clip = true
                     shadowElevation = BackMaxShadow.toPx() * p
                 }

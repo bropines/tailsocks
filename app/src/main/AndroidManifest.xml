@@ -155,13 +155,13 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity-alias>
 
-        <activity android:name=".ui.SettingsActivity" android:exported="false" />
-        <activity android:name=".ui.PermissionsActivity" android:exported="false" />
+        <activity android:name=".ui.SettingsActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.PermissionsActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
         <activity android:name=".ui.FirstStartActivity" android:exported="false" />
-        <activity android:name=".ui.NetcheckActivity" android:exported="false" />
-        <activity android:name=".ui.FilesActivity" android:exported="false" />
-        <activity android:name=".ui.LogsActivity" android:exported="false" />
-        <activity android:name=".ui.TaildriveActivity" android:exported="false" />
+        <activity android:name=".ui.NetcheckActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.FilesActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.LogsActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.TaildriveActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -172,14 +172,14 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        <activity android:name=".ui.DnsActivity" android:exported="false" />
-        <activity android:name=".ui.LicensesActivity" android:exported="false" />
-        <activity android:name=".ui.ServeActivity" android:exported="false" />
-        <activity android:name=".ui.ConsoleActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
-        <activity android:name=".ui.PeersActivity" android:exported="false" />
+        <activity android:name=".ui.DnsActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.LicensesActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.ServeActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".ui.ConsoleActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".ui.PeersActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
         <activity android:name=".ui.QrScanActivity" android:exported="false" />
-        <activity android:name=".ui.TailnetLockActivity" android:exported="false" />
-        <activity android:name=".admin.AdminApiActivity" android:exported="false" />
+        <activity android:name=".ui.TailnetLockActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
+        <activity android:name=".admin.AdminApiActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
         <!-- Approve / Reject from an admin attention notification: the confirmation and the
              unlock over whatever is on screen, in a task of its own. Never exported. -->
         <activity
@@ -300,7 +300,7 @@
         <receiver android:name=".ui.TailDropReceiver" android:exported="false" />
         <receiver android:name=".core.ExitNodeGuardReceiver" android:exported="false" />
         <receiver android:name=".core.TaildropOutboxReceiver" android:exported="false" />
-        <activity android:name=".ui.TailnetMapActivity" android:exported="false" />
+        <activity android:name=".ui.TailnetMapActivity" android:theme="@style/Theme.Tailscaled.Page" android:exported="false" />
 
         <provider
             android:name=".core.TailsocksFileProvider"

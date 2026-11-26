@@ -300,11 +300,11 @@ fun rememberPredictiveBack(enabled: Boolean, onBack: () -> Unit): PredictiveBack
 fun Modifier.predictiveBackPreview(state: PredictiveBackState): Modifier = graphicsLayer {
     val p = state.progress
     if (p == 0f) return@graphicsLayer
-    val scale = 1f - 0.12f * p - 0.05f * state.exit
+    val scale = 1f - 0.12f * p
     scaleX = scale
     scaleY = scale
-    alpha = 1f - state.exit
-    translationX = (if (state.fromLeft) 1f else -1f) * size.width * 0.06f * p
+    // Let go, it slides the rest of the way off, opaque, as the screen-to-screen back does.
+    translationX = (if (state.fromLeft) 1f else -1f) * size.width * (0.06f * p + state.exit)
     transformOrigin = TransformOrigin(if (state.fromLeft) 1f else 0f, 0.5f)
     shape = androidx.compose.foundation.shape.RoundedCornerShape((32 * p).dp)
     clip = true

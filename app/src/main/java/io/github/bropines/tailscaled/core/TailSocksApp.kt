@@ -33,6 +33,7 @@ class TailSocksApp : Application() {
         // read it then instead of asking every few seconds whether it did.
         DaemonEvents.register()
         TaskRecents.watch(this)
+        BackUnderlay.watch(this)
         ProfileHostinfo.migrateGlobalKey(this)
         // A key sent from a phone that the last process did not live to clear (KeyHandover).
         KeyHandover.sweep(this)
