@@ -6,7 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.LocalIndication
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +22,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.bropines.tailscaled.ui.theme.findActivity
@@ -91,7 +95,7 @@ private fun ThemePalette(theme: SettingsThemeChoice) {
                 Text(stringResource(R.string.settings_palette_title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     presets.forEach { item ->
@@ -105,7 +109,15 @@ private fun ThemePalette(theme: SettingsThemeChoice) {
                                 .tvFocusRing(source, CircleShape)
                                 .then(if (tv) Modifier.clip(CircleShape) else Modifier)
                                 .background(item.color, shape = CircleShape)
-                                .clickable(interactionSource = source, indication = LocalIndication.current) { onPresetChange(item.id) }
+                                // A radio button to TalkBack, named: a swatch alone said nothing,
+                                // and which one is chosen showed in colour only.
+                                .selectable(
+                                    selected = isSelected,
+                                    interactionSource = source,
+                                    indication = LocalIndication.current,
+                                    role = Role.RadioButton
+                                ) { onPresetChange(item.id) }
+                                .semantics { contentDescription = item.name }
                                 .border(
                                     width = if (isSelected) 3.dp else 1.dp,
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,

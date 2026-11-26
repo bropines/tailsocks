@@ -6,6 +6,8 @@
     <string name="exit_groups_no_match">Ничего не найдено</string>
     <string name="exit_groups_best_in">Лучший: %1$s</string>
     <string name="exit_groups_best_node">Сейчас: %1$s</string>
+    <string name="exit_groups_expanded">Развёрнуто</string>
+    <string name="exit_groups_collapsed">Свёрнуто</string>
     <plurals name="exit_groups_nodes">
         <item quantity="one">%d узел</item>
         <item quantity="few">%d узла</item>

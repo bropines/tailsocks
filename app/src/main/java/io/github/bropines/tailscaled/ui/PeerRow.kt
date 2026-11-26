@@ -88,7 +88,9 @@ fun getOsVisuals(os: String?): Pair<ImageVector, Color> {
  * A peer's OS in its tinted circle, with TailSocks's sock in the corner when the peer runs
  * TailSocks ([PeerData.isTailSocks]): two Android phones look alike until the client is told
  * apart, and it is told to TalkBack as well. [ring] is the colour the row is drawn on, cut
- * around the sock so it stands off the circle.
+ * around the sock so it stands off the circle. [tailsocksLabel] is the sock's TalkBack label;
+ * inside a sheet the caller resolves it, since the sheet's window follows the system locale,
+ * and null resolves it here.
  */
 @Composable
 internal fun PeerOsIcon(
@@ -96,7 +98,8 @@ internal fun PeerOsIcon(
     size: Dp,
     iconSize: Dp,
     ring: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tailsocksLabel: String? = null
 ) {
     val (osIcon, osColor) = getOsVisuals(peer.iconOs())
     Box(modifier.size(size)) {
@@ -107,7 +110,7 @@ internal fun PeerOsIcon(
             Icon(osIcon, null, Modifier.size(iconSize), tint = osColor)
         }
         if (peer.isTailSocks) {
-            val label = stringResource(R.string.peer_client_tailsocks)
+            val label = tailsocksLabel ?: stringResource(R.string.peer_client_tailsocks)
             Box(
                 Modifier
                     .align(Alignment.BottomEnd)
@@ -485,9 +488,18 @@ private const val PEER_PATH_ICON = "peerPath"
  * One row of a send picker. [taildrop] is the daemon's verdict on this peer: Blocked makes
  * the row dead and prints the reason under the name, Offline keeps it live and prints the
  * note (the Online bit lags; the transfer itself finds out), Available prints nothing extra.
+ * [tailsocksLabel] and [osUnknown] come from the caller: the row is drawn in a sheet, whose
+ * window follows the system locale rather than the app's.
  */
 @Composable
-fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = TaildropStatus.Available, onClick: () -> Unit) {
+fun PeerShareItem(
+    peer: PeerData,
+    enabled: Boolean,
+    tailsocksLabel: String,
+    osUnknown: String,
+    taildrop: TaildropStatus = TaildropStatus.Available,
+    onClick: () -> Unit
+) {
     val cardColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f)
     val refused = taildrop is TaildropStatus.Blocked
     val note = when (taildrop) {
@@ -519,7 +531,8 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = T
                 peer,
                 size = 38.dp,
                 iconSize = 18.dp,
-                ring = cardColor.compositeOver(MaterialTheme.colorScheme.surface)
+                ring = cardColor.compositeOver(MaterialTheme.colorScheme.surface),
+                tailsocksLabel = tailsocksLabel
             )
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
@@ -530,7 +543,7 @@ fun PeerShareItem(peer: PeerData, enabled: Boolean, taildrop: TaildropStatus = T
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    peer.os ?: "Device",
+                    peer.os ?: osUnknown,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -46,11 +47,12 @@ internal fun MainBanners(
     val context = LocalContext.current
     Column {
         // Not where there is no battery to be optimised for.
-        if (!isBatteryOptimizationsIgnored && Feature.BATTERY_OPTIMISATION_PROMPT.offered()) {
+androidx.compose.animation.AnimatedVisibility(visible = !isBatteryOptimizationsIgnored && Feature.BATTERY_OPTIMISATION_PROMPT.offered(), enter = MainAppear, exit = MainDisappear) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
                 shape = MaterialTheme.shapes.large,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clickable {
+                // Clipped before the click, so the ripple keeps the banner's corners.
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp).clip(MaterialTheme.shapes.large).clickable {
                     if (!context.tryStartActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))) {
                         Toast.makeText(context, context.getString(R.string.main_cannot_open_battery_settings), Toast.LENGTH_SHORT).show()
                     }
@@ -71,7 +73,7 @@ internal fun MainBanners(
             }
         }
 
-        if (show410Warning) {
+androidx.compose.animation.AnimatedVisibility(visible = show410Warning, enter = MainAppear, exit = MainDisappear) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer,
                 shape = MaterialTheme.shapes.large,
@@ -92,7 +94,7 @@ internal fun MainBanners(
             }
         }
 
-        if (proxyState == "ACTIVE" && (yieldedToForeignVpn || sharedWithForeignVpn)) {
+androidx.compose.animation.AnimatedVisibility(visible = proxyState == "ACTIVE" && (yieldedToForeignVpn || sharedWithForeignVpn), enter = MainAppear, exit = MainDisappear) {
             Surface(
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = MaterialTheme.shapes.large,
@@ -284,7 +286,7 @@ internal fun ColumnScope.MainStatusCell(
     }
 
     if (!bare) {
-        if (serviceUp && shownWarnings.isNotEmpty() && cardState != "NEEDS_LOGIN") {
+androidx.compose.animation.AnimatedVisibility(visible = serviceUp && shownWarnings.isNotEmpty() && cardState != "NEEDS_LOGIN", enter = MainAppear, exit = MainDisappear) { Column {
             Spacer(modifier = Modifier.height(12.dp))
             HealthBanner(
                 warnings = shownWarnings,
@@ -307,9 +309,9 @@ internal fun ColumnScope.MainStatusCell(
                     )
                 }
             )
-        }
+        } }
 
-        if (proxyState == "LOGGED_OUT") {
+androidx.compose.animation.AnimatedVisibility(visible = proxyState == "LOGGED_OUT", enter = MainAppear, exit = MainDisappear) { Column {
             Spacer(modifier = Modifier.height(16.dp))
             LoggedOutCard(
                 loginUrl = loginUrl,
@@ -322,9 +324,9 @@ internal fun ColumnScope.MainStatusCell(
                 codeWasLeft = signInLeft,
                 accountId = accountId,
             )
-        }
+        } }
 
-        if (proxyState == "CONNECTION_ISSUE") {
+androidx.compose.animation.AnimatedVisibility(visible = proxyState == "CONNECTION_ISSUE", enter = MainAppear, exit = MainDisappear) { Column {
             Spacer(modifier = Modifier.height(16.dp))
             ConnectionIssueCard(
                 onConfigureProxy = {
@@ -332,6 +334,13 @@ internal fun ColumnScope.MainStatusCell(
                 },
                 onStop = { requestStop() }
             )
-        }
+        } }
     }
 } } }
+
+/**
+ * How a banner or card of the main screen comes and goes: it opens out and fades in, so the
+ * rest of the screen slides to make room instead of jumping in one frame.
+ */
+internal val MainAppear = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn()
+internal val MainDisappear = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()

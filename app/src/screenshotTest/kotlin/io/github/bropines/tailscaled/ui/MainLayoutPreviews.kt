@@ -148,6 +148,7 @@ fun MainLayoutHidden() = AdaptiveShowcase {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.extraLarge) {
             MainHiddenContent(
                 rows = paletteRows(untouched.addable { true }),
+                words = MainHiddenWords.resolve(),
                 onOpen = {},
                 onRestore = {},
                 modifier = Modifier.padding(top = 24.dp),

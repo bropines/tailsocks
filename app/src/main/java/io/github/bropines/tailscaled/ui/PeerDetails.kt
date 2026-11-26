@@ -120,6 +120,8 @@ internal data class PeerDetailsStrings(
     val online: String,
     val offline: String,
     val osUnknown: String,
+    /** The chip beside the OS for a peer that runs TailSocks. */
+    val clientTailSocks: String,
     /** How the peer is reached: the route chip, the route card, its explanation. */
     val path: PeerPathWords,
     val latency: String,
@@ -329,6 +331,7 @@ fun PeerDetailsModal(
         online = stringResource(R.string.peer_status_online),
         offline = stringResource(R.string.peer_status_offline),
         osUnknown = stringResource(R.string.peer_status_os_unknown),
+        clientTailSocks = stringResource(R.string.peer_client_tailsocks),
         path = peerPathWords(),
         latency = stringResource(R.string.peer_conn_latency),
         connPingFailed = stringResource(R.string.peer_conn_ping_failed),

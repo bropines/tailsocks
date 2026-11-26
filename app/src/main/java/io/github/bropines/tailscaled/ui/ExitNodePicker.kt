@@ -60,6 +60,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -106,6 +108,9 @@ internal data class ExitNodeGroupStrings(
     val bestNode: (node: String) -> String = { "Now: $it" },
     val nodes: (Int) -> String = { "$it nodes" },
     val cities: (Int) -> String = { "$it cities" },
+    /** What TalkBack says of a country's row: its cities and nodes shown, or folded away. */
+    val expanded: String = "Expanded",
+    val collapsed: String = "Collapsed",
 )
 
 @Composable
@@ -139,6 +144,8 @@ internal fun exitNodeGroupStrings(): ExitNodeGroupStrings {
         bestNode = { res.getString(R.string.exit_groups_best_node, it) },
         nodes = { res.getQuantityString(R.plurals.exit_groups_nodes, it, it) },
         cities = { res.getQuantityString(R.plurals.exit_groups_cities, it, it) },
+        expanded = stringResource(R.string.exit_groups_expanded),
+        collapsed = stringResource(R.string.exit_groups_collapsed),
     )
 }
 
@@ -309,7 +316,7 @@ internal fun ExitNodePicker(
                     trailingIcon = if (searching) ({
                         IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, contentDescription = strings.close) }
                     }) else null,
-                    shape = MaterialTheme.shapes.large,
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 4.dp),
                 )
             }
@@ -351,6 +358,7 @@ internal fun ExitNodePicker(
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp, vertical = 6.dp)
                                     .then(if (isSelected) Modifier.tvInitialFocus() else Modifier)
+                                    .semantics { selected = isSelected; role = Role.RadioButton }
                                     .shapedClickable(MaterialTheme.shapes.medium) { onChoose("", "") },
                                 shape = MaterialTheme.shapes.medium,
                                 border = BorderStroke(
@@ -420,7 +428,8 @@ internal fun ExitNodePicker(
                             }
                         }
                         items(entries, key = { it.key }) { entry ->
-                            when (entry) {
+                            // A country opening or closing moves dozens of rows: they slide, not snap.
+                            Box(Modifier.animateItem()) { when (entry) {
                                 is ExitNodeEntry.Node ->
                                     ExitNodeRow(entry.node, selectedIp, pings[entry.node.getPrimaryIp()], fastestIp, best, strings, onChoose, onPing)
                                 ExitNodeEntry.Locations -> ExitGroupHeading(strings.groups.locations)
@@ -438,7 +447,7 @@ internal fun ExitNodePicker(
                                     ExitBestInCountryRow(entry.country, node, strings.groups) { onChoose(node.id ?: "", node.getPrimaryIp()) }
                                 }
                                 is ExitNodeEntry.City -> ExitGroupHeading("${entry.city.name} · ${entry.city.nodes.size}", inset = true)
-                            }
+                            } }
                         }
                     }
                 }
@@ -476,6 +485,8 @@ private fun ExitNodeRow(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .then(if (isSelected) Modifier.tvInitialFocus() else Modifier)
+            // The current node is told by colour and a dot; TalkBack is told it is the selected one.
+            .semantics { selected = isSelected; role = Role.RadioButton }
             .shapedClickable(MaterialTheme.shapes.medium) { onChoose(node.id ?: "", node.getPrimaryIp()) },
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(
@@ -697,6 +708,7 @@ private fun ExitCountryRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
+            .semantics { stateDescription = if (open) strings.expanded else strings.collapsed; role = Role.Button }
             .shapedClickable(MaterialTheme.shapes.medium, onClick = onToggle),
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(1.dp, if (holdsSelected) colors.primary.copy(alpha = 0.5f) else colors.onSurface.copy(alpha = 0.05f)),

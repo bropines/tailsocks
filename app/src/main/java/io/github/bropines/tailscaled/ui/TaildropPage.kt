@@ -13,6 +13,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -339,8 +341,8 @@ internal fun TaildropPage(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalItemSpacing = 8.dp
         ) {
-            items(outgoing, key = { "outgoing:" + it.key }) { t -> TaildropOutgoingCard(t) { onCancelOutgoing(t) } }
-            items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+            items(outgoing, key = { "outgoing:" + it.key }) { t -> Box(Modifier.animateItem()) { TaildropOutgoingCard(t) { onCancelOutgoing(t) } } }
+            items(incoming, key = { "incoming:" + it.key }) { Box(Modifier.animateItem()) { TaildropIncomingCard(it) } }
             item(key = "send-history", span = StaggeredGridItemSpan.FullLine) {
                 TaildropSendAndHistory(targets, history, loaded, nowMillis, onSendTo, onAllDevices, onAllHistory, onEntry)
             }
@@ -354,32 +356,33 @@ internal fun TaildropPage(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Leaving and arriving now: on top meanwhile. Each makes way for its history row or its file.
-            items(outgoing, key = { "outgoing:" + it.key }) { t -> TaildropOutgoingCard(t) { onCancelOutgoing(t) } }
-            items(incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+            items(outgoing, key = { "outgoing:" + it.key }) { t -> Box(Modifier.animateItem()) { TaildropOutgoingCard(t) { onCancelOutgoing(t) } } }
+            items(incoming, key = { "incoming:" + it.key }) { Box(Modifier.animateItem()) { TaildropIncomingCard(it) } }
 
-            item(key = "send-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) }
+            // Every row slides when one above it comes or goes, instead of the rest jumping.
+            item(key = "send-head") { Box(Modifier.animateItem()) { TaildropSectionHeading(stringResource(R.string.taildrop_section_send), null) } }
             if (targets.all.isEmpty()) {
-                if (loaded) item(key = "send-empty") { TaildropMutedLine(stringResource(R.string.taildrop_send_empty), Icons.Default.Devices) }
+                if (loaded) item(key = "send-empty") { Box(Modifier.animateItem()) { TaildropMutedLine(stringResource(R.string.taildrop_send_empty), Icons.Default.Devices) } }
             } else {
-                item(key = "send-rows") { TaildropSendGroup(targets, onSendTo, onAllDevices) }
+                item(key = "send-rows") { Box(Modifier.animateItem()) { TaildropSendGroup(targets, onSendTo, onAllDevices) } }
             }
-            if (targets.refused.isNotEmpty()) item(key = "send-refused") { TaildropRefusedNote(targets.refused) }
+            if (targets.refused.isNotEmpty()) item(key = "send-refused") { Box(Modifier.animateItem()) { TaildropRefusedNote(targets.refused) } }
 
-            item(key = "inbox-head") { inbox.Heading() }
+            item(key = "inbox-head") { Box(Modifier.animateItem()) { inbox.Heading() } }
             if (inbox.folded == 0) {
                 // Not while something is arriving: "nothing here" would be untrue for a moment.
-                if (loaded && incoming.isEmpty()) item(key = "inbox-empty") { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) }
+                if (loaded && incoming.isEmpty()) item(key = "inbox-empty") { Box(Modifier.animateItem()) { TaildropMutedLine(stringResource(R.string.files_empty_inbox), Icons.Default.Inbox) } }
             } else if (inbox.open) {
-                items(inbox.cards, key = { it.key }) { inbox.Card(it) }
+                items(inbox.cards, key = { it.key }) { Box(Modifier.animateItem()) { inbox.Card(it) } }
             }
-            if (folderLine != null && loaded) item(key = "inbox-folder-line") { TaildropFolderLineCard(folderLine) }
-            if (showFolderHint && loaded) item(key = "inbox-folder-hint") { TaildropFolderHint(onChooseFolder, onDismissFolderHint) }
+            if (folderLine != null && loaded) item(key = "inbox-folder-line") { Box(Modifier.animateItem()) { TaildropFolderLineCard(folderLine) } }
+            if (showFolderHint && loaded) item(key = "inbox-folder-hint") { Box(Modifier.animateItem()) { TaildropFolderHint(onChooseFolder, onDismissFolderHint) } }
 
-            item(key = "history-head") { TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null) }
+            item(key = "history-head") { Box(Modifier.animateItem()) { TaildropSectionHeading(stringResource(R.string.taildrop_section_history), null) } }
             if (history.isEmpty()) {
-                if (loaded) item(key = "history-empty") { TaildropMutedLine(stringResource(R.string.files_empty_history), Icons.Default.History) }
+                if (loaded) item(key = "history-empty") { Box(Modifier.animateItem()) { TaildropMutedLine(stringResource(R.string.files_empty_history), Icons.Default.History) } }
             } else {
-                item(key = "history-rows") { TaildropHistoryGroup(history, nowMillis, onEntry, onAllHistory) }
+                item(key = "history-rows") { Box(Modifier.animateItem()) { TaildropHistoryGroup(history, nowMillis, onEntry, onAllHistory) } }
             }
         }
     }
@@ -402,10 +405,11 @@ private sealed interface InboxCard {
         override val at get() = TaildropInbox.arrivedAt(file)
     }
 
-    // Keyed by position too: on the device's storage a document id is a path, so a copy
-    // saved under the name of one deleted earlier gets the same URI again.
-    data class Saved(val index: Int, val entry: TaildropHistoryEntry) : InboxCard {
-        override val key get() = "saved:$index:" + entry.savedUri
+    // Keyed by arrival too: on the device's storage a document id is a path, so a copy
+    // saved under the name of one deleted earlier gets the same URI again. Not by position,
+    // which re-keyed every card below a new arrival.
+    data class Saved(val entry: TaildropHistoryEntry) : InboxCard {
+        override val key get() = "saved:${entry.timestamp}:" + entry.savedUri
         override val at get() = entry.timestamp
     }
 }
@@ -445,7 +449,7 @@ private class InboxContent(
      * The cards in order. Waiting first: they are the ones asking for something — or, where
      * the newest are to stand out, all of them by arrival, newest first.
      */
-    val cards: List<InboxCard> = (files.map(InboxCard::Waiting) + saved.mapIndexed(InboxCard::Saved))
+    val cards: List<InboxCard> = (files.map(InboxCard::Waiting) + saved.map(InboxCard::Saved))
         .let { all -> if (newSince == null) all else all.sortedByDescending { it.at } }
 
     /** How many of [cards], from the first, are new. */
@@ -513,13 +517,13 @@ private fun LazyListScope.inboxPaneItems(inbox: InboxContent) {
             )
         }
     } else {
-        items(inbox.incoming, key = { "incoming:" + it.key }) { TaildropIncomingCard(it) }
+        items(inbox.incoming, key = { "incoming:" + it.key }) { Box(Modifier.animateItem()) { TaildropIncomingCard(it) } }
         val fresh = inbox.fresh
-        if (fresh > 0) item(key = "inbox-new") { TaildropNewLabel() }
-        items(inbox.cards.take(fresh), key = { it.key }) { inbox.Card(it) }
-        if (fresh > 0 && fresh < inbox.cards.size) item(key = "inbox-earlier") { TaildropEarlierLabel() }
-        items(inbox.cards.drop(fresh), key = { it.key }) { inbox.Card(it) }
-        if (hint) item(key = "inbox-folder-hint") { TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint) }
+        if (fresh > 0) item(key = "inbox-new") { Box(Modifier.animateItem()) { TaildropNewLabel() } }
+        items(inbox.cards.take(fresh), key = { it.key }) { Box(Modifier.animateItem()) { inbox.Card(it) } }
+        if (fresh > 0 && fresh < inbox.cards.size) item(key = "inbox-earlier") { Box(Modifier.animateItem()) { TaildropEarlierLabel() } }
+        items(inbox.cards.drop(fresh), key = { it.key }) { Box(Modifier.animateItem()) { inbox.Card(it) } }
+        if (hint) item(key = "inbox-folder-hint") { Box(Modifier.animateItem()) { TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint) } }
     }
 }
 
@@ -535,10 +539,10 @@ private fun LazyStaggeredGridScope.inboxGridItems(inbox: InboxContent) {
         }
     } else if (inbox.open) {
         val fresh = inbox.fresh
-        if (fresh > 0) item(key = "inbox-new", span = StaggeredGridItemSpan.FullLine) { TaildropNewLabel() }
-        items(inbox.cards.take(fresh), key = { it.key }) { inbox.Card(it) }
-        if (fresh > 0 && fresh < inbox.cards.size) item(key = "inbox-earlier", span = StaggeredGridItemSpan.FullLine) { TaildropEarlierLabel() }
-        items(inbox.cards.drop(fresh), key = { it.key }) { inbox.Card(it) }
+        if (fresh > 0) item(key = "inbox-new", span = StaggeredGridItemSpan.FullLine) { Box(Modifier.animateItem()) { TaildropNewLabel() } }
+        items(inbox.cards.take(fresh), key = { it.key }) { Box(Modifier.animateItem()) { inbox.Card(it) } }
+        if (fresh > 0 && fresh < inbox.cards.size) item(key = "inbox-earlier", span = StaggeredGridItemSpan.FullLine) { Box(Modifier.animateItem()) { TaildropEarlierLabel() } }
+        items(inbox.cards.drop(fresh), key = { it.key }) { Box(Modifier.animateItem()) { inbox.Card(it) } }
     }
     if (inbox.showFolderHint && inbox.loaded) item(key = "inbox-folder-hint", span = StaggeredGridItemSpan.FullLine) {
         TaildropFolderHint(inbox.onChooseFolder, inbox.onDismissFolderHint)
@@ -922,7 +926,7 @@ internal fun TaildropOutgoingCard(transfer: OutgoingTransfer, onCancel: () -> Un
  * [onShowInFolder] — a device with no file manager to show a folder in — the button is not
  * there; without [onCopyFolderPath] — one with no clipboard — it is a plain button.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun TaildropSavedCard(
     entry: TaildropHistoryEntry,
@@ -961,13 +965,19 @@ internal fun TaildropSavedCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        // Cut in the middle: the end is the folder, the part worth reading.
+                        overflow = TextOverflow.MiddleEllipsis
                     )
                 }
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+        // Wraps rather than overflows: Hide, Show in folder and Open do not fit a 360dp phone.
+        FlowRow(
+            Modifier.fillMaxWidth().padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            itemVerticalAlignment = Alignment.CenterVertically
+        ) {
             TextButton(onClick = onHide, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)) {
                 Text(stringResource(R.string.taildrop_hide))
             }
@@ -1076,7 +1086,8 @@ internal fun TaildropDeviceRow(target: TaildropTarget, modifier: Modifier = Modi
                 note ?: listOfNotNull(peer.tailscaleIPs?.firstOrNull(), peer.os?.takeIf { it.isNotEmpty() }).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
+                // The daemon's note is a sentence; one line cut it before it said anything.
+                maxLines = if (note != null) 3 else 1,
                 overflow = TextOverflow.Ellipsis
             )
         }

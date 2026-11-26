@@ -18,13 +18,14 @@ import androidx.compose.ui.graphics.Shape
  * `clickable` for a container that draws a shape of its own and is clicked through its
  * modifier — a Card or a Surface with `Modifier.clickable`, a row of a sheet.
  *
- * Off a television it is `clickable` and nothing else. On one, the ring Material draws on
- * such a target is a rectangle around the rounded container (ui/Focus.kt): here it is cut
- * to [shape] and the shaped ring laid over it, so the remote marks the row as it is drawn.
+ * The click is clipped to [shape] everywhere: placed before the container's own clip, a
+ * bare `clickable` rippled as a rectangle past the rounded corners. On a television the
+ * ring Material draws on such a target is a rectangle too (ui/Focus.kt): there the shaped
+ * ring is laid over it, so the remote marks the row as it is drawn.
  */
 @Composable
 internal fun Modifier.shapedClickable(shape: Shape, enabled: Boolean = true, onClick: () -> Unit): Modifier {
-    if (!isTv) return clickable(enabled = enabled, onClick = onClick)
+    if (!isTv) return clip(shape).clickable(enabled = enabled, onClick = onClick)
     val source = remember { MutableInteractionSource() }
     return tvFocusRing(source, shape)
         .clip(shape)

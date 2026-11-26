@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -56,14 +57,20 @@ internal fun SettingsBackgroundPage(env: SettingsPageEnv, state: SettingsBackgro
                 GlobalSettings.setAutoReconnectEnabled(context, it)
                 autoReconnect = it
             }
-            if (autoReconnect) {
-                SettingsEditItem(
-                    title = stringResource(R.string.settings_auto_reconnect_attempts_title),
-                    value = autoReconnectAttempts,
-                    icon = Icons.Default.Repeat
-                ) {
-                    autoReconnectAttempts = it.filter { ch -> ch.isDigit() }.take(2)
-                    saveGlobalPref("auto_reconnect_attempts", autoReconnectAttempts)
+            // Slides in under its switch, divider and all, rather than popping in.
+            AnimatedVisibility(visible = autoReconnect) {
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    SettingsEditItem(
+                        title = stringResource(R.string.settings_auto_reconnect_attempts_title),
+                        value = autoReconnectAttempts,
+                        icon = Icons.Default.Repeat
+                    ) {
+                        saveGlobalPref("auto_reconnect_attempts", it.filter { ch -> ch.isDigit() }.take(2))
+                        // Read back rather than echoed: a cleared field falls back to the default,
+                        // and the row shows that number instead of "Not set".
+                        autoReconnectAttempts = GlobalSettings.getAutoReconnectAttempts(context).toString()
+                    }
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))

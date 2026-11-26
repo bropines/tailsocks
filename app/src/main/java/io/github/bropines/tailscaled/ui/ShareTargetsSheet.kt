@@ -15,6 +15,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -72,6 +78,8 @@ private class ShareTargetsWords(
     val reset: String,
     val online: String,
     val offline: String,
+    /** TalkBack's name for the TailSocks mark on a device's icon. */
+    val tailsocks: String,
 )
 
 /** The devices the share menu can offer: the ones the daemon would take a file for now or later. */
@@ -98,7 +106,7 @@ private fun loadShareDevices(context: Context): ShareDevicesLoad {
  * never (hidden). A choice is stored at once; the service publishes the new row
  * (core/ShareTargets.kt). [onChanged] hands the new picks back to the settings row.
  */
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -116,6 +124,7 @@ internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) 
         reset = stringResource(R.string.share_targets_reset),
         online = stringResource(R.string.share_targets_online),
         offline = stringResource(R.string.share_targets_offline),
+        tailsocks = stringResource(R.string.peer_client_tailsocks),
     )
     var picks by remember { mutableStateOf(GlobalSettings.getShareTargetPicks(context, profileId)) }
     val load by produceState<ShareDevicesLoad>(ShareDevicesLoad.Loading) {
@@ -135,6 +144,7 @@ internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) 
                 .heightIn(max = maxHeight)
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
+                .animateContentSize()
         ) {
             Text(
                 words.title,
@@ -149,7 +159,8 @@ internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) 
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 12.dp)
             )
             when (val l = load) {
-                ShareDevicesLoad.Loading -> Unit
+                // Held at a height while the list comes, so the sheet does not open short and jump.
+                ShareDevicesLoad.Loading -> Box(Modifier.fillMaxWidth().height(160.dp), Alignment.Center) { LoadingIndicator() }
                 ShareDevicesLoad.NotRunning -> SheetNote(words.notRunning)
                 is ShareDevicesLoad.Ready -> {
                     val devices = l.devices
@@ -171,7 +182,7 @@ internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) 
                                 shape = MaterialTheme.shapes.medium
                             ) { Text(words.reset) }
                         }
-                        if (devices.count { picks.modeOf(it.id) == ShareTargetMode.PINNED } > capacity) {
+                        AnimatedVisibility(devices.count { picks.modeOf(it.id) == ShareTargetMode.PINNED } > capacity) {
                             Text(
                                 words.overCapacity,
                                 style = MaterialTheme.typography.bodySmall,
@@ -209,7 +220,7 @@ private fun ShareTargetRow(d: ShareTargetDevice, mode: ShareTargetMode, words: S
     val ring = MaterialTheme.colorScheme.surfaceContainerLow
     Surface(shape = MaterialTheme.shapes.medium, color = ring, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            PeerOsIcon(d.peer, size = 38.dp, iconSize = 22.dp, ring = ring)
+            PeerOsIcon(d.peer, size = 38.dp, iconSize = 22.dp, ring = ring, tailsocksLabel = words.tailsocks)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(d.peer.getDisplayName(), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)

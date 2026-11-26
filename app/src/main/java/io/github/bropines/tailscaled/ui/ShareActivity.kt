@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -154,6 +155,9 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
     // The daemon's verdict per peer, in the app's language: the sheet's own window follows
     // the system locale, so the words are resolved out here, once.
     val taildropStrings = remember { TaildropReasonStrings.from(context) }
+    val tailsocksLabel = remember { context.getString(R.string.peer_client_tailsocks) }
+    val osUnknown = remember { context.getString(R.string.peer_status_os_unknown) }
+    val emptyText = remember { context.getString(R.string.taildrop_send_empty) }
     // Saveable: a recreation must not send the files a second time.
     var directTried by rememberSaveable { mutableStateOf(directTo == null) }
     var handedOver by rememberSaveable { mutableStateOf(false) }
@@ -280,8 +284,13 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
             }
 
             if (isLoadingPeers) Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { LoadingIndicator() }
-            else if (errorMsg != null) Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center); Button(onClick = { loadPeers() }) { Text(context.getString(R.string.action_retry)) }
+            else if (errorMsg != null) Column(
+                Modifier.fillMaxWidth().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(errorMsg!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                Button(onClick = { loadPeers() }) { Text(context.getString(R.string.action_retry)) }
             } else Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -303,8 +312,20 @@ fun ShareOverlay(fileUris: List<Uri>, onDismiss: () -> Unit, directTo: String? =
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
-                        items(peers) { p -> 
-                            PeerShareItem(p, true, taildropStatusOf(p, taildropStrings)) { send(p) }
+                        // An empty card under the title read as still loading; it says so instead.
+                        if (peers.isEmpty()) item(key = "empty") {
+                            Text(
+                                emptyText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.outline,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp)
+                            )
+                        }
+                        // Keyed uniquely: two peers with neither an id nor an address must not share a key (LazyKeys.kt).
+                        val peerKeys = uniqueKeys(peers) { it.id ?: it.getPrimaryIp() }
+                        itemsIndexed(peers, key = { i, _ -> peerKeys[i] }) { _, p ->
+                            PeerShareItem(p, true, tailsocksLabel, osUnknown, taildropStatusOf(p, taildropStrings)) { send(p) }
                         }
                     }
                 }

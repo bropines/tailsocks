@@ -35,6 +35,7 @@ import java.util.*
  * line about it — where it was saved, or that saving it automatically failed ([noteIsError]).
  * The date is left out while [TaildropFile.ModTime] is unknown.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FileCard(
     file: TaildropFile,
@@ -79,7 +80,8 @@ fun FileCard(
             }
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-        Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
+        // Wraps rather than overflows: three labels in Russian do not fit a 360dp phone.
+        FlowRow(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(stringResource(R.string.action_delete)) }
             TextButton(onClick = onSave) { Text(stringResource(R.string.action_save)) }
             Button(onClick = onOpen, shape = MaterialTheme.shapes.medium) { Text(stringResource(R.string.action_open)) }

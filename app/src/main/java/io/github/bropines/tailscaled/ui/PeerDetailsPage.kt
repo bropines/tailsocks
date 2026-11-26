@@ -19,7 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -429,7 +428,7 @@ private fun PeerStatusStrip(
         // the Device card's Client row.
         if (peer.isTailSocks) {
             PeerStatusChip(
-                label = stringResource(R.string.peer_client_tailsocks),
+                label = strings.clientTailSocks,
                 icon = ImageVector.vectorResource(R.drawable.ic_qs_tile),
                 iconTint = MaterialTheme.colorScheme.primary
             )

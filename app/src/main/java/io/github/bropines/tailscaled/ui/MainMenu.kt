@@ -211,7 +211,8 @@ fun MenuCard(title: String, icon: ImageVector, modifier: Modifier = Modifier, ic
             verticalArrangement = Arrangement.Center
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                // The label below names the tile: an icon with the same words was read out twice.
+                Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 if (icon2 != null) Icon(imageVector = icon2, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))

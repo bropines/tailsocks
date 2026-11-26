@@ -12,9 +12,12 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -669,19 +672,29 @@ fun SettingsExitNodeItem(
         }
     }
 
+    suspend fun readExitNodes() {
+        try {
+            // A failed read keeps the list the dialog already has.
+            val status = DaemonStatus.readOrNull()
+            if (status != null) {
+                val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
+                withContext(Dispatchers.Main) { exitNodes = nodes }
+            }
+        } catch (e: Exception) {}
+    }
+
+    // Read once up front as well, so the row can name the chosen node rather than its address.
+    LaunchedEffect(Unit) { withContext(Dispatchers.IO) { readExitNodes() } }
+    val currentName = exitNodes
+        .firstOrNull { (currentId.isNotEmpty() && it.id == currentId) || it.getPrimaryIp() == currentIp }
+        ?.getDisplayName()
+
     Surface(
         onClick = {
             showDialog = true
             isLoading = true
             scope.launch(Dispatchers.IO) {
-                try {
-                    // A failed read keeps the list the dialog already has.
-                    val status = DaemonStatus.readOrNull()
-                    if (status != null) {
-                        val nodes = status.peers?.values?.filter { it.exitNodeOption == true }?.toList() ?: emptyList()
-                        withContext(Dispatchers.Main) { exitNodes = nodes }
-                    }
-                } catch (e: Exception) {}
+                readExitNodes()
                 withContext(Dispatchers.Main) { isLoading = false }
             }
         },
@@ -690,7 +703,13 @@ fun SettingsExitNodeItem(
         modifier = Modifier.padding(vertical = 4.dp).settingAnchor(title)
     ) {
         ListItem(
-            supportingContent = { Text(if (currentIp.isEmpty()) stringResource(R.string.settings_none) else currentIp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = {
+                Text(
+                    if (currentIp.isEmpty()) stringResource(R.string.settings_none) else currentName ?: currentIp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
             leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.primary) },
             colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
         ) { Text(title) }
@@ -765,13 +784,21 @@ fun SettingsExitNodeItem(
                                     )
                                 }
 
-                                item {
+                                item(key = "none") {
                                     val isSelected = currentIp.isEmpty()
+                                    val shape = MaterialTheme.shapes.medium
+                                    val source = remember { MutableInteractionSource() }
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
-                                            .clickable { applyExitNode("", ""); showDialog = false },
+                                            // Ring before the clip, clip before the click: the
+                                            // ripple and the remote's focus keep the corners.
+                                            .tvFocusRing(source, shape)
+                                            .clip(shape)
+                                            .clickable(interactionSource = source, indication = LocalIndication.current) {
+                                                applyExitNode("", ""); showDialog = false
+                                            },
                                         shape = MaterialTheme.shapes.medium,
                                         border = androidx.compose.foundation.BorderStroke(
                                             1.dp,
@@ -830,18 +857,25 @@ fun SettingsExitNodeItem(
                                     }
                                 }
 
-                                items(exitNodes.size) { i ->
-                                    val node = exitNodes[i]
+                                // Keyed uniquely (LazyKeys.kt): two nodes may carry one fallback.
+                                val nodeKeys = uniqueKeys(exitNodes) { it.id ?: it.getPrimaryIp() }
+                                itemsIndexed(exitNodes, key = { i, _ -> nodeKeys[i] }) { _, node ->
                                     val isSelected = node.id == currentId || node.getPrimaryIp() == currentIp
                                     val (osIcon, osColor) = getOsVisuals(node.iconOs()).let { (icon, color) ->
                                         if (icon == Icons.Default.Devices) Icons.Default.VpnKey to MaterialTheme.colorScheme.primary
                                         else icon to color
                                     }
+                                    val shape = MaterialTheme.shapes.medium
+                                    val source = remember { MutableInteractionSource() }
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 6.dp)
-                                            .clickable { applyExitNode(node.id ?: "", node.getPrimaryIp()); showDialog = false },
+                                            .tvFocusRing(source, shape)
+                                            .clip(shape)
+                                            .clickable(interactionSource = source, indication = LocalIndication.current) {
+                                                applyExitNode(node.id ?: "", node.getPrimaryIp()); showDialog = false
+                                            },
                                         shape = MaterialTheme.shapes.medium,
                                         border = androidx.compose.foundation.BorderStroke(
                                             1.dp,

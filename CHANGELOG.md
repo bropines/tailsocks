@@ -16,6 +16,11 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- Main screen: banners and cards slide in and out, and lists of devices, exit nodes and Taildrop transfers animate as items move.
+- Settings → Account & connection: the exit-node row names the node instead of showing its address.
+- Words in a few sheets followed the system language instead of the app's.
+- Explanations, file buttons and the layout editor's buttons no longer get cut off on narrow phones.
+- Rounded cards and rows ripple within their corners; TalkBack reads tiles once and tells the chosen exit node and theme.
 - Pickers show the whole explanation under each choice instead of cutting it after one line.
 
 ## [6.3.2] - 2026-11-24

@@ -116,8 +116,30 @@ private fun MainHiddenSheet(
     onDismiss: () -> Unit,
 ) {
     val rows = paletteRows(items)
+    // Resolved here: the sheet is a window of its own and would look them up in the system language.
+    val words = MainHiddenWords.resolve()
     AppModalSheet(onDismissRequest = onDismiss) {
-        MainHiddenContent(rows, onOpen, onRestore, Modifier.navigationBarsPadding())
+        MainHiddenContent(rows, words, onOpen, onRestore, Modifier.navigationBarsPadding())
+    }
+}
+
+/** The words of [MainHiddenContent], resolved outside the sheet. */
+internal class MainHiddenWords(
+    val title: String,
+    val desc: String,
+    val none: String,
+    val open: String,
+    val restore: String,
+) {
+    companion object {
+        @Composable
+        fun resolve() = MainHiddenWords(
+            title = stringResource(R.string.main_hidden_title),
+            desc = stringResource(R.string.main_hidden_sheet_desc),
+            none = stringResource(R.string.main_hidden_none),
+            open = stringResource(R.string.main_hidden_open),
+            restore = stringResource(R.string.main_hidden_restore),
+        )
     }
 }
 
@@ -125,28 +147,29 @@ private fun MainHiddenSheet(
 @Composable
 internal fun MainHiddenContent(
     rows: List<PaletteRow>,
+    words: MainHiddenWords,
     onOpen: (MainItem) -> Unit,
     onRestore: (MainItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val restoreLabel = stringResource(R.string.main_hidden_restore)
-    val openLabel = stringResource(R.string.main_hidden_open)
+    val restoreLabel = words.restore
+    val openLabel = words.open
     Column(modifier.fillMaxWidth().padding(bottom = 16.dp)) {
         Text(
-            stringResource(R.string.main_hidden_title),
+            words.title,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 24.dp).semantics { heading() },
         )
         Text(
-            stringResource(R.string.main_hidden_sheet_desc),
+            words.desc,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
         )
         if (rows.isEmpty()) {
             Text(
-                stringResource(R.string.main_hidden_none),
+                words.none,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 24.dp),
@@ -184,13 +207,12 @@ internal fun MainHiddenContent(
                             }
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                // In full: it is what says what the item is.
                                 Text(
                                     row.desc,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                             Spacer(Modifier.width(4.dp))

@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -202,6 +203,8 @@ fun StatusCard(
                     }
                 }
                 Box(contentAlignment = Alignment.Center) {
+                    // The invisible copy only holds the height; TalkBack reads it once, whole,
+                    // and not the part typed out so far.
                     Text(
                         text = aside,
                         textAlign = TextAlign.Center,
@@ -212,7 +215,7 @@ fun StatusCard(
                         text = aside.take(shown),
                         textAlign = TextAlign.Center,
                         color = contentColor,
-                        modifier = Modifier.alpha(0.75f)
+                        modifier = Modifier.alpha(0.75f).clearAndSetSemantics { }
                     )
                 }
                 return@Column

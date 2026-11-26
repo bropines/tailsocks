@@ -4,6 +4,7 @@ import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.*
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -66,18 +67,21 @@ internal fun SettingsSharingPage(env: SettingsPageEnv, state: SettingsSharingSta
                 GlobalSettings.setShareTargetsEnabled(context, it)
                 shareTargets = it
             }
-            if (shareTargets) {
+            // Dependent rows slide in under their switch, divider and all, rather than popping in.
+            AnimatedVisibility(visible = shareTargets) {
                 // Which devices the menu offers: per account, since the IDs are one tailnet's.
                 val profileId = activeAccount.id
                 var picks by remember(profileId) { mutableStateOf(GlobalSettings.getShareTargetPicks(context, profileId)) }
                 var picking by remember { mutableStateOf(false) }
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsClickableItem(
-                    stringResource(R.string.share_targets_pick_row),
-                    if (picks.isEmpty) stringResource(R.string.share_targets_pick_summary_auto)
-                    else stringResource(R.string.share_targets_pick_summary, picks.pinned.size, picks.hidden.size),
-                    Icons.Default.Checklist
-                ) { picking = true }
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    SettingsClickableItem(
+                        stringResource(R.string.share_targets_pick_row),
+                        if (picks.isEmpty) stringResource(R.string.share_targets_pick_summary_auto)
+                        else stringResource(R.string.share_targets_pick_summary, picks.pinned.size, picks.hidden.size),
+                        Icons.Default.Checklist
+                    ) { picking = true }
+                }
                 if (picking) ShareTargetsSheet(profileId, onChanged = { picks = it }, onDismiss = { picking = false })
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
@@ -100,9 +104,11 @@ internal fun SettingsSharingPage(env: SettingsPageEnv, state: SettingsSharingSta
 
         SettingsCard(title = stringResource(R.string.settings_sect_web)) {
             SettingsSwitchItem(stringResource(R.string.settings_web_enable_title), stringResource(R.string.settings_web_enable_desc), Icons.Default.Web, enableWebUI) { enableWebUI = it; saveProfilePref("enable_webui", it) }
-            if (enableWebUI) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                SettingsEditItem(stringResource(R.string.settings_web_address_title), webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
+            AnimatedVisibility(visible = enableWebUI) {
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    SettingsEditItem(stringResource(R.string.settings_web_address_title), webUIAddr, Icons.Default.Link) { webUIAddr = it; saveProfilePref("webui_addr", it) }
+                }
             }
         }
     }

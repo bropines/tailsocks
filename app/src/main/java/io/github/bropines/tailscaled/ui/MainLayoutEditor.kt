@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -121,20 +122,29 @@ internal fun MainEditBar(
                 }
             }
             Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onReset) {
-                    Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.main_layout_reset), maxLines = 1)
+            // Three labelled buttons with icons need about 345dp in Russian; a 360dp phone has
+            // less than that inside the bar, so on a narrow one the icons go and the words stay.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val icons = maxWidth >= 380.dp
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onReset) {
+                        if (icons) {
+                            Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(stringResource(R.string.main_layout_reset), maxLines = 1)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    FilledTonalButton(onClick = onAdd, enabled = canAdd) {
+                        if (icons) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(stringResource(R.string.main_layout_add), maxLines = 1)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = onDone) { Text(stringResource(R.string.main_blocks_done), maxLines = 1) }
                 }
-                Spacer(Modifier.weight(1f))
-                FilledTonalButton(onClick = onAdd, enabled = canAdd) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.main_layout_add), maxLines = 1)
-                }
-                Spacer(Modifier.width(8.dp))
-                Button(onClick = onDone) { Text(stringResource(R.string.main_blocks_done), maxLines = 1) }
             }
         }
     }
@@ -334,13 +344,12 @@ internal fun MainPaletteContent(
                             }
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(row.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                // In full: it is what says what the item is.
                                 Text(
                                     row.desc,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                             Spacer(Modifier.width(8.dp))

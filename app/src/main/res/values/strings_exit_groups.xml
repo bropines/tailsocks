@@ -6,6 +6,8 @@
     <string name="exit_groups_no_match">Nothing matches</string>
     <string name="exit_groups_best_in">Best in %1$s</string>
     <string name="exit_groups_best_node">Now: %1$s</string>
+    <string name="exit_groups_expanded">Expanded</string>
+    <string name="exit_groups_collapsed">Collapsed</string>
     <plurals name="exit_groups_nodes">
         <item quantity="one">%d node</item>
         <item quantity="other">%d nodes</item>

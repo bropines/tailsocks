@@ -425,7 +425,7 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                             onLongClickLabel = copyAsLabel.takeIf { rowCopyAs != null },
                             selected = isShown(self),
                             pathWords = pathWords,
-                            modifier = Modifier.tvFocusOnce(initialFocusSpent)
+                            modifier = Modifier.animateItem().tvFocusOnce(initialFocusSpent)
                         ) { selectedPeer = self }
                     }
                 }
@@ -439,8 +439,11 @@ fun PeersScreen(onBack: () -> Unit, initialQuery: String = "", initialTab: PeerT
                         onLongClickLabel = copyAsLabel.takeIf { rowCopyAs != null },
                         selected = isShown(p),
                         pathWords = pathWords,
-                        // The first row, when this device's own is not listed above it.
-                        modifier = if (index == 0 && rows.self == null) Modifier.tvFocusOnce(initialFocusSpent) else Modifier
+                        // The first row, when this device's own is not listed above it. Animated,
+                        // so a refresh that re-sorts slides the rows rather than swapping them.
+                        modifier = Modifier.animateItem().then(
+                            if (index == 0 && rows.self == null) Modifier.tvFocusOnce(initialFocusSpent) else Modifier
+                        )
                     ) { selectedPeer = p }
                 }
                 when {
