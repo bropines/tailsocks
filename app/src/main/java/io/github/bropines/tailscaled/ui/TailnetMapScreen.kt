@@ -165,13 +165,15 @@ class TailnetMapActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             TailSocksTheme {
-                TailnetMapScreen(
-                    onBack = { finish() },
-                    onOpenPeer = { peer ->
-                        val id = peer.id ?: return@TailnetMapScreen
-                        startActivity(Intent(this, PeersActivity::class.java).putExtra(PeersActivity.EXTRA_PEER_ID, id))
-                    }
-                )
+                io.github.bropines.tailscaled.core.PredictiveBackContainer(onBack = { finish() }, popsInAppState = false) {
+                    TailnetMapScreen(
+                        onBack = { finish() },
+                        onOpenPeer = { peer ->
+                            val id = peer.id ?: return@TailnetMapScreen
+                            startActivity(Intent(this, PeersActivity::class.java).putExtra(PeersActivity.EXTRA_PEER_ID, id))
+                        }
+                    )
+                }
             }
         }
     }

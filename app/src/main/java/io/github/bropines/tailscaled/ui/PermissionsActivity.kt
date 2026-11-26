@@ -308,7 +308,7 @@ class PermissionsActivity : ComponentActivity() {
         takeAsk(intent, arrived = savedInstanceState == null)
         setContent {
             TailSocksTheme {
-                PermissionsScreen(onBack = { finish() }, ask = ask)
+                io.github.bropines.tailscaled.core.PredictiveBackContainer(onBack = { finish() }, popsInAppState = false) { PermissionsScreen(onBack = { finish() }, ask = ask) }
             }
         }
     }

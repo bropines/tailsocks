@@ -6,6 +6,8 @@ import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -74,8 +76,11 @@ class SwipeAction(
     val onAction: () -> Unit,
 )
 
-/** How a released gesture settles (Seenly's FlightSpring): quick, a trace of overshoot, no wobble. */
-private val GestureSpring = spring<Float>(dampingRatio = 0.86f, stiffness = 420f)
+/**
+ * How a released gesture settles: Seenly's FlightSpring damping with a softer stiffness —
+ * at 420 the row snapped home faster than the eye followed it.
+ */
+private val GestureSpring = spring<Float>(dampingRatio = 0.86f, stiffness = 260f)
 
 /** How far the content follows the finger past the point that arms the action: a little, heavily damped. */
 private const val OVERDRAG = 0.35f
@@ -227,6 +232,9 @@ class PredictiveBackState {
     /** The gesture started at the left edge of the screen. */
     var fromLeft by mutableStateOf(true)
         internal set
+    /** After the finger let go to go back: 0 to 1 as the page finishes its move and fades out. */
+    var exit by mutableFloatStateOf(0f)
+        internal set
 }
 
 /**
@@ -261,8 +269,16 @@ fun rememberPredictiveBack(enabled: Boolean, onBack: () -> Unit): PredictiveBack
                 state.fromLeft = e.swipeEdge == BackEventCompat.EDGE_LEFT
                 state.progress = e.progress
             }
+            // The rest of the way, unhurried, so the page leaves in one motion instead of snapping.
+            val finish = Animatable(0f)
+            val from = state.progress
+            finish.animateTo(1f, tween(280, easing = FastOutSlowInEasing)) {
+                state.progress = from + (1f - from) * value
+                state.exit = value
+            }
             currentOnBack()
             state.progress = 0f
+            state.exit = 0f
         } catch (e: CancellationException) {
             // Changed their mind: the page springs back from where the finger left it.
             settle.snapTo(state.progress)
@@ -284,9 +300,10 @@ fun rememberPredictiveBack(enabled: Boolean, onBack: () -> Unit): PredictiveBack
 fun Modifier.predictiveBackPreview(state: PredictiveBackState): Modifier = graphicsLayer {
     val p = state.progress
     if (p == 0f) return@graphicsLayer
-    val scale = 1f - 0.12f * p
+    val scale = 1f - 0.12f * p - 0.05f * state.exit
     scaleX = scale
     scaleY = scale
+    alpha = 1f - state.exit
     translationX = (if (state.fromLeft) 1f else -1f) * size.width * 0.06f * p
     transformOrigin = TransformOrigin(if (state.fromLeft) 1f else 0f, 0.5f)
     shape = androidx.compose.foundation.shape.RoundedCornerShape((32 * p).dp)

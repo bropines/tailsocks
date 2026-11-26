@@ -75,7 +75,7 @@ class LicensesActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { TailSocksTheme { LicensesScreen(onBack = { finish() }) } }
+        setContent { TailSocksTheme { io.github.bropines.tailscaled.core.PredictiveBackContainer(onBack = { finish() }, popsInAppState = false) { LicensesScreen(onBack = { finish() }) } } }
     }
 }
 

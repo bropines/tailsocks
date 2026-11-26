@@ -97,7 +97,7 @@ class TailnetLockActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { TailSocksTheme { TailnetLockScreen(activity = this, onBack = { finish() }) } }
+        setContent { TailSocksTheme { io.github.bropines.tailscaled.core.PredictiveBackContainer(onBack = { finish() }, popsInAppState = false) { TailnetLockScreen(activity = this, onBack = { finish() }) } } }
     }
 }
 

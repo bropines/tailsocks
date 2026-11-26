@@ -17,6 +17,7 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Fixed
 
+- The back gesture animates where the system does not (HyperOS turns it off): leaving a screen shrinks and fades it instead of closing it abruptly.
 - Main screen: banners and cards slide in and out, and lists of devices, exit nodes and Taildrop transfers animate as items move.
 - Settings → Account & connection: the exit-node row names the node instead of showing its address.
 - Words in a few sheets followed the system language instead of the app's.

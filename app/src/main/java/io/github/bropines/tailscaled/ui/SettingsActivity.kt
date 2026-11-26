@@ -599,14 +599,17 @@ fun SettingsScreen(
             // already leaving — a back gesture in that window was swallowed instead of
             // closing the Activity, and it re-ran the pop with nothing left to pop, which
             // latched poppedByGesture and cost the next section its fade.
-            onBack = if (section != null && openSection != null) popSectionByGesture else null,
+            // On the hub, back leaves the Activity: the container draws that only where the
+            // system does not (HyperOS), and otherwise stays out of the way as before.
+            onBack = if (section != null && openSection != null) popSectionByGesture else onBack,
+            popsInAppState = section != null && openSection != null,
             modifier = Modifier.fillMaxSize(),
             // What the finger uncovers is the real hub, not a hint of it — for the eye
             // only: it is a second live copy of every category row, and a screen reader
             // reaches the hub through the one that lands.
-            previousContent = {
+            previousContent = if (section == null) null else ({
                 Box(Modifier.fillMaxSize().clearAndSetSemantics { }) { settingsSurface(parentOf(section), true, false) }
-            }
+            })
         ) {
             settingsSurface(section, true, section == openSection)
         }

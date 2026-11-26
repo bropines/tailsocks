@@ -86,7 +86,8 @@ class AdminApiActivity : FragmentActivity() {
         }
         setContent {
             TailSocksTheme {
-                AdminConsoleRoot(vm, onBack = { finish() })
+                // Back leaves the screen; drawn here where the system does not (core/Utils.kt).
+                io.github.bropines.tailscaled.core.PredictiveBackContainer(onBack = { finish() }, popsInAppState = false) { AdminConsoleRoot(vm, onBack = { finish() }) }
             }
         }
     }

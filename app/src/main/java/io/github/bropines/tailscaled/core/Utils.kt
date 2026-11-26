@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.BackEventCompat
 import androidx.compose.animation.core.Animatable
@@ -45,6 +46,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.coroutineScope
+import io.github.bropines.tailscaled.ui.theme.findActivity
 import kotlinx.coroutines.CancellationException
 import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
@@ -449,13 +452,43 @@ fun CompactSearchBar(
  * corners round off to the device corner radius, all driven through the system back easing.
  */
 private val BackGestureEasing = CubicBezierEasing(0.1f, 0.1f, 0f, 1f)
+/** How long a committed back takes to finish its move and fade: long enough to be seen as one motion. */
+private const val BACK_EXIT_MS = 280
+
+/**
+ * Whether the platform draws the predictive back animation between Activities: Android 14
+ * and later, unless the global switch says no — HyperOS ships it off, Android 14 keeps it in
+ * the developer options (absent, it is on).
+ */
+fun systemAnimatesBack(context: android.content.Context): Boolean {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
+    val flag = runCatching { Settings.Global.getString(context.contentResolver, "enable_back_animation") }.getOrNull()
+    return flag != "0"
+}
+
+/**
+ * [finish] (the screen's own back, which ends in finish()) with a short cross-fade to what
+ * is under it instead of the window animation: the page has already shrunk and faded here,
+ * and a second slide on top of that read as a jump.
+ */
+private fun finishSoftly(activity: android.app.Activity, finish: () -> Unit) {
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        activity.overrideActivityTransition(android.app.Activity.OVERRIDE_TRANSITION_CLOSE, android.R.anim.fade_in, android.R.anim.fade_out)
+        finish()
+    } else {
+        finish()
+        @Suppress("DEPRECATION")
+        activity.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+    }
+}
 private const val BACK_MIN_SCALE = 0.9f
 private const val BACK_MAX_X_SHIFT_FRACTION = 1f / 20f
 private val BackMaxCornerRadius = 28.dp
 private val BackMaxShadow = 8.dp
+// A cancelled back settles slowly enough to be followed, with no bounce.
 private val BackSettleSpec = spring<Float>(
     dampingRatio = Spring.DampingRatioNoBouncy,
-    stiffness = Spring.StiffnessMediumLow
+    stiffness = Spring.StiffnessLow
 )
 
 /**
@@ -501,20 +534,28 @@ fun PredictiveBackContainer(
     popsInAppState: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    if (onBack == null || !popsInAppState) {
+    val context = LocalContext.current
+    // Leaving the Activity is the system's to animate — where it does. HyperOS ships with that
+    // animation off (enable_back_animation = 0, seen on the POCO), and Android 14 has it behind a
+    // developer option: there back closed the screen with no motion at all, so this draws it.
+    val systemAnimates = remember(context) { systemAnimatesBack(context) }
+    if (onBack == null || (!popsInAppState && systemAnimates)) {
         // Nothing to pop: stay out of the way so the system can animate Activity -> Activity.
         Box(modifier, propagateMinConstraints = true) { content() }
         return
     }
+    val leavesActivity = !popsInAppState
 
     // The gesture coroutine is cancelled when the user changes their mind, so the settle
     // animation has to run somewhere that survives that.
     val settleScope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
+    // After the finger lets go: the page finishes its move and fades, instead of snapping away.
+    val exit = remember { Animatable(0f) }
     var swipeEdge by remember { mutableIntStateOf(BackEventCompat.EDGE_LEFT) }
     // Settings → Appearance → Gestures → "Back with a preview" off is the same as no motion:
     // the gesture still goes back, only the page no longer shrinks under the finger.
-    val previewOff = LocalContext.current.let { remember(it) { !Gestures.predictiveBack(it) } }
+    val previewOff = remember(context) { !Gestures.predictiveBack(context) }
     val reducedMotion = rememberReducedMotion() || previewOff
 
     PredictiveBackHandler(enabled = true) { backEvents ->
@@ -523,8 +564,19 @@ fun PredictiveBackContainer(
                 swipeEdge = backEvent.swipeEdge
                 progress.snapTo(backEvent.progress)
             }
-            onBack()
-            settleScope.launch { progress.snapTo(0f) }
+            if (!reducedMotion) {
+                // The rest of the way, unhurried: the page shrinks the last bit and fades while
+                // what it uncovers comes up to full size, then the state changes under it.
+                coroutineScope {
+                    launch { progress.animateTo(1f, tween(BACK_EXIT_MS, easing = FastOutSlowInEasing)) }
+                    launch { exit.animateTo(1f, tween(BACK_EXIT_MS, easing = FastOutSlowInEasing)) }
+                }
+            }
+            // The theme wraps the context (the app's own language), so the Activity is looked up
+            // through the wrappers; without one, back still happens, only without the soft finish.
+            val activity = if (leavesActivity) context.findActivity() else null
+            if (activity != null) finishSoftly(activity, onBack) else onBack()
+            settleScope.launch { progress.snapTo(0f); exit.snapTo(0f) }
         } catch (cancelled: CancellationException) {
             settleScope.launch { progress.animateTo(0f, BackSettleSpec) }
         }
@@ -559,6 +611,10 @@ fun PredictiveBackContainer(
                 }
             } else if (targetIcon != null || !targetTitle.isNullOrBlank()) {
                 PredictiveBackDestinationHint(targetTitle, targetIcon, easedProgress)
+            } else if (leavesActivity) {
+                // Leaving for the screen this one was opened from, which cannot be drawn here: its name.
+                val appName = remember(context) { context.applicationInfo.loadLabel(context.packageManager).toString() }
+                PredictiveBackDestinationHint(appName, null, easedProgress)
             }
         }
 
@@ -567,9 +623,10 @@ fun PredictiveBackContainer(
                 .fillMaxSize()
                 .graphicsLayer {
                     val p = easedProgress()
-                    val scale = 1f - ((1f - BACK_MIN_SCALE) * p)
+                    val scale = 1f - ((1f - BACK_MIN_SCALE) * p) - 0.05f * exit.value
                     scaleX = scale
                     scaleY = scale
+                    alpha = 1f - exit.value
                     val awayFromEdge = if (swipeEdge == BackEventCompat.EDGE_RIGHT) -1f else 1f
                     translationX = awayFromEdge * size.width * BACK_MAX_X_SHIFT_FRACTION * p
                     shape = RoundedCornerShape(BackMaxCornerRadius * p)
