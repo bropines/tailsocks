@@ -1,5 +1,8 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -68,7 +71,7 @@ fun AppModalSheet(
             sheetState = sheetState,
             properties = properties,
         ) {
-            content()
+            BoundedSheetContent(content)
             RemoteNoticeWindowHost()
         }
         return
@@ -88,10 +91,31 @@ fun AppModalSheet(
     ) {
         // The room the handle gave the content above its first line.
         Spacer(Modifier.height(20.dp))
-        TvSheetEntry(content)
+        BoundedSheetContent { TvSheetEntry(content) }
         RemoteNoticeWindowHost()
     }
 }
+
+/**
+ * A sheet's content held to the room the sheet has. Content taller than the window it is in
+ * (the status card's swipe choices, twelve chips twice over) never let Material's sheet settle:
+ * it measured, moved and measured again every frame, 120 frames a second on a sheet nothing
+ * moved on, until it was closed. Held to the sheet's height, it is cut short instead — and
+ * what can be that tall scrolls on its own (a verticalScroll or a lazy list), as every sheet
+ * here does.
+ */
+@Composable
+private fun BoundedSheetContent(content: @Composable ColumnScope.() -> Unit) {
+    // Material measures a sheet's content with no ceiling (a weight is ignored there), so the
+    // ceiling is the window's own height, short of the room the handle and the edge take.
+    val density = LocalDensity.current
+    val window = LocalWindowInfo.current.containerSize.height
+    val ceiling = with(density) { window.toDp() } - SHEET_TOP_ROOM
+    Column(if (window > 0) Modifier.heightIn(max = ceiling) else Modifier, content = content)
+}
+
+/** What a sheet keeps above its content at most: the drag handle, or a television's margin. */
+private val SHEET_TOP_ROOM = 72.dp
 
 /** How often, and how many times, a sheet that has no stop yet is offered the remote again. */
 private const val SHEET_ENTRY_RETRY_MS = 150L

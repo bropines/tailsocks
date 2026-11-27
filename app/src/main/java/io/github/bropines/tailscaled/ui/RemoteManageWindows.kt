@@ -1,5 +1,8 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.platform.LocalView
 import android.text.format.Formatter
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -430,15 +433,25 @@ private fun ShareNameDialog(folder: File, onShare: (String) -> Unit, onClose: ()
 
 // ─── Full-screen windows ─────────────────────────────────────────────────────────────────────
 
-/** A page over the page, in a window of its own: the page's language inside, a television's safe area kept clear. */
+/**
+ * A page over the page, in a window of its own: the page's language inside, a television's
+ * safe area kept clear. On a handheld the back gesture shrinks the page off the screen beneath
+ * and slides it away, as every other page does; a dialog's own Back closed it with no motion.
+ * The window is clear and undimmed, so what the finger uncovers is that screen as it is.
+ */
 @Composable
 internal fun PageWindow(locals: ParentLocals, onClose: () -> Unit, content: @Composable () -> Unit) {
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnClickOutside = false),
     ) {
+        val tv = isTv
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect { window?.setDimAmount(0f) }
+        // A remote's Back has no gesture to follow: the dialog's own closes the page there.
+        val back = rememberPredictiveBack(!tv, onClose)
         InPageLanguage(locals) {
-            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Surface(Modifier.fillMaxSize().predictiveBackPreview(back), color = MaterialTheme.colorScheme.background) {
                 Box(if (isTv) Modifier.padding(LocalTvSafeArea.current) else Modifier) { content() }
             }
         }

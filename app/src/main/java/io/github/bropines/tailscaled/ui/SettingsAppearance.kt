@@ -1,5 +1,6 @@
 package io.github.bropines.tailscaled.ui
 
+import androidx.compose.foundation.verticalScroll
 import io.github.bropines.tailscaled.R
 import io.github.bropines.tailscaled.core.*
 import androidx.compose.foundation.lazy.items
@@ -499,9 +500,12 @@ internal fun SwipeChoiceContent(
     chosen: (key: String) -> String?,
     onChoose: (key: String, id: String) -> Unit,
 ) {
+    // Scrolls: the status card's twelve choices twice over are taller than a phone, and a sheet
+    // whose content overflows its window never settles — it re-measured and redrew every frame.
     Column(
         Modifier
             .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
             .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
     ) {

@@ -18,6 +18,8 @@ All notable changes to the TailSocks project will be documented in this file. Th
 ### Fixed
 
 - The back gesture animates where the system does not (HyperOS turns it off): the screen slides away over the one beneath instead of closing abruptly.
+- Back from Remote management (Settings → Experimental, or its tile) shrinks the page off the screen it returns to; it showed the main screen through Settings, and nothing on the main screen.
+- The status card's swipe choices scroll: the sheet was taller than a phone, cut off its last choices, and shook as it redrew itself at the screen's full rate until closed. No sheet can grow past its window any more.
 - Main screen: banners and cards slide in and out, and lists of devices, exit nodes and Taildrop transfers animate as items move.
 - Settings → Account & connection: the exit-node row names the node instead of showing its address.
 - Words in a few sheets followed the system language instead of the app's.

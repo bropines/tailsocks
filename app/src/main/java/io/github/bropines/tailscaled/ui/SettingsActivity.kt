@@ -1,4 +1,5 @@
 package io.github.bropines.tailscaled.ui
+import androidx.compose.foundation.layout.Box
 import io.github.bropines.tailscaled.R
 
 import io.github.bropines.tailscaled.core.*
@@ -534,11 +535,21 @@ fun SettingsScreen(
     // While a backup's file is being chosen in the app's own browser, the browser is the
     // screen: it takes the Back key for itself, and gives the settings back as it closes.
     val browsing = backup.browsingFor
-    if (remoteOpen) {
-        // A page of its own, with its own Back: it hands the settings back as it closes.
-        RemoteManagedScreen(onBack = { remoteOpen = false; focus(SettingsFocus.ROW) })
-    } else if (exposureOpen) {
-        ExposureScreen(onBack = { exposureOpen = false; focus(SettingsFocus.ROW) })
+    // A page of its own (remote management, the exposure check), with its own Back that hands
+    // the settings back as it closes. On a handheld it lies over the settings, kept as they
+    // were: the back gesture shrinks it off them. Drawn in their place, it shrank off nothing,
+    // and through the window — see-through for the system's own back (core/BackUnderlay.kt) —
+    // the main screen showed. A television has no gesture, and its remote must not reach the
+    // rows under the page: there it takes their place.
+    val pageOver: (@Composable () -> Unit)? = when {
+        remoteOpen -> ({ RemoteManagedScreen(onBack = { remoteOpen = false; focus(SettingsFocus.ROW) }) })
+        exposureOpen -> ({ ExposureScreen(onBack = { exposureOpen = false; focus(SettingsFocus.ROW) }) })
+        else -> null
+    }
+    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().then(if (pageOver != null) Modifier.clearAndSetSemantics { } else Modifier)) {
+    if (pageOver != null && tv) {
+        pageOver()
     } else if (browsing != null) {
         val close = { backup.browsingFor = null; focus(SettingsFocus.PAGE) }
         SettingsBackupBrowser(backup, browsing, close)
@@ -617,6 +628,9 @@ fun SettingsScreen(
         }
     }
     }
+    }
+    }
+    if (pageOver != null && !tv) pageOver()
     }
 
     SettingsControlProxyDialog(context, bypass)

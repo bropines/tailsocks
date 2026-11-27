@@ -1,4 +1,6 @@
 package io.github.bropines.tailscaled.ui
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import io.github.bropines.tailscaled.ui.theme.findActivity
@@ -347,10 +349,14 @@ fun MainScreen(
             onClose = { signInOpen = false; signInLeft = true },
             extraAction = { TvKeySetupButton(onClick = { keySetupOpen = true }) },
         )
-    } else if (remoteOpen) {
+    } else if (remoteOpen && tv) {
         // The page, in place of the dashboard, which comes back with the remote on its tile.
         RemoteManagedScreen(onBack = { remoteOpen = false; remoteLeft = true })
     } else
+    // On a handheld the page lies over the dashboard, which stays as it was: the back gesture
+    // shrinks the page off it. Drawn in its place, the page shrank off an empty window.
+    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().then(if (remoteOpen) Modifier.clearAndSetSemantics { } else Modifier)) {
     // A window lying on its side has no height to give a bar under the canvas: there the
     // editor's controls stand beside it (MainEditRail), and the window's edge is theirs.
     Row(Modifier.fillMaxSize()) {
@@ -781,6 +787,9 @@ fun MainScreen(
                 onDone = { layoutState.editing = false },
             )
         }
+    }
+    }
+    if (remoteOpen) RemoteManagedScreen(onBack = { remoteOpen = false; remoteLeft = true })
     }
 
     // Back leaves the editor before it leaves the app.
