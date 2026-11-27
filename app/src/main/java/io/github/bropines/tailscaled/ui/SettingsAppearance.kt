@@ -485,33 +485,46 @@ private fun SwipeChoiceSheet(
     onDismiss: () -> Unit,
 ) {
     AppModalSheet(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            directions.forEachIndexed { i, (word, key) ->
-                Text(
-                    word,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = if (i == 0) 16.dp else 20.dp, bottom = 8.dp)
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    options.forEachIndexed { j, (id, label) ->
-                        FilterChip(
-                            selected = chosen(key) == id,
-                            onClick = { onChoose(key, id) },
-                            label = { Text(label) },
-                            shape = MaterialTheme.shapes.small,
-                            modifier = if (i == 0 && j == 0) Modifier.tvInitialFocus() else Modifier,
-                        )
-                    }
+        SwipeChoiceContent(title, directions, options, chosen, onChoose)
+    }
+}
+
+/** What [SwipeChoiceSheet] holds, without the sheet: the screenshot tests draw it on its own. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun SwipeChoiceContent(
+    title: String,
+    directions: List<Pair<String, String>>,
+    options: List<Pair<String, String>>,
+    chosen: (key: String) -> String?,
+    onChoose: (key: String, id: String) -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        directions.forEachIndexed { i, (word, key) ->
+            Text(
+                word,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = if (i == 0) 16.dp else 20.dp, bottom = 8.dp)
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                options.forEachIndexed { j, (id, label) ->
+                    FilterChip(
+                        selected = chosen(key) == id,
+                        onClick = { onChoose(key, id) },
+                        label = { Text(label) },
+                        shape = MaterialTheme.shapes.small,
+                        modifier = if (i == 0 && j == 0) Modifier.tvInitialFocus() else Modifier,
+                    )
                 }
             }
         }

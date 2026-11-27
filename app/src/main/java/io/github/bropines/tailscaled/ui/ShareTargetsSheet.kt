@@ -52,9 +52,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** A device the share menu can offer, as the picker below lists it. */
-private class ShareTargetDevice(val peer: PeerData, val id: String, val online: Boolean)
+internal class ShareTargetDevice(val peer: PeerData, val id: String, val online: Boolean)
 
-private sealed interface ShareDevicesLoad {
+internal sealed interface ShareDevicesLoad {
     data object Loading : ShareDevicesLoad
     /** No netmap to list from: the daemon is stopped or not logged in. */
     data object NotRunning : ShareDevicesLoad
@@ -65,7 +65,7 @@ private sealed interface ShareDevicesLoad {
  * The words of [ShareTargetsSheet], resolved by the caller: the sheet is a window of its own
  * and would look them up in the system language (see wrapContextWithLocale()).
  */
-private class ShareTargetsWords(
+internal class ShareTargetsWords(
     val title: String,
     val desc: String,
     val overCapacity: String,
@@ -111,7 +111,25 @@ private fun loadShareDevices(context: Context): ShareDevicesLoad {
 internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val capacity = remember { ShareTargets.capacity(context) }
-    val words = ShareTargetsWords(
+    val words = shareTargetsWords(capacity)
+    var picks by remember { mutableStateOf(GlobalSettings.getShareTargetPicks(context, profileId)) }
+    val load by produceState<ShareDevicesLoad>(ShareDevicesLoad.Loading) {
+        value = withContext(Dispatchers.IO) { loadShareDevices(context) }
+    }
+    fun update(new: ShareTargetPicks) {
+        picks = new
+        GlobalSettings.setShareTargetPicks(context, profileId, new)
+        onChanged(new)
+    }
+
+    AppModalSheet(onDismissRequest = onDismiss) {
+        ShareTargetsContent(load, picks, capacity, words, ::update)
+    }
+}
+
+/** The resolved words of [ShareTargetsContent], outside the sheet (a sheet's window uses the system language). */
+@Composable
+internal fun shareTargetsWords(capacity: Int) = ShareTargetsWords(
         title = stringResource(R.string.share_targets_pick_title),
         desc = stringResource(R.string.share_targets_pick_desc, capacity),
         overCapacity = stringResource(R.string.share_targets_pick_over_capacity, capacity),
@@ -126,77 +144,76 @@ internal fun ShareTargetsSheet(profileId: String, onChanged: (ShareTargetPicks) 
         offline = stringResource(R.string.share_targets_offline),
         tailsocks = stringResource(R.string.peer_client_tailsocks),
     )
-    var picks by remember { mutableStateOf(GlobalSettings.getShareTargetPicks(context, profileId)) }
-    val load by produceState<ShareDevicesLoad>(ShareDevicesLoad.Loading) {
-        value = withContext(Dispatchers.IO) { loadShareDevices(context) }
-    }
-    fun update(new: ShareTargetPicks) {
-        picks = new
-        GlobalSettings.setShareTargetPicks(context, profileId, new)
-        onChanged(new)
-    }
 
-    AppModalSheet(onDismissRequest = onDismiss) {
-        val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(max = maxHeight)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp)
-                .animateContentSize()
-        ) {
-            Text(
-                words.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-            Text(
-                words.desc,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 12.dp)
-            )
-            when (val l = load) {
-                // Held at a height while the list comes, so the sheet does not open short and jump.
-                ShareDevicesLoad.Loading -> Box(Modifier.fillMaxWidth().height(160.dp), Alignment.Center) { LoadingIndicator() }
-                ShareDevicesLoad.NotRunning -> SheetNote(words.notRunning)
-                is ShareDevicesLoad.Ready -> {
-                    val devices = l.devices
-                    if (devices.isEmpty()) {
-                        SheetNote(words.empty)
-                    } else {
-                        Row(
-                            Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { update(ShareTargetPicks(pinned = picks.pinned + devices.map { it.id }, hidden = picks.hidden - devices.map { it.id }.toSet())) },
-                                shape = MaterialTheme.shapes.medium,
-                                modifier = Modifier.tvInitialFocus()
-                            ) { Text(words.pinAll) }
-                            OutlinedButton(
-                                onClick = { update(ShareTargetPicks()) },
-                                enabled = !picks.isEmpty,
-                                shape = MaterialTheme.shapes.medium
-                            ) { Text(words.reset) }
-                        }
-                        AnimatedVisibility(devices.count { picks.modeOf(it.id) == ShareTargetMode.PINNED } > capacity) {
-                            Text(
-                                words.overCapacity,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp)
-                            )
-                        }
-                        LazyColumn(
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(1f, fill = false),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            items(devices, key = { it.id }) { d ->
-                                ShareTargetRow(d, picks.modeOf(d.id), words) { update(picks.with(d.id, it)) }
-                            }
+/** What the sheet holds, without the sheet: the screenshot tests draw it on its own. */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun ShareTargetsContent(
+    load: ShareDevicesLoad,
+    picks: ShareTargetPicks,
+    capacity: Int,
+    words: ShareTargetsWords,
+    update: (ShareTargetPicks) -> Unit,
+) {
+    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(max = maxHeight)
+            .navigationBarsPadding()
+            .padding(bottom = 16.dp)
+            .animateContentSize()
+    ) {
+        Text(
+            words.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+        Text(
+            words.desc,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 12.dp)
+        )
+        when (val l = load) {
+            // Held at a height while the list comes, so the sheet does not open short and jump.
+            ShareDevicesLoad.Loading -> Box(Modifier.fillMaxWidth().height(160.dp), Alignment.Center) { LoadingIndicator() }
+            ShareDevicesLoad.NotRunning -> SheetNote(words.notRunning)
+            is ShareDevicesLoad.Ready -> {
+                val devices = l.devices
+                if (devices.isEmpty()) {
+                    SheetNote(words.empty)
+                } else {
+                    Row(
+                        Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { update(ShareTargetPicks(pinned = picks.pinned + devices.map { it.id }, hidden = picks.hidden - devices.map { it.id }.toSet())) },
+                            shape = MaterialTheme.shapes.medium,
+                            modifier = Modifier.tvInitialFocus()
+                        ) { Text(words.pinAll) }
+                        OutlinedButton(
+                            onClick = { update(ShareTargetPicks()) },
+                            enabled = !picks.isEmpty,
+                            shape = MaterialTheme.shapes.medium
+                        ) { Text(words.reset) }
+                    }
+                    AnimatedVisibility(devices.count { picks.modeOf(it.id) == ShareTargetMode.PINNED } > capacity) {
+                        Text(
+                            words.overCapacity,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp)
+                        )
+                    }
+                    LazyColumn(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp).weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(devices, key = { it.id }) { d ->
+                            ShareTargetRow(d, picks.modeOf(d.id), words) { update(picks.with(d.id, it)) }
                         }
                     }
                 }
@@ -216,7 +233,7 @@ private fun SheetNote(text: String) {
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun ShareTargetRow(d: ShareTargetDevice, mode: ShareTargetMode, words: ShareTargetsWords, onMode: (ShareTargetMode) -> Unit) {
+internal fun ShareTargetRow(d: ShareTargetDevice, mode: ShareTargetMode, words: ShareTargetsWords, onMode: (ShareTargetMode) -> Unit) {
     val ring = MaterialTheme.colorScheme.surfaceContainerLow
     Surface(shape = MaterialTheme.shapes.medium, color = ring, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

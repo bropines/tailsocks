@@ -82,6 +82,12 @@ class SwipeAction(
  */
 private val GestureSpring = spring<Float>(dampingRatio = 0.86f, stiffness = 260f)
 
+/**
+ * For the screenshot tests only: rows drawn as if dragged this fraction of their width (negative:
+ * towards the start). A real drag never reads it.
+ */
+internal val LocalSwipePreview = androidx.compose.runtime.staticCompositionLocalOf { 0f }
+
 /** How far the content follows the finger past the point that arms the action: a little, heavily damped. */
 private const val OVERDRAG = 0.35f
 
@@ -153,8 +159,11 @@ fun SwipeActionBox(
 
     // Which side shows is read in composition, and changes only when the drag crosses zero;
     // how far it has gone is read in the draw phase, so a moving finger recomposes nothing.
-    val side by remember { derivedStateOf { sign(offset.value) } }
-    fun progress() = (abs(offset.value) / armAt()).coerceIn(0f, 1f)
+    val preview = LocalSwipePreview.current
+    fun shown() = offset.value + preview * width
+    // A preview has its side before the row has a width (a single frame is all a screenshot gets).
+    val side by remember(preview) { derivedStateOf { if (preview != 0f) sign(preview) else sign(shown()) } }
+    fun progress() = (abs(shown()) / armAt()).coerceIn(0f, 1f)
     Box(
         modifier
             .onSizeChanged { width = it.width }
@@ -193,7 +202,7 @@ fun SwipeActionBox(
         }
         Box(
             Modifier
-                .offset { IntOffset(offset.value.roundToInt(), 0) }
+                .offset { IntOffset(shown().roundToInt(), 0) }
                 // Not `draggable`: that takes every sideways drag, so a direction set to "Nothing"
                 // still swallowed the gesture (and the Peers tabs could not be swiped over a row).
                 // Here a drag is claimed only once it is past the touch slop towards a direction
