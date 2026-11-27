@@ -63,6 +63,13 @@ jobs:
           go-version: '1.23'
           cache: false
 
+      # Named as android.yml names it — the Go of appctr/go.mod and the NDK
+      # app/build.gradle.kts pins are in the key. Keep this step and the key
+      # below identical to android.yml's.
+      - name: Name the Go cache
+        id: go-key
+        run: echo "ndk=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
       # The same key as android.yml's, so the release build on a tag restores
       # what this job saves: a tag can read only its own caches and the default
       # branch's, and a cache saved by a tag is read by nobody. Saved below, from
@@ -74,9 +81,18 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('appctr/go.sum', 'appctr/TAILSCALE_VERSION', 'appctr/patches/*.patch') }}
+          key: ${{ runner.os }}-go-${{ steps.go-key.outputs.ndk }}-${{ hashFiles('appctr/go.mod', 'appctr/go.sum', 'appctr/TAILSCALE_VERSION', 'appctr/patches/*.patch') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
+      # Go trims build-cache entries unused for five days, judging by the mtime
+      # the restore brings back from the day they were saved (android.yml says
+      # more). Made today's, they survive the first go command.
+      - name: Keep the restored build cache from being trimmed
+        run: |
+          if [ -d ~/.cache/go-build ]; then
+            find ~/.cache/go-build -type f -exec touch -c {} +
+          fi
 
       # Before build.sh, which runs gofmt -w itself and would hide the problem.
       - name: Verify Go code formatting
@@ -101,9 +117,17 @@ jobs:
       # The Go of appctr/go.mod and the gomobile of its x/mobile, as the release
       # build uses (android.yml). It also leaves appctr/tailscale_src patched,
       # which the Go tests below compile against.
-      - name: Build the native core (arm64-v8a)
+      #
+      # One ABI, except on the push to main that saves a new Go cache: that
+      # one builds all four, because the tag that follows restores this entry
+      # and compiles all four. Saved from an arm64 build, the cache spared a
+      # release a quarter of its compiling. The key moves only with the
+      # modules, the patches, the Go and the NDK, so this is a rare push.
+      # -trimpath keeps the build directory out of Go's cache keys, so what is
+      # compiled here is what the release's /home/vagrant build looks up.
+      - name: Build the native core
         env:
-          TS_ABIS: arm64-v8a
+          TS_ABIS: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && steps.go-cache.outputs.cache-hit != 'true' && 'armeabi-v7a arm64-v8a x86 x86_64' || 'arm64-v8a' }}
         run: |
           cd appctr
           export GOTOOLCHAIN=go$(awk '$1 == "go" { print $2 }' go.mod)

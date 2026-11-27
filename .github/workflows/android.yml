@@ -42,6 +42,16 @@ jobs:
           go-version: '1.23'
           cache: false
 
+      # What else changes what Go compiles, besides the modules and the
+      # patches: the Go of appctr/go.mod (GOTOOLCHAIN, below) and the NDK whose
+      # clang cgo calls. Without them the key outlived both, and a toolchain
+      # bump restored an entry built by the previous one. ci.yml names the
+      # cache with the same two lines — they must stay identical, or a tag
+      # restores nothing main saved.
+      - name: Name the Go cache
+        id: go-key
+        run: echo "ndk=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' app/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
       # Restored only. GitHub scopes a cache to the ref that saved it: a tag
       # reads its own and the default branch's, never another tag's, so the
       # 2.4 GB every tag used to save was read by nobody and only evicted the
@@ -56,9 +66,23 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('appctr/go.sum', 'appctr/TAILSCALE_VERSION', 'appctr/patches/*.patch') }}
+          key: ${{ runner.os }}-go-${{ steps.go-key.outputs.ndk }}-${{ hashFiles('appctr/go.mod', 'appctr/go.sum', 'appctr/TAILSCALE_VERSION', 'appctr/patches/*.patch') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
+      # Go deletes build-cache entries it has not used for five days, at the
+      # end of the first go command that runs, and judges "used" by the file's
+      # mtime — which the restore brings back from the day the entry was
+      # saved. An entry saved a week before the tag was therefore emptied by
+      # the `go install gomobile` below, and every release compiled the
+      # standard library and all of Tailscale four times over (nine minutes).
+      # Touching the entries makes them today's; what they hold is unchanged,
+      # and Go still checks each against the content of its inputs.
+      - name: Keep the restored build cache from being trimmed
+        run: |
+          if [ -d ~/.cache/go-build ]; then
+            find ~/.cache/go-build -type f -exec touch -c {} +
+          fi
 
       - name: Verify Go Code Formatting
         run: |
