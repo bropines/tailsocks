@@ -6,7 +6,7 @@
   phone, a tablet or a television: nothing here says "phone" or "tap".
 -->
 <resources>
-    <string name="rmanage_subtitle">远程管理 · 实验性</string>
+    <string name="rmanage_subtitle">远程管理 · 测试版</string>
     <string name="rmanage_paired">已配对</string>
     <string name="rmanage_fold_open">显示</string>
     <string name="rmanage_fold_close">隐藏</string>

@@ -2,7 +2,7 @@
 <resources>
     <!-- Remote management (experimental): one device's TailSocks managed from another over the tailnet -->
     <string name="remote_title">远程管理</string>
-    <string name="remote_experimental">实验性</string>
+    <string name="remote_beta">测试版</string>
     <string name="remote_role_owner">所有者</string>
     <string name="remote_role_guest">访客</string>
     <string name="remote_dur_days">%1$d 天</string>

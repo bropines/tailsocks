@@ -5,7 +5,7 @@
   «нажмите».
 -->
 <resources>
-    <string name="rmanage_subtitle">Удалённое управление · эксперимент</string>
+    <string name="rmanage_subtitle">Удалённое управление · бета</string>
     <string name="rmanage_paired">Сопряжено</string>
     <string name="rmanage_fold_open">Показать</string>
     <string name="rmanage_fold_close">Скрыть</string>

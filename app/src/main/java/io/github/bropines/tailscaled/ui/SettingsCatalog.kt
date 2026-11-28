@@ -337,7 +337,7 @@ object SettingsCatalog {
 
         // ─── Advanced ────────────────────────────────────────────────────────────────────
         row("exposure", SettingsPage.ADVANCED, R.string.exposure_title, R.string.exposure_entry_desc, R.string.search_kw_exposure, R.string.exposure_card)
-        row("remote_management", SettingsPage.ADVANCED, R.string.remote_title, R.string.settings_remote_entry_desc, R.string.search_kw_remote_management, R.string.remote_experimental)
+        row("remote_management", SettingsPage.ADVANCED, R.string.remote_title, R.string.settings_remote_entry_desc, R.string.search_kw_remote_management, R.string.remote_beta)
     }
 
     private val byId: Map<String, SettingEntry> = entries.associateBy { it.id }

@@ -7,7 +7,7 @@
     <!-- What the large line is, over the address a television shows instead of opening it -->
     <string name="link_address">Page address</string>
 
-    <!-- Home screen tile: the page of remote management (Settings → Advanced → Experimental on a phone) -->
+    <!-- Home screen tile: the page of remote management (Settings → Advanced → Beta on a phone) -->
     <string name="tile_remote_title">From a phone</string>
     <string name="tile_remote_off">Off</string>
     <string name="tile_remote_waiting">On, waiting to be paired</string>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Remote management (experimental): one device's TailSocks managed from another over the tailnet -->
+    <!-- Remote management (beta): one device's TailSocks managed from another over the tailnet -->
     <string name="remote_title">Удалённое управление</string>
-    <string name="remote_experimental">Экспериментально</string>
+    <string name="remote_beta">Бета</string>
     <string name="remote_role_owner">Владелец</string>
     <string name="remote_role_guest">Гость</string>
     <string name="remote_dur_days">%1$d дн.</string>

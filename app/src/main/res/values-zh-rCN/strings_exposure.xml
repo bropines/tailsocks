@@ -5,7 +5,7 @@
     <string name="exposure_entry_desc">此设备上监听或可被访问的一切、谁可以访问，以及关闭它的开关</string>
     <string name="exposure_card">安全</string>
     <!-- The Advanced row of the settings list on a phone or a tablet: what its page holds there. -->
-    <string name="exposure_advanced_desc">此设备暴露的内容；实验性：远程管理</string>
+    <string name="exposure_advanced_desc">此设备暴露的内容；测试版：远程管理</string>
     <string name="search_kw_exposure">开放端口, 监听, 暴露, 安全, 可达, 谁能连接, 防火墙, 入站, 黑盒</string>
 
     <!-- The line at the top. -->

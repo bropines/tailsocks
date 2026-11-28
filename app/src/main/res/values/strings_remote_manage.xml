@@ -6,7 +6,7 @@
   phone, a tablet or a television: nothing here says "phone" or "tap".
 -->
 <resources>
-    <string name="rmanage_subtitle">Remote management · experimental</string>
+    <string name="rmanage_subtitle">Remote management · beta</string>
     <string name="rmanage_paired">Paired</string>
     <string name="rmanage_fold_open">Show</string>
     <string name="rmanage_fold_close">Hide</string>

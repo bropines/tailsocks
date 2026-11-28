@@ -3,7 +3,7 @@
     <string name="exposure_title">Что открыто на этом устройстве</string>
     <string name="exposure_entry_desc">Всё, что здесь слушает или доступно извне, кому, и каким переключателем это выключить</string>
     <string name="exposure_card">Безопасность</string>
-    <string name="exposure_advanced_desc">Что открыто на устройстве; экспериментальное: удалённое управление</string>
+    <string name="exposure_advanced_desc">Что открыто на устройстве; бета: удалённое управление</string>
     <string name="search_kw_exposure">что открыто, порты, открытые порты, безопасность, доступ извне, кто может подключиться, входящие, слушает, чёрный ящик</string>
 
     <plurals name="exposure_sum_internet">

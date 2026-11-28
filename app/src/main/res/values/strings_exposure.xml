@@ -5,7 +5,7 @@
     <string name="exposure_entry_desc">Everything that listens here or can be reached, who reaches it, and the switch that turns it off</string>
     <string name="exposure_card">Security</string>
     <!-- The Advanced row of the settings list on a phone or a tablet: what its page holds there. -->
-    <string name="exposure_advanced_desc">What this device exposes; experimental: remote management</string>
+    <string name="exposure_advanced_desc">What this device exposes; beta: remote management</string>
     <string name="search_kw_exposure">open ports, listening, exposed, security, reachable, who can connect, firewall, incoming, black box</string>
 
     <!-- The line at the top. -->

@@ -568,7 +568,7 @@ internal fun RemoteManagedContent(ui: RemoteManagedUi, actions: RemoteManagedAct
         topBar = {
             AppTopBar(
                 title = stringResource(R.string.remote_title),
-                subtitle = stringResource(R.string.remote_experimental),
+                subtitle = stringResource(R.string.remote_beta),
                 onBack = onBack
             )
         }

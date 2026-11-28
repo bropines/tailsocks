@@ -168,7 +168,7 @@ private val managed = listOf(
 fun ManageDevices() = AdaptiveShowcase(null) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.padding(16.dp)) {
-            SettingsCard(title = stringResource(R.string.remote_experimental)) {
+            SettingsCard(title = stringResource(R.string.remote_beta)) {
                 SettingsClickableItem(
                     title = stringResource(R.string.remote_title),
                     subtitle = stringResource(R.string.settings_remote_entry_desc),
@@ -185,7 +185,7 @@ fun ManageDevices() = AdaptiveShowcase(null) {
 fun ManageDevicesTv() = AdaptiveShowcase(null, device = DeviceClass.TV) {
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.padding(16.dp)) {
-            SettingsCard(title = stringResource(R.string.remote_experimental)) { RemoteDeviceRows(managed.take(2)) {} }
+            SettingsCard(title = stringResource(R.string.remote_beta)) { RemoteDeviceRows(managed.take(2)) {} }
         }
     }
 }

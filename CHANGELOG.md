@@ -11,14 +11,15 @@ All notable changes to the TailSocks project will be documented in this file. Th
 
 ### Changed
 
+- Remote management is marked beta instead of experimental.
 - Main screen editor: the exit-node line can be moved like any block, and its size button turns it into a tile and back.
-- Keep the connection awake: a choice of Off (like the official app, no wake lock), Brief wake-ups (experimental) or Always awake.
+- Keep the connection awake: a choice of Off (like the official app, no wake lock), Brief wake-ups (beta) or Always awake.
 - Without the wake lock the connection re-checks its network and relays when the phone wakes or the screen comes on.
 
 ### Fixed
 
 - The back gesture animates where the system does not (HyperOS turns it off): the screen slides away over the one beneath instead of closing abruptly.
-- Back from Remote management (Settings → Experimental, or its tile) shrinks the page off the screen it returns to; it showed the main screen through Settings, and nothing on the main screen.
+- Back from Remote management (Settings → Advanced, or its tile) shrinks the page off the screen it returns to; it showed the main screen through Settings, and nothing on the main screen.
 - The status card's swipe choices scroll: the sheet was taller than a phone, cut off its last choices, and shook as it redrew itself at the screen's full rate until closed. No sheet can grow past its window any more.
 - Main screen: banners and cards slide in and out, and lists of devices, exit nodes and Taildrop transfers animate as items move.
 - Settings → Account & connection: the exit-node row names the node instead of showing its address.

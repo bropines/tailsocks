@@ -87,7 +87,7 @@ internal fun SettingsAdvancedPage(
         }
         // On every device: what is still an experiment. Off until a person turns it on.
         if (advancedPages.isNotEmpty() || advancedLinks.isNotEmpty()) SettingsCardGap()
-        SettingsCard(title = stringResource(R.string.remote_experimental)) {
+        SettingsCard(title = stringResource(R.string.remote_beta)) {
             SettingsClickableItem(
                 title = stringResource(R.string.remote_title),
                 subtitle = stringResource(R.string.settings_remote_entry_desc),
